@@ -1,0 +1,83 @@
+{
+  "systems": [
+    "eidetic-plus",
+    "graphiti",
+    "mem0"
+  ],
+  "accuracy": {
+    "eidetic-plus|locomo|temporal": {
+      "mean": 0.6666666666666666,
+      "std": 0.0
+    },
+    "eidetic-plus|locomo|open-domain": {
+      "mean": 1.0,
+      "std": 0.0
+    },
+    "eidetic-plus|locomo|multi-hop": {
+      "mean": 0.6666666666666666,
+      "std": 0.0
+    },
+    "graphiti|locomo|temporal": {
+      "mean": 0.16666666666666666,
+      "std": 0.0
+    },
+    "graphiti|locomo|open-domain": {
+      "mean": 1.0,
+      "std": 0.0
+    },
+    "graphiti|locomo|multi-hop": {
+      "mean": 0.3333333333333333,
+      "std": 0.0
+    },
+    "mem0|locomo|temporal": {
+      "mean": 0.0,
+      "std": 0.0
+    },
+    "mem0|locomo|open-domain": {
+      "mean": 1.0,
+      "std": 0.0
+    },
+    "mem0|locomo|multi-hop": {
+      "mean": 1.0,
+      "std": 0.0
+    }
+  },
+  "cost": {
+    "graphiti": {
+      "tokens_per_write": 15511,
+      "tokens_per_query": 143.7
+    },
+    "eidetic-plus": {
+      "tokens_per_write": 15511,
+      "tokens_per_query": 7903.3
+    },
+    "mem0": {
+      "tokens_per_write": 15511,
+      "tokens_per_query": 487.6
+    }
+  },
+  "latency": {
+    "graphiti": {
+      "search_p50": 755.9977290220559,
+      "search_p95": 1198.5164334590077,
+      "e2e_p50": 2622.3356670234352,
+      "e2e_p95": 3232.659549830714
+    },
+    "eidetic-plus": {
+      "search_p50": 2266.809229447972,
+      "search_p95": 2546.0319499659818,
+      "e2e_p50": 5330.102354462724,
+      "e2e_p95": 7849.499727034706
+    },
+    "mem0": {
+      "search_p50": 338.61779153812677,
+      "search_p95": 747.4627714022059,
+      "e2e_p50": 2169.7047084453516,
+      "e2e_p95": 3580.0460249825846
+    }
+  },
+  "judge": {
+    "judge_model": "qwen3-max",
+    "judge_backend": "dashscope"
+  }
+}

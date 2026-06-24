@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Eidetic-Plus - 3D Memory Map</title>
+<style>
+  :root{
+    --bg:#0a0d12; --panel:#11161f; --panel2:#161d28; --border:#23303f;
+    --fg:#e7edf5; --muted:#8da3bd; --accent:#4f9cff; --warm:#ff5a4d;
+    --cool:#3b7bff; --entity:#7c8aa0; --coact:#ffb347; --ok:#3ddc84;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);
+    font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    overflow:hidden}
+  /* ---- Header banner ---- */
+  #banner{position:fixed;top:0;left:0;right:0;z-index:10;
+    background:linear-gradient(180deg,rgba(10,13,18,.96),rgba(10,13,18,.72));
+    border-bottom:1px solid var(--border);padding:10px 16px;
+    backdrop-filter:blur(8px)}
+  #banner h1{margin:0;font-size:17px;font-weight:650;letter-spacing:.2px}
+  #banner .honest{color:var(--muted);font-size:12px;margin-top:2px;max-width:980px}
+  #banner .proj{color:#5c6f88;font-size:11px;margin-top:3px;font-style:italic}
+  /* ---- Controls ---- */
+  #controls{position:fixed;top:64px;left:16px;z-index:10;display:flex;gap:8px;
+    align-items:center;flex-wrap:wrap;background:var(--panel);
+    border:1px solid var(--border);border-radius:10px;padding:8px 10px}
+  #controls label{color:var(--muted);font-size:12px}
+  #controls input{background:var(--panel2);border:1px solid var(--border);
+    color:var(--fg);border-radius:6px;padding:6px 8px;width:130px;outline:none}
+  #controls input:focus{border-color:var(--accent)}
+  .btn{background:var(--panel2);border:1px solid var(--border);color:var(--fg);
+    border-radius:6px;padding:6px 12px;cursor:pointer;font-size:12px;font-weight:550}
+  .btn:hover{border-color:var(--accent);background:#1b2533}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#04101f}
+  .btn.primary:hover{background:#6aabff}
+  #status{color:var(--muted);font-size:12px;margin-left:4px}
+  /* ---- Legend ---- */
+  #legend{position:fixed;bottom:14px;left:16px;z-index:10;background:var(--panel);
+    border:1px solid var(--border);border-radius:10px;padding:10px 12px;
+    font-size:11px;color:var(--muted);max-width:280px}
+  #legend h3{margin:0 0 6px;font-size:11px;color:var(--fg);text-transform:uppercase;
+    letter-spacing:.6px}
+  #legend .row{display:flex;align-items:center;gap:7px;margin:3px 0}
+  #legend .sw{width:14px;height:4px;border-radius:2px;flex:none}
+  #legend .dot{width:11px;height:11px;border-radius:50%;flex:none}
+  .grad{width:110px;height:8px;border-radius:4px;
+    background:linear-gradient(90deg,var(--cool),#a05bd6,var(--warm))}
+  /* ---- Provenance side panel ---- */
+  #panel{position:fixed;top:0;right:0;z-index:20;width:380px;max-width:92vw;height:100%;
+    background:var(--panel);border-left:1px solid var(--border);transform:translateX(105%);
+    transition:transform .22s ease;overflow-y:auto;box-shadow:-12px 0 40px rgba(0,0,0,.45)}
+  #panel.open{transform:translateX(0)}
+  #panel .head{display:flex;justify-content:space-between;align-items:center;
+    padding:14px 16px;border-bottom:1px solid var(--border);position:sticky;top:0;
+    background:var(--panel)}
+  #panel .head h2{margin:0;font-size:14px;letter-spacing:.4px}
+  #panel .close{cursor:pointer;color:var(--muted);font-size:20px;line-height:1;
+    background:none;border:none}
+  #panel .close:hover{color:var(--fg)}
+  #panel .body{padding:14px 16px}
+  .tag{display:inline-block;font-size:10px;text-transform:uppercase;letter-spacing:.6px;
+    background:#1c2738;border:1px solid var(--border);border-radius:5px;padding:2px 7px;
+    color:var(--accent);margin-bottom:10px}
+  .field{margin:0 0 10px;padding-bottom:10px;border-bottom:1px solid #1a2230}
+  .field .k{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.5px}
+  .field .v{color:var(--fg);font-size:13px;word-break:break-word;margin-top:2px}
+  .field .v.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;
+    color:#bcd0ea}
+  .meter{height:7px;background:#1a2230;border-radius:4px;margin-top:5px;overflow:hidden}
+  .meter > i{display:block;height:100%;border-radius:4px}
+  .src-link{display:inline-block;margin-top:6px;color:var(--accent);text-decoration:none;
+    border:1px solid var(--accent);border-radius:6px;padding:6px 10px;font-size:12px;
+    font-weight:600}
+  .src-link:hover{background:var(--accent);color:#04101f}
+  .snippet{background:var(--panel2);border:1px solid var(--border);border-radius:8px;
+    padding:10px;color:#cdd9ea;font-size:12px;max-height:160px;overflow:auto}
+  /* ---- Graph host + overlays ---- */
+  #graph{position:fixed;inset:0}
+  #empty,#error{position:fixed;inset:0;display:none;align-items:center;justify-content:center;
+    flex-direction:column;text-align:center;color:var(--muted);z-index:5;padding:24px}
+  #empty.show,#error.show{display:flex}
+  #error{color:#ff8a80}
+  .spin{font-size:13px;color:var(--muted)}
+</style>
+</head>
+<body>
+  <!-- The 3D scene is a PROJECTION for navigation only. Node x/y/z are a PCA
+       projection of high-dimensional (1024-2048-D) embeddings computed server-side
+       in /api/graph; the engine NEVER stores memory in 3D. -->
+  <div id="banner">
+    <h1>Eidetic-Plus - 3D Memory Map</h1>
+    <div class="honest">A PROJECTION for navigation. Memory is stored in high-dimensional
+      space (1024-D embeddings); the engine never stores in 3D.</div>
+    <div class="proj" id="projNote"></div>
+  </div>
+
+  <div id="controls">
+    <label for="ns">namespace</label>
+    <input id="ns" value="default" autocomplete="off" spellcheck="false" />
+    <button class="btn primary" id="loadBtn">Load</button>
+    <button class="btn" id="fitBtn">Fit view</button>
+    <span id="status"></span>
+  </div>
+
+  <div id="legend">
+    <h3>Legend</h3>
+    <div class="row"><span>salience</span><span class="grad"></span><span>0 → 1</span></div>
+    <div class="row">size ∝ retrievability (FSRS 0..1)</div>
+    <div class="row"><span class="dot" style="background:#5c6f88"></span>invalidated node (dimmed)</div>
+    <div class="row"><span class="sw" style="background:var(--entity)"></span>entity (association)</div>
+    <div class="row"><span class="sw" style="background:var(--coact)"></span>co_activated (memory link)</div>
+    <div class="row"><span class="sw" style="background:#3a4658"></span>invalidated edge (faint)</div>
+  </div>
+
+  <div id="graph"></div>
+  <div id="empty">No memories in this namespace yet.</div>
+  <div id="error"></div>
+
+  <!-- Provenance side panel: raw immutable record for the clicked node. -->
+  <div id="panel">
+    <div class="head"><h2>Provenance</h2><button class="close" id="closeBtn">×</button></div>
+    <div class="body" id="panelBody"></div>
+  </div>
+
+  <!-- Vendored UMD build of 3d-force-graph 1.80.0 (bundles three.js). Global: ForceGraph3D. NO CDN. -->
+  <script src="/static/vendor/3d-force-graph.min.js"></script>
+  <script>
+  (function () {
+    "use strict";
+    var graphEl = document.getElementById("graph");
+    var statusEl = document.getElementById("status");
+    var emptyEl = document.getElementById("empty");
+    var errorEl = document.getElementById("error");
+    var projNote = document.getElementById("projNote");
+    var nsInput = document.getElementById("ns");
+    var panel = document.getElementById("panel");
+    var panelBody = document.getElementById("panelBody");
+    var Graph = null;
+
+    function clamp01(v){ v = +v; return isFinite(v) ? Math.max(0, Math.min(1, v)) : 0; }
+    function esc(s){ return String(s == null ? "" : s)
+      .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+
+    // Salience gradient: cool (blue, low) -> purple -> warm (red, high).
+    function salienceColor(s){
+      s = clamp01(s);
+      var a = [59,123,255], b = [160,91,214], c = [255,90,77]; // cool, mid, warm
+      var p, q, t;
+      if (s < 0.5){ p=a; q=b; t=s/0.5; } else { p=b; q=c; t=(s-0.5)/0.5; }
+      var r = Math.round(p[0]+(q[0]-p[0])*t),
+          g = Math.round(p[1]+(q[1]-p[1])*t),
+          bl= Math.round(p[2]+(q[2]-p[2])*t);
+      return "rgb(" + r + "," + g + "," + bl + ")";
+    }
+
+    function status(msg){ statusEl.textContent = msg || ""; }
+    function showError(msg){ errorEl.textContent = msg; errorEl.classList.add("show"); }
+    function clearOverlays(){ errorEl.classList.remove("show"); emptyEl.classList.remove("show"); }
+
+    function ensureGraph(){
+      if (Graph) return Graph;
+      Graph = ForceGraph3D()(graphEl)
+        .backgroundColor("#0a0d12")
+        .showNavInfo(false)
+        // Color by salience; invalidated nodes drawn dimmed/grey.
+        .nodeColor(function(n){ return n.invalidated ? "#5c6f88" : salienceColor(n.salience); })
+        .nodeOpacity(0.92)
+        // Size by retrievability (FSRS 0..1).
+        .nodeVal(function(n){ return 1 + clamp01(n.retrievability) * 14; })
+        .nodeRelSize(3)
+        .nodeLabel(function(n){
+          return '<div style="font:12px sans-serif;color:#e7edf5">' +
+            esc(n.label || n.id) +
+            '<br><span style="color:#8da3bd">sal ' + clamp01(n.salience).toFixed(2) +
+            ' · ret ' + clamp01(n.retrievability).toFixed(2) +
+            (n.invalidated ? ' · invalidated' : '') + '</span></div>';
+        })
+        // Edge kind -> color; active==false drawn faint to show bi-temporal invalidation.
+        .linkColor(function(l){
+          if (l.active === false) return "rgba(90,104,128,0.28)";
+          return l.kind === "co_activated" ? "#ffb347" : "#7c8aa0";
+        })
+        .linkOpacity(0.65)
+        .linkWidth(function(l){
+          return l.active === false ? 0.5 : (l.kind === "co_activated" ? 1.4 : 0.7);
+        })
+        // Dashed line for invalidated (bi-temporal) edges where supported.
+        .linkLineDash(function(l){ return l.active === false ? [2, 3] : null; })
+        .onNodeClick(function(n){ openProvenance(n); });
+      return Graph;
+    }
+
+    // x/y/z come from the server as a PCA projection of the high-D embeddings.
+    // Pin nodes to those coordinates so the LAYOUT IS the embedding projection.
+    function pinPositions(nodes){
+      nodes.forEach(function(n){
+        if (typeof n.x === "number") n.fx = n.x;
+        if (typeof n.y === "number") n.fy = n.y;
+        if (typeof n.z === "number") n.fz = n.z;
+      });
+    }
+
+    function fmtDate(epochSeconds){
+      if (epochSeconds == null) return "—";
+      var d = new Date(epochSeconds * 1000);
+      if (isNaN(d.getTime())) return String(epochSeconds);
+      return d.toLocaleString(undefined, { dateStyle:"medium", timeStyle:"short" });
+    }
+
+    function meter(value, color){
+      return '<div class="meter"><i style="width:' + (clamp01(value)*100).toFixed(0) +
+        '%;background:' + color + '"></i></div>';
+    }
+
+    function closePanel(){ panel.classList.remove("open"); }
+
+    // Required: clicking a node fetches the full immutable record and shows raw provenance.
+    function openProvenance(node){
+      panel.classList.add("open");
+      panelBody.innerHTML = '<div class="spin">Loading provenance…</div>';
+      fetch("/api/memories/" + encodeURIComponent(node.id))
+        .then(function(r){
+          if (!r.ok) throw new Error("HTTP " + r.status);
+          return r.json();
+        })
+        .then(function(rec){
+          var scope = rec.scope || {};
+          // retrievability: prefer the graph node's computed FSRS value; fall back to record state.
+          var ret = (typeof node.retrievability === "number")
+            ? node.retrievability
+            : (rec.fsrs ? rec.fsrs.retrievability : 0);
+          var invalidated = node.invalidated || rec.invalid_at != null || rec.expired_at != null;
+          var hash = rec.content_hash || "";
+          var snippet = rec.text || rec.summary || "";
+          var html = "";
+          html += '<span class="tag">immutable record</span>';
+          if (invalidated) html += '<span class="tag" style="color:#ff8a80;border-color:#5a2b2b">invalidated</span>';
+          html += '<div class="field"><div class="k">memory_id</div>' +
+                  '<div class="v mono">' + esc(rec.memory_id) + '</div></div>';
+          html += '<div class="field"><div class="k">source</div>' +
+                  '<div class="v">' + esc(rec.source || "—") + '</div></div>';
+          html += '<div class="field"><div class="k">modality</div>' +
+                  '<div class="v">' + esc(rec.modality || "—") + '</div></div>';
+          html += '<div class="field"><div class="k">scope</div><div class="v mono">' +
+                  'namespace=' + esc(scope.namespace || "default") +
+                  (scope.agent_id ? ' · agent=' + esc(scope.agent_id) : '') +
+                  (scope.project_id ? ' · project=' + esc(scope.project_id) : '') +
+                  '</div></div>';
+          html += '<div class="field"><div class="k">valid_at</div>' +
+                  '<div class="v">' + esc(fmtDate(rec.valid_at)) + '</div></div>';
+          html += '<div class="field"><div class="k">salience ' +
+                  clamp01(rec.salience).toFixed(3) + '</div>' +
+                  meter(rec.salience, salienceColor(rec.salience)) + '</div>';
+          html += '<div class="field"><div class="k">retrievability (FSRS) ' +
+                  clamp01(ret).toFixed(3) + '</div>' + meter(ret, "#4f9cff") + '</div>';
+          html += '<div class="field"><div class="k">content_hash</div>' +
+                  '<div class="v mono">' + esc(hash || "—") + '</div></div>';
+          if (snippet){
+            html += '<div class="field"><div class="k">content</div>' +
+                    '<div class="snippet">' + esc(snippet) + '</div></div>';
+          }
+          if (hash){
+            // Link to the raw immutable bytes (the arbiter of truth), new tab.
+            html += '<a class="src-link" target="_blank" rel="noopener" href="/api/raw/' +
+                    encodeURIComponent(hash) + '">view immutable source ↗</a>';
+          }
+          panelBody.innerHTML = html;
+        })
+        .catch(function(err){
+          panelBody.innerHTML = '<div class="spin" style="color:#ff8a80">' +
+            'Could not load record: ' + esc(err.message) + '</div>';
+        });
+    }
+
+    function fitView(){ if (Graph) Graph.zoomToFit(700, 60); }
+
+    function load(){
+      var ns = (nsInput.value || "default").trim() || "default";
+      clearOverlays();
+      closePanel();
+      status("Loading namespace “" + ns + "” …");
+      // Documented endpoint: GET /api/graph?namespace=<ns>
+      fetch("/api/graph?namespace=" + encodeURIComponent(ns))
+        .then(function(r){
+          if (!r.ok) throw new Error("HTTP " + r.status + " from /api/graph");
+          return r.json();
+        })
+        .then(function(data){
+          var nodes = (data && data.nodes) || [];
+          var edges = (data && data.edges) || [];
+          projNote.textContent =
+            (data.projection ? "Projection: " + data.projection + "  —  " : "") +
+            (data.note || "");
+          if (!nodes.length){
+            ensureGraph().graphData({ nodes: [], links: [] });
+            emptyEl.classList.add("show");
+            status("0 nodes");
+            return;
+          }
+          pinPositions(nodes);
+          // 3d-force-graph uses {nodes, links}; our edges map directly to links.
+          ensureGraph().graphData({ nodes: nodes, links: edges });
+          status(nodes.length + " nodes · " + edges.length + " edges");
+          setTimeout(fitView, 600);
+        })
+        .catch(function(err){
+          showError("Failed to load graph: " + err.message +
+            "  (is the API running and the namespace correct?)");
+          status("error");
+        });
+    }
+
+    document.getElementById("loadBtn").addEventListener("click", load);
+    document.getElementById("fitBtn").addEventListener("click", fitView);
+    document.getElementById("closeBtn").addEventListener("click", closePanel);
+    nsInput.addEventListener("keydown", function(e){ if (e.key === "Enter") load(); });
+    window.addEventListener("resize", function(){
+      if (Graph){ Graph.width(window.innerWidth).height(window.innerHeight); }
+    });
+
+    // Drag to orbit + scroll to zoom are provided by three.js OrbitControls (lib default).
+    if (typeof ForceGraph3D !== "function"){
+      showError("Vendored 3D library failed to load (/static/vendor/3d-force-graph.min.js).");
+    } else {
+      load();
+    }
+  })();
+  </script>
+</body>
+</html>

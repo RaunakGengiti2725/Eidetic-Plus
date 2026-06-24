@@ -1,0 +1,271 @@
+"""FastAPI app: the agent API (HTTP transport) + a static web UI.
+
+The MCP server (eidetic/mcp_server.py) is an ADDITIONAL transport over the same
+engine. Both talk to one Engine; no logic is duplicated.
+
+Every memory-touching route accepts an explicit SCOPE (namespace + optional agent_id /
+project_id). Reads filter by scope, writes tag with scope -- a write in namespace A is
+invisible from namespace B. The app starts WITHOUT a key; any model call fails loudly
+with a clear 503 if DASHSCOPE_API_KEY is missing -- never a fabricated result.
+"""
+from __future__ import annotations
+
+import mimetypes
+from pathlib import Path
+from typing import Optional
+
+import numpy as np
+from fastapi import FastAPI, File, Form, HTTPException, Query, UploadFile
+from fastapi.responses import HTMLResponse, Response
+from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
+from starlette.concurrency import run_in_threadpool
+
+from .dashscope_client import ModelCallError
+from .engine import Engine
+from .graph import CO_ACTIVATED
+from .models import Scope
+
+app = FastAPI(title="Eidetic-Plus", version="1.1.0",
+              description="Universal, lossless, verifiable, recency-independent memory for AI agents.")
+
+_engine: Optional[Engine] = None
+_WEB_DIR = Path(__file__).parent / "web"
+
+
+def engine() -> Engine:
+    global _engine
+    if _engine is None:
+        _engine = Engine()
+    return _engine
+
+
+def _scope(namespace: str, agent_id: Optional[str], project_id: Optional[str]) -> Scope:
+    return Scope(namespace=namespace or "default",
+                 agent_id=agent_id or None, project_id=project_id or None)
+
+
+# ---- request models -------------------------------------------------------
+class ScopeIn(BaseModel):
+    namespace: str = "default"
+    agent_id: Optional[str] = None
+    project_id: Optional[str] = None
+
+    def to_scope(self) -> Scope:
+        return Scope(namespace=self.namespace or "default",
+                     agent_id=self.agent_id or None, project_id=self.project_id or None)
+
+
+class TextMemoryIn(ScopeIn):
+    text: str
+    source: str = "user"
+    valid_at: Optional[float] = None
+    extract_graph: bool = True
+    segment: bool = False
+
+
+class AskIn(ScopeIn):
+    query: str
+    verify: bool = True
+
+
+# ---- helpers --------------------------------------------------------------
+def _record_brief(rec) -> dict:
+    return {
+        "memory_id": rec.memory_id,
+        "modality": rec.modality.value,
+        "source": rec.source,
+        "scope": rec.scope.model_dump(),
+        "valid_at": rec.valid_at,
+        "created_at": rec.created_at,
+        "snippet": (rec.text or rec.summary or "")[:200],
+        "salience": round(rec.salience, 3),
+        "retrievability": round(rec.fsrs.priority(), 3),
+        "entities": rec.entities,
+        "invalid_at": rec.invalid_at,
+        "expired_at": rec.expired_at,
+        "content_hash": rec.content_hash,
+    }
+
+
+def _guard(fn, *a, **kw):
+    try:
+        return fn(*a, **kw)
+    except ModelCallError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+
+
+# ---- routes ---------------------------------------------------------------
+@app.get("/", response_class=HTMLResponse)
+async def index():
+    f = _WEB_DIR / "index.html"
+    return HTMLResponse(f.read_text()) if f.exists() else HTMLResponse("<h1>Eidetic-Plus</h1>")
+
+
+@app.get("/map", response_class=HTMLResponse)
+async def memory_map():
+    f = _WEB_DIR / "map.html"
+    return HTMLResponse(f.read_text()) if f.exists() else HTMLResponse(
+        "<h1>3D memory map not built yet</h1>")
+
+
+@app.get("/api/stats")
+async def stats(namespace: Optional[str] = None, agent_id: Optional[str] = None,
+                project_id: Optional[str] = None):
+    scope = _scope(namespace, agent_id, project_id) if namespace else None
+    return await run_in_threadpool(engine().stats, scope)
+
+
+@app.post("/api/memories/text")
+async def add_text(body: TextMemoryIn):
+    rec = await run_in_threadpool(
+        lambda: _guard(engine().ingest_text, body.text, source=body.source,
+                       valid_at=body.valid_at, extract_graph=body.extract_graph,
+                       scope=body.to_scope(), segment=body.segment)
+    )
+    return _record_brief(rec)
+
+
+@app.post("/api/memories/file")
+async def add_file(file: UploadFile = File(...), source: str = Form(""),
+                   extract_graph: bool = Form(True), namespace: str = Form("default"),
+                   agent_id: str = Form(""), project_id: str = Form("")):
+    data = await file.read()
+    scope = _scope(namespace, agent_id, project_id)
+    rec = await run_in_threadpool(
+        lambda: _guard(engine().ingest_bytes, data, file.filename,
+                       source=source or file.filename, extract_graph=extract_graph, scope=scope)
+    )
+    return _record_brief(rec)
+
+
+@app.post("/api/ask")
+async def ask(body: AskIn):
+    ans = await run_in_threadpool(
+        lambda: _guard(engine().ask, body.query, verify=body.verify, scope=body.to_scope()))
+    return ans.model_dump()
+
+
+@app.get("/api/memories")
+async def list_memories(namespace: Optional[str] = None, agent_id: Optional[str] = None,
+                        project_id: Optional[str] = None):
+    scope = _scope(namespace, agent_id, project_id) if namespace else None
+    recs = await run_in_threadpool(engine().list_memories, scope)
+    return [_record_brief(r) for r in recs]
+
+
+@app.get("/api/memories/{memory_id}")
+async def get_memory(memory_id: str):
+    rec = await run_in_threadpool(engine().get_record, memory_id)
+    if rec is None:
+        raise HTTPException(status_code=404, detail="No such memory")
+    return rec.model_dump()
+
+
+@app.get("/api/raw/{content_hash}")
+async def get_raw(content_hash: str):
+    try:
+        data = await run_in_threadpool(engine().get_raw, content_hash)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="No such immutable object")
+    ctype = mimetypes.guess_type(content_hash)[0] or "application/octet-stream"
+    return Response(content=data, media_type=ctype)
+
+
+@app.post("/api/consolidate")
+async def consolidate(namespace: Optional[str] = None, agent_id: Optional[str] = None,
+                      project_id: Optional[str] = None):
+    scope = _scope(namespace, agent_id, project_id) if namespace else None
+    return await run_in_threadpool(lambda: _guard(engine().consolidate, scope=scope))
+
+
+@app.post("/api/reawaken/{memory_id}")
+async def reawaken(memory_id: str):
+    rec = await run_in_threadpool(engine().reawaken, memory_id)
+    if rec is None:
+        raise HTTPException(status_code=404, detail="No such memory")
+    return _record_brief(rec)
+
+
+@app.get("/api/prove_age_independence")
+async def prove_age_independence(namespace: str = "default", agent_id: Optional[str] = None,
+                                 project_id: Optional[str] = None, k: int = Query(5)):
+    scope = _scope(namespace, agent_id, project_id)
+    return await run_in_threadpool(
+        lambda: _guard(engine().prove_age_independence, scope=scope, k=k))
+
+
+# ---- 3D memory map data (a PROJECTION of high-dim embeddings, not the storage) ----
+def _project_3d(vectors: dict) -> dict:
+    """PCA(1024-2048D -> 3D). The map is a human-navigation projection; memory is stored
+    in high dimensions. Storing in 3D would collapse the separating structure."""
+    ids = list(vectors)
+    if len(ids) < 3:
+        return {mid: [float(i) * 30.0, 0.0, 0.0] for i, mid in enumerate(ids)}
+    M = np.array([vectors[i] for i in ids], dtype=np.float64)
+    Mc = M - M.mean(axis=0)
+    _, _, Vt = np.linalg.svd(Mc, full_matrices=False)
+    coords = Mc @ Vt[: min(3, Vt.shape[0])].T
+    if coords.shape[1] < 3:
+        coords = np.pad(coords, ((0, 0), (0, 3 - coords.shape[1])))
+    coords = coords / (np.abs(coords).max() + 1e-9) * 100.0
+    return {ids[i]: coords[i].tolist() for i in range(len(ids))}
+
+
+def _graph_data(eng: Engine, scope: Scope, max_edges: int = 2500) -> dict:
+    recs = eng.list_memories(scope)
+    ids = [r.memory_id for r in recs]
+    vecs = eng.index.get_vectors(ids)
+    pos = _project_3d(vecs) if vecs else {mid: [0.0, 0.0, 0.0] for mid in ids}
+    nodes = []
+    for r in recs:
+        x, y, z = pos.get(r.memory_id, [0.0, 0.0, 0.0])
+        nodes.append({
+            "id": r.memory_id, "label": (r.text or r.summary or "")[:60],
+            "salience": round(r.salience, 3), "retrievability": round(r.fsrs.priority(), 3),
+            "modality": r.modality.value, "valid_at": r.valid_at,
+            "content_hash": r.content_hash, "source": r.source,
+            "invalidated": r.invalid_at is not None or r.expired_at is not None,
+            "x": x, "y": y, "z": z,
+        })
+    edges = []
+    # Association edges: memories sharing an entity.
+    ent_map: dict[str, list[str]] = {}
+    for r in recs:
+        for e in r.entities:
+            ent_map.setdefault(e.lower(), []).append(r.memory_id)
+    seen = set()
+    for e, mids in ent_map.items():
+        for i in range(len(mids)):
+            for j in range(i + 1, len(mids)):
+                key = tuple(sorted((mids[i], mids[j])))
+                if key in seen:
+                    continue
+                seen.add(key)
+                edges.append({"source": key[0], "target": key[1], "kind": "entity",
+                              "relation": e, "active": True})
+                if len(edges) >= max_edges:
+                    break
+    # Co-activated memory links (bi-temporal: active vs invalidated drawn differently).
+    for edge in eng.store.all_edges(scope):
+        if edge.relation == CO_ACTIVATED and len(edges) < max_edges:
+            edges.append({"source": edge.src, "target": edge.dst, "kind": "co_activated",
+                          "active": edge.is_active_at()})
+    return {
+        "nodes": nodes, "edges": edges,
+        "projection": "PCA(high-D embeddings -> 3D)",
+        "note": "3D is a PROJECTION for navigation. Memory is stored in "
+                f"{eng.settings.embed_dim}-D; the engine never stores in 3D.",
+    }
+
+
+@app.get("/api/graph")
+async def graph(namespace: str = "default", agent_id: Optional[str] = None,
+                project_id: Optional[str] = None):
+    scope = _scope(namespace, agent_id, project_id)
+    return await run_in_threadpool(_graph_data, engine(), scope)
+
+
+# Static assets (vendored 3D lib, etc.).
+if _WEB_DIR.exists():
+    app.mount("/static", StaticFiles(directory=str(_WEB_DIR)), name="static")

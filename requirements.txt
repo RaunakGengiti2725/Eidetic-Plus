@@ -1,0 +1,26 @@
+# Eidetic-Plus runtime dependencies (all have wheels on CPython 3.14).
+# Backend / API
+fastapi
+uvicorn[standard]
+pydantic>=2
+python-multipart
+python-dotenv
+
+# Math / graph / vectors
+numpy
+scipy
+networkx
+hnswlib            # optional ANN backend; numpy brute-force fallback is built in
+
+# Real Qwen / DashScope model calls (NO mocks anywhere)
+dashscope
+
+# Universal memory plugin: Model Context Protocol server (stdio + HTTP)
+mcp
+
+# Plotting (signature recall/latency-vs-age curves)
+matplotlib
+
+# Tests
+pytest
+pytest-asyncio

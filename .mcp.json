@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "eidetic-plus": {
+      "type": "stdio",
+      "command": "${CLAUDE_PLUGIN_ROOT}/.venv/bin/python",
+      "args": ["-m", "eidetic.mcp_server"],
+      "cwd": "${CLAUDE_PLUGIN_ROOT}",
+      "env": {
+        "PYTHONPATH": "${CLAUDE_PLUGIN_ROOT}"
+      }
+    }
+  }
+}

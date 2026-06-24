@@ -1,0 +1,257 @@
+"""Render the per-category accuracy scoreboard + cost table + latency table from the raw
+run logs. RENDERS ONLY FROM REAL LOGS -- if there are no logs it writes an explicit
+"pending run" placeholder, never invented numbers (a number that does not reproduce does
+not exist).
+"""
+from __future__ import annotations
+
+import json
+import math
+from collections import defaultdict
+from itertools import combinations
+from pathlib import Path
+from statistics import mean, pstdev
+from typing import Optional
+
+import numpy as np
+
+from .harness import load_logs
+
+_LME_ORDER = ["single-session-user", "single-session-assistant", "single-session-preference",
+              "multi-session", "knowledge-update", "temporal-reasoning"]
+_LOCOMO_ORDER = ["single-hop", "multi-hop", "temporal", "open-domain"]
+_MAB_ORDER = ["factconsolidation", "fact-consolidation", "eventqa", "event-qa"]
+
+_BEAM_NOTE = (
+    "> **Honest frontier note.** Cross-session contradiction resolution at BEAM scale "
+    "(1M->10M tokens) is unsolved across the field (best public BEAM-1M contradiction "
+    "~0.357). Eidetic-Plus targets the LongMemEval + LoCoMo categories above and the two "
+    "categorical wins no competitor has (flat recall-vs-age, verified recall with a citable "
+    "immutable source); BEAM-10M contradiction is presented as the frontier, not a solved box."
+)
+
+
+def _wilson_ci(successes: int, n: int, z: float = 1.959963984540054) -> tuple[float, float]:
+    if n <= 0:
+        return 0.0, 0.0
+    p = successes / n
+    denom = 1.0 + z * z / n
+    center = (p + z * z / (2 * n)) / denom
+    half = z * math.sqrt((p * (1 - p) + z * z / (4 * n)) / n) / denom
+    return max(0.0, center - half), min(1.0, center + half)
+
+
+def _mcnemar_pvalue(a_only: int, b_only: int) -> float:
+    total = a_only + b_only
+    if total == 0:
+        return 1.0
+    tail = sum(math.comb(total, i) for i in range(0, min(a_only, b_only) + 1)) / (2 ** total)
+    return min(1.0, 2.0 * tail)
+
+
+def aggregate(rows: list[dict]) -> dict:
+    # accuracy per (system, dataset, category) averaged within a run, then mean+/-std across runs
+    by_run: dict = defaultdict(lambda: defaultdict(list))   # (sys,ds,cat) -> run_idx -> [correct]
+    pooled: dict = defaultdict(lambda: [0, 0])               # (sys,ds,cat) -> [successes, n]
+    write_by_group: dict = defaultdict(dict)                 # sys -> group(sample-prefix) -> tokens
+    qtok: dict = defaultdict(list)
+    search: dict = defaultdict(list)
+    e2e: dict = defaultdict(list)
+    paired: dict = defaultdict(dict)                         # (ds,cat,sample,run) -> sys -> correct
+    systems, cats_by_ds = set(), defaultdict(set)
+    for r in rows:
+        sys, ds, cat = r["system"], r["dataset"], r["category"]
+        systems.add(sys)
+        cats_by_ds[ds].add(cat)
+        ok = 1.0 if r["correct"] else 0.0
+        by_run[(sys, ds, cat)].setdefault(r["run_idx"], []).append(ok)
+        pooled[(sys, ds, cat)][0] += int(bool(r["correct"]))
+        pooled[(sys, ds, cat)][1] += 1
+        paired[(ds, cat, r["sample_id"], r["run_idx"])][sys] = bool(r["correct"])
+        qtok[sys].append(r.get("query_tokens", 0))
+        search[sys].append(r.get("search_ms", 0.0))
+        e2e[sys].append(r.get("e2e_ms", 0.0))
+        # one write-cost per (system, group, run); group encoded in sample namespace prefix
+        write_by_group[sys][f"{ds}:{r['sample_id'].split('_q')[0]}:{r['run_idx']}"] = r.get("write_tokens", 0)
+
+    acc: dict = {}
+    acc_ci: dict = {}
+    n_by_cat: dict = defaultdict(int)                        # (ds,cat) -> questions per run
+    run_acc: dict = {}
+    for key, runs in by_run.items():
+        per_run = [mean(v) for v in runs.values() if v]
+        acc[key] = (mean(per_run) if per_run else 0.0, pstdev(per_run) if len(per_run) > 1 else 0.0)
+        run_acc[key] = {run_idx: mean(vals) for run_idx, vals in runs.items() if vals}
+        successes, n = pooled[key]
+        acc_ci[key] = (*_wilson_ci(successes, n), successes, n)
+        first = next(iter(runs.values()), [])
+        n_by_cat[(key[1], key[2])] = max(n_by_cat[(key[1], key[2])], len(first))
+
+    def pct(xs, p):
+        return float(np.percentile(xs, p)) if xs else 0.0
+
+    cost = {s: {"tokens_per_write": (mean(list(write_by_group[s].values())) if write_by_group[s] else 0.0),
+                "tokens_per_query": (mean(qtok[s]) if qtok[s] else 0.0)} for s in systems}
+    latency = {s: {"search_p50": pct(search[s], 50), "search_p95": pct(search[s], 95),
+                   "e2e_p50": pct(e2e[s], 50), "e2e_p95": pct(e2e[s], 95)} for s in systems}
+    head_to_head: dict = {}
+    for ds_cat in sorted({(r["dataset"], r["category"]) for r in rows}):
+        ds, cat = ds_cat
+        present = sorted(s for s in systems if (s, ds, cat) in acc)
+        for a, b in combinations(present, 2):
+            a_only = b_only = both = neither = paired_n = 0
+            for (pds, pcat, _sid, _run), vals in paired.items():
+                if pds != ds or pcat != cat or a not in vals or b not in vals:
+                    continue
+                paired_n += 1
+                av, bv = vals[a], vals[b]
+                if av and bv:
+                    both += 1
+                elif av and not bv:
+                    a_only += 1
+                elif bv and not av:
+                    b_only += 1
+                else:
+                    neither += 1
+            if paired_n:
+                head_to_head[(a, b, ds, cat)] = {
+                    "n": paired_n, "a_only": a_only, "b_only": b_only,
+                    "both": both, "neither": neither,
+                    "p_mcnemar": _mcnemar_pvalue(a_only, b_only),
+                }
+
+    survival: dict = {}
+    for (a, b, ds, cat), stats in head_to_head.items():
+        a_runs = run_acc.get((a, ds, cat), {})
+        b_runs = run_acc.get((b, ds, cat), {})
+        common = sorted(set(a_runs) & set(b_runs))
+        if len(common) < 2:
+            status = "needs-2-runs"
+        else:
+            diffs = [a_runs[i] - b_runs[i] for i in common]
+            status = "survives" if all(d > 0 for d in diffs) else "does-not-survive"
+        survival[(a, b, ds, cat)] = {"runs": common, "status": status}
+    return {"systems": sorted(systems), "acc": acc, "cats_by_ds": {k: sorted(v) for k, v in cats_by_ds.items()},
+            "cost": cost, "latency": latency, "n_by_cat": dict(n_by_cat),
+            "acc_ci": acc_ci, "head_to_head": head_to_head, "survival": survival}
+
+
+def _acc_cell(acc, sys, ds, cat) -> str:
+    if (sys, ds, cat) in acc:
+        m, sd = acc[(sys, ds, cat)]
+        return f"{m * 100:.1f}±{sd * 100:.1f}"
+    return "-"
+
+
+def _ci_cell(acc_ci, sys, ds, cat) -> str:
+    if (sys, ds, cat) not in acc_ci:
+        return "-"
+    lo, hi, successes, n = acc_ci[(sys, ds, cat)]
+    return f"{successes}/{n}, {lo * 100:.1f}-{hi * 100:.1f}"
+
+
+def render(out_dir: Path, judge_desc: Optional[dict] = None) -> Path:
+    out_dir = Path(out_dir)
+    rows = load_logs(out_dir)
+    md = out_dir / "scoreboard.md"
+    if not rows:
+        md.write_text("# Eidetic-Plus benchmark scoreboard\n\n"
+                      "**Pending run.** No result logs found in this directory. Run the harness "
+                      "with a funded key (and the baselines) to populate this scoreboard:\n\n"
+                      "```bash\nbash bench/reproduce.sh\n```\n\n"
+                      "Numbers appear here ONLY from real runs -- never fabricated.\n")
+        return md
+
+    agg = aggregate(rows)
+    systems = agg["systems"]
+    lines = ["# Eidetic-Plus benchmark scoreboard", ""]
+    if judge_desc:
+        lines.append(f"_Judge: **{judge_desc.get('judge_model')}** "
+                     f"({judge_desc.get('judge_backend')}), one fixed judge + one fixed reader "
+                     f"across all systems. Per-category accuracy = mean±std over runs; "
+                     f"CI = Wilson 95% interval over logged questions._\n")
+
+    dataset_orders = {"longmemeval": _LME_ORDER, "locomo": _LOCOMO_ORDER,
+                      "memoryagentbench": _MAB_ORDER, "beam": []}
+    ordered_datasets = [d for d in dataset_orders if d in agg["cats_by_ds"]]
+    ordered_datasets += [d for d in sorted(agg["cats_by_ds"]) if d not in dataset_orders]
+
+    for ds in ordered_datasets:
+        order = dataset_orders.get(ds, [])
+        cats = [c for c in order if c in agg["cats_by_ds"].get(ds, [])]
+        cats += [c for c in agg["cats_by_ds"].get(ds, []) if c not in order]
+        if not cats:
+            continue
+        lines.append(f"## {ds} - accuracy by category (%), mean±std; n = questions/run\n")
+        lines.append("| category (n) | " + " | ".join(systems) + " |")
+        lines.append("|" + "---|" * (len(systems) + 1))
+        for cat in cats:
+            n = agg.get("n_by_cat", {}).get((ds, cat), 0)
+            lines.append(f"| {cat} (n={n}) | "
+                         + " | ".join(_acc_cell(agg["acc"], s, ds, cat) for s in systems) + " |")
+        lines.append("")
+        lines.append(f"## {ds} - Wilson 95% CI by category\n")
+        lines.append("| category | " + " | ".join(systems) + " |")
+        lines.append("|" + "---|" * (len(systems) + 1))
+        for cat in cats:
+            lines.append(f"| {cat} | "
+                         + " | ".join(_ci_cell(agg["acc_ci"], s, ds, cat) for s in systems) + " |")
+        lines.append("")
+
+    if agg["head_to_head"]:
+        lines.append("## Head-to-head paired tests\n")
+        lines.append("| pair | category | n | a-only | b-only | McNemar p | CI-clear win | slice survival |")
+        lines.append("|---|---|---:|---:|---:|---:|---|---|")
+        for key, stats in sorted(agg["head_to_head"].items()):
+            a, b, ds, cat = key
+            aci = agg["acc_ci"].get((a, ds, cat))
+            bci = agg["acc_ci"].get((b, ds, cat))
+            if aci and bci and aci[0] > bci[1]:
+                clear = a
+            elif aci and bci and bci[0] > aci[1]:
+                clear = b
+            else:
+                clear = "no"
+            surv = agg["survival"].get(key, {}).get("status", "unknown")
+            lines.append(f"| {a} vs {b} | {ds}/{cat} | {stats['n']} | "
+                         f"{stats['a_only']} | {stats['b_only']} | "
+                         f"{stats['p_mcnemar']:.4f} | {clear} | {surv} |")
+        lines.append("")
+
+    lines.append("## Cost (approx tokens, uniform ~4 chars/token across all systems)\n")
+    lines.append("| system | tokens / write (per conversation) | tokens / query |")
+    lines.append("|---|---|---|")
+    for s in systems:
+        c = agg["cost"][s]
+        lines.append(f"| {s} | {c['tokens_per_write']:.0f} | {c['tokens_per_query']:.0f} |")
+    lines.append("")
+
+    lines.append("## Latency (ms)\n")
+    lines.append("| system | search p50 | search p95 | e2e p50 | e2e p95 |")
+    lines.append("|---|---|---|---|---|")
+    for s in systems:
+        la = agg["latency"][s]
+        lines.append(f"| {s} | {la['search_p50']:.1f} | {la['search_p95']:.1f} | "
+                     f"{la['e2e_p50']:.1f} | {la['e2e_p95']:.1f} |")
+    lines.append("")
+    lines.append(_BEAM_NOTE)
+    md.write_text("\n".join(lines) + "\n")
+    (out_dir / "scoreboard.json").write_text(json.dumps({
+        "systems": systems,
+        "accuracy": {
+            f"{k[0]}|{k[1]}|{k[2]}": {
+                "mean": v[0], "std": v[1],
+                "ci95": list(agg["acc_ci"].get(k, (0.0, 0.0))[:2]),
+                "successes": agg["acc_ci"].get(k, (0.0, 0.0, 0, 0))[2],
+                "n": agg["acc_ci"].get(k, (0.0, 0.0, 0, 0))[3],
+            } for k, v in agg["acc"].items()
+        },
+        "head_to_head": {
+            f"{k[0]}|{k[1]}|{k[2]}|{k[3]}": v for k, v in agg["head_to_head"].items()
+        },
+        "survival": {
+            f"{k[0]}|{k[1]}|{k[2]}|{k[3]}": v for k, v in agg["survival"].items()
+        },
+        "cost": agg["cost"], "latency": agg["latency"], "judge": judge_desc,
+    }, indent=2))
+    return md

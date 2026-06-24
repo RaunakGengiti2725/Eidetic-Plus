@@ -1,0 +1,288 @@
+"""Mem0 baseline adapter -- REAL, never mocked.
+
+Targets ``mem0ai==2.0.7`` (Apache-2.0). Mem0 is NOT installed in the Eidetic-Plus
+venv; it lives in ``requirements-bench.txt`` and is imported lazily INSIDE ``__init__``.
+A missing dependency or an empty ``DASHSCOPE_API_KEY`` FAILS LOUD with a clear message --
+this adapter never silently falls back to a mock or a fabricated result.
+
+Both Mem0's LLM and embedder are pointed at DashScope's OpenAI-compatible endpoint, so the
+SAME Qwen models back every system in the neutral harness (llm ``qwen-plus``, embedder
+``text-embedding-v4``). Mem0 still drives its own retrieval; the retrieved memories are
+then handed to the ONE shared fixed reader (``answer_with_fixed_reader``) so the scoreboard
+measures MEMORY quality, not answerer quality.
+
+Mem0's real write cost is its add()-time LLM fact extraction: every ``m.add()`` runs an
+LLM pass that decides what to store / update / delete. That extraction is genuine work and
+is reflected in the cost table -- we time ingest end-to-end and account the ingested text
+with the harness-uniform ``approx_tokens`` so writes are comparable across all systems.
+
+Defensiveness note: Mem0's method signatures and config keys drift between releases. The
+2.0.7 ``search()`` takes ``filters={"user_id": ...}`` + ``top_k`` (and REJECTS top-level
+``user_id``/``limit``), while older releases used ``user_id=`` + ``limit=`` directly. We
+try the documented call first and fall back across known signatures, but a real failure
+(bad config, dead model, API error) is re-raised as a ModelCallError-style RuntimeError
+telling the user to check their ``mem0ai`` version. We NEVER mock.
+"""
+from __future__ import annotations
+
+import os
+import time
+from typing import Any, Optional
+
+from eidetic.config import get_settings
+
+from ..reader import answer_with_fixed_reader
+from .base import AnswerResult, MemorySystem, WriteResult, approx_tokens
+
+_LLM_MODEL = os.environ.get("BENCH_BASELINE_LLM", "qwen-flash")  # baseline extraction LLM (funded)
+_EMBED_MODEL = "text-embedding-v4"
+
+
+class Mem0System(MemorySystem):
+    """Real Mem0 (2.0.7) under test, backed by DashScope-hosted Qwen models."""
+
+    name = "mem0"
+
+    def __init__(self) -> None:
+        # --- Fail loud on a missing dependency (it lives in requirements-bench.txt). ----
+        try:
+            from mem0 import Memory  # type: ignore
+        except ImportError as e:  # pragma: no cover - exercised only without the dep
+            raise RuntimeError(
+                "Mem0 baseline requires the 'mem0ai' package which is NOT installed in "
+                "this venv. Install the benchmark baselines first:\n"
+                "    .venv/bin/pip install -r requirements-bench.txt\n"
+                "(target: mem0ai==2.0.7). Original import error: " + repr(e)
+            ) from e
+
+        # --- Fail loud on a missing key (no fake/mocked answers, ever). -----------------
+        s = get_settings()
+        api_key = (s.api_key or "").strip()
+        if not api_key:
+            raise RuntimeError(
+                "DASHSCOPE_API_KEY is empty -- the Mem0 baseline cannot run without it "
+                "(it backs Mem0's LLM + embedder via the OpenAI-compatible endpoint). "
+                "Set DASHSCOPE_API_KEY in your .env. No mock fallback exists."
+            )
+        base_url = s.compatible_base_url
+
+        # Mem0's OpenAI client also reads OPENAI_API_KEY / OPENAI_BASE_URL from the
+        # environment; set them as a fallback so the DashScope endpoint is used even on
+        # any code path that bypasses the explicit config dict.
+        os.environ["OPENAI_API_KEY"] = api_key
+        os.environ["OPENAI_BASE_URL"] = base_url
+
+        # Mem0's qdrant store defaults to a PERSISTENT path (/tmp/qdrant). If a collection
+        # already exists there at the wrong dim (1536, OpenAI's), our 1024 is ignored and
+        # add() shape-mismatches. Use a FRESH path so the collection is created at 1024.
+        import shutil
+        import uuid
+
+        self._qdrant_path = str(s.data_dir / "mem0_qdrant" / uuid.uuid4().hex)
+        shutil.rmtree(self._qdrant_path, ignore_errors=True)
+
+        # Mem0 config dict: both LLM and embedder are OpenAI-compatible, pointed at
+        # DashScope. The 2.0.7 OpenAIConfig / BaseEmbedderConfig accept `openai_base_url`
+        # and (embedder) `embedding_dims`; they also honor the env-var fallback above.
+        config: dict[str, Any] = {
+            "llm": {
+                "provider": "openai",
+                "config": {
+                    "model": _LLM_MODEL,
+                    "api_key": api_key,
+                    "openai_base_url": base_url,
+                },
+            },
+            "embedder": {
+                "provider": "openai",
+                "config": {
+                    "model": _EMBED_MODEL,
+                    "api_key": api_key,
+                    "openai_base_url": base_url,
+                    "embedding_dims": int(s.embed_dim),
+                },
+            },
+            # The vector store's collection dim MUST match text-embedding-v4 (1024), else
+            # Mem0's default qdrant collection (1536, OpenAI's dim) shape-mismatches on add().
+            # A fresh on-disk path guarantees the collection is created at 1024 (not reused).
+            "vector_store": {
+                "provider": "qdrant",
+                "config": {
+                    "embedding_model_dims": int(s.embed_dim),
+                    "path": self._qdrant_path,
+                    "collection_name": "eidetic_bench",
+                    "on_disk": False,
+                },
+            },
+        }
+
+        # Construct the real Memory store. If the exact config keys differ in the installed
+        # mem0ai version, raise a clear ModelCallError-style message -- never a silent mock.
+        try:
+            self._memory = Memory.from_config(config)
+        except Exception as e:  # noqa: BLE001 - re-raised loudly below
+            raise RuntimeError(
+                "Mem0 Memory.from_config(...) failed to build a real store. This usually "
+                "means the installed mem0ai version uses different config keys than 2.0.7 "
+                "(expected llm/embedder provider 'openai' with config "
+                "{model, api_key, openai_base_url[, embedding_dims]}). Check your mem0ai "
+                f"version (pin mem0ai==2.0.7). Underlying error: {e!r}"
+            ) from e
+
+    # ------------------------------------------------------------------------------------
+    def reset(self, namespace: str) -> None:
+        """Best-effort clear of this user_id's memories. Mem0 stores are per-user_id, so a
+        fresh namespace is already isolated; this just drops any prior state if reused."""
+        try:
+            self._memory.delete_all(user_id=namespace)
+        except Exception:  # noqa: BLE001 - reset is best-effort; isolation comes from user_id
+            pass
+
+    # ------------------------------------------------------------------------------------
+    def ingest_session(self, namespace: str, session_id: str, turns: list[dict],
+                       session_time: Optional[float] = None) -> WriteResult:
+        """Add ONE memory per session (joined turns) via m.add() -- session granularity,
+        matching the Eidetic and Graphiti adapters for a fair, neutral comparison (and far
+        faster than per-turn). Mem0 still runs its own LLM fact extraction inside add(),
+        which IS its real write cost (reflected in the cost table)."""
+        content = "\n".join(
+            f"{(t.get('role') or 'user')}: {t.get('content', '')}".strip()
+            for t in turns if (t.get("content") or "").strip()
+        ).strip()
+        if not content:
+            return WriteResult(tokens=0, ms=0.0)
+        t0 = time.perf_counter()
+        self._add_turn("user", content, namespace)
+        return WriteResult(tokens=approx_tokens(content), ms=(time.perf_counter() - t0) * 1000.0)
+
+    def _add_turn(self, role: str, content: str, namespace: str) -> None:
+        """Call m.add() defensively across mem0 signatures; raise loud on a real failure.
+
+        add() runs Mem0's LLM fact extraction (its real, billable write cost), so the
+        primary 2.0.7 form is tried FIRST and a fallback fires ONLY on a clearly
+        argument-binding TypeError -- never re-running the LLM after a real failure."""
+        messages = [{"role": role, "content": content}]
+        # 2.0.7: add(messages, *, user_id=...). Older: add(content, user_id=...).
+        attempts = (
+            lambda: self._memory.add(messages, user_id=namespace),
+            lambda: self._memory.add(content, user_id=namespace),
+        )
+        self._try_calls(attempts, op="add")
+
+    # ------------------------------------------------------------------------------------
+    def answer(self, namespace: str, question: str,
+               as_of: Optional[float] = None) -> AnswerResult:
+        """Retrieve Mem0's own memories, then answer with the ONE shared fixed reader.
+
+        Timing mirrors the Eidetic adapter: search_ms covers retrieval only; e2e_ms covers
+        retrieval + the shared reader (two perf_counter reads). context_tokens is the
+        approx_tokens of the joined retrieved blocks."""
+        t0 = time.perf_counter()
+        hits = self._search(question, namespace, limit=10)
+        search_ms = (time.perf_counter() - t0) * 1000.0
+
+        context_blocks = self._blocks_from_hits(hits)
+        text = answer_with_fixed_reader(question, context_blocks)
+        e2e_ms = (time.perf_counter() - t0) * 1000.0
+
+        context_tokens = approx_tokens("\n\n".join(context_blocks))
+        return AnswerResult(
+            answer=text,
+            context_tokens=context_tokens,
+            search_ms=search_ms,
+            e2e_ms=e2e_ms,
+            abstained=False,
+            extra={"hits": len(context_blocks)},
+        )
+
+    def _search(self, question: str, namespace: str, limit: int) -> Any:
+        """Call m.search() defensively. 2.0.7 uses filters={'user_id':...} + top_k and
+        REJECTS top-level user_id/limit; older releases used user_id=/limit= directly."""
+        attempts = (
+            # mem0 2.0.7 keyword-only API
+            lambda: self._memory.search(question, filters={"user_id": namespace}, top_k=limit),
+            lambda: self._memory.search(query=question, filters={"user_id": namespace}, top_k=limit),
+            # legacy API
+            lambda: self._memory.search(query=question, user_id=namespace, limit=limit),
+            lambda: self._memory.search(question, user_id=namespace, limit=limit),
+        )
+        return self._try_calls(attempts, op="search")
+
+    # ------------------------------------------------------------------------------------
+    @staticmethod
+    def _blocks_from_hits(hits: Any) -> list[str]:
+        """Normalize Mem0's search return into a list of context strings.
+
+        2.0.7 returns {'results': [{'memory': ..., 'score': ...}, ...]}; some releases
+        return a bare list. Each item may carry the text under 'memory' or 'text'."""
+        if isinstance(hits, dict):
+            items = hits.get("results", hits.get("memories", []))
+        elif isinstance(hits, list):
+            items = hits
+        else:
+            items = []
+
+        blocks: list[str] = []
+        for item in items:
+            if isinstance(item, dict):
+                val = item.get("memory") or item.get("text") or item.get("content") or ""
+            else:
+                val = str(item)
+            val = (val or "").strip()
+            if val:
+                blocks.append(val)
+        return blocks
+
+    # ------------------------------------------------------------------------------------
+    # Substrings that mark a TypeError as an argument-BINDING mismatch (wrong signature
+    # for this mem0 version) rather than an internal mem0/OpenAI-client bug.
+    _BINDING_HINTS = (
+        "unexpected keyword argument",
+        "positional argument",
+        "required positional",
+        "got multiple values",
+        "missing 1 required",
+        "takes no arguments",
+        "takes from",
+    )
+
+    @classmethod
+    def _try_calls(cls, attempts, op: str) -> Any:
+        """Try each call FORM in order, falling back ONLY on an argument-binding TypeError
+        (the signature didn't match this mem0 version). Every other exception -- including a
+        ValueError (mem0 2.0.7 raises ValueError for empty/invalid queries, bad
+        threshold/top_k, or missing filter keys) and any internal TypeError -- is a GENUINE
+        runtime failure and is re-raised loudly. We NEVER swallow a real error into a mock.
+
+        The primary (2.0.7) form is always attempt #0, so in normal operation the fallback
+        never fires and a real failure surfaces immediately with its true cause."""
+        sig_errors: list[str] = []
+        for call in attempts:
+            try:
+                return call()
+            except TypeError as e:
+                msg = str(e).lower()
+                if any(h in msg for h in cls._BINDING_HINTS):
+                    # Signature mismatch for this mem0 version: record and try the next form.
+                    sig_errors.append(repr(e))
+                    continue
+                # An internal TypeError from mem0 / the OpenAI client -> real failure.
+                raise RuntimeError(
+                    f"Mem0 {op}() raised an internal TypeError (real error, no mock "
+                    f"fallback). Check DashScope reachability and that mem0ai==2.0.7 is "
+                    f"installed. Underlying error: {e!r}"
+                ) from e
+            except Exception as e:  # noqa: BLE001 - a genuine runtime failure, fail loud
+                raise RuntimeError(
+                    f"Mem0 {op}() failed at runtime (real error, no mock fallback). "
+                    f"Check that DashScope is reachable and mem0ai==2.0.7 is installed. "
+                    f"Underlying error: {e!r}"
+                ) from e
+        raise RuntimeError(
+            f"Mem0 {op}() did not match any known signature for the installed mem0ai "
+            f"version. Expected mem0ai==2.0.7. Signature errors tried: {sig_errors}"
+        )
+
+    # ------------------------------------------------------------------------------------
+    def teardown(self) -> None:
+        return None

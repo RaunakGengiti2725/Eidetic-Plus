@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+.pytest_cache/
+.ruff_cache/
+build/
+dist/
+
+# Virtual env
+.venv/
+venv/
+env/
+
+# Local data (immutable substrate, indexes, sqlite, generated plots)
+data/
+*.sqlite
+*.sqlite3
+*.db
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Generated artifacts
+artifacts/*.png
+artifacts/*.json
+!artifacts/.gitkeep
+
+# OS
+.DS_Store

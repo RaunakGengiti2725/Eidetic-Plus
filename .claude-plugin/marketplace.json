@@ -1,0 +1,15 @@
+{
+  "name": "eidetic-plus",
+  "owner": {
+    "name": "Eidetic-Plus contributors",
+    "email": "gengitir@gmail.com"
+  },
+  "plugins": [
+    {
+      "name": "eidetic-plus",
+      "source": "./",
+      "description": "Universal lossless, verifiable, recency-independent memory for AI agents (MCP server).",
+      "version": "1.1.0"
+    }
+  ]
+}

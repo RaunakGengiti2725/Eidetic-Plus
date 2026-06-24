@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Eidetic-Plus</title>
+<style>
+  :root{
+    --bg:#0b0e16; --panel:#121726; --panel2:#0f1421; --border:#1f2740;
+    --ink:#e7ecf6; --muted:#94a0bd; --faint:#5e6a8a;
+    --accent:#6366f1; --accent2:#818cf8; --accent-ink:#c7d0ff;
+    --green:#22c55e; --amber:#f59e0b; --red:#ef4444; --gray:#64748b;
+    --radius:14px; --shadow:0 10px 30px rgba(0,0,0,.35);
+    font-synthesis:none;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{
+    background:radial-gradient(1200px 600px at 80% -10%, #161d33 0%, var(--bg) 55%) fixed, var(--bg);
+    color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,"Apple Color Emoji","Segoe UI Emoji",sans-serif;
+    font-size:14px; line-height:1.5; -webkit-font-smoothing:antialiased;
+  }
+  a{color:var(--accent2);text-decoration:none}
+  a:hover{text-decoration:underline}
+  .wrap{max-width:1180px;margin:0 auto;padding:24px 22px 80px}
+  header{display:flex;flex-wrap:wrap;align-items:flex-end;gap:14px 22px;margin-bottom:18px}
+  .brand h1{margin:0;font-size:26px;letter-spacing:-.5px;font-weight:700}
+  .brand .dotmark{color:var(--accent2)}
+  .brand p{margin:4px 0 0;color:var(--muted);font-size:13.5px}
+  .stats{
+    margin-left:auto;display:flex;flex-wrap:wrap;align-items:center;gap:8px 6px;
+    background:var(--panel);border:1px solid var(--border);border-radius:999px;
+    padding:8px 14px;box-shadow:var(--shadow);font-size:12.5px;
+  }
+  .stat{display:inline-flex;align-items:baseline;gap:5px;white-space:nowrap}
+  .stat b{font-variant-numeric:tabular-nums;font-weight:650}
+  .stat .lbl{color:var(--faint)}
+  .sep{width:1px;height:14px;background:var(--border);margin:0 4px}
+  .keydot{display:inline-flex;align-items:center;gap:7px;padding:3px 10px 3px 9px;border-radius:999px;background:var(--panel2);border:1px solid var(--border)}
+  .dot{width:9px;height:9px;border-radius:50%;flex:none;box-shadow:0 0 0 3px rgba(255,255,255,.04)}
+  .dot.ok{background:var(--green);box-shadow:0 0 10px var(--green)}
+  .dot.warn{background:var(--amber);box-shadow:0 0 10px var(--amber)}
+
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  @media (max-width:880px){.grid{grid-template-columns:1fr}}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow)}
+  .panel.full{grid-column:1/-1}
+  .panel h2{margin:0 0 2px;font-size:15px;font-weight:650;letter-spacing:.2px;display:flex;align-items:center;gap:8px}
+  .panel .hint{color:var(--faint);font-size:12px;margin:0 0 14px}
+  .badge-icon{font-size:11px;color:var(--accent-ink);background:rgba(99,102,241,.16);border:1px solid rgba(99,102,241,.4);padding:2px 8px;border-radius:999px;font-weight:600}
+
+  label.field{display:block;margin-bottom:11px}
+  label.field>span{display:block;font-size:12px;color:var(--muted);margin-bottom:5px}
+  label.field>span em{color:var(--faint);font-style:normal}
+  textarea,input[type=text],input[type=date],input[type=search]{
+    width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:10px;
+    color:var(--ink);padding:10px 12px;font:inherit;outline:none;transition:border-color .15s,box-shadow .15s;
+  }
+  textarea{resize:vertical;min-height:96px}
+  textarea:focus,input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(99,102,241,.22)}
+  input[type=file]{width:100%;color:var(--muted);font-size:12.5px}
+  input[type=file]::file-selector-button{background:var(--panel2);color:var(--ink);border:1px solid var(--border);border-radius:8px;padding:7px 12px;margin-right:10px;cursor:pointer;font:inherit}
+  input[type=file]::file-selector-button:hover{border-color:var(--accent)}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .row>.grow{flex:1;min-width:120px}
+  .check{display:inline-flex;align-items:center;gap:7px;color:var(--muted);font-size:12.5px;cursor:pointer;user-select:none}
+  .check input{accent-color:var(--accent);width:15px;height:15px}
+  .divider{height:1px;background:var(--border);margin:16px 0}
+
+  button{
+    background:var(--accent);color:#fff;border:1px solid transparent;border-radius:10px;
+    padding:10px 16px;font:inherit;font-weight:600;cursor:pointer;transition:filter .15s,transform .05s,background .15s;
+  }
+  button:hover{filter:brightness(1.08)}
+  button:active{transform:translateY(1px)}
+  button:disabled{opacity:.55;cursor:not-allowed;filter:none}
+  button.ghost{background:transparent;border-color:var(--border);color:var(--ink)}
+  button.ghost:hover{border-color:var(--accent);background:rgba(99,102,241,.08)}
+  button.tiny{padding:5px 10px;font-size:12px;border-radius:8px}
+
+  .inline-msg{margin-top:12px;border-radius:10px;padding:10px 12px;font-size:12.5px;display:none;border:1px solid transparent}
+  .inline-msg.show{display:block}
+  .inline-msg.ok{background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.4);color:#bbf7d0}
+  .inline-msg.err{background:rgba(239,68,68,.12);border-color:rgba(239,68,68,.45);color:#fecaca}
+  .inline-msg.info{background:rgba(99,102,241,.12);border-color:rgba(99,102,241,.4);color:var(--accent-ink)}
+  .inline-msg code{background:rgba(0,0,0,.3);padding:1px 5px;border-radius:5px;font-size:11.5px}
+
+  /* ASK / answer */
+  #askMsg{margin-bottom:14px}
+  .answer-wrap{display:none;margin-top:16px}
+  .answer-wrap.show{display:block}
+  .verbar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:14px}
+  .vbadge{font-size:15px;font-weight:750;letter-spacing:.4px;padding:9px 16px;border-radius:12px;display:inline-flex;align-items:center;gap:8px}
+  .vbadge.v{background:rgba(34,197,94,.16);border:1px solid rgba(34,197,94,.55);color:#86efac;box-shadow:0 0 24px rgba(34,197,94,.18)}
+  .vbadge.u{background:rgba(239,68,68,.16);border:1px solid rgba(239,68,68,.55);color:#fca5a5;box-shadow:0 0 24px rgba(239,68,68,.18)}
+  .conf{flex:1;min-width:180px}
+  .conf .ctop{display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted);margin-bottom:5px}
+  .meter{height:9px;border-radius:999px;background:var(--panel2);border:1px solid var(--border);overflow:hidden}
+  .meter>i{display:block;height:100%;border-radius:999px;transition:width .5s ease}
+  .meter>i.v{background:linear-gradient(90deg,#16a34a,#22c55e)}
+  .meter>i.u{background:linear-gradient(90deg,#dc2626,#ef4444)}
+  .answer-text{background:var(--panel2);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:12px;padding:16px 18px;font-size:16px;line-height:1.6;white-space:pre-wrap}
+  .ameta{color:var(--faint);font-size:11.5px;margin:8px 2px 0;display:flex;gap:14px;flex-wrap:wrap}
+  .note{margin-top:10px;font-size:12.5px;color:#fcd34d;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.35);border-radius:10px;padding:8px 11px}
+
+  .prov-title{margin:20px 0 10px;font-size:12.5px;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;gap:8px}
+  .prov-title::after{content:"";flex:1;height:1px;background:var(--border)}
+  .cite{background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:13px 15px;margin-bottom:11px}
+  .cite-head{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:8px}
+  .cite-src{font-weight:650;font-size:13px}
+  .cite-date{color:var(--faint);font-size:11.5px;margin-left:auto}
+  .nli{font-size:11px;font-weight:700;letter-spacing:.3px;padding:3px 9px;border-radius:999px;text-transform:uppercase}
+  .nli.entailment{background:rgba(34,197,94,.15);color:#86efac;border:1px solid rgba(34,197,94,.5)}
+  .nli.neutral{background:rgba(100,116,139,.18);color:#cbd5e1;border:1px solid rgba(100,116,139,.5)}
+  .nli.contradiction{background:rgba(239,68,68,.15);color:#fca5a5;border:1px solid rgba(239,68,68,.5)}
+  .cite-snip{color:var(--ink);font-size:13px;line-height:1.55;background:rgba(0,0,0,.18);border-radius:8px;padding:9px 11px}
+  .cite-foot{margin-top:8px;font-size:12px}
+  .cite-foot a{display:inline-flex;align-items:center;gap:5px}
+
+  /* MEMORIES */
+  .mem-toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+  .mem-toolbar .grow{flex:1}
+  .mlist{display:flex;flex-direction:column;gap:10px;max-height:620px;overflow:auto;padding-right:4px}
+  .mem{background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:12px 14px}
+  .mem-top{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:7px}
+  .modality{font-size:10.5px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--accent-ink);background:rgba(99,102,241,.14);border:1px solid rgba(99,102,241,.4);padding:2px 8px;border-radius:6px}
+  .mem-src{font-weight:600;font-size:12.5px;color:var(--ink)}
+  .mem-date{color:var(--faint);font-size:11px}
+  .mem-top .push{margin-left:auto}
+  .mem-snip{font-size:12.5px;color:var(--ink);margin:2px 0 9px;line-height:1.5}
+  .bars{display:flex;gap:16px;flex-wrap:wrap;align-items:center}
+  .barwrap{display:flex;align-items:center;gap:7px;font-size:10.5px;color:var(--faint)}
+  .minibar{width:78px;height:6px;border-radius:999px;background:rgba(255,255,255,.06);overflow:hidden;border:1px solid var(--border)}
+  .minibar>i{display:block;height:100%;border-radius:999px}
+  .minibar>i.sal{background:linear-gradient(90deg,#6366f1,#a5b4fc)}
+  .minibar>i.pri{background:linear-gradient(90deg,#0ea5e9,#38bdf8)}
+  .chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}
+  .chip{font-size:10.5px;background:var(--panel);border:1px solid var(--border);color:var(--muted);border-radius:999px;padding:2px 9px}
+  .empty{color:var(--faint);font-size:13px;text-align:center;padding:26px 0}
+  .spinner{display:inline-block;width:13px;height:13px;border:2px solid rgba(255,255,255,.25);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;vertical-align:-2px}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  footer{margin-top:28px;color:var(--faint);font-size:11.5px;text-align:center;line-height:1.7}
+  .mlist::-webkit-scrollbar{width:9px}
+  .mlist::-webkit-scrollbar-thumb{background:var(--border);border-radius:999px}
+
+  /* SCOPE BAR */
+  .scope-row{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end}
+  .scope-field{display:block;margin:0}
+  .scope-field>span{display:block;font-size:11px;color:var(--muted);margin-bottom:4px}
+  .scope-field>span em{color:var(--faint);font-style:normal}
+  .scope-field input{width:170px}
+  .scope-row .mapbtn{margin-left:auto;align-self:center;background:linear-gradient(90deg,var(--accent),var(--accent2));color:#fff;border-radius:10px;padding:9px 16px;font-weight:650;font-size:13px;box-shadow:0 0 22px rgba(99,102,241,.28);white-space:nowrap}
+  .scope-row .mapbtn:hover{filter:brightness(1.08);text-decoration:none}
+  .scope-note{margin:12px 0 0}
+  .scope-note code{background:rgba(0,0,0,.3);padding:1px 5px;border-radius:5px;font-size:11.5px}
+
+  /* PROVE age-independence */
+  .prove-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:8px}
+  .prove-out{display:none;margin-top:14px}
+  .prove-out.show{display:block}
+  .prove-badge{font-size:14px;font-weight:750;letter-spacing:.4px;padding:8px 15px;border-radius:12px;display:inline-flex;align-items:center;gap:8px}
+  .prove-badge.flat{background:rgba(34,197,94,.16);border:1px solid rgba(34,197,94,.55);color:#86efac;box-shadow:0 0 24px rgba(34,197,94,.18)}
+  .prove-badge.sloped{background:rgba(245,158,11,.14);border:1px solid rgba(245,158,11,.5);color:#fcd34d}
+  .prove-metrics{display:flex;gap:14px 22px;flex-wrap:wrap;margin-top:14px}
+  .prove-metric{background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:10px 14px;min-width:130px}
+  .prove-metric .pm-lbl{font-size:11px;color:var(--faint);margin-bottom:3px}
+  .prove-metric .pm-val{font-size:18px;font-weight:700;font-variant-numeric:tabular-nums}
+  .prove-metric .pm-sub{font-size:11px;color:var(--muted);margin-top:2px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <h1>Eidetic<span class="dotmark">-Plus</span></h1>
+      <p>Lossless, verifiable, recency-independent memory for AI agents.</p>
+    </div>
+    <div class="stats" id="stats">
+      <span class="stat"><b id="s-mem">--</b><span class="lbl">memories</span></span>
+      <span class="sep"></span>
+      <span class="stat"><b id="s-vec">--</b><span class="lbl">vectors</span></span>
+      <span class="sep"></span>
+      <span class="stat"><b id="s-edge">--</b><span class="lbl">edges</span></span>
+      <span class="sep"></span>
+      <span class="stat"><span class="lbl">region</span><b id="s-region">--</b></span>
+      <span class="sep"></span>
+      <span class="stat"><span class="lbl">backend</span><b id="s-backend">--</b></span>
+      <span class="keydot" id="s-key"><span class="dot warn" id="s-dot"></span><span id="s-keytxt">checking…</span></span>
+    </div>
+  </header>
+
+  <!-- SCOPE BAR -->
+  <section class="panel full scopebar" style="margin-bottom:18px;padding:14px 18px">
+    <div class="scope-row">
+      <h2 style="margin:0;font-size:15px">Scope</h2>
+      <label class="scope-field"><span>namespace</span>
+        <input type="text" id="sc-namespace" value="default" placeholder="default" />
+      </label>
+      <label class="scope-field"><span>agent_id <em>(optional)</em></span>
+        <input type="text" id="sc-agent" placeholder="any agent" />
+      </label>
+      <label class="scope-field"><span>project_id <em>(optional)</em></span>
+        <input type="text" id="sc-project" placeholder="any project" />
+      </label>
+      <button class="ghost tiny" id="btn-apply-scope" title="Re-read stats and memories under this scope">Apply scope</button>
+      <a class="mapbtn" href="/map" target="_blank" rel="noopener" title="Open the 3D projection of the high-dimensional memory embeddings">Open 3D Memory Map ↗</a>
+    </div>
+    <p class="hint scope-note">Reads never cross namespaces — a memory written in one namespace is invisible from another. <code>agent_id</code> and <code>project_id</code> further narrow within a namespace.</p>
+  </section>
+
+  <div class="grid">
+    <!-- ADD MEMORY -->
+    <section class="panel">
+      <h2>Add memory <span class="badge-icon">lossless capture</span></h2>
+      <p class="hint">Every record is content-addressed (sha256) and written write-once. Nothing is ever deleted.</p>
+
+      <label class="field"><span>Text</span>
+        <textarea id="m-text" placeholder="Paste a fact, note, document, or observation to remember…"></textarea>
+      </label>
+      <div class="row">
+        <label class="field grow"><span>Source</span>
+          <input type="text" id="m-source" value="user" placeholder="e.g. meeting-notes, paper.pdf" />
+        </label>
+        <label class="field"><span>valid/event date <em>(optional)</em></span>
+          <input type="date" id="m-date" />
+        </label>
+      </div>
+      <div class="row" style="margin-bottom:4px">
+        <label class="check"><input type="checkbox" id="m-extract" checked /> extract graph</label>
+        <div class="grow"></div>
+        <button id="btn-add-text">Add memory</button>
+      </div>
+
+      <div class="divider"></div>
+
+      <label class="field"><span>Or add a file <em>(image · audio · pdf · text)</em></span>
+        <input type="file" id="m-file" />
+      </label>
+      <div class="row">
+        <label class="check"><input type="checkbox" id="f-extract" checked /> extract graph</label>
+        <div class="grow"></div>
+        <button class="ghost" id="btn-add-file">Add file</button>
+      </div>
+
+      <div class="inline-msg" id="addMsg"></div>
+    </section>
+
+    <!-- ASK -->
+    <section class="panel">
+      <h2>Ask <span class="badge-icon">verified reconstruction</span></h2>
+      <p class="hint">Answers are reconstructed from retrieved sources and checked by NLI entailment against the immutable raw record — it cites, or it abstains.</p>
+
+      <label class="field"><span>Question</span>
+        <input type="text" id="q-text" placeholder="Ask anything your agent has stored…" />
+      </label>
+      <div class="row">
+        <label class="check"><input type="checkbox" id="q-verify" checked /> verify (NLI)</label>
+        <div class="grow"></div>
+        <button id="btn-ask">Ask</button>
+      </div>
+
+      <div class="inline-msg" id="askMsg"></div>
+
+      <div class="answer-wrap" id="answer">
+        <div class="verbar">
+          <span class="vbadge" id="vbadge"></span>
+          <div class="conf">
+            <div class="ctop"><span>confidence</span><span id="conf-pct">0%</span></div>
+            <div class="meter"><i id="conf-bar" style="width:0%"></i></div>
+          </div>
+        </div>
+        <div class="answer-text" id="answer-text"></div>
+        <div class="ameta" id="answer-meta"></div>
+        <div class="note" id="answer-note" style="display:none"></div>
+
+        <div class="prov-title">Provenance &amp; citations</div>
+        <div id="citations"></div>
+      </div>
+    </section>
+  </div>
+
+  <!-- MEMORIES -->
+  <section class="panel full" style="margin-top:18px">
+    <div class="mem-toolbar">
+      <h2 style="margin:0">Memories</h2>
+      <div class="grow"></div>
+      <button class="ghost tiny" id="btn-refresh">Refresh</button>
+      <button class="ghost tiny" id="btn-prove" title="Measure recall@k and p95 latency vs memory age on the current store">Prove age-independence</button>
+      <button class="tiny" id="btn-consolidate" title="Offline replay + FSRS forgetting; down-weights retrievability, never deletes raw">Consolidate (sleep)</button>
+    </div>
+    <p class="hint" style="margin-top:-6px">Salience and FSRS retrievability are shown as bars. Forgetting only down-weights the index — the raw record is permanent and recall stays age-independent.</p>
+    <div class="inline-msg" id="memMsg"></div>
+
+    <div class="prove-out" id="proveOut">
+      <div class="prove-row">
+        <span class="prove-badge" id="prove-badge"></span>
+        <span class="hint" style="margin:0">recall@k and p95 latency, binned by memory age, on the current store at fixed N.</span>
+      </div>
+      <div class="prove-metrics" id="prove-metrics"></div>
+    </div>
+
+    <div class="mlist" id="mlist"><div class="empty">Loading…</div></div>
+  </section>
+
+  <footer>
+    Photographic memory is a human myth. Eidetic-Plus builds what the brain only approximates:
+    lossless capture decoupled from forgetting, recall independent of age, and verified reconstruction with full provenance.
+  </footer>
+</div>
+
+<script>
+"use strict";
+
+/* ---------- tiny helpers ---------- */
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s == null ? "" : s)
+  .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+  .replace(/"/g,"&quot;").replace(/'/g,"&#39;");
+
+function fmtDate(sec){
+  if(sec == null || isNaN(sec) || sec <= 0) return "—";
+  const d = new Date(sec * 1000);
+  if(isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString(undefined,{year:"numeric",month:"short",day:"numeric"});
+}
+function pct(x){ return Math.round(Math.max(0, Math.min(1, Number(x)||0)) * 100); }
+
+/* one place for all fetch + error handling. fetch does NOT throw on 4xx/5xx. */
+async function api(path, opts){
+  let res;
+  try{
+    res = await fetch(path, opts);
+  }catch(e){
+    throw new Error("Network error: cannot reach the server (" + (e.message||e) + ")");
+  }
+  const ctype = res.headers.get("content-type") || "";
+  let body = null;
+  if(ctype.includes("application/json")){
+    body = await res.json().catch(() => null);
+  }
+  if(!res.ok){
+    const detail = (body && (body.detail || body.message)) || res.statusText || ("HTTP " + res.status);
+    const err = new Error(typeof detail === "string" ? detail : JSON.stringify(detail));
+    err.status = res.status;
+    throw err;
+  }
+  return body;
+}
+async function apiJSON(path, obj){
+  return api(path, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(obj)});
+}
+
+/* ---------- scope (reads never cross namespaces) ---------- */
+/* namespace always present (defaults to "default"); agent_id/project_id omitted when empty. */
+function getScope(){
+  const namespace = ($("sc-namespace").value || "").trim() || "default";
+  const agent_id = ($("sc-agent").value || "").trim();
+  const project_id = ($("sc-project").value || "").trim();
+  return {namespace, agent_id, project_id};
+}
+/* query-string fragment, e.g. "namespace=default&agent_id=a" (no leading ?) */
+function scopeQS(){
+  const s = getScope();
+  const parts = ["namespace=" + encodeURIComponent(s.namespace)];
+  if(s.agent_id) parts.push("agent_id=" + encodeURIComponent(s.agent_id));
+  if(s.project_id) parts.push("project_id=" + encodeURIComponent(s.project_id));
+  return parts.join("&");
+}
+/* merge scope into a JSON body object (omit empty agent_id/project_id) */
+function scopeBody(obj){
+  const s = getScope();
+  obj.namespace = s.namespace;
+  if(s.agent_id) obj.agent_id = s.agent_id;
+  if(s.project_id) obj.project_id = s.project_id;
+  return obj;
+}
+/* append scope to a FormData (omit empty agent_id/project_id) */
+function scopeForm(fd){
+  const s = getScope();
+  fd.append("namespace", s.namespace);
+  if(s.agent_id) fd.append("agent_id", s.agent_id);
+  if(s.project_id) fd.append("project_id", s.project_id);
+  return fd;
+}
+
+function showMsg(el, kind, html){
+  el.className = "inline-msg show " + kind;
+  el.innerHTML = html;
+}
+function hideMsg(el){ el.className = "inline-msg"; el.innerHTML = ""; }
+
+function busy(btn, on, label){
+  if(on){ btn.dataset.label = btn.textContent; btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> ' + (label||"Working…"); }
+  else { btn.disabled = false; btn.textContent = btn.dataset.label || btn.textContent; }
+}
+
+function briefHtml(rec){
+  return "Stored <code>" + esc((rec.memory_id||"").slice(0,12)) + "</code> · " +
+    esc(rec.modality) + " · salience <b>" + pct(rec.salience) + "%</b> · retrievability <b>" + pct(rec.retrievability) + "%</b>";
+}
+
+/* ---------- stats ---------- */
+async function loadStats(){
+  try{
+    const s = await api("/api/stats?" + scopeQS());
+    $("s-mem").textContent = s.memories;
+    $("s-vec").textContent = s.vectors;
+    $("s-edge").textContent = s.edges;
+    $("s-region").textContent = s.region;
+    $("s-backend").textContent = s.vector_backend;
+    const dot = $("s-dot"), txt = $("s-keytxt");
+    if(s.has_api_key){ dot.className = "dot ok"; txt.textContent = "API key set"; $("s-key").title = "DASHSCOPE_API_KEY present — model calls enabled"; }
+    else { dot.className = "dot warn"; txt.textContent = "no API key → model calls will 503"; $("s-key").title = "No DASHSCOPE_API_KEY — ingest/ask/consolidate will return 503"; }
+  }catch(e){
+    $("s-keytxt").textContent = "stats unavailable";
+    $("s-dot").className = "dot warn";
+  }
+}
+
+/* ---------- add text ---------- */
+$("btn-add-text").addEventListener("click", async () => {
+  const text = $("m-text").value.trim();
+  if(!text){ showMsg($("addMsg"), "err", "Enter some text to remember."); return; }
+  const payload = scopeBody({
+    text,
+    source: $("m-source").value.trim() || "user",
+    extract_graph: $("m-extract").checked,
+  });
+  const dv = $("m-date").value;
+  if(dv){ const ms = Date.parse(dv); if(!isNaN(ms)) payload.valid_at = ms / 1000; }
+  busy($("btn-add-text"), true, "Storing…");
+  hideMsg($("addMsg"));
+  try{
+    const rec = await apiJSON("/api/memories/text", payload);
+    showMsg($("addMsg"), "ok", briefHtml(rec));
+    $("m-text").value = "";
+    await loadStats();
+    await loadMemories();
+  }catch(e){
+    showMsg($("addMsg"), "err", "<b>Could not store.</b> " + esc(e.message));
+  }finally{
+    busy($("btn-add-text"), false);
+  }
+});
+
+/* ---------- add file ---------- */
+$("btn-add-file").addEventListener("click", async () => {
+  const f = $("m-file").files[0];
+  if(!f){ showMsg($("addMsg"), "err", "Choose a file first."); return; }
+  const fd = new FormData();
+  fd.append("file", f);
+  fd.append("source", f.name);
+  fd.append("extract_graph", $("f-extract").checked ? "true" : "false");
+  scopeForm(fd);
+  busy($("btn-add-file"), true, "Ingesting…");
+  hideMsg($("addMsg"));
+  try{
+    // NOTE: do not set Content-Type — the browser sets the multipart boundary.
+    const rec = await api("/api/memories/file", {method:"POST", body:fd});
+    showMsg($("addMsg"), "ok", briefHtml(rec));
+    $("m-file").value = "";
+    await loadStats();
+    await loadMemories();
+  }catch(e){
+    showMsg($("addMsg"), "err", "<b>Could not ingest file.</b> " + esc(e.message));
+  }finally{
+    busy($("btn-add-file"), false);
+  }
+});
+
+/* ---------- ask ---------- */
+$("q-text").addEventListener("keydown", (e) => { if(e.key === "Enter") $("btn-ask").click(); });
+
+$("btn-ask").addEventListener("click", async () => {
+  const query = $("q-text").value.trim();
+  if(!query){ showMsg($("askMsg"), "err", "Type a question."); return; }
+  busy($("btn-ask"), true, "Reconstructing…");
+  hideMsg($("askMsg"));
+  $("answer").className = "answer-wrap";
+  try{
+    const a = await apiJSON("/api/ask", scopeBody({query, verify:$("q-verify").checked}));
+    renderAnswer(a);
+  }catch(e){
+    showMsg($("askMsg"), "err", "<b>Ask failed.</b> " + esc(e.message));
+  }finally{
+    busy($("btn-ask"), false);
+  }
+});
+
+function renderAnswer(a){
+  const verified = a.verified === true;
+  const vb = $("vbadge");
+  vb.className = "vbadge " + (verified ? "v" : "u");
+  vb.textContent = verified ? "VERIFIED ✓" : "UNVERIFIED ✗";
+
+  const p = pct(a.confidence);
+  $("conf-pct").textContent = p + "%";
+  const bar = $("conf-bar");
+  bar.className = verified ? "v" : "u";
+  bar.style.width = p + "%";
+
+  $("answer-text").textContent = a.answer || "(no answer)";
+
+  const meta = [];
+  if(a.generated_by) meta.push("generated by " + a.generated_by);
+  if(typeof a.retrieved_count === "number") meta.push(a.retrieved_count + " candidate" + (a.retrieved_count===1?"":"s") + " retrieved");
+  meta.push((a.citations ? a.citations.length : 0) + " citation" + ((a.citations&&a.citations.length===1)?"":"s"));
+  $("answer-meta").textContent = meta.join("  ·  ");
+
+  const noteEl = $("answer-note");
+  if(a.note){ noteEl.style.display = "block"; noteEl.textContent = "Note: " + a.note; }
+  else noteEl.style.display = "none";
+
+  const wrap = $("citations");
+  wrap.innerHTML = "";
+  const cites = a.citations || [];
+  if(cites.length === 0){
+    wrap.innerHTML = '<div class="empty">No supporting sources were cited.</div>';
+  } else {
+    for(const c of cites){
+      const label = (c.nli_label || "neutral").toLowerCase();
+      const card = document.createElement("div");
+      card.className = "cite";
+      // Resolve the immutable bytes over HTTP. c.raw_uri is a cas:///oss:// locator
+      // (not browser-resolvable); the server exposes the bytes at /api/raw/{hash}.
+      const rawUri = "/api/raw/" + encodeURIComponent(c.content_hash || "");
+      card.innerHTML =
+        '<div class="cite-head">' +
+          '<span class="cite-src">' + esc(c.source || "unknown source") + '</span>' +
+          '<span class="nli ' + esc(label) + '">' + esc(label) + ' · ' + pct(c.nli_score) + '%</span>' +
+          '<span class="cite-date">valid ' + esc(fmtDate(c.valid_at)) + '</span>' +
+        '</div>' +
+        '<div class="cite-snip">' + esc(c.snippet || "(no snippet)") + '</div>' +
+        '<div class="cite-foot">' +
+          '<a href="' + esc(rawUri) + '" target="_blank" rel="noopener">↗ view immutable source</a>' +
+          '<span style="color:var(--faint);margin-left:10px">hash <code style="font-size:10.5px">' + esc((c.content_hash||"").slice(0,16)) + '…</code></span>' +
+        '</div>';
+      wrap.appendChild(card);
+    }
+  }
+  $("answer").className = "answer-wrap show";
+}
+
+/* ---------- memories ---------- */
+async function loadMemories(){
+  const list = $("mlist");
+  try{
+    const recs = await api("/api/memories?" + scopeQS());
+    if(!recs || recs.length === 0){ list.innerHTML = '<div class="empty">No memories yet — add one above.</div>'; return; }
+    list.innerHTML = "";
+    for(const r of recs){
+      const el = document.createElement("div");
+      el.className = "mem";
+      const ents = (r.entities || []).slice(0, 12);
+      const chips = ents.map(e => '<span class="chip">' + esc(e) + '</span>').join("");
+      const invalid = r.invalid_at ? ' · <span style="color:var(--red)">invalidated ' + esc(fmtDate(r.invalid_at)) + '</span>' : "";
+      el.innerHTML =
+        '<div class="mem-top">' +
+          '<span class="modality">' + esc(r.modality) + '</span>' +
+          '<span class="mem-src">' + esc(r.source || "—") + '</span>' +
+          '<span class="mem-date">valid ' + esc(fmtDate(r.valid_at)) + invalid + '</span>' +
+          '<span class="push"></span>' +
+          '<button class="ghost tiny" data-reawaken="' + esc(r.memory_id) + '">reawaken</button>' +
+        '</div>' +
+        '<div class="mem-snip">' + esc(r.snippet || "") + '</div>' +
+        '<div class="bars">' +
+          '<span class="barwrap">salience <span class="minibar"><i class="sal" style="width:' + pct(r.salience) + '%"></i></span> ' + pct(r.salience) + '%</span>' +
+          '<span class="barwrap">retrievability <span class="minibar"><i class="pri" style="width:' + pct(r.retrievability) + '%"></i></span> ' + pct(r.retrievability) + '%</span>' +
+        '</div>' +
+        (chips ? '<div class="chips">' + chips + '</div>' : "");
+      list.appendChild(el);
+    }
+  }catch(e){
+    list.innerHTML = '<div class="empty" style="color:var(--red)">Could not load memories: ' + esc(e.message) + '</div>';
+  }
+}
+
+/* reawaken (event-delegated) */
+$("mlist").addEventListener("click", async (ev) => {
+  const btn = ev.target.closest("[data-reawaken]");
+  if(!btn) return;
+  const id = btn.getAttribute("data-reawaken");
+  busy(btn, true, "…");
+  hideMsg($("memMsg"));
+  try{
+    const rec = await apiJSON("/api/reawaken/" + encodeURIComponent(id), {});
+    showMsg($("memMsg"), "ok", "Reawakened <code>" + esc(id.slice(0,12)) + "</code> — retrievability now <b>" + pct(rec.retrievability) + "%</b>.");
+    await loadStats();
+    await loadMemories();
+  }catch(e){
+    busy(btn, false);
+    showMsg($("memMsg"), "err", "<b>Reawaken failed.</b> " + esc(e.message));
+  }
+});
+
+/* consolidate */
+$("btn-consolidate").addEventListener("click", async () => {
+  busy($("btn-consolidate"), true, "Sleeping…");
+  hideMsg($("memMsg"));
+  try{
+    const r = await api("/api/consolidate?" + scopeQS(), {method:"POST"});
+    showMsg($("memMsg"), "info",
+      "<b>Consolidation complete.</b> Replayed <b>" + (r.records ?? "?") + "</b> records · " +
+      "<b>" + (r.clusters ?? "?") + "</b> clusters · " +
+      "<b>" + (r.summaries_written ?? "?") + "</b> summaries written. FSRS priorities decayed; raw records untouched.");
+    await loadStats();
+    await loadMemories();
+  }catch(e){
+    showMsg($("memMsg"), "err", "<b>Consolidate failed.</b> " + esc(e.message));
+  }finally{
+    busy($("btn-consolidate"), false);
+  }
+});
+
+$("btn-refresh").addEventListener("click", loadMemories);
+
+/* ---------- apply scope (re-read under the current namespace) ---------- */
+$("btn-apply-scope").addEventListener("click", async () => {
+  busy($("btn-apply-scope"), true, "…");
+  $("proveOut").className = "prove-out";          // stale proof is for the old scope
+  try{
+    await loadStats();
+    await loadMemories();
+  }finally{
+    busy($("btn-apply-scope"), false);
+  }
+});
+$("sc-namespace").addEventListener("keydown", (e) => { if(e.key === "Enter") $("btn-apply-scope").click(); });
+$("sc-agent").addEventListener("keydown", (e) => { if(e.key === "Enter") $("btn-apply-scope").click(); });
+$("sc-project").addEventListener("keydown", (e) => { if(e.key === "Enter") $("btn-apply-scope").click(); });
+
+/* ---------- prove age-independence ---------- */
+$("btn-prove").addEventListener("click", async () => {
+  busy($("btn-prove"), true, "Measuring…");
+  hideMsg($("memMsg"));
+  try{
+    const r = await api("/api/prove_age_independence?" + scopeQS() + "&k=5");
+    renderProof(r);
+  }catch(e){
+    $("proveOut").className = "prove-out";
+    showMsg($("memMsg"), "err", "<b>Could not run proof.</b> " + esc(e.message));
+  }finally{
+    busy($("btn-prove"), false);
+  }
+});
+
+function renderProof(r){
+  const out = $("proveOut");
+  const badge = $("prove-badge");
+  const metrics = $("prove-metrics");
+
+  // ok=false → needs >=5 memories; show the note, hide metrics/badge.
+  if(r && r.ok === false){
+    badge.className = "prove-badge sloped";
+    badge.textContent = "NOT ENOUGH DATA";
+    metrics.innerHTML = '<div class="empty" style="text-align:left">' +
+      esc(r.note || "Need at least " + (r.k ?? 5) + " memories to measure age-independence.") + '</div>';
+    out.className = "prove-out show";
+    return;
+  }
+
+  const recallSlope = Number(r.recall_slope_per_year) || 0;
+  const latSlope = Number(r.latency_slope_ms_per_year) || 0;
+  const eps = 1e-6;
+  const isFlat = (r.flat === true) || (Math.abs(recallSlope) < eps && Math.abs(latSlope) < eps);
+
+  badge.className = "prove-badge " + (isFlat ? "flat" : "sloped");
+  badge.textContent = isFlat ? "FLAT — age-independent ✓" : "SLOPED — age effect detected";
+
+  const recallPct = (Number(r.overall_recall) * 100).toFixed(1);
+  const p95 = Math.round(Number(r.overall_p95_ms) || 0);
+  metrics.innerHTML =
+    '<div class="prove-metric"><div class="pm-lbl">recall@' + esc(r.k ?? 5) + '</div>' +
+      '<div class="pm-val">' + recallPct + '%</div>' +
+      '<div class="pm-sub">over ' + esc(r.n ?? "?") + ' memories</div></div>' +
+    '<div class="prove-metric"><div class="pm-lbl">p95 latency</div>' +
+      '<div class="pm-val">' + p95 + ' ms</div>' +
+      '<div class="pm-sub">at fixed store size</div></div>' +
+    '<div class="prove-metric"><div class="pm-lbl">recall slope</div>' +
+      '<div class="pm-val">' + recallSlope.toFixed(4) + '</div>' +
+      '<div class="pm-sub">per year of age</div></div>' +
+    '<div class="prove-metric"><div class="pm-lbl">latency slope</div>' +
+      '<div class="pm-val">' + latSlope.toFixed(4) + '</div>' +
+      '<div class="pm-sub">ms per year of age</div></div>';
+  out.className = "prove-out show";
+}
+
+/* ---------- boot ---------- */
+loadStats();
+loadMemories();
+</script>
+</body>
+</html>

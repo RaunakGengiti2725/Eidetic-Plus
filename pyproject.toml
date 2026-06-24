@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "eidetic-plus"
+version = "1.0.0"
+description = "A lossless, verifiable, recency-independent memory engine for AI agents."
+requires-python = ">=3.11"
+license = { text = "MIT" }
+
+dependencies = [
+    "fastapi",
+    "uvicorn[standard]",
+    "pydantic>=2",
+    "python-multipart",
+    "python-dotenv",
+    "numpy",
+    "scipy",
+    "networkx",
+    "hnswlib",
+    "dashscope",
+    "mcp",
+    "matplotlib",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-asyncio",
+]
+
+[tool.setuptools]
+packages = ["eidetic"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

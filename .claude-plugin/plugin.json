@@ -1,0 +1,11 @@
+{
+  "name": "eidetic-plus",
+  "displayName": "Eidetic-Plus Memory",
+  "description": "Universal lossless, verifiable, recency-independent memory for AI agents, exposed as MCP tools (remember, recall, consolidate, reawaken, list_memories, get_raw, prove_age_independence) with explicit per-namespace scoping.",
+  "version": "1.1.0",
+  "author": {
+    "name": "Eidetic-Plus contributors",
+    "email": "gengitir@gmail.com"
+  },
+  "license": "MIT"
+}

@@ -1,0 +1,12 @@
+# Benchmark baselines (NOT needed to run Eidetic-Plus itself; only to compare against
+# Mem0 and Graphiti through the neutral harness). Install into the same venv:
+#     .venv/bin/pip install -r requirements-bench.txt
+# Versions below resolved cleanly on CPython 3.14 (dry-run verified 2026-06-23).
+
+# Mem0 baseline (configure its LLM/embedder to DashScope via OpenAI-compatible base_url).
+mem0ai==2.0.7
+
+# Graphiti baseline + its required Neo4j driver. Graphiti also needs a running Neo4j
+# (free Neo4j AuraDB cloud works with no Docker; set NEO4J_URI/USER/PASSWORD).
+graphiti-core==0.29.2
+neo4j==6.2.0
