@@ -165,6 +165,20 @@ class Settings:
     # 2e Parallel channel fan-out (dense/BM25/recency concurrent; latency ~= slowest channel).
     parallel_channels_enabled: bool = field(default_factory=lambda: _get("PARALLEL_CHANNELS", "0") in ("1", "true", "yes"))
 
+    # --- Layer 3a/3b: online learning (all default OFF) ----------------------------------
+    # 3b Rocchio pseudo-relevance feedback: expand the query toward the top-R evidence
+    # centroid, confidence-gated to avoid topic drift. Positive-only (gamma=0) by default.
+    rocchio_enabled: bool = field(default_factory=lambda: _get("ROCCHIO", "0") in ("1", "true", "yes"))
+    rocchio_alpha: float = field(default_factory=lambda: float(_get("ROCCHIO_ALPHA", "1.0")))
+    rocchio_beta: float = field(default_factory=lambda: float(_get("ROCCHIO_BETA", "0.6")))
+    rocchio_topr: int = field(default_factory=lambda: _get_int("ROCCHIO_TOPR", 5))
+    rocchio_conf_gate: float = field(default_factory=lambda: float(_get("ROCCHIO_CONF_GATE", "0.35")))
+    # 3a Online fusion-weight learner: when on, the content-channel (dense/bm25/graph) base
+    # weights come from a dev-feedback-learned vector (index_dir/fusion_weights.json) instead
+    # of the static config floats. Recency weight is NEVER learned (age-independence).
+    fusion_learner_enabled: bool = field(default_factory=lambda: _get("FUSION_LEARNER", "0") in ("1", "true", "yes"))
+    fusion_learner_method: str = field(default_factory=lambda: _get("FUSION_LEARNER_METHOD", "eg").lower())
+
     # --- Dreaming engine: token-free continuous consolidation (all sweepable) -----------
     # Replay priority = surprise^w_s * need^w_n * (1-retrievability)^w_r (exponents).
     dream_replay_topk: int = field(default_factory=lambda: _get_int("DREAM_REPLAY_TOPK", 32))

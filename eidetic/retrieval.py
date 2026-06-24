@@ -35,6 +35,8 @@ from .optim import conformal as _conformal
 from .optim import fusion as _fusion
 from .optim import gating as _gating
 from .optim import mmr as _mmr
+from .optim import online_weights as _online_weights
+from .optim import rocchio as _rocchio
 from .store import RecordStore
 from .substrate import Substrate
 from .vector_index import VectorIndex
@@ -285,6 +287,9 @@ class Retriever:
         s = self.settings
 
         allowed = set(records)
+        # 3b Rocchio PRF: confidence-gated query expansion toward the top evidence centroid.
+        if s.rocchio_enabled:
+            qvec = self._maybe_rocchio(qvec, allowed)
         # 2a Adaptive efSearch: widen the HNSW beam only for hard (multi-hop / long) queries.
         ef_override = None
         if s.adaptive_ef_enabled and (parsed["is_multihop"] or len(query.split()) > 16):
@@ -339,12 +344,13 @@ class Retriever:
         # Query-adaptive weighted fusion: BM25 up for name/date/ID queries, graph up for
         # multi-hop. `rankings` feed rank-based fusion (RRF/Borda); `score_maps` feed the
         # score-based variants (z-score/min-max/DBSF). Both stay aligned with `weights`.
+        wd, wb, wg = self._content_weights()
         rankings = [dense_order, bm25_order]
-        weights = [s.rrf_w_dense, s.rrf_w_bm25 * (1.6 if parsed["is_namey"] else 1.0)]
+        weights = [wd, wb * (1.6 if parsed["is_namey"] else 1.0)]
         score_maps: list[dict] = [dense_map, bm25_map]
         if graph_order:
             rankings.append(graph_order)
-            weights.append(s.rrf_w_graph * (1.6 if parsed["is_multihop"] else 1.0))
+            weights.append(wg * (1.6 if parsed["is_multihop"] else 1.0))
             score_maps.append(graph_scores)
         if recency_order:
             rankings.append(recency_order)
@@ -364,6 +370,37 @@ class Retriever:
             fused_score=fused[mid]) for mid in fused}
         ranked = _dedup(sorted(cands.values(), key=lambda c: -c.fused_score))
         return self._finalize(query, ranked)
+
+    # ---- online weight learning + PRF ------------------------------------
+    def _content_weights(self) -> tuple[float, float, float]:
+        """Base (dense, bm25, graph) fusion weights. When the online learner is enabled and a
+        learned vector has been written to index_dir/fusion_weights.json, use it; otherwise
+        the static config floats. RECENCY is never learned here (age-independence)."""
+        s = self.settings
+        if s.fusion_learner_enabled:
+            learned = _online_weights.load_weights(self.settings.index_dir / "fusion_weights.json")
+            if learned:
+                return (float(learned.get("dense", s.rrf_w_dense)),
+                        float(learned.get("bm25", s.rrf_w_bm25)),
+                        float(learned.get("graph", s.rrf_w_graph)))
+        return s.rrf_w_dense, s.rrf_w_bm25, s.rrf_w_graph
+
+    def _maybe_rocchio(self, qvec: np.ndarray, allowed: set) -> np.ndarray:
+        """A single confidence-gated PRF expansion: cheap dense probe -> if the top match is
+        strong, push the query toward the top-R evidence centroid. No model call."""
+        s = self.settings
+        try:
+            probe = self.index.search(qvec, max(s.rocchio_topr, 1), allowed_ids=allowed)
+        except TypeError:
+            return qvec
+        if not probe or not _rocchio.should_expand(probe[0][1], s.rocchio_conf_gate):
+            return qvec
+        ids = [mid for mid, _ in probe[: s.rocchio_topr]]
+        vmap = self.index.get_vectors(ids) if hasattr(self.index, "get_vectors") else {}
+        rel = [vmap[mid] for mid in ids if mid in vmap]
+        if not rel:
+            return qvec
+        return _rocchio.rocchio_expand(qvec, rel, alpha=s.rocchio_alpha, beta=s.rocchio_beta)
 
     # ---- fusion + final selection ----------------------------------------
     def _fuse(self, rankings: list[list[str]], score_maps: list[dict],
