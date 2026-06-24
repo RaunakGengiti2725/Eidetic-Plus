@@ -43,6 +43,12 @@ STAGES = [
     ("RRF_W_GRAPH", ["0.8", "1.2"]),
     ("RRF_W_RECENCY", ["0.3", "0.0"]),
     ("HNSW_EF_SEARCH", ["256", "500"]),
+    # Layer-2 hot-path knobs (benchmark-visible via the neutral adapter's retrieve path).
+    ("FUSION_METHOD", ["rrf", "dbsf"]),
+    ("ADAPTIVE_K", ["0", "1"]),
+    ("MMR_ENABLED", ["0", "1"]),
+    ("RERANK_SKIP_MARGIN", ["0.0", "0.05"]),
+    ("ADAPTIVE_EF", ["0", "1"]),
 ]
 
 _DATASET_CHOICES = ["longmemeval", "locomo", "memoryagentbench", "beam", "both", "all"]
@@ -164,6 +170,83 @@ def write_stage_comparison(
     return out_path, result
 
 
+def build_tpe_space() -> dict:
+    """The TPE search space: every coordinate-descent stage becomes a categorical knob, so
+    TPE searches the JOINT knob vector (modeling interactions coordinate descent misses)."""
+    return {env: ("categorical", list(values)) for env, values in STAGES}
+
+
+def _objectives_from_rows(rows: list[dict], system: str = "eidetic-plus") -> tuple[float, float, float]:
+    """(accuracy, p95 end-to-end ms, mean tokens/query) for the multi-objective Pareto set."""
+    import numpy as np
+    scoped = [r for r in rows if r.get("system") == system] or rows
+    acc = sum(1 for r in scoped if r.get("correct")) / len(scoped)
+    e2e = [float(r["e2e_ms"]) for r in scoped if "e2e_ms" in r]
+    tok = [float(r["query_tokens"]) for r in scoped if "query_tokens" in r]
+    p95 = float(np.percentile(e2e, 95)) if e2e else 0.0
+    return acc, p95, (mean(tok) if tok else 0.0)
+
+
+def run_tpe_sweep(args, samples, judge, judge_desc) -> int:
+    """Layer-1a/1b: a numpy TPE study over the joint knob space on the DEV split, recording
+    the multi-objective Pareto set over (accuracy, p95 latency, tokens). Same fail-loud /
+    no-fabrication discipline as the coordinate-descent path."""
+    from eidetic.config import get_settings
+    from eidetic.optim.pareto import pareto_front
+    from eidetic.optim.tpe import TPESampler
+
+    from . import run as bench_run
+    from . import scoreboard
+    from .harness import load_logs, run_system
+
+    sampler = TPESampler(build_tpe_space(), n_startup=min(8, args.trials), seed=0)
+    original_env = {k: os.environ.get(k) for k in _stage_env_keys()}
+    trials_meta: list[dict] = []
+    objectives: list[tuple] = []
+    best: dict | None = None
+    try:
+        for t in range(args.trials):
+            cfg = sampler.suggest()
+            for env_var, value in cfg.items():
+                for key, val in stage_assignment(env_var, value).items():
+                    os.environ[key] = val
+            get_settings.cache_clear()
+            out_dir = Path(args.out) / f"tpe_trial{t}"
+            for raw in args.systems.split(","):
+                sysobj = bench_run.make_system(raw)
+                run_system(sysobj, samples, judge, runs=args.runs, out_dir=out_dir,
+                           run_offset=args.run_offset, overwrite=True)
+            bench_run.write_manifest(out_dir, args, judge_desc, samples=samples)
+            scoreboard.render(out_dir, judge_desc)
+            rows = load_logs(out_dir)
+            _validate_rows(rows, out_dir)
+            acc, p95, mtok = _objectives_from_rows(rows)
+            sampler.observe(cfg, -acc)                    # TPE minimizes loss = -accuracy
+            objectives.append((-acc, p95, mtok))
+            trials_meta.append({"trial": t, "config": dict(cfg), "accuracy": acc,
+                                "p95_e2e_ms": p95, "tokens_per_query": mtok, "out_dir": str(out_dir)})
+            if best is None or acc > best["accuracy"]:
+                best = {"config": dict(cfg), "accuracy": acc, "p95_e2e_ms": p95,
+                        "tokens_per_query": mtok}
+            print(f"  TPE trial {t}: acc={acc:.3f} p95={p95:.0f}ms tok={mtok:.0f}")
+    finally:
+        _restore_env(original_env)
+        get_settings.cache_clear()
+
+    pareto = [trials_meta[i] for i in pareto_front(objectives)]
+    best_env: dict[str, str] = {}
+    if best:
+        for env_var, value in best["config"].items():
+            best_env.update(stage_assignment(env_var, value))
+    out = Path(args.out) / "best_config.json"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps({"sampler": "tpe", "split": "dev", "best_env": best_env,
+                               "best": best, "pareto": pareto, "trials": trials_meta}, indent=2))
+    print(f"\nTPE best -> {out}: {best_env}")
+    print(f"Pareto front: {len(pareto)} configs (accuracy vs p95 latency vs tokens/query)")
+    return 0
+
+
 def _parse_args() -> argparse.Namespace:
     ap = argparse.ArgumentParser(description="Coordinate-descent parameter sweep")
     ap.add_argument("--systems", default="eidetic")
@@ -177,6 +260,10 @@ def _parse_args() -> argparse.Namespace:
     ap.add_argument("--split", default="dev", choices=["dev"],
                     help="integrity wall: the sweep may tune on the DEV split ONLY. Reported "
                          "runs use --split test (bench.run / reproduce.sh). Locked to 'dev'.")
+    ap.add_argument("--sampler", default="coord", choices=["coord", "tpe"],
+                    help="coord = coordinate descent (default); tpe = numpy TPE study over the "
+                         "joint knob space with a multi-objective Pareto set.")
+    ap.add_argument("--trials", type=int, default=24, help="number of TPE trials (--sampler tpe)")
     ap.add_argument("--overwrite", action="store_true", help="allow replacing existing trial logs")
     ap.add_argument("--mem0-gate-out", help="real Mem0 gate log directory from a qwen-plus run")
     ap.add_argument("--mem0-gate-expected", help="published Mem0 LoCoMo reference JSON")
@@ -249,12 +336,16 @@ def main() -> int:
     print(f"Loaded {len(samples)} DEV-split samples (integrity wall); "
           f"categories: {category_counts(samples)}")
 
+    judge = Judge()
+    judge_desc = judge.describe()
+
+    if args.sampler == "tpe":
+        return run_tpe_sweep(args, samples, judge, judge_desc)
+
     original_env = {env_var: os.environ.get(env_var) for env_var in _stage_env_keys()}
     best_env: dict[str, str] = {}
     best_score = -1.0
     results: list[dict[str, Any]] = []
-    judge = Judge()
-    judge_desc = judge.describe()
 
     try:
         for env_var, values in STAGES:
