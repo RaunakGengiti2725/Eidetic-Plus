@@ -30,6 +30,11 @@ from .events import parse_query, select_for_query
 from .graph import KnowledgeGraph
 from .models import (Answer, Citation, MemoryRecord, Modality, NLILabel,
                      RetrievalCandidate, Scope, now)
+from .optim import adaptive_k as _adaptive_k
+from .optim import conformal as _conformal
+from .optim import fusion as _fusion
+from .optim import gating as _gating
+from .optim import mmr as _mmr
 from .store import RecordStore
 from .substrate import Substrate
 from .vector_index import VectorIndex
@@ -279,22 +284,44 @@ class Retriever:
         parsed = parse_query(query, at)  # operation / entities / is_namey / is_multihop
         s = self.settings
 
-        # Channel 1: dense (content ANN) -- the age-independent substrate.
-        dense = self.index.search(qvec, self.settings.ann_topk, allowed_ids=set(records))
+        allowed = set(records)
+        # 2a Adaptive efSearch: widen the HNSW beam only for hard (multi-hop / long) queries.
+        ef_override = None
+        if s.adaptive_ef_enabled and (parsed["is_multihop"] or len(query.split()) > 16):
+            ef_override = s.hnsw_ef_search_hard
+
+        # Channels 1, 2, 4 are independent given (corpus, qvec); 3 (PPR) needs dense seeds.
+        def _run_dense():
+            if ef_override is None:           # default path: unchanged call signature
+                return self.index.search(qvec, s.ann_topk, allowed_ids=allowed)
+            return self.index.search(qvec, s.ann_topk, allowed_ids=allowed, ef=ef_override)
+
+        def _run_bm25():
+            if s.persistent_bm25_enabled:
+                changed = self.bm25.ensure_indexed(
+                    (r.memory_id, r.text or r.summary or "") for r in corpus)
+                if changed:
+                    self.bm25.save()
+                return self.bm25.search(query, s.ann_topk, allowed_ids=allowed)
+            bm25 = BM25().index([(r.memory_id, r.text or r.summary or "") for r in corpus])
+            return bm25.search(query, s.ann_topk)
+
+        def _run_recency():
+            if not use_recency:
+                return []
+            return [r.memory_id for r in sorted(corpus, key=lambda r: -r.valid_at)][: s.ann_topk]
+
+        # 2e Parallel channel fan-out: dense + BM25 + recency concurrently (latency ~= slowest).
+        if s.parallel_channels_enabled:
+            from concurrent.futures import ThreadPoolExecutor
+            with ThreadPoolExecutor(max_workers=3) as ex:
+                fd, fb, fr = ex.submit(_run_dense), ex.submit(_run_bm25), ex.submit(_run_recency)
+                dense, bm25_hits, recency_order = fd.result(), fb.result(), fr.result()
+        else:
+            dense, bm25_hits, recency_order = _run_dense(), _run_bm25(), _run_recency()
+
         dense_order = [mid for mid, _ in dense]
         dense_map = dict(dense)
-
-        # Channel 2: BM25 lexical (recovers exact terms/codes/numbers dense misses).
-        if self.settings.persistent_bm25_enabled:
-            changed = self.bm25.ensure_indexed(
-                (r.memory_id, r.text or r.summary or "") for r in corpus
-            )
-            if changed:
-                self.bm25.save()
-            bm25_hits = self.bm25.search(query, self.settings.ann_topk, allowed_ids=set(records))
-        else:
-            bm25 = BM25().index([(r.memory_id, r.text or r.summary or "") for r in corpus])
-            bm25_hits = bm25.search(query, self.settings.ann_topk)
         bm25_order = [mid for mid, _ in bm25_hits]
         bm25_map = dict(bm25_hits)
 
@@ -309,20 +336,22 @@ class Retriever:
             seed_entities, corpus, at, scope) if seed_entities else {}
         graph_order = [mid for mid, _ in sorted(graph_scores.items(), key=lambda x: -x[1])]
 
-        # Channel 4: recency (minor).
-        recency_order = [r.memory_id for r in sorted(corpus, key=lambda r: -r.valid_at)
-                         ][: self.settings.ann_topk] if use_recency else []
-
-        # Query-adaptive weighted RRF: BM25 up for name/date/ID queries, graph up for multi-hop.
-        rankings, weights = [dense_order, bm25_order], [
-            s.rrf_w_dense, s.rrf_w_bm25 * (1.6 if parsed["is_namey"] else 1.0)]
+        # Query-adaptive weighted fusion: BM25 up for name/date/ID queries, graph up for
+        # multi-hop. `rankings` feed rank-based fusion (RRF/Borda); `score_maps` feed the
+        # score-based variants (z-score/min-max/DBSF). Both stay aligned with `weights`.
+        rankings = [dense_order, bm25_order]
+        weights = [s.rrf_w_dense, s.rrf_w_bm25 * (1.6 if parsed["is_namey"] else 1.0)]
+        score_maps: list[dict] = [dense_map, bm25_map]
         if graph_order:
             rankings.append(graph_order)
             weights.append(s.rrf_w_graph * (1.6 if parsed["is_multihop"] else 1.0))
+            score_maps.append(graph_scores)
         if recency_order:
             rankings.append(recency_order)
             weights.append(s.rrf_w_recency)
-        fused = _rrf(rankings, s.rrf_k, weights)
+            n_rec = len(recency_order)
+            score_maps.append({mid: float(n_rec - i) for i, mid in enumerate(recency_order)})
+        fused = self._fuse(rankings, score_maps, weights)
         if len(fused) < s.final_topk and use_recency:
             for mid in recency_order:
                 fused.setdefault(mid, 0.0)
@@ -334,22 +363,74 @@ class Retriever:
             bm25_score=bm25_map.get(mid, 0.0), graph_score=graph_scores.get(mid, 0.0),
             fused_score=fused[mid]) for mid in fused}
         ranked = _dedup(sorted(cands.values(), key=lambda c: -c.fused_score))
+        return self._finalize(query, ranked)
 
-        # Cross-encoder rerank (config-gated, depth ~50 -> final_topk; A/B against off).
-        if s.rerank_enabled:
+    # ---- fusion + final selection ----------------------------------------
+    def _fuse(self, rankings: list[list[str]], score_maps: list[dict],
+              weights: list[float]) -> dict[str, float]:
+        """Dispatch the configured fusion method. RRF (rank-based, scale-free) is the
+        default and the unknown-method fallback; Borda is rank-based; z-score/min-max/DBSF
+        use the per-channel raw scores."""
+        method = self.settings.fusion_method
+        if method == "borda":
+            return _fusion.combine_borda(rankings, weights)
+        if method in _fusion.SCORE_METHODS:
+            return _fusion.combine_scores(score_maps, weights, method)
+        return _rrf(rankings, self.settings.rrf_k, weights)   # rrf / unknown -> robust default
+
+    def _finalize(self, query: str, ranked: list[RetrievalCandidate]) -> list[RetrievalCandidate]:
+        """Cross-encoder rerank (skippable on a large margin) -> MMR diversity -> adaptive-k /
+        conformal depth -> top-k. With every Layer-2 flag off this is identical to the prior
+        behaviour (rerank to final_topk, return final_topk)."""
+        s = self.settings
+        skip_rerank = _gating.should_skip_rerank([c.fused_score for c in ranked], s.rerank_skip_margin)
+        if s.rerank_enabled and not skip_rerank and ranked:
             shortlist = ranked[: max(s.rerank_depth, s.final_topk)]
             docs = [c.record.text or c.record.summary or "" for c in shortlist]
             try:
                 reranked = []
-                for orig_idx, score in self.client.rerank(query, docs, s.final_topk):
+                for orig_idx, score in self.client.rerank(query, docs, len(docs)):
                     shortlist[orig_idx].rerank_score = score
                     reranked.append(shortlist[orig_idx])
-                return reranked or shortlist[: s.final_topk]
+                ranked = reranked or shortlist
             except Exception:
-                if s.rerank_fail_open:
-                    return shortlist[: s.final_topk]
-                raise
+                if not s.rerank_fail_open:
+                    raise
+                ranked = shortlist
+        ranked = self._mmr_pass(ranked)
+        ranked = self._depth_select(ranked)
         return ranked[: s.final_topk]
+
+    def _mmr_pass(self, ranked: list[RetrievalCandidate]) -> list[RetrievalCandidate]:
+        """2c MMR diversity re-ordering over the candidate content vectors. No-op when off
+        or when any vector is unavailable (fail safe, never drop a candidate silently)."""
+        s = self.settings
+        if not s.mmr_enabled or len(ranked) <= 2:
+            return ranked
+        ids = [c.record.memory_id for c in ranked]
+        vmap = self.index.get_vectors(ids)
+        vecs = [vmap.get(mid) for mid in ids]
+        if any(v is None for v in vecs):
+            return ranked
+        rels = [c.rerank_score or c.fused_score for c in ranked]
+        order = _mmr.mmr_order(rels, vecs, lam=s.mmr_lambda)
+        return [ranked[i] for i in order]
+
+    def _depth_select(self, ranked: list[RetrievalCandidate]) -> list[RetrievalCandidate]:
+        """2b/2a calibrated depth: split-conformal cutoff (if a dev-calibrated qhat is set),
+        then the largest-gap adaptive-k cut. Both preserve order and keep >= adaptive_k_min."""
+        s = self.settings
+        if not ranked:
+            return ranked
+        if s.conformal_depth_enabled and s.conformal_qhat >= 0.0:
+            ranked = _conformal.select_by_conformal(
+                ranked, lambda c: c.dense_score, s.conformal_qhat,
+                min_keep=min(s.adaptive_k_min, len(ranked)))
+        if s.adaptive_k_enabled:
+            ranked = _adaptive_k.adaptive_k_cut(
+                ranked, score_fn=lambda c: (c.rerank_score or c.fused_score),
+                min_k=min(s.adaptive_k_min, len(ranked)), max_k=s.final_topk)
+        return ranked
 
     def assemble_context(self, query: str, candidates: list[RetrievalCandidate],
                          at: Optional[float] = None, scope: Optional[Scope] = None,

@@ -136,6 +136,28 @@ class Settings:
     # Index pruning by STATIC salience (surprise+importance, age-independent); 0.0 = off. Never WORM.
     salience_prune_threshold: float = field(default_factory=lambda: float(_get("SALIENCE_PRUNE_THRESHOLD", "0.0")))
 
+    # --- Layer 2: per-query hot-path optimizers (all default OFF / current behavior) -----
+    # 2a Adaptive-k: cut the final candidate list at the largest score gap (token savings).
+    adaptive_k_enabled: bool = field(default_factory=lambda: _get("ADAPTIVE_K", "0") in ("1", "true", "yes"))
+    adaptive_k_min: int = field(default_factory=lambda: _get_int("ADAPTIVE_K_MIN", 3))
+    # 2a Adaptive efSearch: widen the HNSW beam for hard (multi-hop/long) queries only.
+    adaptive_ef_enabled: bool = field(default_factory=lambda: _get("ADAPTIVE_EF", "0") in ("1", "true", "yes"))
+    hnsw_ef_search_hard: int = field(default_factory=lambda: _get_int("HNSW_EF_SEARCH_HARD", 512))
+    # 2b Split-conformal retrieval depth: keep candidates with sim >= 1 - qhat. qhat<0 = off
+    # (calibrate it on the DEV split via bench.calibrate; never on test items).
+    conformal_depth_enabled: bool = field(default_factory=lambda: _get("CONFORMAL_DEPTH", "0") in ("1", "true", "yes"))
+    conformal_alpha: float = field(default_factory=lambda: float(_get("CONFORMAL_ALPHA", "0.1")))
+    conformal_qhat: float = field(default_factory=lambda: float(_get("CONFORMAL_QHAT", "-1.0")))
+    # 2c Skip the cross-encoder rerank when the first-stage margin is already large. 0 = never.
+    rerank_skip_margin: float = field(default_factory=lambda: float(_get("RERANK_SKIP_MARGIN", "0.0")))
+    # 2c MMR diversity post-pass (lambda in [0.3,0.7]; higher = more diverse).
+    mmr_enabled: bool = field(default_factory=lambda: _get("MMR_ENABLED", "0") in ("1", "true", "yes"))
+    mmr_lambda: float = field(default_factory=lambda: float(_get("MMR_LAMBDA", "0.5")))
+    # 2d Fusion method: rrf (default, scale-free) | zscore | minmax | dbsf | borda.
+    fusion_method: str = field(default_factory=lambda: _get("FUSION_METHOD", "rrf").lower())
+    # 2e Parallel channel fan-out (dense/BM25/recency concurrent; latency ~= slowest channel).
+    parallel_channels_enabled: bool = field(default_factory=lambda: _get("PARALLEL_CHANNELS", "0") in ("1", "true", "yes"))
+
     # --- Dreaming engine: token-free continuous consolidation (all sweepable) -----------
     # Replay priority = surprise^w_s * need^w_n * (1-retrievability)^w_r (exponents).
     dream_replay_topk: int = field(default_factory=lambda: _get_int("DREAM_REPLAY_TOPK", 32))

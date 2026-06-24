@@ -44,8 +44,11 @@ class VectorIndex(ABC):
 
     @abstractmethod
     def search(self, query_vec: np.ndarray, k: int,
-               allowed_ids: Optional[set[str]] = None) -> list[tuple[str, float]]:
-        """Top-k by content cosine similarity. Returns [(memory_id, score)] desc."""
+               allowed_ids: Optional[set[str]] = None,
+               ef: Optional[int] = None) -> list[tuple[str, float]]:
+        """Top-k by content cosine similarity. Returns [(memory_id, score)] desc.
+        `ef` optionally overrides the HNSW search breadth for this query (adaptive
+        efSearch: raise it for hard queries). Exact backends ignore it."""
 
     @abstractmethod
     def search_struct(self, query_struct: np.ndarray, k: int) -> list[tuple[str, float]]: ...
@@ -128,7 +131,9 @@ class NumpyVectorIndex(VectorIndex):
         return [(self.ids[i], float(sims[i])) for i in idx]
 
     def search(self, query_vec: np.ndarray, k: int,
-               allowed_ids: Optional[set[str]] = None) -> list[tuple[str, float]]:
+               allowed_ids: Optional[set[str]] = None,
+               ef: Optional[int] = None) -> list[tuple[str, float]]:
+        # Exact brute-force backend: ef has no meaning (always exact); accepted for parity.
         return self._topk(self.content, query_vec, k, allowed_ids=allowed_ids)
 
     def search_struct(self, query_struct: np.ndarray, k: int) -> list[tuple[str, float]]:
@@ -211,7 +216,23 @@ class HnswVectorIndex(VectorIndex):
             self.struct[label] = _normalize(struct_vec)
 
     def search(self, query_vec: np.ndarray, k: int,
-               allowed_ids: Optional[set[str]] = None) -> list[tuple[str, float]]:
+               allowed_ids: Optional[set[str]] = None,
+               ef: Optional[int] = None) -> list[tuple[str, float]]:
+        if not self.ids:
+            return []
+        # Adaptive efSearch: temporarily widen the HNSW beam for a hard query, then restore.
+        restore_ef = None
+        if ef is not None and ef != self.ef:
+            restore_ef = self.ef
+            self.index.set_ef(max(int(ef), k))
+        try:
+            return self._search(query_vec, k, allowed_ids)
+        finally:
+            if restore_ef is not None:
+                self.index.set_ef(restore_ef)
+
+    def _search(self, query_vec: np.ndarray, k: int,
+                allowed_ids: Optional[set[str]] = None) -> list[tuple[str, float]]:
         if not self.ids:
             return []
         k = min(k, len(self.ids))
