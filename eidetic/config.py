@@ -80,6 +80,13 @@ class Settings:
     final_topk: int = field(default_factory=lambda: _get_int("FINAL_TOPK", 10))
     rrf_k: int = field(default_factory=lambda: _get_int("RRF_K", 60))
 
+    # Layer 3c vector quantization: none (raw float32) | sq8 (int8, 4x) | rabitq (1-bit, 32x).
+    # A quantized backend always keeps the raw float32 for an exact refine pass (recall
+    # recovery). Calibrate/promote only via the dev-split recall check (>1% drop -> keep refine).
+    vector_quant: str = field(default_factory=lambda: _get("VECTOR_QUANT", "none").lower())
+    quant_refine: bool = field(default_factory=lambda: _get("QUANT_REFINE", "1") not in ("0", "false", "no"))
+    quant_refine_topn: int = field(default_factory=lambda: _get_int("QUANT_REFINE_TOPN", 100))
+
     # HNSW index params (M=32; efSearch raised since retrieval is not the latency bottleneck).
     hnsw_m: int = field(default_factory=lambda: _get_int("HNSW_M", 32))
     hnsw_ef_search: int = field(default_factory=lambda: _get_int("HNSW_EF_SEARCH", 256))

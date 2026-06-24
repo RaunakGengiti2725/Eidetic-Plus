@@ -290,9 +290,89 @@ class HnswVectorIndex(VectorIndex):
         return len(self.ids)
 
 
+class QuantizedVectorIndex(NumpyVectorIndex):
+    """Exact-cosine numpy index with a quantized first stage (Layer 3c). Keeps the raw
+    float32 vectors (inherited) for an exact refine pass, and a compact code array (int8
+    SQ8 or 1-bit RaBitQ) for the cheap shortlist ranking. Age never enters the distance, so
+    the flat recall-vs-age property is preserved exactly as in the parent."""
+
+    def __init__(self, index_dir: Path, dim: int, struct_dim: int, *, kind: str = "rabitq",
+                 refine: bool = True, refine_topn: int = 100):
+        self.kind = kind
+        self.refine = refine
+        self.refine_topn = int(refine_topn)
+        self._codes = None
+        self._code_dim = 0
+        self._codes_dirty = True
+        super().__init__(index_dir, dim, struct_dim)
+
+    def add(self, memory_id, content_vec, struct_vec=None):
+        super().add(memory_id, content_vec, struct_vec)
+        self._codes_dirty = True
+
+    def update(self, memory_id, content_vec, struct_vec=None):
+        super().update(memory_id, content_vec, struct_vec)
+        self._codes_dirty = True
+
+    def _ensure_codes(self) -> None:
+        from .optim import quantize as _q
+        if not self._codes_dirty and self._codes is not None:
+            return
+        if self.content.shape[0] == 0:
+            self._codes = None
+        elif self.kind == "sq8":
+            self._codes = _q.sq8_encode(self.content)
+        else:
+            self._codes, _ = _q.rabitq_encode(self.content)
+            self._code_dim = self.content.shape[1]
+        self._codes_dirty = False
+
+    def _approx(self, qvec: np.ndarray) -> np.ndarray:
+        from .optim import quantize as _q
+        if self.kind == "sq8":
+            return _q.sq8_scores(self._codes, qvec)
+        qpacked, _ = _q.rabitq_encode(qvec)
+        return _q.rabitq_cosine_estimate(_q.rabitq_hamming(self._codes, qpacked[0]),
+                                         self._code_dim)
+
+    def search(self, query_vec, k, allowed_ids=None, ef=None):
+        if not self.ids:
+            return []
+        self._ensure_codes()
+        if self._codes is None:
+            return []
+        if allowed_ids is not None:
+            pos = np.array([i for i, mid in enumerate(self.ids) if mid in allowed_ids])
+            if pos.size == 0:
+                return []
+        else:
+            pos = np.arange(len(self.ids))
+        approx = self._approx(query_vec)[pos]
+        if self.refine:
+            n_short = min(max(self.refine_topn, k), pos.size)
+            local = np.argpartition(-approx, n_short - 1)[:n_short]
+            sl = pos[local]
+            q = _normalize(query_vec)
+            sims = self.content[sl] @ q
+            kk = min(k, sims.shape[0])
+            top = np.argpartition(-sims, kk - 1)[:kk]
+            top = top[np.argsort(-sims[top])]
+            return [(self.ids[int(sl[i])], float(sims[i])) for i in top]
+        kk = min(k, pos.size)
+        top = np.argpartition(-approx, kk - 1)[:kk]
+        top = top[np.argsort(-approx[top])]
+        return [(self.ids[int(pos[i])], float(approx[i])) for i in top]
+
+
 def make_vector_index(settings: Optional[Settings] = None) -> VectorIndex:
     settings = settings or get_settings()
     backend = settings.vector_backend
+
+    quant = getattr(settings, "vector_quant", "none")
+    if quant in ("sq8", "rabitq"):
+        return QuantizedVectorIndex(
+            settings.index_dir, settings.embed_dim, settings.struct_dim,
+            kind=quant, refine=settings.quant_refine, refine_topn=settings.quant_refine_topn)
 
     def _hnsw() -> "HnswVectorIndex":
         return HnswVectorIndex(settings.index_dir, settings.embed_dim, settings.struct_dim,
