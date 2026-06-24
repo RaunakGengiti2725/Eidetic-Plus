@@ -420,13 +420,19 @@ class Retriever:
         conformal depth -> top-k. With every Layer-2 flag off this is identical to the prior
         behaviour (rerank to final_topk, return final_topk)."""
         s = self.settings
+        # Only a downstream depth consumer (MMR / adaptive-k / conformal) needs more than
+        # final_topk reranked items. When none is active we request exactly final_topk, so the
+        # reported (flags-off) path makes the identical client.rerank call it always did.
+        need_depth = (s.mmr_enabled or s.adaptive_k_enabled
+                      or (s.conformal_depth_enabled and s.conformal_qhat >= 0.0))
+        rerank_topn = max(s.rerank_depth, s.final_topk) if need_depth else s.final_topk
         skip_rerank = _gating.should_skip_rerank([c.fused_score for c in ranked], s.rerank_skip_margin)
         if s.rerank_enabled and not skip_rerank and ranked:
             shortlist = ranked[: max(s.rerank_depth, s.final_topk)]
             docs = [c.record.text or c.record.summary or "" for c in shortlist]
             try:
                 reranked = []
-                for orig_idx, score in self.client.rerank(query, docs, len(docs)):
+                for orig_idx, score in self.client.rerank(query, docs, rerank_topn):
                     shortlist[orig_idx].rerank_score = score
                     reranked.append(shortlist[orig_idx])
                 ranked = reranked or shortlist

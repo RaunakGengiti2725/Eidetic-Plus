@@ -91,6 +91,19 @@ def test_borda_counts_rank_positions():
     assert fused["c"] == 2                          # last in both
 
 
+def test_normalized_fusion_beats_raw_sum_on_scale_mismatch():
+    """Existence proof (not a benchmark guarantee): when one channel's score scale dwarfs the
+    other, a naive raw-score sum lets the big-scale channel dominate and buries the doc both
+    channels agree on. z-score/DBSF give each channel equal voice and surface the consensus."""
+    dense = {"d_spike": 0.9, "gold": 0.7, "b_spike": 0.2, "x": 0.1}   # cosine ~[0,1]
+    bm25 = {"b_spike": 100.0, "gold": 60.0, "d_spike": 5.0, "x": 1.0}  # unbounded
+    raw = {m: dense.get(m, 0.0) + bm25.get(m, 0.0) for m in set(dense) | set(bm25)}
+    assert max(raw, key=raw.get) == "b_spike"       # raw sum: BM25 scale dominates
+    for method in ("zscore", "dbsf"):
+        fused = combine_scores([dense, bm25], [1.0, 1.0], method)
+        assert max(fused, key=fused.get) == "gold", method  # normalized: consensus wins
+
+
 # ---- MMR ---------------------------------------------------------------------
 def test_mmr_demotes_a_near_duplicate():
     rel = [1.0, 0.9, 0.8]
