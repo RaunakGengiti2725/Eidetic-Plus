@@ -54,6 +54,14 @@ class OptimizerDaemon:
         return (f"python -m bench.sweep --sampler {sampler} --dataset {dataset} "
                 f"--subset {subset} --trials {trials} --split dev")
 
+    @staticmethod
+    def guard_command(champion_dir: str, challenger_dir: str) -> str:
+        """The EvolveMem guard command: promote a challenger config only if it beats the champion
+        on the dev split with a significant paired McNemar test. Sits between the sweep output and
+        applying it; never reads test items."""
+        return (f"python -m bench.guard --champion {champion_dir} --challenger {challenger_dir} "
+                f"--best-config artifacts/bench/sweep/best_config.json")
+
     # ---- atomic config swap (between requests) ----------------------------
     @staticmethod
     def swap_config(best_config_path, *, apply: bool = True) -> dict:

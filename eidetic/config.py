@@ -183,6 +183,31 @@ class Settings:
     # ask(), and benchmark namespaces are recorded audit-only, so this can't touch the wall.
     feedback_enabled: bool = field(default_factory=lambda: _get("FEEDBACK", "0") in ("1", "true", "yes"))
 
+    # --- Revolutionary-architectures mechanisms (all default OFF) ------------------------
+    # EvolveMem auto-revert guard: a tuned config is promoted only if it beats the champion on
+    # the DEV split by >= min_delta_pp AND a paired McNemar test is significant. Dev-proxy only.
+    guard_enabled: bool = field(default_factory=lambda: _get("GUARD_ENABLED", "0") in ("1", "true", "yes"))
+    guard_min_delta_pp: float = field(default_factory=lambda: float(_get("GUARD_MIN_DELTA_PP", "1.0")))
+    guard_alpha: float = field(default_factory=lambda: float(_get("GUARD_ALPHA", "0.05")))
+    # Heuristic write-time memory manager (Memory-R1 approximation): ADD/UPDATE/DELETE-tombstone
+    # /NOOP. Off by default; ingest stays byte-identical when off. Never deletes a raw record.
+    memory_manager_enabled: bool = field(default_factory=lambda: _get("MEMORY_MANAGER", "0") in ("1", "true", "yes"))
+    memory_manager_dup_cosine: float = field(default_factory=lambda: float(_get("MEMORY_MANAGER_DUP_COSINE", "0.97")))
+    # MemMA evidence-grounded self-repair sweep inside the dreaming engine (LLM-gated, offline).
+    dream_repair_enabled: bool = field(default_factory=lambda: _get("DREAM_REPAIR", "0") in ("1", "true", "yes"))
+    dream_repair_topk: int = field(default_factory=lambda: _get_int("DREAM_REPAIR_TOPK", 16))
+    # Per-triple anomaly scoring threshold (flag low-confidence observed edges for repair).
+    anomaly_threshold: float = field(default_factory=lambda: float(_get("ANOMALY_THRESHOLD", "0.35")))
+    # MIRIX-style role typing of memories (deterministic classifier; LLM typing optional/gated).
+    memory_typing_enabled: bool = field(default_factory=lambda: _get("MEMORY_TYPING", "0") in ("1", "true", "yes"))
+    # MIRIX Active Retrieval: generate an anticipated topic before retrieval (LLM-gated).
+    active_retrieval_enabled: bool = field(default_factory=lambda: _get("ACTIVE_RETRIEVAL", "0") in ("1", "true", "yes"))
+    # Markov prospective prefetch: learn P(next-cluster|current) and pre-stage the predicted next.
+    markov_prefetch_enabled: bool = field(default_factory=lambda: _get("MARKOV_PREFETCH", "0") in ("1", "true", "yes"))
+    # CoVe factored verification + bounded conflict-only debate (LLM-gated).
+    cove_enabled: bool = field(default_factory=lambda: _get("COVE", "0") in ("1", "true", "yes"))
+    debate_enabled: bool = field(default_factory=lambda: _get("DEBATE", "0") in ("1", "true", "yes"))
+
     # --- Dreaming engine: token-free continuous consolidation (all sweepable) -----------
     # Replay priority = surprise^w_s * need^w_n * (1-retrievability)^w_r (exponents).
     dream_replay_topk: int = field(default_factory=lambda: _get_int("DREAM_REPLAY_TOPK", 32))
