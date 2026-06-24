@@ -9,9 +9,12 @@ supervisor, three cadences sharing a feedback store":
   * offline -- offline_sweep_command(): returns the exact dev-split sweep command an operator
                (or a cron) runs; the sweep writes a best_config.json artifact.
 
-Atomic config swap is write-artifact + explicit reload BETWEEN requests (swap_config) -- not a
-live mutation racing hot-path reads. Rebuild knobs are refused live (the OtterTune blacklist),
-so an online swap can never trigger a ruinous index rebuild.
+Atomic config swap is write-artifact + explicit reload (swap_config): the sweep writes a
+best_config.json, swap_config applies its env + drops the cached Settings, so the NEXT engine
+constructed reads the new config. It is NOT a hot-mutation of an already-running Engine (which
+captured its frozen Settings at construction) -- the supported way to apply a tuned config to a
+live server is to write the flags into .env and restart. Rebuild knobs are refused (the
+OtterTune blacklist), so a swap can never trigger a ruinous index rebuild.
 """
 from __future__ import annotations
 
@@ -54,9 +57,11 @@ class OptimizerDaemon:
     # ---- atomic config swap (between requests) ----------------------------
     @staticmethod
     def swap_config(best_config_path, *, apply: bool = True) -> dict:
-        """Load a sweep's best_env artifact and atomically apply it between requests: set the
-        env, drop the cached Settings, so the next request reads the new config. REBUILD knobs
-        are refused live (they require an explicit offline index rebuild)."""
+        """Load a sweep's best_env artifact and apply it: set the env + drop the cached Settings,
+        so the NEXT engine constructed reads the new config. This does NOT hot-mutate an
+        already-running Engine (it captured frozen Settings at construction) -- to apply to a
+        live server, write the flags into .env and restart. REBUILD knobs are refused (they
+        require an explicit offline index rebuild)."""
         data = json.loads(Path(best_config_path).read_text())
         env = dict(data.get("best_env", {}))
         refused = {k: env.pop(k) for k in list(env) if k in REBUILD_KNOBS_ENV}
