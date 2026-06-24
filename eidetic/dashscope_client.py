@@ -294,6 +294,21 @@ class DashScopeClient:
             temperature=0.2, max_tokens=512,
         )
 
+    # ---- MemMA self-repair: probe generation ------------------------------
+    def generate_probes(self, memory_text: str, n: int = 3) -> list[str]:
+        """Synthesize self-test probe questions over a provisional memory to find gaps
+        (factual recall, cross-session reasoning, temporal inference). Real qwen-flash call."""
+        data = self.chat_json(
+            self.settings.salience_model,
+            "You generate self-test probe questions to find what an AI memory CANNOT yet "
+            "answer about a stored memory. Cover factual recall, cross-session reasoning, and "
+            "temporal inference. Reply ONLY as JSON: {\"probes\": [\"q1\", \"q2\", ...]}.",
+            f"Memory:\n{memory_text[:4000]}\n\nGenerate {n} probe questions.",
+            temperature=0.3, max_tokens=512,
+        )
+        probes = data.get("probes", []) if isinstance(data, dict) else []
+        return [str(p).strip() for p in probes if str(p).strip()][:n]
+
     # ---- Multimodal ingestion --------------------------------------------
     def _mm_text(self, resp: Any) -> str:
         self._ok(resp)

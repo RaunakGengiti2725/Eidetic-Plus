@@ -541,7 +541,16 @@ class Engine:
             out["infer"] = self.dream_infer(scope=scope)
         if multires:
             out["multires"] = self.dream_multires(scope=scope)
+        # MemMA self-repair sweep: only when DREAM_REPAIR is on (dream() unchanged when off).
+        if self.settings.dream_repair_enabled:
+            out["repair"] = self.dream_repair(scope=scope)
         return out
+
+    def dream_repair(self, *, scope: Optional[Scope] = None) -> dict:
+        """MemMA evidence-grounded self-repair sweep (proposal-only; LLM-gated). Returns
+        {skipped:'disabled'} unless DREAM_REPAIR is set."""
+        from .dreaming import repair as _repair
+        return _repair.run_sweep(self, scope or Scope())
 
     def dream_replay(self, *, scope: Optional[Scope] = None) -> dict:
         from .dreaming import replay as _replay
