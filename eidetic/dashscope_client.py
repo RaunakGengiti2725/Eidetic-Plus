@@ -309,6 +309,33 @@ class DashScopeClient:
         probes = data.get("probes", []) if isinstance(data, dict) else []
         return [str(p).strip() for p in probes if str(p).strip()][:n]
 
+    def generate_topic(self, query: str) -> str:
+        """MIRIX Active Retrieval: generate an anticipated topic/sub-question BEFORE answering, to
+        scaffold multi-hop/temporal retrieval. Real qwen-flash call."""
+        data = self.chat_json(
+            self.settings.salience_model,
+            "You generate a short anticipated TOPIC or sub-question that retrieval should cover to "
+            "answer a user question (especially multi-hop/temporal). Reply ONLY as JSON: "
+            "{\"topic\": \"...\"}.",
+            f"Question: {query[:2000]}",
+            temperature=0.2, max_tokens=128,
+        )
+        return str(data.get("topic", "")).strip() if isinstance(data, dict) else ""
+
+    def plan_verification_questions(self, draft: str, n: int = 3) -> list[str]:
+        """Chain-of-Verification: plan verification questions for a draft answer, to be answered
+        INDEPENDENTLY (factored, so the model can't copy its own hallucination). Real call."""
+        data = self.chat_json(
+            self.settings.verify_model,
+            "You plan independent verification questions to fact-check a draft answer. Each must "
+            "be answerable on its own without seeing the draft. Reply ONLY as JSON: "
+            "{\"questions\": [\"q1\", ...]}.",
+            f"Draft answer:\n{draft[:3000]}\n\nPlan {n} verification questions.",
+            temperature=0.2, max_tokens=512,
+        )
+        qs = data.get("questions", []) if isinstance(data, dict) else []
+        return [str(q).strip() for q in qs if str(q).strip()][:n]
+
     # ---- Multimodal ingestion --------------------------------------------
     def _mm_text(self, resp: Any) -> str:
         self._ok(resp)
