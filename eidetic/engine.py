@@ -56,6 +56,9 @@ class Engine:
         from .dreaming.prefetch import PrefetchCache
         self.prefetch = PrefetchCache(self.settings.dream_prefetch_threshold)
         self._query_log: list[tuple[str, "np.ndarray"]] = []
+        # Dev-only feedback replay buffer (the spine of the idle learning cadence).
+        from .feedback import FeedbackBuffer
+        self.feedback = FeedbackBuffer(self.settings.data_dir / "feedback.sqlite")
 
     # ---- wake: write path -------------------------------------------------
     def ingest(
@@ -235,8 +238,17 @@ class Engine:
             if hit is not None:
                 return hit
 
-        ans = self.retriever.answer(query, at=read_at, verify=verify, scope=scope, qvec=qvec,
-                                    reader_model=reader_model)
+        # When the idle learner is fed, retrieve candidates explicitly so per-channel
+        # contributions are available for feedback; otherwise answer() retrieves internally
+        # exactly as before (the default call signature is unchanged).
+        precomputed = None
+        if self.settings.feedback_enabled:
+            precomputed = self.retriever.retrieve(query, at=read_at, scope=scope, qvec=qvec)
+            ans = self.retriever.answer(query, at=read_at, verify=verify, scope=scope, qvec=qvec,
+                                        precomputed=precomputed, reader_model=reader_model)
+        else:
+            ans = self.retriever.answer(query, at=read_at, verify=verify, scope=scope, qvec=qvec,
+                                        reader_model=reader_model)
 
         # Reconsolidation as a write path (retrieval is no longer read-only).
         confirmed: list[str] = []
@@ -265,9 +277,49 @@ class Engine:
             self.graph.link_memories(confirmed, scope=scope, valid_at=read_at)
         if confirmed:
             self.index.save()
+        if self.settings.feedback_enabled and precomputed is not None:
+            self._emit_feedback(scope, query, qvec, precomputed, confirmed)
         if use_cache:
             self.cache.put(sk, query, qvec, ans)
         return ans
+
+    def _emit_feedback(self, scope: Scope, query: str, qvec, candidates: list,
+                       confirmed: list[str]) -> None:
+        """Append one dev-feedback tuple from the PRODUCT read path. The reward is whether any
+        retrieved memory was NLI-confirmed; the per-channel contributions are the channel
+        scores of the confirmed (or top) candidate. The FeedbackBuffer forces is_dev=0 for any
+        benchmark namespace, so this can never feed a learner a benchmark item."""
+        if not candidates:
+            return
+        by_id = {c.record.memory_id: c for c in candidates}
+        ref = by_id.get(confirmed[0]) if confirmed else candidates[0]
+        feats = {
+            "coverage": float(max((c.dense_score for c in candidates), default=0.0)),
+            "n_cands": len(candidates),
+            "contrib_dense": float(getattr(ref, "dense_score", 0.0)),
+            "contrib_bm25": float(getattr(ref, "bm25_score", 0.0)),
+            "contrib_graph": float(getattr(ref, "graph_score", 0.0)),
+        }
+        try:
+            self.feedback.append(scope.namespace or "default", query, feats,
+                                 arm=self.settings.fusion_method,
+                                 reward=1.0 if confirmed else 0.0, qvec=qvec)
+        except Exception:
+            pass        # feedback is best-effort; never break the read path on a logging error
+
+    def learn_fusion_weights(self) -> dict:
+        """Idle cadence: replay the dev feedback buffer through the EG/FTRL learner and persist
+        the content-channel weights to index_dir/fusion_weights.json (read by the retriever when
+        FUSION_LEARNER=1). Dev-only by construction; no model call."""
+        from .optim.online_weights import learn_fusion_weights as _learn
+        from .optim.online_weights import save_weights
+        rows = self.feedback.sample(limit=2000)
+        if not rows:
+            return {}
+        weights = _learn(rows, ["dense", "bm25", "graph"],
+                         method=self.settings.fusion_learner_method)
+        save_weights(self.settings.index_dir / "fusion_weights.json", weights)
+        return weights
 
     def reawaken(self, memory_id: str) -> Optional[MemoryRecord]:
         """Strong-cue reawakening: reset retrievability + boost stability (O(1))."""

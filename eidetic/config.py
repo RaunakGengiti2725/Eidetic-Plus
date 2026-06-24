@@ -178,6 +178,10 @@ class Settings:
     # of the static config floats. Recency weight is NEVER learned (age-independence).
     fusion_learner_enabled: bool = field(default_factory=lambda: _get("FUSION_LEARNER", "0") in ("1", "true", "yes"))
     fusion_learner_method: str = field(default_factory=lambda: _get("FUSION_LEARNER_METHOD", "eg").lower())
+    # Producer side: emit a (features, reward) feedback tuple from the PRODUCT ask() path into
+    # the dev-only FeedbackBuffer. Off by default; the neutral benchmark adapter never calls
+    # ask(), and benchmark namespaces are recorded audit-only, so this can't touch the wall.
+    feedback_enabled: bool = field(default_factory=lambda: _get("FEEDBACK", "0") in ("1", "true", "yes"))
 
     # --- Dreaming engine: token-free continuous consolidation (all sweepable) -----------
     # Replay priority = surprise^w_s * need^w_n * (1-retrievability)^w_r (exponents).
