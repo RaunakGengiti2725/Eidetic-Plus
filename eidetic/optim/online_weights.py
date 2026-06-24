@@ -88,7 +88,9 @@ class FusionWeightLearner:
         self._w = (np.asarray(init, dtype=np.float64) if init is not None
                    else np.full(d, 1.0 / d))
         self._w = self._w / self._w.sum()
-        self._ftrl = FTRL(d) if method == "ftrl" else None
+        # A small L1 so the sparsity gate engages at the scale of reciprocal-rank gradients
+        # (the class default l1=1.0 would keep the learner uniform for far too long here).
+        self._ftrl = FTRL(d, l1=0.02) if method == "ftrl" else None
 
     def weights(self) -> np.ndarray:
         if self.method == "ftrl":

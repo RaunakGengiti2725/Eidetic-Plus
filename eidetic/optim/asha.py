@@ -20,12 +20,18 @@ def top_fraction(results: list[tuple], eta: int = 3) -> list:
 
 
 def rung_budgets(min_budget: int, max_budget: int, eta: int = 3) -> list[int]:
-    """The geometric budget ladder min, min*eta, ... up to max_budget."""
+    """The geometric budget ladder min, min*eta, ... up to max_budget. Guards against the
+    non-terminating cases (min_budget < 1 would never grow; eta < 2 would never advance)."""
+    if min_budget < 1:
+        raise ValueError("min_budget must be >= 1")
+    if eta < 2:
+        raise ValueError("eta must be >= 2")
     budgets, b = [], int(min_budget)
     while b < max_budget:
         budgets.append(b)
         b *= eta
-    budgets.append(int(max_budget))
+    if not budgets or budgets[-1] != int(max_budget):
+        budgets.append(int(max_budget))
     return budgets
 
 
@@ -37,15 +43,18 @@ def successive_halving(configs: list, eval_fn, min_budget: int = 1, max_budget: 
     budgets = rung_budgets(min_budget, max_budget, eta)
     alive = list(configs)
     rungs = []
-    best_item, best_score = None, -math.inf
+    survivor, survivor_score = (alive[0] if alive else None), -math.inf
     for b in budgets:
         scored = [(c, float(eval_fn(c, b))) for c in alive]
-        for c, s in scored:
-            if s > best_score:
-                best_item, best_score = c, s
-        survivors = top_fraction(scored, eta)
-        rungs.append({"budget": b, "n_in": len(alive), "n_out": len(survivors)})
-        alive = survivors
+        ranked = sorted(scored, key=lambda r: r[1], reverse=True)
+        k = max(1, math.ceil(len(ranked) / eta))
+        survivors_scored = ranked[:k]
+        # The reported (survivor, score) is always the best survivor AT THIS rung's budget, so
+        # a config that spiked at a smaller budget but was then culled never mislabels the
+        # result (correctness under a non-monotone eval_fn).
+        survivor, survivor_score = survivors_scored[0]
+        rungs.append({"budget": b, "n_in": len(alive), "n_out": len(survivors_scored)})
+        alive = [c for c, _ in survivors_scored]
         if len(alive) <= 1:
             break
-    return {"survivor": alive[0] if alive else best_item, "score": best_score, "rungs": rungs}
+    return {"survivor": survivor, "score": survivor_score, "rungs": rungs}

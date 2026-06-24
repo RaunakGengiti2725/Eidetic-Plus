@@ -304,6 +304,7 @@ class QuantizedVectorIndex(NumpyVectorIndex):
         self._codes = None
         self._code_dim = 0
         self._codes_dirty = True
+        self._rotation = None
         super().__init__(index_dir, dim, struct_dim)
 
     def add(self, memory_id, content_vec, struct_vec=None):
@@ -323,15 +324,16 @@ class QuantizedVectorIndex(NumpyVectorIndex):
         elif self.kind == "sq8":
             self._codes = _q.sq8_encode(self.content)
         else:
-            self._codes, _ = _q.rabitq_encode(self.content)
             self._code_dim = self.content.shape[1]
+            self._rotation = _q.make_rotation(self._code_dim)
+            self._codes, _ = _q.rabitq_encode(self.content, self._rotation)
         self._codes_dirty = False
 
     def _approx(self, qvec: np.ndarray) -> np.ndarray:
         from .optim import quantize as _q
         if self.kind == "sq8":
             return _q.sq8_scores(self._codes, qvec)
-        qpacked, _ = _q.rabitq_encode(qvec)
+        qpacked, _ = _q.rabitq_encode(qvec, self._rotation)
         return _q.rabitq_cosine_estimate(_q.rabitq_hamming(self._codes, qpacked[0]),
                                          self._code_dim)
 

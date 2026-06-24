@@ -6,11 +6,13 @@ Two lightweight, numpy-only quantizers plus a two-stage search that recovers rec
     L2-normalized (components in [-1,1]), so a global scale of 127 is exact-ranged.
     Approximate cosine = int8 dot / 127^2.
 
-  * Binary 1-bit (RaBitQ-style / SimHash sign codes): store the sign bit per dimension,
-    1-to-32 compression. Distance is a bitwise XOR + popcount (Hamming). For unit vectors
-    the angle estimator is unbiased: cos_est = cos(pi * hamming / D), with error O(1/sqrt(D))
-    -- the random-hyperplane result. popcount uses a uint8 lookup table (no popcount intrinsic
-    needed).
+  * Binary 1-bit (RaBitQ-style / SimHash sign codes): rotate by a fixed random orthonormal
+    matrix (make_rotation), then store the sign bit per dimension -- 1-to-32 compression.
+    Distance is a bitwise XOR + popcount (Hamming). The rotation is what makes the sign bits
+    behave as random hyperplanes, so the angle estimator cos_est = cos(pi * hamming / D) is
+    asymptotically unbiased with error O(1/sqrt(D)). (Without the rotation this holds only for
+    already-isotropic data and fails on anisotropic real embeddings.) popcount uses a uint8
+    lookup table (no popcount intrinsic needed).
 
 Two-stage search (the recall recovery): stage 1 ranks ALL vectors cheaply over the compact
 codes to get a shortlist of N >> k; stage 2 re-scores that shortlist with EXACT float32
@@ -20,10 +22,33 @@ recall check confirms the estimator holds within the >1%-drop rule.
 """
 from __future__ import annotations
 
+from typing import Optional
+
 import numpy as np
 
 # popcount lookup table over a byte: bits set in 0..255.
 _POPCOUNT = np.array([bin(i).count("1") for i in range(256)], dtype=np.uint16)
+
+# RaBitQ random-rotation: sign codes estimate the angle (cos(pi*h/D)) ONLY when the
+# projection directions are random. Real embeddings are anisotropic, so we rotate every
+# vector (and the query) by a fixed random orthonormal matrix before sign-coding -- this is
+# what makes the standard-basis sign bits behave as random hyperplanes. The rotation is
+# deterministic from (dim, seed), so it is reproducible across index rebuilds without
+# persisting the matrix, and the DB and query always share it.
+RABITQ_SEED = 1234567
+_ROTATION_CACHE: dict[tuple[int, int], np.ndarray] = {}
+
+
+def make_rotation(dim: int, seed: int = RABITQ_SEED) -> np.ndarray:
+    """A deterministic DxD orthonormal rotation (QR of a seeded Gaussian), cached per (dim, seed)."""
+    key = (int(dim), int(seed))
+    R = _ROTATION_CACHE.get(key)
+    if R is None:
+        rng = np.random.default_rng(seed)
+        Q, _ = np.linalg.qr(rng.standard_normal((dim, dim)))
+        R = Q.astype(np.float32)
+        _ROTATION_CACHE[key] = R
+    return R
 
 
 def _l2(matrix: np.ndarray) -> np.ndarray:
@@ -49,9 +74,13 @@ def sq8_scores(codes: np.ndarray, qvec: np.ndarray, scale: float = 127.0) -> np.
 
 
 # ---- binary 1-bit quantization (RaBitQ-style sign codes) -------------------
-def rabitq_encode(matrix: np.ndarray) -> tuple[np.ndarray, int]:
-    """Pack the per-dimension sign bits. Returns (packed uint8 [N, ceil(D/8)], D)."""
+def rabitq_encode(matrix: np.ndarray, rotation: Optional[np.ndarray] = None) -> tuple[np.ndarray, int]:
+    """Pack the per-dimension sign bits of the (optionally rotated) L2-normalized rows. The
+    rotation makes the sign bits behave as random hyperplanes (see make_rotation). Returns
+    (packed uint8 [N, ceil(D/8)], D)."""
     m = _l2(matrix)
+    if rotation is not None:
+        m = m @ rotation
     bits = (m >= 0).astype(np.uint8)
     return np.packbits(bits, axis=1), m.shape[1]
 
@@ -104,6 +133,7 @@ class QuantizedANN:
         self.raw = np.zeros((0, 0), dtype=np.float32)
         self._codes = None
         self._dim = 0
+        self._rotation = None
 
     def fit(self, matrix: np.ndarray) -> "QuantizedANN":
         self.raw = _l2(matrix)
@@ -111,15 +141,15 @@ class QuantizedANN:
         if self.kind == "sq8":
             self._codes = sq8_encode(self.raw, self.scale)
         else:
-            self._codes, self._dim = rabitq_encode(self.raw)
-            self._dim = matrix.shape[1] if np.ndim(matrix) == 2 else self._dim
+            self._rotation = make_rotation(self._dim)
+            self._codes, self._dim = rabitq_encode(self.raw, self._rotation)
         return self
 
     def _approx_scores(self, qvec: np.ndarray) -> np.ndarray:
         if self.kind == "sq8":
             return sq8_scores(self._codes, qvec, self.scale)
-        return rabitq_cosine_estimate(rabitq_hamming(self._codes, rabitq_encode(qvec)[0][0]),
-                                      self._dim)
+        qpacked, _ = rabitq_encode(qvec, self._rotation)
+        return rabitq_cosine_estimate(rabitq_hamming(self._codes, qpacked[0]), self._dim)
 
     def search(self, qvec: np.ndarray, k: int) -> list[tuple[int, float]]:
         """Stage 1: rank all rows by the cheap code score -> shortlist of N. Stage 2 (if

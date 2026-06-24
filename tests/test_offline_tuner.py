@@ -79,6 +79,26 @@ def test_successive_halving_keeps_the_best():
     assert [r["n_out"] for r in res["rungs"]][:2] == [3, 1]   # 9 -> 3 -> 1
 
 
+def test_successive_halving_score_matches_survivor_under_nonmonotone():
+    # config 8 spikes at budget 1 then collapses; config 7 is steadily good. The reported
+    # score must belong to the actual final survivor (7@7), not 8's stale early spike (100).
+    def eval_fn(c, b):
+        if c == 8:
+            return 100.0 if b == 1 else 0.0
+        return float(c)
+    res = successive_halving(list(range(9)), eval_fn, min_budget=1, max_budget=9, eta=3)
+    assert res["survivor"] == 7
+    assert res["score"] == 7.0
+
+
+def test_rung_budgets_rejects_nonterminating_inputs():
+    import pytest
+    with pytest.raises(ValueError):
+        rung_budgets(0, 9, eta=3)        # min_budget < 1 would never grow
+    with pytest.raises(ValueError):
+        rung_budgets(1, 9, eta=1)        # eta < 2 would never advance
+
+
 # ---- Lasso knob importance --------------------------------------------------
 def test_lasso_selects_the_driving_feature():
     rng = np.random.default_rng(0)

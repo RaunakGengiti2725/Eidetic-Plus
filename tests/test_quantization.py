@@ -3,8 +3,8 @@ from __future__ import annotations
 
 import numpy as np
 
-from eidetic.optim.quantize import (QuantizedANN, rabitq_cosine_estimate, rabitq_encode,
-                                    rabitq_hamming, sq8_encode, sq8_scores)
+from eidetic.optim.quantize import (QuantizedANN, make_rotation, rabitq_cosine_estimate,
+                                    rabitq_encode, rabitq_hamming, sq8_encode, sq8_scores)
 
 
 def _unit_rows(n, d, seed):
@@ -77,6 +77,33 @@ def test_rabitq_estimate_approximates_true_cosine():
     # 1-bit sign codes track the true cosine strongly (the angle estimator), though coarse:
     # this correlation is precisely why a second exact-refine stage is needed for top-k.
     assert np.corrcoef(est, true)[0, 1] > 0.8
+
+
+def test_rabitq_rotation_restores_estimator_on_anisotropic_data():
+    # Anisotropic embedding: variance concentrated in a few dims. WITHOUT the random rotation,
+    # raw-axis sign codes correlate poorly with true cosine (the SimHash guarantee needs random
+    # hyperplanes). The fixed orthonormal rotation restores the random-hyperplane property.
+    rng = np.random.default_rng(7)
+    scale = np.ones(128, dtype=np.float32)
+    scale[:8] = 10.0
+    M = (rng.standard_normal((200, 128)) * scale).astype(np.float32)
+    M = M / np.linalg.norm(M, axis=1, keepdims=True)
+    q = M[0]
+    true = M @ q
+
+    p0, d = rabitq_encode(M)                        # no rotation (broken on anisotropic data)
+    qp0, _ = rabitq_encode(q)
+    est0 = rabitq_cosine_estimate(rabitq_hamming(p0, qp0[0]), d)
+
+    R = make_rotation(128, seed=1)                  # rotated (RaBitQ-correct)
+    p1, _ = rabitq_encode(M, R)
+    qp1, _ = rabitq_encode(q, R)
+    est1 = rabitq_cosine_estimate(rabitq_hamming(p1, qp1[0]), d)
+
+    corr0 = np.corrcoef(est0, true)[0, 1]
+    corr1 = np.corrcoef(est1, true)[0, 1]
+    assert corr1 > 0.8                              # rotated estimator tracks true cosine
+    assert corr1 > corr0 + 0.3                      # and is far better than raw-axis sign codes
 
 
 def test_rabitq_two_stage_recovers_recall():

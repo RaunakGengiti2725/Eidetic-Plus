@@ -65,20 +65,24 @@ class TPESampler:
         lo, hi = spec[1], spec[2]
         gv = np.array([g[name] for g in good], dtype=float)
         bv = np.array([b[name] for b in bad], dtype=float) if bad else np.array([])
-        h = max((hi - lo) / np.sqrt(max(len(gv), 1)), (hi - lo) * 0.1, 1e-6)  # bandwidth
+        # Per-set bandwidths (textbook TPE): l(x) and g(x) each adapt to their own size, so the
+        # larger bad set is not over-smoothed by the good set's bandwidth.
+        h_good = max((hi - lo) / np.sqrt(max(len(gv), 1)), (hi - lo) * 0.1, 1e-6)
+        h_bad = max((hi - lo) / np.sqrt(max(len(bv), 1)), (hi - lo) * 0.1, 1e-6)
 
         cands = np.clip(self.rng.choice(gv, size=self.n_candidates) +
-                        self.rng.normal(0.0, h, size=self.n_candidates), lo, hi)
+                        self.rng.normal(0.0, h_good, size=self.n_candidates), lo, hi)
         cands = np.concatenate([cands, gv])           # include the good points themselves
 
-        def kde(x, pts):
+        def kde(x, pts, h):
             if pts.size == 0:
                 return np.full(x.shape, 1e-9)
             d = (x[:, None] - pts[None, :]) / h
             return np.mean(np.exp(-0.5 * d * d), axis=1) / (h * _SQRT2PI) + 1e-12
 
-        ratio = kde(cands, gv) / kde(cands, bv if bv.size else np.array([(lo + hi) / 2]))
-        best = float(cands[int(np.argmax(ratio))])
+        gx = kde(cands, gv, h_good)
+        bx = kde(cands, bv, h_bad) if bv.size else np.full(cands.shape, 1.0)  # empty bad -> flat
+        best = float(cands[int(np.argmax(gx / bx))])
         return int(round(best)) if kind == "int" else best
 
     def observe(self, config: dict, loss: float) -> None:

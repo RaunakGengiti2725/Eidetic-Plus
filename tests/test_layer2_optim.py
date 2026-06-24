@@ -27,6 +27,15 @@ def test_largest_gap_respects_bounds_and_edge_cases():
     assert largest_gap_k([0.9, 0.89, 0.88, 0.2], min_k=1, max_k=2) <= 2
 
 
+def test_largest_gap_can_reach_max_k_via_a_gap():
+    # regression for an off-by-one: the largest gap (0.9->0.1) keeps k=2, which max_k=2
+    # permits. The buggy bound never examined the cut at i=hi-1 and returned 1.
+    assert largest_gap_k([1.0, 0.9, 0.1], min_k=1, max_k=2) == 2
+    assert [c[0] for c in adaptive_k_cut(
+        [("a", 1.0), ("b", 0.9), ("c", 0.1)], score_fn=lambda c: c[1],
+        min_k=1, max_k=2)] == ["a", "b"]
+
+
 def test_adaptive_k_cut_preserves_order_and_drops_tail():
     cands = [("a", 0.9), ("b", 0.88), ("c", 0.2), ("d", 0.18)]
     kept = adaptive_k_cut(cands, score_fn=lambda c: c[1], min_k=1, max_k=4)

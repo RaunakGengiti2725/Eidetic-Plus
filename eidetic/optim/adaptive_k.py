@@ -27,8 +27,9 @@ def largest_gap_k(scores, min_k: int = 1, max_k: Optional[int] = None) -> int:
     if n == 1 or hi == lo:
         return lo
     # gap after rank i (0-indexed) is s[i]-s[i+1]; cutting there keeps k=i+1 items.
-    # Valid cut indices i give k=i+1 in [lo, hi], i.e. i in [lo-1, min(hi,n)-2].
-    i_hi = min(hi, n) - 2
+    # Valid cut indices i give k=i+1 in [lo, hi] AND need s[i+1] to exist (i<=n-2),
+    # i.e. i in [lo-1, min(hi-1, n-2)]. (min(hi,n)-2 was one too small for max_k<n.)
+    i_hi = min(hi - 1, n - 2)
     if i_hi < lo - 1:
         return lo
     gaps = s[lo - 1:i_hi + 1] - s[lo:i_hi + 2]

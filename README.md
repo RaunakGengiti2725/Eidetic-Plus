@@ -384,6 +384,29 @@ Sweepable params (`config.py`): `abstention_threshold`, `rrf_w_*`, `rerank_enabl
 `salience_prune_threshold`. Playbook target numbers are **direction, not an assumed baseline**
 — the real baseline comes from the first run.
 
+### Always-on optimization (three-tier menu) — see [docs/optimization.md](docs/optimization.md)
+
+On top of the playbook, a **formula-level menu of continuous optimizers** (`eidetic/optim/`),
+all lightweight numpy/SQLite and **all flag-gated off by default** (the baseline is unchanged;
+each is an independent A/B):
+
+- **Layer 1 (offline auto-tuning):** numpy **TPE** (`bench.sweep --sampler tpe`), **NSGA-II**
+  multi-objective Pareto over (accuracy, latency, tokens), **ASHA** early-stopping, **Lasso**
+  knob-importance, and **UCB1 / Thompson / LinUCB** bandits.
+- **Layer 2 (per-query hot path):** **adaptive-k** largest-gap cut, **split-conformal** depth,
+  fusion variants (**z-score / min-max / DBSF / Borda**), **MMR** diversity, skip-rerank-on-margin,
+  adaptive efSearch, parallel channel fan-out.
+- **Layer 3 (background):** **FTRL / Exponentiated-Gradient** online fusion weights, **Rocchio
+  PRF**, **SQ8 / RaBitQ** quantization with an exact refine pass, **FadeMem** decay, **ARC**
+  cache, **Markov** prefetch.
+
+The **integrity wall is non-negotiable**: the offline sweep + calibrator read the private
+**dev** split only (`split_of()`); reported numbers come from the disjoint **test** split.
+Learners read a dev-only `FeedbackBuffer`. Every formula is covered by offline unit tests
+(including known-answer tests for TPE/NSGA-II/ASHA/Lasso and recall tests for quantization).
+**Status (honest):** the machinery is validated for *correctness*, not yet for *benchmark lift*
+(a live run needs a funded key); the runbook to turn it into measured gains is in the doc.
+
 ### The claim, stated honestly
 
 Eidetic-Plus is **built to lead every LongMemEval + LoCoMo category at lower token cost
