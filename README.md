@@ -407,6 +407,28 @@ Learners read a dev-only `FeedbackBuffer`. Every formula is covered by offline u
 **Status (honest):** the machinery is validated for *correctness*, not yet for *benchmark lift*
 (a live run needs a funded key); the runbook to turn it into measured gains is in the doc.
 
+### Self-healing + society-of-memory — see [docs/self-healing.md](docs/self-healing.md)
+
+A second menu of evidence-grounded mechanisms (`eidetic/dreaming/`, `eidetic/memory_types.py`,
+`eidetic/debate.py`, `bench/guard.py`), all flag-gated **off** by default:
+
+- **MemMA self-repair** — the agent quizzes itself, diagnoses what it can't answer, and routes a
+  SKIP/MERGE/INSERT repair onto the existing conflict resolver (proposal-only).
+- **EvolveMem auto-revert Guard** — promotes a tuned config only if it beats the champion on the
+  **dev** split by a significant paired-McNemar margin; never let self-modification regress the score.
+- **Per-triple anomaly scoring** (LOF + coherence + TransE) to target the repair sweep.
+- **Heuristic memory manager** (ADD/UPDATE/DELETE-tombstone/NOOP) — the API-only approximation of
+  Memory-R1's GRPO manager (GPU training deliberately skipped).
+- **MIRIX role typing** (six memory types) + **Markov prospective prefetch** + **bounded-debate**
+  aggregation (≥2 agree, else abstain — guards against debate's "communication hallucination").
+
+The deterministic cores are unit-tested offline; the LLM orchestration (probes, CoVe, debate
+rounds, HaluMem QA grading) is gated, fail-loud, and **unrun under the current quota block** —
+so this is **validated for correctness, not yet for benchmark lift**. The PDF is explicit that
+LoCoMo is near-saturated and the headroom is in HaluMem / knowledge-update / conflict-resolution;
+measure self-repair on HaluMem first (the runbook is in the doc). The integrity wall holds at
+every new entry point (the guard reads dev only; HaluMem routes through `split_of`).
+
 ### The claim, stated honestly
 
 Eidetic-Plus is **built to lead every LongMemEval + LoCoMo category at lower token cost
