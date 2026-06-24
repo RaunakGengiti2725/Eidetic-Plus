@@ -8,6 +8,7 @@ sleep (scheduled):  consolidate -> dedup/pattern-separation -> verified semantic
 """
 from __future__ import annotations
 
+import re
 import tempfile
 import time
 from pathlib import Path
@@ -59,6 +60,9 @@ class Engine:
         # Dev-only feedback replay buffer (the spine of the idle learning cadence).
         from .feedback import FeedbackBuffer
         self.feedback = FeedbackBuffer(self.settings.data_dir / "feedback.sqlite")
+        # Prospective memory: a first-order Markov model of query-signature transitions.
+        from .optim.markov import MarkovPrefetcher
+        self.markov = MarkovPrefetcher()
 
     # ---- wake: write path -------------------------------------------------
     def ingest(
@@ -221,6 +225,9 @@ class Engine:
         scope = scope or Scope()
         read_at = as_of if as_of is not None else at
         sk = scope.key()
+        # Prospective memory: learn P(next query-signature | current) for predictive prefetch.
+        if self.settings.markov_prefetch_enabled:
+            self._observe_query(query)
         use_cache = use_cache and self.settings.semantic_cache_enabled
         # Time-travel (as_of) queries are not cached (the answer depends on the as-of time).
         if as_of is not None:
@@ -320,6 +327,24 @@ class Engine:
                          method=self.settings.fusion_learner_method)
         save_weights(self.settings.index_dir / "fusion_weights.json", weights)
         return weights
+
+    # ---- prospective memory (Markov query-transition model) --------------
+    def _query_signature(self, query: str) -> str:
+        """A deterministic, model-free signature for a query (its first entity, else first
+        salient token). Used as the Markov state so P(next|current) is learnable token-free."""
+        from .events import parse_query
+        ents = [str(e).lower() for e in (parse_query(query).get("entities") or []) if str(e).strip()]
+        if ents:
+            return ents[0]
+        toks = [w for w in re.findall(r"[a-z0-9]+", (query or "").lower()) if len(w) > 2]
+        return toks[0] if toks else "_"
+
+    def _observe_query(self, query: str) -> None:
+        self.markov.observe(self._query_signature(query))
+
+    def predict_next_signatures(self, query: str, top_k: int = 3) -> list:
+        """The Markov model's most-likely NEXT query signatures given the current query."""
+        return self.markov.predict(self._query_signature(query), top_k=top_k)
 
     def reawaken(self, memory_id: str) -> Optional[MemoryRecord]:
         """Strong-cue reawakening: reset retrievability + boost stability (O(1))."""
