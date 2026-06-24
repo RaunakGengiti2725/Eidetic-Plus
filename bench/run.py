@@ -14,7 +14,8 @@ import os
 from pathlib import Path
 
 from . import curves, scoreboard
-from .datasets import beam, category_counts, locomo, longmemeval, memoryagentbench
+from .datasets import (beam, category_counts, filter_split, locomo, longmemeval,
+                       memoryagentbench)
 from .harness import run_system
 from .judge import Judge
 
@@ -50,16 +51,24 @@ def _slice(samples: list, subset: int, offset: int) -> list:
     return samples[offset:]
 
 
-def load_samples(dataset: str, subset: int, variant: str, offset: int = 0):
+def load_samples(dataset: str, subset: int, variant: str, offset: int = 0,
+                 split: str | None = None):
+    """Load benchmark samples. `split` enforces the integrity wall: 'test' for
+    reported runs, 'dev' for optimizers, None/'all' for ad-hoc full runs. The split
+    filter is applied to the FULL dataset BEFORE the subset/offset slice, so a subset
+    of the dev split never overlaps a subset of the test split."""
+    def _take(loaded):
+        return _slice(filter_split(loaded, split), subset, offset)
+
     out = []
     if dataset in ("longmemeval", "both", "all"):
-        out += _slice(longmemeval.load(variant=variant, limit=None), subset, offset)
+        out += _take(longmemeval.load(variant=variant, limit=None))
     if dataset in ("locomo", "both", "all"):
-        out += _slice(locomo.load(limit=None), subset, offset)
+        out += _take(locomo.load(limit=None))
     if dataset in ("memoryagentbench", "all"):
-        out += _slice(memoryagentbench.load(limit=None), subset, offset)
+        out += _take(memoryagentbench.load(limit=None))
     if dataset in ("beam", "all"):
-        out += _slice(beam.load(limit=None), subset, offset)
+        out += _take(beam.load(limit=None))
     return out
 
 
@@ -71,6 +80,7 @@ def write_manifest(out: Path, args, judge_desc: dict, samples: list | None = Non
     manifest = {
         "systems": args.systems,
         "dataset": args.dataset,
+        "split": getattr(args, "split", "all"),
         "subset": args.subset,
         "sample_offset": args.sample_offset,
         "runs": args.runs,
@@ -100,6 +110,9 @@ def main() -> int:
     ap.add_argument("--overwrite", action="store_true", help="allow replacing existing run log files")
     ap.add_argument("--variant", default="longmemeval_s")
     ap.add_argument("--out", default="artifacts/bench")
+    ap.add_argument("--split", default="all", choices=["all", "dev", "test"],
+                    help="integrity wall: 'test' = reported runs, 'dev' = optimizer split, "
+                         "'all' = full (ad-hoc). Reported numbers MUST use 'test'.")
     ap.add_argument("--render-only", action="store_true", help="re-render from existing logs")
     args = ap.parse_args()
     if args.sample_offset < 0:
@@ -117,9 +130,11 @@ def main() -> int:
     loaded_samples = None
 
     if not args.render_only:
-        samples = load_samples(args.dataset, args.subset, args.variant, args.sample_offset)
+        samples = load_samples(args.dataset, args.subset, args.variant, args.sample_offset,
+                               split=args.split)
         loaded_samples = samples
-        print(f"Loaded {len(samples)} samples ({args.dataset}); categories: {category_counts(samples)}")
+        print(f"Loaded {len(samples)} samples ({args.dataset}, split={args.split}); "
+              f"categories: {category_counts(samples)}")
         if not samples:
             raise SystemExit("No samples loaded. Check --dataset, --subset, and --sample-offset.")
         failures = []

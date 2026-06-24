@@ -13,6 +13,7 @@ import json
 from pathlib import Path
 from typing import Optional
 
+from .datasets import split_of
 from .harness import load_logs
 
 
@@ -42,16 +43,24 @@ def conformal_threshold(samples: list[dict], target_precision: float = 0.95) -> 
             "note": "target precision not reachable; returning best-precision operating point"}
 
 
-def _samples_from_logs(rows: list[dict], system: str) -> list[dict]:
-    out = []
+def _samples_from_logs(rows: list[dict], system: str, split: str = "dev") -> tuple[list[dict], int]:
+    """Extract (signal, correct) calibration pairs from logs. Integrity wall: when split is
+    'dev'/'test', only rows whose sample_id falls on that split are used, so an abstention
+    threshold can never be fit to benchmark TEST items even if the log dir is mixed. Returns
+    (samples, n_excluded_by_split)."""
+    out, excluded = [], 0
     for r in rows:
         if r.get("system") != system:
             continue
         sig = (r.get("extra") or {}).get("coverage")
         if sig is None:
             continue
+        sid = r.get("sample_id")
+        if split in ("dev", "test") and sid is not None and split_of(str(sid)) != split:
+            excluded += 1
+            continue
         out.append({"signal": float(sig), "correct": bool(r.get("correct"))})
-    return out
+    return out, excluded
 
 
 def main() -> int:
@@ -59,14 +68,19 @@ def main() -> int:
     ap.add_argument("--logs", default="artifacts/bench")
     ap.add_argument("--system", default="eidetic-plus")
     ap.add_argument("--target", type=float, default=0.95)
+    ap.add_argument("--split", default="dev", choices=["dev", "test", "all"],
+                    help="integrity wall: calibrate the abstention threshold on the DEV split "
+                         "only (default). 'all' disables the firewall (ad-hoc only).")
     args = ap.parse_args()
 
     rows = load_logs(Path(args.logs))
-    samples = _samples_from_logs(rows, args.system)
+    samples, excluded = _samples_from_logs(rows, args.system, split=args.split)
+    if excluded:
+        print(f"Integrity wall: excluded {excluded} non-{args.split}-split rows from calibration.")
     if not samples:
-        print("No scored logs with a coverage signal found. Run the harness with a funded key "
-              "first (calibration computes a real threshold from real scored questions; it never "
-              "fabricates one). Expected at: " + args.logs)
+        print(f"No {args.split}-split scored logs with a coverage signal found. Run the harness "
+              "with a funded key first (calibration computes a real threshold from real scored "
+              "questions; it never fabricates one). Expected at: " + args.logs)
         return 2
     res = conformal_threshold(samples, args.target)
     out = Path(args.logs) / "abstention_threshold.json"

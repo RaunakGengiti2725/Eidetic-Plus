@@ -16,11 +16,15 @@ cd "$(dirname "${BASH_SOURCE[0]}")/.."
 source .venv/bin/activate 2>/dev/null || true
 
 # Full study: both datasets, all four LoCoMo categories, >=10 runs for variance.
+# --split test: reported numbers come ONLY from the held-out test split. The optimizers
+# (bench.sweep, bench.calibrate) tune on the disjoint --split dev partition, so no reported
+# number is ever fit to the items it scores. This is the integrity wall.
 python -m bench.run \
   --systems eidetic,mem0,graphiti \
   --dataset both \
   --subset 0 \
   --runs 10 \
+  --split test \
   --out artifacts/bench
 
 echo "Done. See artifacts/bench/scoreboard.md and the recall_vs_age / latency_vs_age PNGs."

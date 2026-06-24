@@ -14,9 +14,17 @@ from pathlib import Path
 from statistics import mean
 from typing import Any
 
-# Coordinate-descent stages: (env var to set, candidate values). Product-only
-# knobs such as READER_ROUTER and ABSTENTION_THRESHOLD are intentionally excluded
-# because the neutral fixed-reader adapter does not exercise them.
+# OtterTune-style knob blacklist: settings whose change forces an HNSW index rebuild
+# must NEVER be flipped per-trial by an always-on tuner (a ruinous rebuild per arm).
+# They are tuned only by the explicit offline rebuild path, never here. We ASSERT the
+# stage grid is disjoint from this set so the exclusion is a documented mechanism, not
+# an accident of omission.
+REBUILD_KNOBS = {"HNSW_M", "HNSW_EF_CONSTRUCTION"}
+
+# Coordinate-descent stages: (env var to set, candidate values). Two exclusions, both
+# intentional: (1) product-only knobs such as READER_ROUTER / ABSTENTION_THRESHOLD that the
+# neutral fixed-reader adapter does not exercise; (2) the REBUILD_KNOBS above (index rebuild).
+# HNSW_EF_SEARCH is a query-time knob, so it stays.
 STAGES = [
     ("READER_COT", ["0", "1"]),
     ("CONFLICT_RESOLVER", ["0", "1"]),
@@ -39,6 +47,10 @@ STAGES = [
 
 _DATASET_CHOICES = ["longmemeval", "locomo", "memoryagentbench", "beam", "both", "all"]
 _REQUIRED_LOG_FIELDS = {"system", "dataset", "category", "sample_id", "correct", "run_idx"}
+
+# Integrity wall: the sweep is an optimizer, so it may tune on the DEV split ONLY.
+assert not (set(s for s, _ in STAGES) & REBUILD_KNOBS), \
+    f"STAGES must not include rebuild knobs {REBUILD_KNOBS}"
 
 
 def plan(subset: int, runs: int) -> list[dict]:
@@ -162,6 +174,9 @@ def _parse_args() -> argparse.Namespace:
     ap.add_argument("--run-offset", type=int, default=0)
     ap.add_argument("--variant", default="longmemeval_s")
     ap.add_argument("--out", default="artifacts/bench/sweep")
+    ap.add_argument("--split", default="dev", choices=["dev"],
+                    help="integrity wall: the sweep may tune on the DEV split ONLY. Reported "
+                         "runs use --split test (bench.run / reproduce.sh). Locked to 'dev'.")
     ap.add_argument("--overwrite", action="store_true", help="allow replacing existing trial logs")
     ap.add_argument("--mem0-gate-out", help="real Mem0 gate log directory from a qwen-plus run")
     ap.add_argument("--mem0-gate-expected", help="published Mem0 LoCoMo reference JSON")
@@ -221,10 +236,18 @@ def main() -> int:
     from .harness import load_logs, run_system
     from .judge import Judge
 
-    samples = bench_run.load_samples(args.dataset, args.subset, args.variant, args.sample_offset)
+    if args.split != "dev":
+        raise SystemExit("Integrity wall: the sweep tunes on the DEV split only.")
+    samples = bench_run.load_samples(args.dataset, args.subset, args.variant, args.sample_offset,
+                                     split="dev")
     if not samples:
-        raise SystemExit("No samples loaded. Check --dataset, --subset, and --sample-offset.")
-    print(f"Loaded {len(samples)} samples; categories: {category_counts(samples)}")
+        raise SystemExit(
+            "No DEV-split samples loaded. The sweep tunes on the private dev split only "
+            "(integrity wall); check --dataset/--subset/--sample-offset. Reported numbers "
+            "come from --split test via bench.run/reproduce.sh."
+        )
+    print(f"Loaded {len(samples)} DEV-split samples (integrity wall); "
+          f"categories: {category_counts(samples)}")
 
     original_env = {env_var: os.environ.get(env_var) for env_var in _stage_env_keys()}
     best_env: dict[str, str] = {}
