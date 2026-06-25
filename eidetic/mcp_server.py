@@ -25,6 +25,7 @@ from __future__ import annotations
 import argparse
 import base64
 import os
+import threading
 from typing import Optional
 
 from mcp.server.fastmcp import FastMCP
@@ -52,12 +53,15 @@ mcp = FastMCP(
 # One long-lived Engine, built lazily on first model-or-store use, shared by all tool calls.
 # Construction does NOT call the API, so the server starts and lists tools without a key.
 _engine: Optional[Engine] = None
+_engine_lock = threading.Lock()
 
 
 def engine() -> Engine:
     global _engine
     if _engine is None:
-        _engine = Engine()
+        with _engine_lock:                 # double-checked: never construct two Engines concurrently
+            if _engine is None:
+                _engine = Engine()
     return _engine
 
 

@@ -8,6 +8,7 @@ hit. Deploy only where the cluster hit-rate clears the threshold (measured).
 """
 from __future__ import annotations
 
+import threading
 from typing import Optional
 
 import numpy as np
@@ -16,30 +17,41 @@ from .multires import _kmeans, _normalize
 
 
 class PrefetchCache:
-    def __init__(self, threshold: float = 0.9):
+    def __init__(self, threshold: float = 0.9, max_entries: int = 256):
         self.threshold = threshold
+        self.max_entries = int(max_entries)
         self.centroids: list[np.ndarray] = []
         self.contexts: list[list[str]] = []
         self.hits = 0
         self.misses = 0
+        self._lock = threading.Lock()
 
     def add(self, centroid_vec: np.ndarray, context_blocks: list[str]) -> None:
         v = np.asarray(centroid_vec, dtype=np.float32)
-        self.centroids.append(v / (np.linalg.norm(v) + 1e-9))
-        self.contexts.append(context_blocks)
+        with self._lock:
+            self.centroids.append(v / (np.linalg.norm(v) + 1e-9))
+            self.contexts.append(context_blocks)
+            if len(self.centroids) > self.max_entries:    # bound: was unbounded -> memory leak
+                self.centroids.pop(0)
+                self.contexts.pop(0)
 
     def get(self, query_vec: np.ndarray) -> Optional[list[str]]:
-        if not self.centroids:
-            self.misses += 1
+        with self._lock:
+            centroids = list(self.centroids)        # snapshot so a concurrent add() cannot shift
+            contexts = list(self.contexts)          # indices mid-scan
+        if not centroids:
+            with self._lock:
+                self.misses += 1
             return None
         q = np.asarray(query_vec, dtype=np.float32)
         q = q / (np.linalg.norm(q) + 1e-9)
-        sims = [float(c @ q) for c in self.centroids]
+        sims = [float(c @ q) for c in centroids]
         i = int(np.argmax(sims))
-        if sims[i] >= self.threshold:
-            self.hits += 1
-            return self.contexts[i]
-        self.misses += 1
+        with self._lock:
+            if sims[i] >= self.threshold:
+                self.hits += 1
+                return contexts[i]
+            self.misses += 1
         return None
 
     def hit_rate(self) -> float:

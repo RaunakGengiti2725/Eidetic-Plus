@@ -18,6 +18,7 @@ from __future__ import annotations
 import base64
 import json
 import re
+import threading
 from pathlib import Path
 from typing import Any, Optional
 
@@ -532,10 +533,13 @@ class DashScopeClient:
 
 
 _client: Optional[DashScopeClient] = None
+_client_lock = threading.Lock()
 
 
 def get_client() -> DashScopeClient:
     global _client
     if _client is None:
-        _client = DashScopeClient()
+        with _client_lock:                 # double-checked: one shared client under concurrency
+            if _client is None:
+                _client = DashScopeClient()
     return _client

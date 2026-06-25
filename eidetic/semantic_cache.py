@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import re
+import threading
 from collections import OrderedDict
 from typing import Any, Optional
 
@@ -30,6 +31,10 @@ class SemanticCache:
         # long-lived server (e.g. the MCP server) serving many distinct queries.
         self._exact: "OrderedDict[str, Any]" = OrderedDict()  # (scope_key, query) -> value
         self._vecs: list[tuple[str, np.ndarray, Any]] = []    # (scope_key, qvec, value)
+        # Shared across concurrent asks on one Engine -> guard every mutation/read of the two
+        # containers (OrderedDict mutation + list append/pop are not atomic under the GIL across
+        # the move_to_end/popitem sequence).
+        self._lock = threading.Lock()
 
     @staticmethod
     def _hash(scope_key: str, query: str) -> str:
@@ -52,13 +57,15 @@ class SemanticCache:
 
     def get(self, scope_key: str, query: str, qvec: Optional[np.ndarray]) -> Optional[Any]:
         h = self._hash(scope_key, query)
-        if h in self._exact:
-            return self._exact[h]
-        if qvec is None or not self._vecs:
-            return None
+        with self._lock:
+            if h in self._exact:
+                return self._exact[h]
+            if qvec is None or not self._vecs:
+                return None
+            vecs = list(self._vecs)              # snapshot under lock; scoring is read-only
         q = _norm(qvec)
         best, best_sim = None, 0.0
-        for sk, v, value in self._vecs:
+        for sk, v, value in vecs:
             if sk != scope_key:
                 continue
             sim = float(v @ q)
@@ -68,15 +75,17 @@ class SemanticCache:
 
     def put(self, scope_key: str, query: str, qvec: Optional[np.ndarray], value: Any) -> None:
         h = self._hash(scope_key, query)
-        self._exact[h] = value
-        self._exact.move_to_end(h)
-        if len(self._exact) > self.max_entries:
-            self._exact.popitem(last=False)          # evict oldest, mirroring _vecs
-        if qvec is not None:
-            self._vecs.append((scope_key, _norm(qvec), value))
-            if len(self._vecs) > self.max_entries:
-                self._vecs.pop(0)
+        with self._lock:
+            self._exact[h] = value
+            self._exact.move_to_end(h)
+            if len(self._exact) > self.max_entries:
+                self._exact.popitem(last=False)          # evict oldest, mirroring _vecs
+            if qvec is not None:
+                self._vecs.append((scope_key, _norm(qvec), value))
+                if len(self._vecs) > self.max_entries:
+                    self._vecs.pop(0)
 
     def clear(self) -> None:
-        self._exact.clear()
-        self._vecs.clear()
+        with self._lock:
+            self._exact.clear()
+            self._vecs.clear()

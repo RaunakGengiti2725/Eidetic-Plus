@@ -11,6 +11,7 @@ with a clear 503 if DASHSCOPE_API_KEY is missing -- never a fabricated result.
 from __future__ import annotations
 
 import mimetypes
+import threading
 from pathlib import Path
 from typing import Optional
 
@@ -30,13 +31,18 @@ app = FastAPI(title="Eidetic-Plus", version="1.1.0",
               description="Universal, lossless, verifiable, recency-independent memory for AI agents.")
 
 _engine: Optional[Engine] = None
+_engine_lock = threading.Lock()
 _WEB_DIR = Path(__file__).parent / "web"
 
 
 def engine() -> Engine:
     global _engine
     if _engine is None:
-        _engine = Engine()
+        # Double-checked locking: concurrent first requests must not construct two Engines that
+        # both write the same index files.
+        with _engine_lock:
+            if _engine is None:
+                _engine = Engine()
     return _engine
 
 

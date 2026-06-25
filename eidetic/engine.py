@@ -11,6 +11,7 @@ from __future__ import annotations
 import logging
 import re
 import tempfile
+import threading
 import time
 from pathlib import Path
 from typing import Optional
@@ -46,6 +47,10 @@ class Engine:
     def __init__(self, settings: Optional[Settings] = None, client: Optional[DashScopeClient] = None):
         self.settings = settings or get_settings()
         self.client = client or get_client()
+        # F0 concurrency safety: a SINGLE reentrant write lock serializes every mutation of the
+        # shared in-memory index / BM25 / graph-write tail / caches. Reads (search) stay lock-free.
+        # INVARIANT: never hold this lock across a model call (that would deadlock the rate governor).
+        self._write_lock = threading.RLock()
         self.substrate = make_substrate(self.settings)
         self.store = RecordStore(self.settings.sqlite_path)
         self.index = make_vector_index(self.settings)
@@ -210,10 +215,13 @@ class Engine:
             from .memory_types import classify_record
             record.metadata["type"] = classify_record(record).value
 
-        self.index.add(record.memory_id, content_vec, struct_vec)
-        self.index.save()
-        self.store.upsert_record(record)
-        self.retriever.index_lexical(record)
+        # Index-write tail under the write lock (content_vec / struct_vec were computed above, OFF
+        # the lock -> no model call is held here).
+        with self._write_lock:
+            self.index.add(record.memory_id, content_vec, struct_vec)
+            self.index.save()
+            self.store.upsert_record(record)
+            self.retriever.index_lexical(record)
 
         # Synaptic tagging and capture: a salient event up-weights temporally adjacent
         # in-scope memories (FSRS priority only -- never the ranking score). Skipped on the
@@ -261,15 +269,17 @@ class Engine:
             w_helpful=s.affect_w_helpful)
 
     def _tag_and_capture(self, record: MemoryRecord, scope: Scope) -> int:
-        """Up-weight retention of memories temporally adjacent to a salient event."""
+        """Up-weight retention of memories temporally adjacent to a salient event. Store mutations
+        (FSRS reinforce + upsert) run under the write lock; no model call is involved."""
         tagged = 0
-        for r in self.store.all_records(scope):
-            if r.memory_id == record.memory_id:
-                continue
-            if abs(r.valid_at - record.valid_at) <= TAG_CAPTURE_WINDOW_SEC:
-                fsrs.reinforce(r.fsrs, importance=0.4 * record.salience, at=record.valid_at)
-                self.store.upsert_record(r)
-                tagged += 1
+        with self._write_lock:
+            for r in self.store.all_records(scope):
+                if r.memory_id == record.memory_id:
+                    continue
+                if abs(r.valid_at - record.valid_at) <= TAG_CAPTURE_WINDOW_SEC:
+                    fsrs.reinforce(r.fsrs, importance=0.4 * record.salience, at=record.valid_at)
+                    self.store.upsert_record(r)
+                    tagged += 1
         return tagged
 
     # convenience wrappers
@@ -347,33 +357,45 @@ class Engine:
                                         reader_model=reader_model)
 
         # Reconsolidation as a write path (retrieval is no longer read-only).
+        # PHASE 1 (NO lock): the confirmed-citation re-embed is the only model call here; it must
+        # run OFF the write lock (holding the lock across a governed model call would deadlock).
         confirmed: list[str] = []
+        contradicted: list[str] = []
+        reembed: dict[str, "np.ndarray"] = {}
         for cit in ans.citations:
-            rec = self.store.get_record(cit.memory_id)
-            if rec is None:
-                continue
             if cit.nli_label == NLILabel.ENTAILMENT:
-                # CONFIRMED recall = immune affinity maturation: re-embed + up-weight.
-                # Re-embedding refreshes the CONTENT vector; the FSRS boost is priority
-                # only -- neither enters the ranking score, so recall stays age-independent.
-                try:
-                    self.index.update(rec.memory_id, self.client.embed_text(rec.text))
-                except Exception as e:        # re-embed is best-effort; never silently swallow it
-                    self._degraded("reinforce-reembed", e)
+                confirmed.append(cit.memory_id)
+                rec = self.store.get_record(cit.memory_id)
+                if rec is not None:
+                    try:
+                        reembed[cit.memory_id] = self.client.embed_text(rec.text)
+                    except Exception as e:        # re-embed best-effort; never silently swallow it
+                        self._degraded("reinforce-reembed", e)
+            elif cit.nli_label == NLILabel.CONTRADICTION:
+                contradicted.append(cit.memory_id)
+        # PHASE 2 (write lock): apply all index/store/graph mutations atomically. Records are
+        # re-read under the lock so the read-modify-write is not lost under concurrent recall.
+        with self._write_lock:
+            for mid in confirmed:
+                rec = self.store.get_record(mid)
+                if rec is None:
+                    continue
+                if mid in reembed:
+                    self.index.update(mid, reembed[mid])   # refreshes CONTENT vector only (age-free)
                 fsrs.reinforce(rec.fsrs, importance=rec.importance)
                 self._reinforce_verified_helpful(rec)
                 self.store.upsert_record(rec)
-                confirmed.append(rec.memory_id)
-            elif cit.nli_label == NLILabel.CONTRADICTION:
-                # CONTRADICTED recall: suppress (down-weight), never delete.
-                fsrs.lapse(rec.fsrs)
+            for mid in contradicted:
+                rec = self.store.get_record(mid)
+                if rec is None:
+                    continue
+                fsrs.lapse(rec.fsrs)                        # down-weight, never delete
                 self.store.upsert_record(rec)
-
-        # Memory linking by co-activation: co-confirmed memories gain a strengthened edge.
-        if len(confirmed) >= 2:
-            self.graph.link_memories(confirmed, scope=scope, valid_at=read_at)
-        if confirmed:
-            self.index.save()
+            # Memory linking by co-activation: co-confirmed memories gain a strengthened edge.
+            if len(confirmed) >= 2:
+                self.graph.link_memories(confirmed, scope=scope, valid_at=read_at)
+            if confirmed:
+                self.index.save()
         if self.settings.feedback_enabled and precomputed is not None:
             self._emit_feedback(scope, query, qvec, precomputed, confirmed)
         # Connected Brain Loop: project the answer onto the improvement stream (gated).
@@ -642,19 +664,21 @@ class Engine:
 
         # Graph features computed ONCE (was O(N^2) per-record), then a single structure pass.
         feats = self.graph.node_features(scope=scope)
-        for rec, _ in extracted:
-            gfeat: dict = {"relations": rel_by_id.get(rec.memory_id, [])}
-            agg = [feats[e.lower()] for e in rec.entities if e.lower() in feats] if feats else []
-            if agg:
-                gfeat["ppr"] = float(np.mean([a["ppr"] for a in agg]))
-                gfeat["degree"] = float(np.mean([a["degree"] for a in agg]))
-            cur = self.index.get_vectors([rec.memory_id]).get(rec.memory_id)
-            if cur is not None:
-                self.index.update(rec.memory_id, cur,
-                                  sc.build_structure_code(rec, self.settings.struct_dim, gfeat))
-
-        self.index.save()
-        self.retriever.save_lexical()
+        # Index-write tail under the write lock so a concurrent ingest cannot race the index here
+        # (no model call inside: build_structure_code is pure, extraction already ran above).
+        with self._write_lock:
+            for rec, _ in extracted:
+                gfeat: dict = {"relations": rel_by_id.get(rec.memory_id, [])}
+                agg = [feats[e.lower()] for e in rec.entities if e.lower() in feats] if feats else []
+                if agg:
+                    gfeat["ppr"] = float(np.mean([a["ppr"] for a in agg]))
+                    gfeat["degree"] = float(np.mean([a["degree"] for a in agg]))
+                cur = self.index.get_vectors([rec.memory_id]).get(rec.memory_id)
+                if cur is not None:
+                    self.index.update(rec.memory_id, cur,
+                                      sc.build_structure_code(rec, self.settings.struct_dim, gfeat))
+            self.index.save()
+            self.retriever.save_lexical()
         return {"pending_processed": len(pending), "facts_extracted": facts,
                 "events_indexed": events_total}
 

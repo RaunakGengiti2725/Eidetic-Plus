@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import re
 import tempfile
+import threading
 import time
 from pathlib import Path
 from typing import Optional
@@ -246,8 +247,19 @@ class Retriever:
         self.settings = settings or get_settings()
         self.bm25 = PersistentBM25(self.settings.index_dir / "bm25_index.json")
         # Connected Brain Loop: the last RecallTrace, populated only when RECALL_TRACE is on.
-        # Observation-only side channel -- never read by ranking. None until the first traced call.
-        self.last_trace: Optional[RecallTrace] = None
+        # Observation-only side channel -- never read by ranking. THREAD-LOCAL so concurrent asks
+        # never read each other's trace (last_trace was last-writer-wins shared state). Direct
+        # assignment (retriever.last_trace = ...) stays valid same-thread via the property setter.
+        self._trace_tl = threading.local()
+
+    @property
+    def last_trace(self) -> Optional[RecallTrace]:
+        """The current THREAD's most recent RecallTrace (None until a traced retrieve on it)."""
+        return getattr(self._trace_tl, "trace", None)
+
+    @last_trace.setter
+    def last_trace(self, value: Optional[RecallTrace]) -> None:
+        self._trace_tl.trace = value
 
     def index_lexical(self, rec: MemoryRecord, *, save: bool = True) -> bool:
         """Update the persistent lexical channel on ingest. No-op when the flag is off."""
