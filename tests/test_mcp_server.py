@@ -166,6 +166,12 @@ def test_mcp_recall_trace_empty_without_flag(mcp_engine):
     assert mcp_server.recall_trace() == {}        # RECALL_TRACE off -> no trace surfaced
 
 
+def test_mcp_consolidate_runs_unified_sleep(mcp_engine):
+    out = mcp_server.consolidate(namespace="empty")
+    # consolidate is now an alias of the unified sleep: pending writes flow before the dream pass.
+    assert "consolidate_pending" in out and "dream" in out
+
+
 # ---- entry point ---------------------------------------------------------------------------
 def test_main_entry_point_runs_stdio(monkeypatch):
     called = {}

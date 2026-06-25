@@ -47,9 +47,13 @@ class BrainEventLog:
     def by_type(self, etype: BrainEventType) -> list[BrainEvent]:
         return [e for e in self._events if e.type == etype]
 
-    def counts(self) -> dict[str, int]:
+    def counts(self, namespace: Optional[str] = None) -> dict[str, int]:
+        """Per-type event counts, optionally scoped to one namespace (so scoped consumers like
+        brain_health_score never mix activity across namespaces)."""
         out: dict[str, int] = {}
         for e in self._events:
+            if namespace is not None and e.namespace != namespace:
+                continue
             out[e.type.value] = out.get(e.type.value, 0) + 1
         return out
 

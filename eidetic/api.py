@@ -67,6 +67,7 @@ class TextMemoryIn(ScopeIn):
 class AskIn(ScopeIn):
     query: str
     verify: bool = True
+    prove: bool = False
 
 
 # ---- helpers --------------------------------------------------------------
@@ -152,7 +153,12 @@ async def add_file(file: UploadFile = File(...), source: str = Form(""),
 async def ask(body: AskIn):
     ans = await run_in_threadpool(
         lambda: _guard(engine().ask, body.query, verify=body.verify, scope=body.to_scope()))
-    return ans.model_dump()
+    out = ans.model_dump()
+    if body.prove:
+        # API proof parity with MCP recall(prove=True): include recall paths when RECALL_TRACE is on.
+        out["proof"] = await run_in_threadpool(
+            lambda: engine().prove(ans, with_paths=engine().settings.recall_trace_enabled))
+    return out
 
 
 @app.get("/api/memories")
@@ -164,8 +170,15 @@ async def list_memories(namespace: Optional[str] = None, agent_id: Optional[str]
 
 
 @app.get("/api/memories/{memory_id}")
-async def get_memory(memory_id: str):
-    rec = await run_in_threadpool(engine().get_record, memory_id)
+async def get_memory(memory_id: str, namespace: Optional[str] = None,
+                     agent_id: Optional[str] = None, project_id: Optional[str] = None):
+    # Scope-safe single read: with a namespace, an id from another namespace is invisible (no
+    # cross-scope leak). Without one, the legacy unscoped read is preserved for back-compat.
+    if namespace:
+        scope = _scope(namespace, agent_id, project_id)
+        rec = await run_in_threadpool(engine().get_record_in_scope, memory_id, scope)
+    else:
+        rec = await run_in_threadpool(engine().get_record, memory_id)
     if rec is None:
         raise HTTPException(status_code=404, detail="No such memory")
     return rec.model_dump()

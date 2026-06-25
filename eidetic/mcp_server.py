@@ -132,10 +132,11 @@ def recall(query: str, namespace: str = "default", agent_id: Optional[str] = Non
 @mcp.tool()
 def consolidate(namespace: str = "default", agent_id: Optional[str] = None,
                 project_id: Optional[str] = None) -> dict:
-    """Run the token-free dreaming/consolidation pass for a scope (replay, link inference,
-    multi-resolution gist). Returns per-phase counts only, no fabricated metrics. This is the
-    free, no-key consolidation path; it never deletes a raw record."""
-    return engine().dream(scope=_scope(namespace, agent_id, project_id))
+    """Run the unified sleep cycle for a scope: consolidate_pending (so pending fast writes flow
+    into graph/events/gists) THEN the token-free dream pass (replay, link inference, multi-res
+    gist). Returns per-phase counts only, no fabricated metrics. Token-free + key-free when nothing
+    is pending; never deletes a raw record. (Alias of `sleep`; both call the one lifecycle path.)"""
+    return engine().sleep(scope=_scope(namespace, agent_id, project_id))
 
 
 @mcp.tool()

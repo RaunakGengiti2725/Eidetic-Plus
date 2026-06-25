@@ -72,8 +72,9 @@ class Engine:
         # ring is free; emission is gated on BRAIN_EVENTS so baseline behavior is unchanged.
         self.brain_log = BrainEventLog()
         # Channel-win ledger (Phase 3): which channels surfaced the confirmed source per verified
-        # answer. In-memory counter, only written under BRAIN_EVENTS; never feeds a learner.
-        self._channel_wins: dict[str, int] = {}
+        # answer, keyed BY NAMESPACE so brain_health_score(scope=...) never mixes activity across
+        # scopes. In-memory counter, only written under BRAIN_EVENTS; never feeds a learner.
+        self._channel_wins: dict[str, dict[str, int]] = {}
         # One shared wake/sleep/idle/repair coordinator (Phase 1) -- API and MCP route through it.
         from .lifecycle import LifecycleController
         self.lifecycle = LifecycleController(self)
@@ -275,6 +276,11 @@ class Engine:
         if self.settings.markov_prefetch_enabled:
             self._observe_query(query)
         use_cache = use_cache and self.settings.semantic_cache_enabled
+        # Cache bypass when the brain loop is observing: a semantic-cache hit returns a stale Answer
+        # WITHOUT a fresh RecallTrace / BrainEvents, which would stale proof + health + channel-win
+        # telemetry. Bypass so those metrics stay live. Default flags off -> caching is unchanged.
+        if self.settings.recall_trace_enabled or self.settings.brain_events_enabled:
+            use_cache = False
         # Time-travel (as_of) queries are not cached (the answer depends on the as-of time).
         if as_of is not None:
             use_cache = False
@@ -349,6 +355,9 @@ class Engine:
             else:
                 self._brain(BrainEventType.RETRIEVAL_MISSED, namespace=scope.namespace,
                             memory_ids=cited, note=ans.note)
+        # Route the recall through the shared lifecycle hook so channel-win telemetry updates on the
+        # product path (no-op unless BRAIN_EVENTS is on; the answer is never altered).
+        self.lifecycle.after_recall(ans, scope)
         if use_cache:
             self.cache.put(sk, query, qvec, ans)
         return ans
@@ -843,8 +852,8 @@ class Engine:
         store / in-memory stream; nothing is fabricated or measured against held-out data."""
         scope = scope or Scope()
         h = self.memory_health_report(scope)
-        counts = self.brain_log.counts()
-        wins = self._channel_wins
+        counts = self.brain_log.counts(scope.namespace)        # scope-isolated, no cross-ns mixing
+        wins = self.channel_win_stats(scope)
         mem = max(1, h["memories"])
         verified = counts.get("answer_verified", 0)
         abstained = counts.get("answer_abstained", 0)
@@ -990,27 +999,38 @@ class Engine:
     # ---- channel-win ledger + connection effectiveness (Phase 3) ---------
     def record_channel_wins(self, answer) -> dict:
         """Tally which retrieval channels surfaced the ENTAILMENT-confirmed sources of `answer`,
-        read off the last matching RecallTrace. In-memory only; never feeds a learner (the
-        integrity wall lives in FeedbackBuffer). No-op without a matching trace."""
+        read off the last matching RecallTrace and bucketed by the trace's namespace. In-memory
+        only; never feeds a learner (the integrity wall lives in FeedbackBuffer). Returns the
+        affected namespace's win bucket; empty dict when there is no matching trace."""
         trace = self.retriever.last_trace
         if trace is None or trace.query != answer.question:
-            return self._channel_wins
+            return {}
+        bucket = self._channel_wins.setdefault(trace.scope.namespace, {})
         for c in answer.citations:
             if c.nli_label == NLILabel.ENTAILMENT:
                 for ch in trace.paths_for(c.memory_id):
-                    self._channel_wins[ch] = self._channel_wins.get(ch, 0) + 1
-        return self._channel_wins
+                    bucket[ch] = bucket.get(ch, 0) + 1
+        return dict(bucket)
 
-    def channel_win_stats(self) -> dict:
-        """The channel-win counts so far (which channels actually win on confirmed answers).
-        A channel that never wins and never feeds proof/repair is debt -- wire it or keep it off."""
-        return dict(self._channel_wins)
+    def channel_win_stats(self, scope: Optional[Scope] = None) -> dict:
+        """Channel-win counts (which channels actually win on confirmed answers). Scoped to one
+        namespace, or merged across all when scope is None. A channel that never wins and never
+        feeds proof/repair is debt -- wire it or keep it off."""
+        if scope is not None:
+            return dict(self._channel_wins.get(scope.namespace, {}))
+        merged: dict[str, int] = {}
+        for bucket in self._channel_wins.values():
+            for ch, n in bucket.items():
+                merged[ch] = merged.get(ch, 0) + n
+        return merged
 
-    def connection_effectiveness(self) -> dict:
+    def connection_effectiveness(self, scope: Optional[Scope] = None) -> dict:
         """A local report of how the enabled brain paths are firing: BrainEvent counts + the
-        channel-win ledger. Read-only, no model call, no fabricated numbers."""
+        channel-win ledger, scoped to one namespace (or merged when scope is None). Read-only,
+        no model call, no fabricated numbers."""
+        counts = self.brain_log.counts(scope.namespace if scope else None)
         return {
-            "events": self.brain_log.counts(),
-            "channel_wins": dict(self._channel_wins),
-            "total_events": len(self.brain_log),
+            "events": counts,
+            "channel_wins": self.channel_win_stats(scope),
+            "total_events": sum(counts.values()),
         }
