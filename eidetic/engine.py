@@ -243,6 +243,23 @@ class Engine:
             except OSError:
                 pass
 
+    def _reinforce_verified_helpful(self, rec: MemoryRecord) -> None:
+        """Phase 4: a confirmed (NLI-entailed) citation increments this memory's verified-helpful
+        count and, when affect salience is on, folds a BOUNDED usage signal into its static
+        salience (via affect_w_helpful, default 0). The count is plain state; it only touches the
+        ranking score through the bounded, age-free affect salience -- audited age-stratified."""
+        rec.verified_helpful_count = int(getattr(rec, "verified_helpful_count", 0)) + 1
+        if not self.settings.affect_salience_enabled:
+            return
+        s = self.settings
+        vh = salience_mod.verified_helpful_signal(rec.verified_helpful_count, s.verified_helpful_cap)
+        rec.salience = salience_mod.affect_salience(
+            float(rec.metadata.get("arousal", 0.3)), rec.importance, rec.surprise,
+            float(rec.metadata.get("emphasis", 0.0)), vh,
+            w_arousal=s.affect_w_arousal, w_importance=s.affect_w_importance,
+            w_surprise=s.affect_w_surprise, w_emphasis=s.affect_w_emphasis,
+            w_helpful=s.affect_w_helpful)
+
     def _tag_and_capture(self, record: MemoryRecord, scope: Scope) -> int:
         """Up-weight retention of memories temporally adjacent to a salient event."""
         tagged = 0
@@ -344,6 +361,7 @@ class Engine:
                 except Exception as e:        # re-embed is best-effort; never silently swallow it
                     self._degraded("reinforce-reembed", e)
                 fsrs.reinforce(rec.fsrs, importance=rec.importance)
+                self._reinforce_verified_helpful(rec)
                 self.store.upsert_record(rec)
                 confirmed.append(rec.memory_id)
             elif cit.nli_label == NLILabel.CONTRADICTION:

@@ -124,6 +124,10 @@ class MemoryRecord(BaseModel):
 
     fsrs: FSRSState = Field(default_factory=FSRSState)
     consolidated: bool = False
+    # Verified-helpful reinforcement (Phase 4): how many times a citation of this memory was both
+    # the answer's source AND NLI-entailment-confirmed. A bounded usage signal into salience/replay;
+    # never an age term and never a ranking score on its own.
+    verified_helpful_count: int = 0
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     def is_active_at(self, t: Optional[float] = None) -> bool:

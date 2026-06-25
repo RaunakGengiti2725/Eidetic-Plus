@@ -272,6 +272,9 @@ class Settings:
     lambda_salience: float = field(default_factory=lambda: float(_get("LAMBDA_SALIENCE", "0.1")))
     salience_gamma: float = field(default_factory=lambda: float(_get("SALIENCE_GAMMA", "0.5")))
     salience_alpha: float = field(default_factory=lambda: float(_get("SALIENCE_ALPHA", "1.0")))
+    # Verified-helpful reinforcement (Phase 4): saturation cap for the bounded usage signal fed
+    # into salience via affect_w_helpful. Bounding is the age-leakage guard.
+    verified_helpful_cap: int = field(default_factory=lambda: _get_int("VERIFIED_HELPFUL_CAP", 5))
 
     # --- Connected Brain Loop: observation-only spine (all default OFF; baseline byte-identical) -
     # RecallTrace: the retriever records WHY it found/missed (enabled channels, per-channel rankings

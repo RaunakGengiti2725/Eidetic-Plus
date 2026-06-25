@@ -84,6 +84,13 @@ def emphasis_score(text: str) -> float:
     return float(max(0.0, min(1.0, score)))
 
 
+def verified_helpful_signal(count: int, cap: int) -> float:
+    """Bounded usage signal in [0,1] from the verified-helpful count (Phase 4). Saturates at `cap`
+    so a frequently-cited memory cannot grow without bound -- the bound is the age-leakage guard
+    (usage can correlate with age; capping limits how far it can tilt anything)."""
+    return float(min(1.0, max(0, int(count)) / max(1, int(cap))))
+
+
 def affect_salience(arousal: float, importance: float, surprise: float, emphasis: float,
                     verified_helpful: float, *, w_arousal: float = 1.0, w_importance: float = 1.0,
                     w_surprise: float = 1.0, w_emphasis: float = 1.0, w_helpful: float = 0.0) -> float:
