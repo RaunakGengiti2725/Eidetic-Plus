@@ -111,6 +111,32 @@ def test_low_coverage_reflex_falls_back_to_full_retrieval(fresh_settings):
     assert ans.verified is True  # fallback retrieval still grounds + verifies
 
 
+class _FakeExtractor(_FakeReader):
+    """Fast-path embed + a deterministic extract_edges that yields an entity token absent from the
+    record text -- so the entity only reaches the index via consolidation, not the text-term path."""
+    def __init__(self, dim, triples):
+        super().__init__(dim)
+        self.triples = triples
+
+    def extract_edges(self, text):
+        return list(self.triples)
+
+
+def test_consolidate_pending_indexes_extracted_entities(fresh_settings):
+    triples = [{"src": "Zephyr", "relation": "owns", "dst": "the asset",
+                "fact": "Zephyr owns the asset"}]
+    s = replace(fresh_settings, reflex_recall_enabled=True)
+    e = Engine(s, client=_FakeExtractor(s.embed_dim, triples))
+    rec = e.ingest_text("the quarterly arrangement was finalized recently",
+                        source="memo", extract_graph=False, consolidate_now=False)
+    mid = rec.memory_id
+    # fast path indexes only text terms -> the extracted entity is not seedable yet.
+    assert e.reflex_index.seeds("default", entities=["Zephyr"], terms=[]) == set()
+    e.consolidate_pending(score_importance=False)
+    # consolidation populated rec.entities AND must re-index reflex (no rebuild required).
+    assert mid in e.reflex_index.seeds("default", entities=["Zephyr"], terms=[])
+
+
 def test_reflex_recall_event_types_exist():
     for name in ("REFLEX_HIT", "REFLEX_MISS", "REFLEX_FALLBACK"):
         assert hasattr(BrainEventType, name)

@@ -92,7 +92,9 @@ class Engine:
         # Track 1 Reflex Recall: a derived inverted index (entity/term -> memory_ids) + a small
         # per-namespace hot working set. Maintained ONLY when REFLEX_RECALL is on, so the flag-off
         # write path is byte-identical. Built once from the store at construction when enabled, then
-        # kept current incrementally under the same write lock that guards the vector index.
+        # kept current incrementally under the same write lock that guards the vector index --
+        # text terms at ingest/ingest_many, and extracted entities at consolidate_pending (where
+        # the fast-path record's entities are first populated). rebuild_from_store recovers it.
         self.reflex_index = ReflexIndex()
         self._hotset: dict[str, "deque"] = {}
         self._hotset_lock = threading.Lock()
@@ -897,6 +899,8 @@ class Engine:
                 if cur is not None:
                     self.index.update(rec.memory_id, cur,
                                       sc.build_structure_code(rec, self.settings.struct_dim, gfeat))
+                if self.settings.reflex_recall_enabled:
+                    self.reflex_index.add_record(rec)   # rec.entities now populated -> index them
             self.index.save()
             self.retriever.save_lexical()
         return {"pending_processed": len(pending), "facts_extracted": facts,
