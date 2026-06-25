@@ -172,6 +172,18 @@ def test_mcp_consolidate_runs_unified_sleep(mcp_engine):
     assert "consolidate_pending" in out and "dream" in out
 
 
+def test_mcp_scratchpad_and_why_remembered(mcp_engine):
+    from eidetic.models import MemoryRecord, Scope, now
+    scope = Scope(namespace="sp")
+    mcp_engine.store.upsert_record(MemoryRecord(
+        memory_id="m1", content_hash="h1", text="the trophy day", scope=scope, valid_at=now(),
+        salience=0.95, metadata={"arousal": 0.9}))
+    sp = mcp_server.scratchpad(namespace="sp")
+    assert any(e["memory_id"] == "m1" for e in sp["scratchpad"])
+    why = mcp_server.why_remembered("m1", namespace="sp")
+    assert why["salience"] == 0.95 and why["components"]["arousal"] == 0.9
+
+
 # ---- entry point ---------------------------------------------------------------------------
 def test_main_entry_point_runs_stdio(monkeypatch):
     called = {}

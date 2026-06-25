@@ -226,6 +226,27 @@ def health_report(namespace: str = "default", agent_id: Optional[str] = None,
 
 
 @mcp.tool()
+def scratchpad(namespace: str = "default", agent_id: Optional[str] = None,
+               project_id: Optional[str] = None) -> dict:
+    """The working scratchpad for a scope: high-salience, verified, ACTIVE facts, each linked to its
+    immutable source hash. A quick-recall context channel, NOT a source of truth (superseded facts
+    expire automatically). Read-only, no key."""
+    return {"scratchpad": engine().build_scratchpad(scope=_scope(namespace, agent_id, project_id))}
+
+
+@mcp.tool()
+def why_remembered(memory_id: str, namespace: str = "default", agent_id: Optional[str] = None,
+                   project_id: Optional[str] = None) -> dict:
+    """'Why I remember this strongly': the affect/usage components behind a memory's salience
+    (importance, arousal, valence, surprise, emphasis, verified-helpful count) plus its provenance.
+    Scope-filtered, read-only, no key."""
+    out = engine().salience_explanation(memory_id, scope=_scope(namespace, agent_id, project_id))
+    if out is None:
+        raise RuntimeError(f"No such memory in scope: {memory_id}")
+    return out
+
+
+@mcp.tool()
 def preflight() -> dict:
     """Run the preflight doctor: one real call per capability (embed / chat / rerank / multimodal /
     document) against the configured model IDs, reporting pass/fail + latency and telling a quota

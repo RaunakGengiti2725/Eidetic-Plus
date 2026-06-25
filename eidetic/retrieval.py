@@ -720,6 +720,18 @@ class Retriever:
                 chain_blocks = ["Event timeline (chronological): "
                                 + " -> ".join(e.as_text() for e in chain)]
         pref_blocks = [f"User preference: {p}" for p in self.store.get_profile(scope.namespace)[:3]]
+        # Phase 6: a working scratchpad of high-salience verified ACTIVE facts as a context channel
+        # (gated; each entry links to a raw source hash, superseded facts expire via the active
+        # filter). Off -> context is unchanged.
+        scratchpad_blocks: list[str] = []
+        if self.settings.scratchpad_enabled:
+            from .scratchpad import select_scratchpad
+            active = self.store.active_records_at(at if at is not None else now(), scope)
+            entries = select_scratchpad(active, top_k=self.settings.scratchpad_topk,
+                                        min_salience=self.settings.scratchpad_min_salience)
+            if entries:
+                scratchpad_blocks = ["Scratchpad (high-salience verified facts): "
+                                     + " | ".join(e["text"] for e in entries)]
         resolver_blocks = (
             self._conflict_resolution_blocks(query, candidates, at)
             if include_conflict_resolution else []
@@ -747,7 +759,7 @@ class Retriever:
         # then budgeting truncated from the tail, which is where edge_place puts the 2nd-highest
         # priority block, so a high-priority block was dropped before lower-priority raw chunks.
         budgeted = _budget_blocks(
-            resolver_blocks + event_blocks + chain_blocks + pref_blocks + raw_blocks,
+            resolver_blocks + scratchpad_blocks + event_blocks + chain_blocks + pref_blocks + raw_blocks,
             self.settings.context_token_budget)
         return edge_place(budgeted)
 

@@ -237,6 +237,27 @@ async def health_report(namespace: str = "default", agent_id: Optional[str] = No
     return await run_in_threadpool(engine().memory_health_report, scope)
 
 
+@app.get("/api/scratchpad")
+async def scratchpad(namespace: str = "default", agent_id: Optional[str] = None,
+                     project_id: Optional[str] = None):
+    """Working scratchpad of high-salience verified ACTIVE facts for a scope (each linked to its
+    raw source hash). Mirrors the MCP `scratchpad` tool. Read-only, no key."""
+    scope = _scope(namespace, agent_id, project_id)
+    entries = await run_in_threadpool(engine().build_scratchpad, scope)
+    return {"scratchpad": entries}
+
+
+@app.get("/api/why_remembered/{memory_id}")
+async def why_remembered(memory_id: str, namespace: str = "default",
+                         agent_id: Optional[str] = None, project_id: Optional[str] = None):
+    """'Why I remember this strongly': salience components + provenance (mirrors the MCP tool)."""
+    scope = _scope(namespace, agent_id, project_id)
+    out = await run_in_threadpool(engine().salience_explanation, memory_id, scope)
+    if out is None:
+        raise HTTPException(status_code=404, detail="No such memory in scope")
+    return out
+
+
 @app.get("/api/brain_health_score")
 async def brain_health_score(namespace: str = "default", agent_id: Optional[str] = None,
                              project_id: Optional[str] = None):

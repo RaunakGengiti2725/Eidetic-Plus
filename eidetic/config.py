@@ -280,6 +280,12 @@ class Settings:
     # ordered event chain to the context ('what changed after X'). Off -> context is unchanged.
     event_chain_context_enabled: bool = field(default_factory=lambda: _get_bool("EVENT_CHAIN_CONTEXT", "0"))
 
+    # Phase 6 working scratchpad: a small derived channel of high-salience verified ACTIVE facts
+    # (each linked to its raw source hash). Context channel only; off -> context unchanged.
+    scratchpad_enabled: bool = field(default_factory=lambda: _get_bool("SCRATCHPAD", "0"))
+    scratchpad_topk: int = field(default_factory=lambda: _get_int("SCRATCHPAD_TOPK", 5))
+    scratchpad_min_salience: float = field(default_factory=lambda: float(_get("SCRATCHPAD_MIN_SALIENCE", "0.6")))
+
     # --- Connected Brain Loop: observation-only spine (all default OFF; baseline byte-identical) -
     # RecallTrace: the retriever records WHY it found/missed (enabled channels, per-channel rankings
     # and weights, fused scores, gist provenance, stage latency, dropped candidates). It is a pure

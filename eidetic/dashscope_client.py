@@ -420,8 +420,12 @@ class DashScopeClient:
         raw = self._mm_text(resp)
         try:
             data = json.loads(_strip_json(raw))
-        except json.JSONDecodeError:
-            return []
+        except json.JSONDecodeError as e:
+            # No fabrication: a real call that returned an unparseable response fails loud (the
+            # caller routes this through engine._degraded), it does not become a silent empty result.
+            raise ModelCallError(
+                f"extract_visual_graph: unparseable model response (not fabricated): {raw[:200]}"
+            ) from e
         triples = data.get("triples", []) if isinstance(data, dict) else []
         out = []
         for t in triples:
@@ -452,8 +456,13 @@ class DashScopeClient:
         raw = self._mm_text(resp)
         try:
             data = json.loads(_strip_json(raw))
-        except json.JSONDecodeError:
-            return "neutral", 0.0
+        except json.JSONDecodeError as e:
+            # No fabrication: never return a made-up ("neutral", 0.0) verdict from an unparseable
+            # judge response. Fail loud (mirrors chat_json); the citation verifier then falls back
+            # to the real text-NLI path rather than trusting an invented visual judgment.
+            raise ModelCallError(
+                f"verify_visual: unparseable judge response (not fabricated): {raw[:200]}"
+            ) from e
         label = str(data.get("label", "neutral")).lower().strip()
         if label not in ("entailment", "neutral", "contradiction"):
             label = "neutral"

@@ -996,6 +996,44 @@ class Engine:
         Explains why the last read found/missed what it did."""
         return self.retriever.last_trace
 
+    def build_scratchpad(self, scope: Optional[Scope] = None, *, top_k: Optional[int] = None,
+                         min_salience: Optional[float] = None, at: Optional[float] = None) -> list:
+        """A small derived scratchpad of high-salience, verified, ACTIVE facts (Phase 6). Every
+        entry links to the immutable source hash; it is a context channel, not a source of truth.
+        Built fresh from ACTIVE records, so a superseded/invalidated fact expires automatically.
+        Read-only, no model call."""
+        from .scratchpad import select_scratchpad
+        scope = scope or Scope()
+        recs = self.store.active_records_at(now() if at is None else at, scope)
+        return select_scratchpad(
+            recs, top_k=top_k if top_k is not None else self.settings.scratchpad_topk,
+            min_salience=(min_salience if min_salience is not None
+                          else self.settings.scratchpad_min_salience))
+
+    def salience_explanation(self, memory_id: str,
+                             scope: Optional[Scope] = None) -> Optional[dict]:
+        """'Why I remember this strongly' (Phase 7): the affect/usage components behind a memory's
+        salience plus its provenance. Read-only, no model call. None if the id is not in scope."""
+        rec = (self.get_record_in_scope(memory_id, scope) if scope is not None
+               else self.store.get_record(memory_id))
+        if rec is None:
+            return None
+        md = rec.metadata or {}
+        return {
+            "memory_id": rec.memory_id,
+            "salience": round(float(rec.salience), 3),
+            "components": {
+                "importance": round(float(rec.importance), 3),
+                "surprise": round(float(rec.surprise), 3),
+                "arousal": md.get("arousal"),
+                "valence": md.get("valence"),
+                "emphasis": md.get("emphasis"),
+                "verified_helpful_count": int(getattr(rec, "verified_helpful_count", 0)),
+            },
+            "provenance": {"content_hash": rec.content_hash, "source": rec.source,
+                           "valid_at": rec.valid_at},
+        }
+
     def explain_candidate(self, memory_id: str) -> Optional[dict]:
         """'Why this memory?' (Phase 6): from the last RecallTrace, the channels that surfaced
         `memory_id`, its per-channel rank score and weight, fused score, and gist provenance.
