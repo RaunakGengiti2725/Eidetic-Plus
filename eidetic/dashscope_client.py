@@ -145,6 +145,12 @@ class DashScopeClient:
                          self.settings.dashscope_max_retries, self.settings.dashscope_backoff_base,
                          self.settings.dashscope_backoff_max)
             if self.settings.dashscope_govern_enabled else None)
+        # S4 persistent embedding cache (keyed by model+dim+hash). Construction is offline-safe.
+        if self.settings.embed_cache_enabled:
+            from .embed_cache import PersistentEmbedCache
+            self._embed_cache = PersistentEmbedCache(self.settings.data_dir / "embed_cache.sqlite")
+        else:
+            self._embed_cache = None
 
     def _governed(self, fn: Callable[[], Any]) -> Any:
         """Route a real SDK call (the callable MUST include _ok so a 429 raises) through the rate
@@ -173,21 +179,42 @@ class DashScopeClient:
         return resp
 
     # ---- embeddings -------------------------------------------------------
-    def embed_texts(self, texts: list[str]) -> np.ndarray:
-        """Real text-embedding-v4 vectors. Batches of <=10 per request."""
-        self._require_key()
-        if not texts:
-            return np.zeros((0, self.settings.embed_dim), dtype=np.float32)
+    def _embed_raw(self, texts: list[str]) -> np.ndarray:
+        """The real text-embedding-v4 call (batches of <=10, governed). No cache."""
         out: list[list[float]] = []
         for i in range(0, len(texts), 10):
             batch = texts[i : i + 10]
             resp = self._governed(lambda b=batch: self._ok(self._ds.TextEmbedding.call(
                 model=self.settings.text_embed_model, input=b, dimension=self.settings.embed_dim)))
-            embs = resp.output["embeddings"]
-            embs = sorted(embs, key=lambda e: e.get("text_index", 0))
+            embs = sorted(resp.output["embeddings"], key=lambda e: e.get("text_index", 0))
             out.extend(e["embedding"] for e in embs)
-        arr = np.asarray(out, dtype=np.float32)
-        return arr
+        return np.asarray(out, dtype=np.float32)
+
+    def embed_texts(self, texts: list[str]) -> np.ndarray:
+        """Real text-embedding-v4 vectors, served from the persistent (model, dim, hash) cache when
+        present. A FULL cache hit needs no key and no model call (S4 warm path); misses are embedded
+        in one batched call and cached. Order is preserved."""
+        if not texts:
+            return np.zeros((0, self.settings.embed_dim), dtype=np.float32)
+        if self._embed_cache is None:
+            self._require_key()
+            return self._embed_raw(texts)
+        model, dim = self.settings.text_embed_model, self.settings.embed_dim
+        out: list = [None] * len(texts)
+        miss: list[int] = []
+        for i, t in enumerate(texts):
+            v = self._embed_cache.get(model, dim, t)
+            if v is not None:
+                out[i] = v
+            else:
+                miss.append(i)
+        if miss:
+            self._require_key()
+            fetched = self._embed_raw([texts[i] for i in miss])
+            for k, i in enumerate(miss):
+                out[i] = fetched[k]
+                self._embed_cache.put(model, dim, texts[i], fetched[k])
+        return np.stack(out).astype(np.float32)
 
     def embed_text(self, text: str) -> np.ndarray:
         return self.embed_texts([text])[0]

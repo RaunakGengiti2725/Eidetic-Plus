@@ -63,6 +63,10 @@ class Settings:
         default_factory=lambda: _get("MULTIMODAL_EMBED_MODEL", "tongyi-embedding-vision-plus")
     )
     embed_dim: int = field(default_factory=lambda: _get_int("EMBED_DIM", 1024))
+    # S4 persistent embedding cache keyed by (model, dim, sha256(text)) -> repeats/re-embeds are
+    # free across restarts (a full cache hit needs no key and no model call). On by default; the
+    # (model, dim) key guarantees a rename/dim change misses rather than returns a stale vector.
+    embed_cache_enabled: bool = field(default_factory=lambda: _get_bool("EMBED_CACHE", "1"))
 
     # F1 DashScope rate governor: token-bucket RPM + concurrency semaphore + 429 backoff, so
     # batching/fan-out never trips per-account limits. Conservative defaults (a low-tier key never
