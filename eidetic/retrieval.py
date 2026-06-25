@@ -340,13 +340,18 @@ class Retriever:
                 return self.index.search(qvec, s.ann_topk, allowed_ids=allowed)
             return self.index.search(qvec, s.ann_topk, allowed_ids=allowed, ef=ef_override)
 
+        # S3 PARALLEL_CHANNELS fix: do the persistent-BM25 backfill (a WRITE + save) BEFORE the
+        # parallel fan-out, so every channel callback is READ-ONLY -- no save() inside _run_bm25 can
+        # race a concurrent _run_dense. The backfill is serial here; bm25.save is atomic (temp+replace).
+        if s.persistent_bm25_enabled:
+            changed = self.bm25.ensure_indexed(
+                (r.memory_id, r.text or r.summary or "") for r in corpus)
+            if changed:
+                self.bm25.save()
+
         def _run_bm25():
             if s.persistent_bm25_enabled:
-                changed = self.bm25.ensure_indexed(
-                    (r.memory_id, r.text or r.summary or "") for r in corpus)
-                if changed:
-                    self.bm25.save()
-                return self.bm25.search(query, s.ann_topk, allowed_ids=allowed)
+                return self.bm25.search(query, s.ann_topk, allowed_ids=allowed)   # read-only
             bm25 = BM25().index([(r.memory_id, r.text or r.summary or "") for r in corpus])
             return bm25.search(query, s.ann_topk)
 
