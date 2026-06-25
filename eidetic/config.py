@@ -346,9 +346,13 @@ class Settings:
     # --- Track 2 perfect sync: versioned answer-cache invalidation (correctness fix, default ON) --
     # The answer cache is tagged with a per-NAMESPACE memory version; any content write in a
     # namespace bumps it, so every prior cached answer in that namespace becomes unreachable (no
-    # stale-truth hits). Namespace (not scope_key) because a read sees every record visible_to it
-    # in the namespace, so a sub-scope write must still invalidate a namespace-wide query's entry.
-    # CACHE_VERSIONING=0 restores the legacy (never-invalidated) cache, byte-identical.
+    # WRITE-INDUCED stale-truth hits). Namespace (not scope_key) because a read sees every record
+    # visible_to it in the namespace, so a sub-scope write must still invalidate a namespace-wide
+    # query's entry. CACHE_VERSIONING=0 restores the legacy (never-invalidated) cache, byte-identical.
+    # KNOWN LIMIT: invalidation is write-triggered, not time-triggered. A fact ingested with a
+    # FUTURE invalid_at/expired_at can be served from a cache entry made before its expiry if no
+    # write intervenes (the contradiction path sets invalid_at~=now, so this is only reachable via
+    # explicit future-dated ingestion). A cache-entry TTL would bound this -- deferred follow-up.
     cache_versioning_enabled: bool = field(default_factory=lambda: _get_bool("CACHE_VERSIONING", "1"))
 
     # --- Connected Brain Loop: observation-only spine (all default OFF; baseline byte-identical) -
