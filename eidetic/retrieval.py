@@ -680,7 +680,26 @@ class Retriever:
         # Cut on the relevance-descending order first, then diversify only the survivors.
         ranked = self._depth_select(ranked)
         ranked = self._mmr_pass(ranked)
-        return ranked[: s.final_topk]
+        final_topk = self._adaptive_final_topk(query) if s.difficulty_adaptive_depth_enabled else s.final_topk
+        return ranked[:final_topk]
+
+    def _query_difficulty(self, query: str) -> float:
+        """0 (easy single-hop) .. 1 (hard multi-hop / long), from deterministic query features."""
+        parsed = parse_query(query)
+        score = 0.0
+        if parsed.get("is_multihop"):
+            score += 0.5
+        score += min(0.3, 0.1 * len(parsed.get("entities", [])))
+        if len(query.split()) > 16:
+            score += 0.2
+        return min(1.0, score)
+
+    def _adaptive_final_topk(self, query: str) -> int:
+        """S5: scale the returned candidate count with query difficulty -- easy queries pay less,
+        hard queries get the full depth. Never below adaptive_k_min."""
+        s = self.settings
+        lo = max(1, min(s.adaptive_k_min, s.final_topk))
+        return int(round(lo + (s.final_topk - lo) * self._query_difficulty(query)))
 
     def _mmr_pass(self, ranked: list[RetrievalCandidate]) -> list[RetrievalCandidate]:
         """2c MMR diversity re-ordering over the candidate content vectors. No-op when off
@@ -983,10 +1002,22 @@ class Retriever:
         blocks = self.assemble_context(query, candidates, at, scope,
                                        include_conflict_resolution=False)
         # reader_model pins one fixed answerer (neutral harness); else the difficulty cascade.
-        model = reader_model or _reader_model(query, self.settings)
+        # Speculative cascade (S5): try the cheap tier first, escalate only on a grounding miss.
+        if self.settings.cascade_enabled and reader_model is None:
+            model = self.settings.salience_model
+        else:
+            model = reader_model or _reader_model(query, self.settings)
         text = self.client.generate_answer(query, blocks, model=model)  # real call
 
         citations, entailed = self._verify_candidates(candidates, text, verify)
+
+        if (self.settings.cascade_enabled and reader_model is None and verify and entailed == 0
+                and coverage >= self.settings.abstention_threshold
+                and model != self.settings.gen_model):
+            # cheap answer didn't ground but coverage is real -> escalate to the strong tier.
+            model = self.settings.gen_model
+            text = self.client.generate_answer(query, blocks, model=model)
+            citations, entailed = self._verify_candidates(candidates, text, verify)
 
         verified = (entailed > 0) if verify else False
         unverified: list[str] = []

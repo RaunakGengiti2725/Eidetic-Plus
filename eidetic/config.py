@@ -312,6 +312,12 @@ class Settings:
     # S2 write-path: debounce index saves (1 = save every ingest, baseline). Higher amortizes the
     # save; rebuild_index_from_store recovers a lost index from the substrate+SQLite source of truth.
     index_save_debounce: int = field(default_factory=lambda: _get_int("INDEX_SAVE_DEBOUNCE", 1))
+    # S5 intelligence upgrades (flag-gated; guard-promoted on dev before default-on).
+    # Speculative cascade: answer with the cheap tier first, escalate to the strong tier only when
+    # the cheap answer fails to ground AND there is real coverage (so hard questions keep accuracy).
+    cascade_enabled: bool = field(default_factory=lambda: _get_bool("SPECULATIVE_CASCADE", "0"))
+    # Difficulty-adaptive retrieval depth: easy single-hop queries return fewer candidates (pay less).
+    difficulty_adaptive_depth_enabled: bool = field(default_factory=lambda: _get_bool("DIFFICULTY_ADAPTIVE_DEPTH", "0"))
 
     # --- Connected Brain Loop: observation-only spine (all default OFF; baseline byte-identical) -
     # RecallTrace: the retriever records WHY it found/missed (enabled channels, per-channel rankings
