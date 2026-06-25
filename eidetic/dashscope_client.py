@@ -151,6 +151,24 @@ class DashScopeClient:
         )
         return float(max(0.0, min(1.0, data.get("importance", 0.5))))
 
+    def score_affect(self, text: str) -> dict:
+        """Affect-modulated write-time scoring (Phase 3) in ONE qwen-flash call: importance [0,1],
+        arousal [0,1] (emotional intensity), valence [-1,1] (negative..positive). Real call."""
+        data = self.chat_json(
+            self.settings.salience_model,
+            "You rate a memory's affect for an AI agent deciding how vividly to retain it. "
+            "Reply ONLY as JSON: {\"importance\": <0..1>, \"arousal\": <0..1>, "
+            "\"valence\": <-1..1>}. arousal = emotional intensity; valence = negative..positive.",
+            f"Memory:\n{text[:4000]}",
+            temperature=0.0, max_tokens=64,
+        )
+        d = data if isinstance(data, dict) else {}
+        return {
+            "importance": float(max(0.0, min(1.0, d.get("importance", 0.5)))),
+            "arousal": float(max(0.0, min(1.0, d.get("arousal", 0.3)))),
+            "valence": float(max(-1.0, min(1.0, d.get("valence", 0.0)))),
+        }
+
     # ---- Component 2/7: extraction ---------------------------------------
     def extract_edges(self, text: str) -> list[dict[str, str]]:
         """qwen-plus entity/relation extraction for the bi-temporal graph."""

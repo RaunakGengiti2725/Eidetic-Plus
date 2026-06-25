@@ -134,6 +134,7 @@ class Engine:
 
         triples: list[dict[str, str]] = []
         entities: list[str] = []
+        affect_meta: dict = {}
         if consolidate_now:
             sal = salience_mod.score(item.text, content_vec, self.index, self.client,
                                      self.store, scope)
@@ -143,6 +144,22 @@ class Engine:
             # Vision FEEDS the graph: images/diagrams/tables become entities+edges.
             if extract_graph and item.modality in (Modality.IMAGE, Modality.VIDEO):
                 triples.extend(self._visual_triples(item.raw_bytes, item.modality))
+            # Affect-modulated salience (Phase 3, gated): one real qwen-flash call for
+            # {importance, arousal, valence} + deterministic emphasis cues -> static (age-free)
+            # salience. Replaces the salience field used for the bounded retrieval boost / S0.
+            if self.settings.affect_salience_enabled:
+                s = self.settings
+                aff = self.client.score_affect(item.text)
+                emph = salience_mod.emphasis_score(item.text)
+                s_aff = salience_mod.affect_salience(
+                    aff["arousal"], aff["importance"], sal.surprise, emph, 0.0,
+                    w_arousal=s.affect_w_arousal, w_importance=s.affect_w_importance,
+                    w_surprise=s.affect_w_surprise, w_emphasis=s.affect_w_emphasis,
+                    w_helpful=s.affect_w_helpful)
+                sal = salience_mod.Salience(surprise=sal.surprise, importance=aff["importance"],
+                                            salience=s_aff)
+                affect_meta = {"arousal": aff["arousal"], "valence": aff["valence"],
+                               "emphasis": emph}
         else:
             # LLM-FREE write path: surprise from embedding distance only (no LLM call),
             # importance deferred; facts/visual extracted later by consolidate_pending().
@@ -162,8 +179,11 @@ class Engine:
             raw_bytes_len=len(item.raw_bytes), text=item.text, is_described=item.is_described,
             source=item.source, scope=scope, valid_at=valid_at, entities=entities,
             surprise=sal.surprise, importance=sal.importance, salience=sal.salience,
-            fsrs=fsrs.init_state(sal.importance, sal.surprise, valid_at),
-            metadata={"pending_consolidation": not consolidate_now},
+            fsrs=fsrs.init_state(
+                sal.importance, sal.surprise, valid_at,
+                salience=(sal.salience if self.settings.affect_salience_enabled else None),
+                gamma=self.settings.salience_gamma),
+            metadata={"pending_consolidation": not consolidate_now, **affect_meta},
         )
 
         # Add extracted facts with bi-temporal contradiction handling (scoped).

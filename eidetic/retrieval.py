@@ -427,6 +427,9 @@ class Retriever:
         # so it re-orders ties without overriding strong content matches. Off -> fused untouched.
         if s.memory_typing_enabled:
             self._apply_type_prior(fused, records, parsed, query)
+        # Affect salience boost (Phase 3): a small, bounded, AGE-FREE nudge by static salience.
+        if s.affect_salience_enabled and s.lambda_salience != 0.0:
+            self._apply_salience_boost(fused, records)
         if record_trace:
             _lat["fuse_ms"] = (time.perf_counter() - _mark) * 1000.0
             _mark = time.perf_counter()
@@ -601,6 +604,20 @@ class Retriever:
             t = (getattr(rec, "metadata", None) or {}).get("type") if rec else None
             if t and t in rank:
                 fused[mid] += w * (rank[t] / mx_rank) * mx_fused
+
+    def _apply_salience_boost(self, fused: dict, records: dict) -> None:
+        """Phase 3 affect coupling: retrieval_score = fused + lambda_salience * s, bounded to a
+        fraction of the top fused score so a salient memory ranks higher WITHOUT overriding a strong
+        content match. `s` (record.salience) carries NO age/timestamp term, so two memories with
+        equal salience get an identical boost regardless of their valid_at -> age-invariant."""
+        lam = self.settings.lambda_salience
+        mx_fused = max(fused.values()) if fused else 0.0
+        if mx_fused <= 0.0:
+            return
+        for mid in fused:
+            rec = records.get(mid)
+            if rec is not None:
+                fused[mid] += lam * float(getattr(rec, "salience", 0.0)) * mx_fused
 
     # ---- fusion + final selection ----------------------------------------
     def _fuse(self, rankings: list[list[str]], score_maps: list[dict],

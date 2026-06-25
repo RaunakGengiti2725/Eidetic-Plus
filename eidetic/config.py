@@ -257,6 +257,22 @@ class Settings:
     # boosts the query class's preferred MIRIX types. MEMORY_TYPING gates BOTH (default OFF).
     type_prior_weight: float = field(default_factory=lambda: float(_get("TYPE_PRIOR_WEIGHT", "0.15")))
 
+    # --- Affect-modulated salience (best-memory plan Phase 3; all default OFF) ----------------
+    # Static salience s = sigmoid(wA*arousal + wL*importance + wP*surprise + wU*emphasis +
+    # wR*verified_helpful), centered so neutral inputs -> ~0.5. NO age term (age-flatness audit).
+    # Salience is used ONLY for a small bounded retrieval boost, FSRS initial stability, and replay
+    # priority -- never to delete, prune, or encode absolute age.
+    affect_salience_enabled: bool = field(default_factory=lambda: _get_bool("AFFECT_SALIENCE", "0"))
+    affect_w_arousal: float = field(default_factory=lambda: float(_get("AFFECT_W_AROUSAL", "1.0")))
+    affect_w_importance: float = field(default_factory=lambda: float(_get("AFFECT_W_IMPORTANCE", "1.0")))
+    affect_w_surprise: float = field(default_factory=lambda: float(_get("AFFECT_W_SURPRISE", "1.0")))
+    affect_w_emphasis: float = field(default_factory=lambda: float(_get("AFFECT_W_EMPHASIS", "1.0")))
+    affect_w_helpful: float = field(default_factory=lambda: float(_get("AFFECT_W_HELPFUL", "0.0")))
+    # Coupling strengths (dev-tuned): retrieval boost lambda, FSRS S0 gamma, replay priority alpha.
+    lambda_salience: float = field(default_factory=lambda: float(_get("LAMBDA_SALIENCE", "0.1")))
+    salience_gamma: float = field(default_factory=lambda: float(_get("SALIENCE_GAMMA", "0.5")))
+    salience_alpha: float = field(default_factory=lambda: float(_get("SALIENCE_ALPHA", "1.0")))
+
     # --- Connected Brain Loop: observation-only spine (all default OFF; baseline byte-identical) -
     # RecallTrace: the retriever records WHY it found/missed (enabled channels, per-channel rankings
     # and weights, fused scores, gist provenance, stage latency, dropped candidates). It is a pure

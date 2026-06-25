@@ -64,6 +64,40 @@ def score(
     return Salience(surprise=surprise, importance=importance, salience=salience)
 
 
+# ---- affect-modulated salience (Phase 3; pure, age-free) ----------------------------------
+_EMPHASIS_RE = re.compile(
+    r"\b(remember (this|that)|important|never forget|don'?t forget|do not forget|"
+    r"keep in mind|make sure|note that|crucial|critical|by the way remember)\b", re.I)
+
+
+def emphasis_score(text: str) -> float:
+    """User-emphasis cue strength in [0,1] from deterministic signals: explicit 'remember this /
+    important / never forget', exclamation, and shouted ALL-CAPS words. No model call, no age."""
+    t = text or ""
+    score = 0.0
+    if _EMPHASIS_RE.search(t):
+        score += 0.5
+    if "!" in t:
+        score += 0.2 * min(t.count("!"), 3) / 3.0
+    if re.findall(r"\b[A-Z]{3,}\b", t):
+        score += 0.3
+    return float(max(0.0, min(1.0, score)))
+
+
+def affect_salience(arousal: float, importance: float, surprise: float, emphasis: float,
+                    verified_helpful: float, *, w_arousal: float = 1.0, w_importance: float = 1.0,
+                    w_surprise: float = 1.0, w_emphasis: float = 1.0, w_helpful: float = 0.0) -> float:
+    """Static salience s = sigmoid(z - midpoint), z = weighted sum of the affect/usage signals.
+
+    CRITICAL: there is NO timestamp / age term here (audited by inspection and the age-stratified
+    test). The midpoint centers neutral (all-0.5) inputs at s=0.5 so the score spreads either way.
+    `verified_helpful` enters with w_helpful (default 0 until Phase 4 wires the count)."""
+    z = (w_arousal * arousal + w_importance * importance + w_surprise * surprise
+         + w_emphasis * emphasis + w_helpful * verified_helpful)
+    midpoint = 0.5 * (w_arousal + w_importance + w_surprise + w_emphasis + w_helpful)
+    return float(1.0 / (1.0 + np.exp(-(z - midpoint))))
+
+
 _SENT = re.compile(r"(?<=[.!?])\s+")
 
 

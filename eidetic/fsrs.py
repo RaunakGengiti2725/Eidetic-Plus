@@ -37,14 +37,22 @@ def current_retrievability(state: "FSRSState", at: float | None = None) -> float
     return retrievability(elapsed_days, state.stability)
 
 
-def init_state(importance: float, surprise: float, at: float | None = None) -> "FSRSState":
-    """Initial DSR state from the write-time salience signals (Component 4)."""
+def init_state(importance: float, surprise: float, at: float | None = None, *,
+               salience: float | None = None, gamma: float = 0.0) -> "FSRSState":
+    """Initial DSR state from the write-time salience signals (Component 4).
+
+    Phase 3 affect coupling: when an explicit `salience` is given (the affect-modulated static
+    salience), initial stability is scaled by (1 + gamma*salience) -- a salient memory starts more
+    stable (slower forgetting). This touches REPLAY/SCHEDULING only, never the ranking path, so it
+    cannot tilt the recall-vs-age curve. With salience=None (default) the formula is unchanged."""
     from .models import FSRSState
 
     at = now() if at is None else at
-    salience = max(0.0, min(1.0, 0.5 * importance + 0.5 * surprise))
+    base_salience = max(0.0, min(1.0, 0.5 * importance + 0.5 * surprise))
     # More salient -> more stable (slower forgetting) and easier (lower difficulty).
-    stability = 1.0 + 9.0 * salience          # 1..10 days
+    stability = 1.0 + 9.0 * base_salience          # 1..10 days
+    if salience is not None:
+        stability *= (1.0 + gamma * max(0.0, min(1.0, salience)))   # affect S0 coupling
     difficulty = max(1.0, min(10.0, 7.0 - 5.0 * importance))
     return FSRSState(
         stability=stability,
