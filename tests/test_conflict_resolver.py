@@ -83,7 +83,9 @@ def test_retriever_conflict_resolver_flag_returns_direct_answer(tmp_path, monkey
     )
     assert ans.answer == "Alice works at Globex."
     assert ans.generated_by == "conflict-resolver"
-    assert ans.note == "conflict-resolver"
+    # the note now surfaces the supersession chain (the older Acme value, closed not deleted).
+    assert ans.note.startswith("conflict-resolver")
+    assert "superseded 1 older value(s)" in ans.note
     get_settings.cache_clear()
 
 

@@ -6,10 +6,10 @@ timestamp. The model is never asked to decide which value is newest.
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Callable, Iterable, Optional
 
-from .models import MemoryRecord, RetrievalCandidate
+from .models import MemoryRecord, RetrievalCandidate, now
 
 MatchExtractor = Callable[[str, list[dict]], list[dict]]
 
@@ -35,6 +35,9 @@ class CurrentValueResolution:
     records: list[MemoryRecord]
     matches: list[dict]
     note: str = "conflict-resolver"
+    abstained: bool = False
+    superseded: list[str] = field(default_factory=list)   # memory_ids of older/closed candidates
+    as_of: Optional[float] = None
 
 
 def is_current_value_query(query: str) -> bool:
@@ -82,6 +85,10 @@ def _as_float(value: object, fallback: float) -> float:
 
 
 def _normalize_matches(matches: list[dict], records: dict[str, MemoryRecord]) -> list[dict]:
+    """Carry each candidate's BI-TEMPORAL coordinates from the (immutable) record -- not the LLM:
+    valid_at (world-valid time), invalid_at (when it stopped being true), and created_at as the
+    deterministic serial tiebreak. A missing valid_at FAILS LOUD (the resolver cannot order facts
+    in time without it) rather than silently defaulting to 0."""
     out: list[dict] = []
     for m in matches:
         if not isinstance(m, dict):
@@ -90,13 +97,17 @@ def _normalize_matches(matches: list[dict], records: dict[str, MemoryRecord]) ->
         rec = records.get(mid)
         if rec is None:
             continue
-        ts = _as_float(rec.valid_at, 0.0)
+        if rec.valid_at is None:
+            raise ValueError(
+                f"conflict resolution requires a valid_at timestamp; memory {mid} has none")
         answer = str(m.get("answer") or m.get("quote") or rec.text or rec.summary or "").strip()
         if not answer:
             continue
         out.append({
             "memory_id": mid,
-            "timestamp": ts,
+            "valid_at": float(rec.valid_at),
+            "invalid_at": (float(rec.invalid_at) if rec.invalid_at is not None else None),
+            "serial": _as_float(rec.created_at, float(rec.valid_at)),
             "answer": answer,
             "quote": str(m.get("quote") or "").strip(),
         })
@@ -107,19 +118,39 @@ def resolve_current_value(
     query: str,
     candidates: list[RetrievalCandidate],
     extractor: MatchExtractor,
+    as_of: Optional[float] = None,
 ) -> Optional[CurrentValueResolution]:
-    """Resolve one current-value question by extract-all then max(timestamp)."""
+    """Resolve one current-value question DETERMINISTICALLY. The LLM (extractor) only extracts
+    semantically matching candidates; Python decides freshness:
+
+        valid  = [c for c in matches if c.valid_at <= as_of
+                                    and (c.invalid_at is None or as_of < c.invalid_at)]
+        answer = argmax(valid, key=(valid_at, serial, memory_id))     # latest-valid wins
+        if not valid: abstain("no fact valid as of the requested time")
+
+    The model never compares timestamps. `as_of` defaults to now() (the 'current value' question);
+    pass an explicit time for before/after/as-of time-travel."""
     if not is_current_value_query(query) or not candidates:
         return None
+    as_of = now() if as_of is None else as_of
     payload, records = _candidate_payload(candidates)
     matches = _normalize_matches(extractor(query, payload), records)
     if not matches:
         return None
-    best = max(matches, key=lambda m: (m["timestamp"], m["memory_id"]))
+    valid = [m for m in matches
+             if m["valid_at"] <= as_of and (m["invalid_at"] is None or as_of < m["invalid_at"])]
+    if not valid:
+        return CurrentValueResolution(
+            answer="", records=[], matches=matches, abstained=True, as_of=as_of,
+            note=f"no fact valid as of the requested time ({as_of:.0f})")
+    best = max(valid, key=lambda m: (m["valid_at"], m["serial"], m["memory_id"]))
+    superseded = [m["memory_id"] for m in matches if m["memory_id"] != best["memory_id"]]
     return CurrentValueResolution(
         answer=best["answer"],
         records=[records[best["memory_id"]]],
         matches=matches,
+        superseded=superseded,
+        as_of=as_of,
     )
 
 
@@ -127,28 +158,34 @@ def resolve_current_value_question(
     query: str,
     candidates: list[RetrievalCandidate],
     extractor: MatchExtractor,
+    as_of: Optional[float] = None,
 ) -> Optional[CurrentValueResolution]:
-    """Resolve a current-value question, with a bounded multi-hop decomposition path."""
+    """Resolve a current-value question, with a bounded multi-hop decomposition path. `as_of`
+    threads the bi-temporal time-travel point through every hop."""
     if not is_current_value_query(query):
         return None
     hops = decompose_current_value_query(query)
     if len(hops) == 1:
-        return resolve_current_value(query, candidates, extractor)
+        return resolve_current_value(query, candidates, extractor, as_of)
 
     answers: list[str] = []
     records: list[MemoryRecord] = []
     matches: list[dict] = []
+    superseded: list[str] = []
     for hop in hops:
-        res = resolve_current_value(hop, candidates, extractor)
-        if res is None:
-            return None
+        res = resolve_current_value(hop, candidates, extractor, as_of)
+        if res is None or res.abstained:
+            return res        # propagate an abstention rather than a half-answered multi-hop
         answers.append(f"{hop}: {res.answer}")
         records.extend(res.records)
         matches.extend(res.matches)
+        superseded.extend(res.superseded)
     unique_records = list({r.memory_id: r for r in records}.values())
     return CurrentValueResolution(
         answer="; ".join(answers),
         records=unique_records,
         matches=matches,
+        superseded=superseded,
+        as_of=as_of,
         note="conflict-resolver-multihop",
     )

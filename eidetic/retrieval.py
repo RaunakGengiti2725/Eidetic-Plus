@@ -695,7 +695,7 @@ class Retriever:
         event_blocks = [e.as_text() for e in select_for_query(events, parsed, at)[:8]]
         pref_blocks = [f"User preference: {p}" for p in self.store.get_profile(scope.namespace)[:3]]
         resolver_blocks = (
-            self._conflict_resolution_blocks(query, candidates)
+            self._conflict_resolution_blocks(query, candidates, at)
             if include_conflict_resolution else []
         )
 
@@ -740,17 +740,26 @@ class Retriever:
         return [c.record.text or c.record.summary or "" for c in self._hopfield_order(candidates)]
 
     def _try_conflict_resolver(
-        self, query: str, candidates: list[RetrievalCandidate]
+        self, query: str, candidates: list[RetrievalCandidate], as_of: Optional[float] = None
     ) -> Optional[CurrentValueResolution]:
         if not self.settings.conflict_resolver_enabled:
             return None
         return resolve_current_value_question(
-            query, candidates, self.client.extract_current_value_matches
+            query, candidates, self.client.extract_current_value_matches, as_of
         )
 
     def _answer_from_conflict_resolution(
         self, query: str, resolution: CurrentValueResolution, *, verify: bool
     ) -> Answer:
+        # Deterministic abstention: candidates existed but none was valid as of the requested time.
+        if resolution.abstained:
+            return Answer(
+                question=query,
+                answer="I don't have a value valid as of the requested time.",
+                verified=False, confidence=0.0, citations=[], unverified_claims=[],
+                generated_by="conflict-resolver", retrieved_count=len(resolution.matches),
+                note=resolution.note,
+            )
         citations: list[Citation] = []
         entailed = 0
         for rec in resolution.records:
@@ -767,6 +776,8 @@ class Retriever:
                 entailed += 1
         verified = (entailed > 0) if verify else False
         note = resolution.note
+        if resolution.superseded:        # show the supersession chain (older values, not deleted)
+            note = f"{note}; superseded {len(resolution.superseded)} older value(s)"
         if verify and not verified:
             note = f"{note}: unverified"
         return Answer(
@@ -777,10 +788,10 @@ class Retriever:
             note=note,
         )
 
-    def _conflict_resolution_blocks(self, query: str,
-                                    candidates: list[RetrievalCandidate]) -> list[str]:
-        resolved = self._try_conflict_resolver(query, candidates)
-        if resolved is None:
+    def _conflict_resolution_blocks(self, query: str, candidates: list[RetrievalCandidate],
+                                    as_of: Optional[float] = None) -> list[str]:
+        resolved = self._try_conflict_resolver(query, candidates, as_of)
+        if resolved is None or resolved.abstained:
             return []
         blocks = []
         for rec in resolved.records:
@@ -839,7 +850,7 @@ class Retriever:
                 retrieved_count=0, note="empty-or-no-active-memory",
             )
 
-        resolved = self._try_conflict_resolver(query, candidates)
+        resolved = self._try_conflict_resolver(query, candidates, at)
         if resolved is not None:
             return self._answer_from_conflict_resolution(query, resolved, verify=verify)
 
