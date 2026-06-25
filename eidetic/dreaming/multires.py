@@ -29,8 +29,15 @@ def _kmeans(X: np.ndarray, k: int, iters: int = 12, seed: int = 0) -> tuple[np.n
     for _ in range(1, k):
         diff = X - X[centers[-1]]
         d2 = np.minimum(d2, np.einsum("ij,ij->i", diff, diff))
-        probs = d2 / (d2.sum() + 1e-12)
-        centers.append(int(rng.choice(n, p=probs)))
+        s = float(d2.sum())
+        if s <= 1e-12:
+            # No remaining distinct directions: every point coincides with an existing center
+            # (duplicate / float32-identical embeddings). Stop seeding; k collapses to the number
+            # of real centers. Otherwise probs would be all-zero and rng.choice raises
+            # "probabilities do not sum to 1".
+            break
+        centers.append(int(rng.choice(n, p=d2 / s)))
+    k = len(centers)                                # effective cluster count actually seeded
     C = X[centers].copy()
     labels = np.zeros(n, dtype=int)
     for _ in range(iters):

@@ -91,17 +91,21 @@ def run_sweep(engine, scope=None) -> dict:
     if not records:
         return {"proposals": [], "note": "no records in scope"}
 
-    # Deterministic targeting: rank by per-memory anomaly (mean anomaly of its incident edges).
+    # Deterministic targeting: rank by per-memory anomaly (max anomaly of its incident edges).
+    # edge_anomaly_scores keys by ENTITY NAME (Edge.src/dst), so the vector map must be keyed by
+    # entity name, not memory_id; _entity_centroids gives exactly that (lowercased), and the
+    # anomaly lookups are case-insensitive. Keying by memory_id made every lookup miss, collapsing
+    # all anomaly scores to a constant and defeating the targeting.
     anomaly_by_id: dict[str, float] = {}
     try:
+        from .infer import _entity_centroids
         edges = engine.store.all_edges(scope)
-        ent_ids = [r.memory_id for r in records]
-        vmap = engine.index.get_vectors(ent_ids)
-        ent_vectors = {e: v for e, v in zip(ent_ids, (vmap.get(i) for i in ent_ids)) if v is not None}
-        if edges and ent_vectors:
-            scores = edge_anomaly_scores(edges, ent_vectors)
+        cents = _entity_centroids(engine, scope)
+        if edges and cents:
+            scores = edge_anomaly_scores(edges, cents)
             for e, a in zip(edges, scores):
-                anomaly_by_id[e.source_memory_id] = max(anomaly_by_id.get(e.source_memory_id, 0.0), float(a))
+                anomaly_by_id[e.source_memory_id] = max(
+                    anomaly_by_id.get(e.source_memory_id, 0.0), float(a))
     except Exception:
         pass  # targeting is best-effort; fall back to record order
 

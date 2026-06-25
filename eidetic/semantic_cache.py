@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import re
+from collections import OrderedDict
 from typing import Any, Optional
 
 import numpy as np
@@ -24,8 +25,11 @@ class SemanticCache:
         self.threshold = cosine_threshold
         self.max_entries = max_entries
         self.adaptive = adaptive
-        self._exact: dict[str, Any] = {}                     # (scope_key, query) -> value
-        self._vecs: list[tuple[str, np.ndarray, Any]] = []   # (scope_key, qvec, value)
+        # Both bounded to max_entries. _exact is an OrderedDict so it evicts oldest-first like
+        # _vecs; an unbounded _exact pinned every historical Answer object and leaked memory in a
+        # long-lived server (e.g. the MCP server) serving many distinct queries.
+        self._exact: "OrderedDict[str, Any]" = OrderedDict()  # (scope_key, query) -> value
+        self._vecs: list[tuple[str, np.ndarray, Any]] = []    # (scope_key, qvec, value)
 
     @staticmethod
     def _hash(scope_key: str, query: str) -> str:
@@ -63,7 +67,11 @@ class SemanticCache:
         return best if best_sim >= self.threshold_for(query) else None
 
     def put(self, scope_key: str, query: str, qvec: Optional[np.ndarray], value: Any) -> None:
-        self._exact[self._hash(scope_key, query)] = value
+        h = self._hash(scope_key, query)
+        self._exact[h] = value
+        self._exact.move_to_end(h)
+        if len(self._exact) > self.max_entries:
+            self._exact.popitem(last=False)          # evict oldest, mirroring _vecs
         if qvec is not None:
             self._vecs.append((scope_key, _norm(qvec), value))
             if len(self._vecs) > self.max_entries:

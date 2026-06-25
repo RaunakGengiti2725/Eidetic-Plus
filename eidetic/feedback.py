@@ -43,7 +43,11 @@ def is_benchmark_namespace(namespace: str) -> bool:
     ns = (namespace or "").lower()
     if _HARNESS_NS_RE.search(ns):
         return True
-    return any(f"-{d}-" in ns or ns.startswith(f"{d}-") or ns == d for d in _BENCHMARK_DATASETS)
+    # Bare EXACT dataset name only (defense in depth). The loose substring/prefix match used to
+    # over-flag ordinary user namespaces that merely contain a generic token like 'beam' (e.g.
+    # 'team-beam-knowledge', 'beam-search-notes'), silently forcing their feedback to audit-only.
+    # Every real harness namespace carries the -g<n>-r<n> suffix above, so this loses nothing.
+    return ns in _BENCHMARK_DATASETS
 
 
 @dataclass

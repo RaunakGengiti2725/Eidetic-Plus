@@ -26,6 +26,16 @@ def _unit(v: np.ndarray) -> np.ndarray:
     return v / n if n > 0 else v
 
 
+def _lookup(entity_vectors: dict, name: str):
+    """Case-insensitive entity-vector lookup: exact key first, then lowercased. Edge endpoints
+    are stored in raw case while centroid maps (infer._entity_centroids) are lowercased, and the
+    system treats entity identity as case-insensitive, so match both."""
+    v = entity_vectors.get(name)
+    if v is None:
+        v = entity_vectors.get((name or "").lower())
+    return v
+
+
 def local_outlier_factor(X, k: int = 5) -> np.ndarray:
     """Breunig et al. LOF. Returns one score per row: ~1 is an inlier, >>1 is an outlier."""
     X = np.asarray(X, dtype=np.float64)
@@ -58,7 +68,7 @@ def edge_coherence(edges, entity_vectors: dict) -> np.ndarray:
     """cosine(src_vec, dst_vec) mapped to [0,1] per edge; 0.5 (neutral) when a vector is absent."""
     out = []
     for e in edges:
-        vs, vd = entity_vectors.get(e.src), entity_vectors.get(e.dst)
+        vs, vd = _lookup(entity_vectors, e.src), _lookup(entity_vectors, e.dst)
         if vs is None or vd is None:
             out.append(0.5)
         else:
@@ -73,11 +83,13 @@ def edge_anomaly_scores(edges, entity_vectors: dict, *, transe=None, k: int = 5,
     if not edges:
         return np.zeros(0)
     dim = next((len(v) for v in entity_vectors.values()), 1)
+    zero = np.zeros(dim)
     feats = []
     for e in edges:
-        vs = entity_vectors.get(e.src, np.zeros(dim))
-        vd = entity_vectors.get(e.dst, np.zeros(dim))
-        feats.append(np.concatenate([_unit(vs), _unit(vd)]))
+        vs = _lookup(entity_vectors, e.src)
+        vd = _lookup(entity_vectors, e.dst)
+        feats.append(np.concatenate([_unit(vs if vs is not None else zero),
+                                     _unit(vd if vd is not None else zero)]))
     lof = _lof01(np.asarray(feats), k)
     incoherence = 1.0 - edge_coherence(edges, entity_vectors)
     if transe is not None:

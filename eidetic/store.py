@@ -285,8 +285,14 @@ class RecordStore:
                        include_inferred: bool = False) -> list[Edge]:
         clause, params = self._scope_clause(scope)
         inf = "" if include_inferred else " AND inferred=0"
+        # Case-insensitive to match the system-wide entity identity: the contradiction check in
+        # graph.add_fact compares with _norm() (lowercased), the read path uses LOWER(src/dst),
+        # and the idx_edge_src_lower/idx_edge_dst_lower indexes exist for exactly this. A
+        # case-sensitive fetch here let 'Alice' vs 'alice' escape contradiction detection and
+        # leave both single-valued facts active.
         rows = self._conn().execute(
-            "SELECT json FROM edges WHERE (src=? OR dst=?)" + clause + inf, [name, name, *params]
+            "SELECT json FROM edges WHERE (LOWER(src)=LOWER(?) OR LOWER(dst)=LOWER(?))"
+            + clause + inf, [name, name, *params]
         ).fetchall()
         return [Edge.model_validate_json(r["json"]) for r in rows]
 

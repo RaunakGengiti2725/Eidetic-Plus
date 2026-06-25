@@ -33,6 +33,14 @@ def _get(name: str, default: str = "") -> str:
     return os.environ.get(name, default).strip()
 
 
+def _get_bool(name: str, default: str = "0") -> bool:
+    """Parse a boolean env flag, case-insensitively. Without this, a capitalized word form like
+    RERANK_ENABLED=False or FEEDBACK=Yes was silently INVERTED (the raw 'False'/'Yes' did not
+    match the lowercase-only tuples). Not folded into _get() because _get also reads
+    case-sensitive strings (keys, model ids, paths)."""
+    return os.environ.get(name, default).strip().lower() in ("1", "true", "yes", "on")
+
+
 def _get_int(name: str, default: int) -> int:
     raw = os.environ.get(name)
     if raw is None or raw.strip() == "":
@@ -84,7 +92,7 @@ class Settings:
     # A quantized backend always keeps the raw float32 for an exact refine pass (recall
     # recovery). Calibrate/promote only via the dev-split recall check (>1% drop -> keep refine).
     vector_quant: str = field(default_factory=lambda: _get("VECTOR_QUANT", "none").lower())
-    quant_refine: bool = field(default_factory=lambda: _get("QUANT_REFINE", "1") not in ("0", "false", "no"))
+    quant_refine: bool = field(default_factory=lambda: _get_bool("QUANT_REFINE", "1"))
     quant_refine_topn: int = field(default_factory=lambda: _get_int("QUANT_REFINE_TOPN", 100))
 
     # HNSW index params (M=32; efSearch raised since retrieval is not the latency bottleneck).
@@ -95,41 +103,41 @@ class Settings:
     # Triple-win read path tuning.
     context_token_budget: int = field(default_factory=lambda: _get_int("CONTEXT_TOKEN_BUDGET", 8000))
     cache_cosine: float = field(default_factory=lambda: float(_get("CACHE_COSINE", "0.9")))
-    reader_cot_enabled: bool = field(default_factory=lambda: _get("READER_COT", "0") in ("1", "true", "yes"))
+    reader_cot_enabled: bool = field(default_factory=lambda: _get_bool("READER_COT", "0"))
     reader_router_enabled: bool = field(
-        default_factory=lambda: _get("READER_ROUTER", "1") not in ("0", "false", "no")
+        default_factory=lambda: _get_bool("READER_ROUTER", "1")
     )
     conflict_resolver_enabled: bool = field(
-        default_factory=lambda: _get("CONFLICT_RESOLVER", "0") in ("1", "true", "yes")
+        default_factory=lambda: _get_bool("CONFLICT_RESOLVER", "0")
     )
     context_compress_enabled: bool = field(
-        default_factory=lambda: _get("CONTEXT_COMPRESS", "0") in ("1", "true", "yes")
+        default_factory=lambda: _get_bool("CONTEXT_COMPRESS", "0")
     )
     extract_light_enabled: bool = field(
-        default_factory=lambda: _get("EXTRACT_LIGHT", "0") in ("1", "true", "yes")
+        default_factory=lambda: _get_bool("EXTRACT_LIGHT", "0")
     )
     temporal_rerank_enabled: bool = field(
-        default_factory=lambda: _get("TEMPORAL_RERANK", "0") in ("1", "true", "yes")
+        default_factory=lambda: _get_bool("TEMPORAL_RERANK", "0")
     )
     hippo2_seeding_enabled: bool = field(
-        default_factory=lambda: _get("HIPPO2_SEEDING", "0") in ("1", "true", "yes")
+        default_factory=lambda: _get_bool("HIPPO2_SEEDING", "0")
     )
     persistent_bm25_enabled: bool = field(
-        default_factory=lambda: _get("PERSISTENT_BM25", "1") not in ("0", "false", "no")
+        default_factory=lambda: _get_bool("PERSISTENT_BM25", "1")
     )
     semantic_cache_enabled: bool = field(
-        default_factory=lambda: _get("SEMANTIC_CACHE", "1") not in ("0", "false", "no")
+        default_factory=lambda: _get_bool("SEMANTIC_CACHE", "1")
     )
     semantic_cache_adaptive: bool = field(
-        default_factory=lambda: _get("SEMANTIC_CACHE_ADAPTIVE", "1") not in ("0", "false", "no")
+        default_factory=lambda: _get_bool("SEMANTIC_CACHE_ADAPTIVE", "1")
     )
 
     # --- Sweepable optimization params (safe defaults; tune on a subset after the key) ---
     # Abstention gate: abstain when combined entailment+coverage is below this (calibrate it).
     abstention_threshold: float = field(default_factory=lambda: float(_get("ABSTENTION_THRESHOLD", "0.4")))
     # Cross-encoder rerank (qwen3-rerank): on/off + candidate depth (~50 -> final_topk).
-    rerank_enabled: bool = field(default_factory=lambda: _get("RERANK_ENABLED", "1") not in ("0", "false", "no"))
-    rerank_fail_open: bool = field(default_factory=lambda: _get("RERANK_FAIL_OPEN", "0") in ("1", "true", "yes"))
+    rerank_enabled: bool = field(default_factory=lambda: _get_bool("RERANK_ENABLED", "1"))
+    rerank_fail_open: bool = field(default_factory=lambda: _get_bool("RERANK_FAIL_OPEN", "0"))
     rerank_depth: int = field(default_factory=lambda: _get_int("RERANK_DEPTH", 50))
     # Reciprocal Rank Fusion: k fixed at 60; per-channel base weights (query-adaptive in code).
     rrf_w_dense: float = field(default_factory=lambda: float(_get("RRF_W_DENSE", "1.0")))
@@ -145,30 +153,30 @@ class Settings:
 
     # --- Layer 2: per-query hot-path optimizers (all default OFF / current behavior) -----
     # 2a Adaptive-k: cut the final candidate list at the largest score gap (token savings).
-    adaptive_k_enabled: bool = field(default_factory=lambda: _get("ADAPTIVE_K", "0") in ("1", "true", "yes"))
+    adaptive_k_enabled: bool = field(default_factory=lambda: _get_bool("ADAPTIVE_K", "0"))
     adaptive_k_min: int = field(default_factory=lambda: _get_int("ADAPTIVE_K_MIN", 3))
     # 2a Adaptive efSearch: widen the HNSW beam for hard (multi-hop/long) queries only.
-    adaptive_ef_enabled: bool = field(default_factory=lambda: _get("ADAPTIVE_EF", "0") in ("1", "true", "yes"))
+    adaptive_ef_enabled: bool = field(default_factory=lambda: _get_bool("ADAPTIVE_EF", "0"))
     hnsw_ef_search_hard: int = field(default_factory=lambda: _get_int("HNSW_EF_SEARCH_HARD", 512))
     # 2b Split-conformal retrieval depth: keep candidates with sim >= 1 - qhat. qhat<0 = off
     # (calibrate it on the DEV split via bench.calibrate; never on test items).
-    conformal_depth_enabled: bool = field(default_factory=lambda: _get("CONFORMAL_DEPTH", "0") in ("1", "true", "yes"))
+    conformal_depth_enabled: bool = field(default_factory=lambda: _get_bool("CONFORMAL_DEPTH", "0"))
     conformal_alpha: float = field(default_factory=lambda: float(_get("CONFORMAL_ALPHA", "0.1")))
     conformal_qhat: float = field(default_factory=lambda: float(_get("CONFORMAL_QHAT", "-1.0")))
     # 2c Skip the cross-encoder rerank when the first-stage margin is already large. 0 = never.
     rerank_skip_margin: float = field(default_factory=lambda: float(_get("RERANK_SKIP_MARGIN", "0.0")))
     # 2c MMR diversity post-pass (lambda in [0.3,0.7]; higher = more diverse).
-    mmr_enabled: bool = field(default_factory=lambda: _get("MMR_ENABLED", "0") in ("1", "true", "yes"))
+    mmr_enabled: bool = field(default_factory=lambda: _get_bool("MMR_ENABLED", "0"))
     mmr_lambda: float = field(default_factory=lambda: float(_get("MMR_LAMBDA", "0.5")))
     # 2d Fusion method: rrf (default, scale-free) | zscore | minmax | dbsf | borda.
     fusion_method: str = field(default_factory=lambda: _get("FUSION_METHOD", "rrf").lower())
     # 2e Parallel channel fan-out (dense/BM25/recency concurrent; latency ~= slowest channel).
-    parallel_channels_enabled: bool = field(default_factory=lambda: _get("PARALLEL_CHANNELS", "0") in ("1", "true", "yes"))
+    parallel_channels_enabled: bool = field(default_factory=lambda: _get_bool("PARALLEL_CHANNELS", "0"))
 
     # --- Layer 3a/3b: online learning (all default OFF) ----------------------------------
     # 3b Rocchio pseudo-relevance feedback: expand the query toward the top-R evidence
     # centroid, confidence-gated to avoid topic drift. Positive-only (gamma=0) by default.
-    rocchio_enabled: bool = field(default_factory=lambda: _get("ROCCHIO", "0") in ("1", "true", "yes"))
+    rocchio_enabled: bool = field(default_factory=lambda: _get_bool("ROCCHIO", "0"))
     rocchio_alpha: float = field(default_factory=lambda: float(_get("ROCCHIO_ALPHA", "1.0")))
     rocchio_beta: float = field(default_factory=lambda: float(_get("ROCCHIO_BETA", "0.6")))
     rocchio_topr: int = field(default_factory=lambda: _get_int("ROCCHIO_TOPR", 5))
@@ -176,37 +184,37 @@ class Settings:
     # 3a Online fusion-weight learner: when on, the content-channel (dense/bm25/graph) base
     # weights come from a dev-feedback-learned vector (index_dir/fusion_weights.json) instead
     # of the static config floats. Recency weight is NEVER learned (age-independence).
-    fusion_learner_enabled: bool = field(default_factory=lambda: _get("FUSION_LEARNER", "0") in ("1", "true", "yes"))
+    fusion_learner_enabled: bool = field(default_factory=lambda: _get_bool("FUSION_LEARNER", "0"))
     fusion_learner_method: str = field(default_factory=lambda: _get("FUSION_LEARNER_METHOD", "eg").lower())
     # Producer side: emit a (features, reward) feedback tuple from the PRODUCT ask() path into
     # the dev-only FeedbackBuffer. Off by default; the neutral benchmark adapter never calls
     # ask(), and benchmark namespaces are recorded audit-only, so this can't touch the wall.
-    feedback_enabled: bool = field(default_factory=lambda: _get("FEEDBACK", "0") in ("1", "true", "yes"))
+    feedback_enabled: bool = field(default_factory=lambda: _get_bool("FEEDBACK", "0"))
 
     # --- Revolutionary-architectures mechanisms (all default OFF) ------------------------
     # EvolveMem auto-revert guard: a tuned config is promoted only if it beats the champion on
     # the DEV split by >= min_delta_pp AND a paired McNemar test is significant. Dev-proxy only.
-    guard_enabled: bool = field(default_factory=lambda: _get("GUARD_ENABLED", "0") in ("1", "true", "yes"))
+    guard_enabled: bool = field(default_factory=lambda: _get_bool("GUARD_ENABLED", "0"))
     guard_min_delta_pp: float = field(default_factory=lambda: float(_get("GUARD_MIN_DELTA_PP", "1.0")))
     guard_alpha: float = field(default_factory=lambda: float(_get("GUARD_ALPHA", "0.05")))
     # Heuristic write-time memory manager (Memory-R1 approximation): ADD/UPDATE/DELETE-tombstone
     # /NOOP. Off by default; ingest stays byte-identical when off. Never deletes a raw record.
-    memory_manager_enabled: bool = field(default_factory=lambda: _get("MEMORY_MANAGER", "0") in ("1", "true", "yes"))
+    memory_manager_enabled: bool = field(default_factory=lambda: _get_bool("MEMORY_MANAGER", "0"))
     memory_manager_dup_cosine: float = field(default_factory=lambda: float(_get("MEMORY_MANAGER_DUP_COSINE", "0.97")))
     # MemMA evidence-grounded self-repair sweep inside the dreaming engine (LLM-gated, offline).
-    dream_repair_enabled: bool = field(default_factory=lambda: _get("DREAM_REPAIR", "0") in ("1", "true", "yes"))
+    dream_repair_enabled: bool = field(default_factory=lambda: _get_bool("DREAM_REPAIR", "0"))
     dream_repair_topk: int = field(default_factory=lambda: _get_int("DREAM_REPAIR_TOPK", 16))
     # Per-triple anomaly scoring threshold (flag low-confidence observed edges for repair).
     anomaly_threshold: float = field(default_factory=lambda: float(_get("ANOMALY_THRESHOLD", "0.35")))
     # MIRIX-style role typing of memories (deterministic classifier; LLM typing optional/gated).
-    memory_typing_enabled: bool = field(default_factory=lambda: _get("MEMORY_TYPING", "0") in ("1", "true", "yes"))
+    memory_typing_enabled: bool = field(default_factory=lambda: _get_bool("MEMORY_TYPING", "0"))
     # MIRIX Active Retrieval: generate an anticipated topic before retrieval (LLM-gated).
-    active_retrieval_enabled: bool = field(default_factory=lambda: _get("ACTIVE_RETRIEVAL", "0") in ("1", "true", "yes"))
+    active_retrieval_enabled: bool = field(default_factory=lambda: _get_bool("ACTIVE_RETRIEVAL", "0"))
     # Markov prospective prefetch: learn P(next-cluster|current) and pre-stage the predicted next.
-    markov_prefetch_enabled: bool = field(default_factory=lambda: _get("MARKOV_PREFETCH", "0") in ("1", "true", "yes"))
+    markov_prefetch_enabled: bool = field(default_factory=lambda: _get_bool("MARKOV_PREFETCH", "0"))
     # CoVe factored verification + bounded conflict-only debate (LLM-gated).
-    cove_enabled: bool = field(default_factory=lambda: _get("COVE", "0") in ("1", "true", "yes"))
-    debate_enabled: bool = field(default_factory=lambda: _get("DEBATE", "0") in ("1", "true", "yes"))
+    cove_enabled: bool = field(default_factory=lambda: _get_bool("COVE", "0"))
+    debate_enabled: bool = field(default_factory=lambda: _get_bool("DEBATE", "0"))
 
     # --- Dreaming engine: token-free continuous consolidation (all sweepable) -----------
     # Replay priority = surprise^w_s * need^w_n * (1-retrievability)^w_r (exponents).
@@ -226,7 +234,7 @@ class Settings:
     # set DREAM_USE_LLM_NLI=1 for optional real-NLI enrichment (costs tokens).
     dream_infer_confidence: float = field(default_factory=lambda: float(_get("DREAM_INFER_CONFIDENCE", "0.7")))
     dream_infer_topk: int = field(default_factory=lambda: _get_int("DREAM_INFER_TOPK", 50))
-    dream_use_llm_nli: bool = field(default_factory=lambda: _get("DREAM_USE_LLM_NLI", "0") in ("1", "true", "yes"))
+    dream_use_llm_nli: bool = field(default_factory=lambda: _get_bool("DREAM_USE_LLM_NLI", "0"))
     # Horn rule mining.
     dream_rule_max_len: int = field(default_factory=lambda: _get_int("DREAM_RULE_MAX_LEN", 2))
     dream_rule_min_confidence: float = field(default_factory=lambda: float(_get("DREAM_RULE_MIN_CONFIDENCE", "0.5")))

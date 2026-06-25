@@ -440,8 +440,12 @@ class Retriever:
                 if not s.rerank_fail_open:
                     raise
                 ranked = shortlist
-        ranked = self._mmr_pass(ranked)
+        # Depth-select BEFORE MMR. adaptive_k_cut's largest-gap cut is a POSITIONAL slice that
+        # assumes a score-descending list; MMR reorders by diversity, so cutting after MMR would
+        # keep the first-k MMR positions, silently dropping high-score items past position k.
+        # Cut on the relevance-descending order first, then diversify only the survivors.
         ranked = self._depth_select(ranked)
+        ranked = self._mmr_pass(ranked)
         return ranked[: s.final_topk]
 
     def _mmr_pass(self, ranked: list[RetrievalCandidate]) -> list[RetrievalCandidate]:
@@ -513,8 +517,13 @@ class Retriever:
                 txt = f"[Session date {_dt.date.fromtimestamp(c.record.valid_at).isoformat()}] {txt}"
             raw_blocks.append(txt)
 
-        ordered = edge_place(resolver_blocks + event_blocks + pref_blocks + raw_blocks)
-        return _budget_blocks(ordered, self.settings.context_token_budget)
+        # Budget on the PRIORITY order first, then edge-place the survivors. Edge-placing first
+        # then budgeting truncated from the tail, which is where edge_place puts the 2nd-highest
+        # priority block, so a high-priority block was dropped before lower-priority raw chunks.
+        budgeted = _budget_blocks(
+            resolver_blocks + event_blocks + pref_blocks + raw_blocks,
+            self.settings.context_token_budget)
+        return edge_place(budgeted)
 
     def _hopfield_order(self, candidates: list[RetrievalCandidate]) -> list[RetrievalCandidate]:
         """Modern-Hopfield / attention readout (dossier 8.1-8.2): a single-step softmax over
