@@ -17,10 +17,13 @@ from __future__ import annotations
 
 import base64
 import json
+import random
 import re
 import threading
+import time
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 import numpy as np
 
@@ -29,6 +32,85 @@ from .config import Settings, get_settings
 
 class ModelCallError(RuntimeError):
     """Raised when a real model call cannot be completed. Never swallowed into a fake."""
+
+
+_RATE_HINTS = ("429", "throttl", "rate limit", "requests rate", "request rate",
+               "rate increased too quickly", "allocationquota", "too many requests")
+
+
+def _is_rate_limit(msg: str) -> bool:
+    """A retryable rate-limit / throttle signal (HTTP 429 or the DashScope stability guard).
+
+    Quota EXHAUSTION (free tier spent) is NOT retryable -- retrying cannot succeed, so we let it
+    fail loud rather than spin. It is distinguished by the 'exhausted' wording."""
+    m = (msg or "").lower()
+    if "exhaust" in m:                 # free-tier exhausted -> not retryable, fail loud
+        return False
+    return any(h in m for h in _RATE_HINTS)
+
+
+def _retry_after_seconds(msg: str) -> Optional[float]:
+    m = re.search(r"retry[-\s]?after[:\s]+(\d+(?:\.\d+)?)", (msg or "").lower())
+    return float(m.group(1)) if m else None
+
+
+class RateGovernor:
+    """One shared budget for every model call: a token-bucket RPM limiter + a concurrency
+    semaphore, with exponential backoff (jitter, Retry-After) on 429. Acquire an RPM token FIRST
+    then a concurrency slot (reverse order deadlocks under load, per the Alibaba best-practice doc)."""
+
+    def __init__(self, rpm: int, max_concurrency: int, max_retries: int = 5,
+                 backoff_base: float = 0.5, backoff_max: float = 30.0):
+        self.rpm = max(1, int(rpm))
+        self._capacity = float(self.rpm)
+        self._tokens = float(self.rpm)
+        self._refill_per_sec = self.rpm / 60.0
+        self._last = time.monotonic()
+        self._lock = threading.Lock()
+        self._sem = threading.Semaphore(max(1, int(max_concurrency)))
+        self.max_retries = int(max_retries)
+        self.backoff_base = float(backoff_base)
+        self.backoff_max = float(backoff_max)
+
+    def _take_token(self) -> None:
+        while True:
+            with self._lock:
+                now = time.monotonic()
+                self._tokens = min(self._capacity,
+                                   self._tokens + (now - self._last) * self._refill_per_sec)
+                self._last = now
+                if self._tokens >= 1.0:
+                    self._tokens -= 1.0
+                    return
+                wait = (1.0 - self._tokens) / self._refill_per_sec
+            time.sleep(min(max(wait, 0.0), 1.0))
+
+    @contextmanager
+    def _slot(self):
+        self._take_token()        # RPM token first ...
+        self._sem.acquire()       # ... then a concurrency slot
+        try:
+            yield
+        finally:
+            self._sem.release()
+
+    def run(self, fn: Callable[[], Any]) -> Any:
+        """Run a real model call under the budget, retrying ONLY rate-limit errors with backoff.
+        Any other ModelCallError fails loud immediately (never a fabricated result)."""
+        for attempt in range(self.max_retries + 1):
+            with self._slot():
+                try:
+                    return fn()
+                except ModelCallError as e:
+                    if attempt >= self.max_retries or not _is_rate_limit(str(e)):
+                        raise
+                    retry_after = _retry_after_seconds(str(e))
+            # backoff OUTSIDE the slot so a waiting call does not hold a concurrency slot.
+            sleep_s = (retry_after if retry_after is not None
+                       else min(self.backoff_max,
+                                self.backoff_base * (2 ** attempt) + random.uniform(0, self.backoff_base)))
+            time.sleep(sleep_s)
+        raise ModelCallError("rate-limit retries exhausted")  # pragma: no cover
 
 
 def _strip_json(text: str) -> str:
@@ -56,6 +138,20 @@ class DashScopeClient:
         if self.settings.has_api_key:
             dashscope.api_key = self.settings.api_key
             dashscope.base_http_api_url = self.settings.dashscope_base_url
+        # F1: one shared rate governor for EVERY model call. Conservative defaults so a low-tier
+        # key never self-throttles; off via DASHSCOPE_GOVERN=0.
+        self._governor: Optional[RateGovernor] = (
+            RateGovernor(self.settings.dashscope_rpm, self.settings.dashscope_max_concurrency,
+                         self.settings.dashscope_max_retries, self.settings.dashscope_backoff_base,
+                         self.settings.dashscope_backoff_max)
+            if self.settings.dashscope_govern_enabled else None)
+
+    def _governed(self, fn: Callable[[], Any]) -> Any:
+        """Route a real SDK call (the callable MUST include _ok so a 429 raises) through the rate
+        governor when enabled; otherwise call directly. Single choke point that makes fan-out safe."""
+        if self._governor is None:
+            return fn()
+        return self._governor.run(fn)
 
     # ---- guards -----------------------------------------------------------
     def _require_key(self) -> None:
@@ -85,12 +181,8 @@ class DashScopeClient:
         out: list[list[float]] = []
         for i in range(0, len(texts), 10):
             batch = texts[i : i + 10]
-            resp = self._ds.TextEmbedding.call(
-                model=self.settings.text_embed_model,
-                input=batch,
-                dimension=self.settings.embed_dim,
-            )
-            self._ok(resp)
+            resp = self._governed(lambda b=batch: self._ok(self._ds.TextEmbedding.call(
+                model=self.settings.text_embed_model, input=b, dimension=self.settings.embed_dim)))
             embs = resp.output["embeddings"]
             embs = sorted(embs, key=lambda e: e.get("text_index", 0))
             out.extend(e["embedding"] for e in embs)
@@ -106,11 +198,8 @@ class DashScopeClient:
         uri = path_or_uri
         if "://" not in uri:
             uri = f"file://{Path(uri).resolve()}"
-        resp = self._ds.MultiModalEmbedding.call(
-            model=self.settings.multimodal_embed_model,
-            input=[{"image": uri}],
-        )
-        self._ok(resp)
+        resp = self._governed(lambda: self._ok(self._ds.MultiModalEmbedding.call(
+            model=self.settings.multimodal_embed_model, input=[{"image": uri}])))
         emb = resp.output["embeddings"][0]["embedding"]
         return np.asarray(emb, dtype=np.float32)
 
@@ -129,8 +218,7 @@ class DashScopeClient:
             temperature=temperature, max_tokens=max_tokens,
         )
         _ = json_mode  # accepted for API symmetry; parsing is prompt-driven
-        resp = self._ds.Generation.call(**kwargs)
-        self._ok(resp)
+        resp = self._governed(lambda: self._ok(self._ds.Generation.call(**kwargs)))
         return resp.output["choices"][0]["message"]["content"].strip()
 
     def chat_json(self, model: str, system: str, user: str, **kw) -> Any:
@@ -259,14 +347,9 @@ class DashScopeClient:
         if not documents:
             return []
         docs = [d[:4000] for d in documents][:500]
-        resp = self._ds.TextReRank.call(
-            model=self.settings.rerank_model,
-            query=query[:4000],
-            documents=docs,
-            top_n=min(top_n, len(docs)),
-            return_documents=False,
-        )
-        self._ok(resp)
+        resp = self._governed(lambda: self._ok(self._ds.TextReRank.call(
+            model=self.settings.rerank_model, query=query[:4000], documents=docs,
+            top_n=min(top_n, len(docs)), return_documents=False)))
         results = resp.output["results"]
         return [(int(r["index"]), float(r["relevance_score"])) for r in results]
 

@@ -64,6 +64,16 @@ class Settings:
     )
     embed_dim: int = field(default_factory=lambda: _get_int("EMBED_DIM", 1024))
 
+    # F1 DashScope rate governor: token-bucket RPM + concurrency semaphore + 429 backoff, so
+    # batching/fan-out never trips per-account limits. Conservative defaults (a low-tier key never
+    # self-throttles). Governs every model call; DASHSCOPE_GOVERN=0 disables (raw calls).
+    dashscope_govern_enabled: bool = field(default_factory=lambda: _get_bool("DASHSCOPE_GOVERN", "1"))
+    dashscope_rpm: int = field(default_factory=lambda: _get_int("DASHSCOPE_RPM", 60))
+    dashscope_max_concurrency: int = field(default_factory=lambda: _get_int("DASHSCOPE_MAX_CONCURRENCY", 4))
+    dashscope_max_retries: int = field(default_factory=lambda: _get_int("DASHSCOPE_MAX_RETRIES", 5))
+    dashscope_backoff_base: float = field(default_factory=lambda: float(_get("DASHSCOPE_BACKOFF_BASE", "0.5")))
+    dashscope_backoff_max: float = field(default_factory=lambda: float(_get("DASHSCOPE_BACKOFF_MAX", "30.0")))
+
     salience_model: str = field(default_factory=lambda: _get("SALIENCE_MODEL", "qwen-flash"))
     extract_model: str = field(default_factory=lambda: _get("EXTRACT_MODEL", "qwen-plus"))
     verify_model: str = field(default_factory=lambda: _get("VERIFY_MODEL", "qwen-plus"))
