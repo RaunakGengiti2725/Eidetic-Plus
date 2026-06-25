@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "eidetic-plus"
 version = "1.0.0"
-description = "A lossless, verifiable, recency-independent memory engine for AI agents."
+description = "A lossless, verifiable, recency-independent memory engine for AI agents, runnable as an MCP plugin."
 requires-python = ">=3.11"
 license = { text = "MIT" }
 
@@ -24,14 +24,21 @@ dependencies = [
     "matplotlib",
 ]
 
+[project.scripts]
+# One-command run: `uvx eidetic-plus` / `pipx run eidetic-plus` start the stdio MCP server.
+eidetic-plus = "eidetic.mcp_server:main"
+
 [project.optional-dependencies]
 dev = [
     "pytest",
     "pytest-asyncio",
+    "build",
 ]
 
-[tool.setuptools]
-packages = ["eidetic"]
+[tool.setuptools.packages.find]
+# Include eidetic and its subpackages (eidetic.dreaming, eidetic.optim). The old explicit
+# packages = ["eidetic"] silently dropped the subpackages from the wheel.
+include = ["eidetic*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

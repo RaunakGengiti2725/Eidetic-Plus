@@ -355,6 +355,40 @@ class Engine:
         self.store.upsert_record(rec)
         return rec
 
+    def forget(self, memory_id: str) -> Optional[MemoryRecord]:
+        """Lower a memory's retrieval PRIORITY via the FSRS forgetting path. This is the inverse
+        of reawaken and NEVER deletes the raw record: the immutable substrate is untouched, only
+        the mutable index-priority weight drops. Returns None if the memory does not exist."""
+        rec = self.store.get_record(memory_id)
+        if rec is None:
+            return None
+        fsrs.lapse(rec.fsrs)
+        self.store.upsert_record(rec)
+        return rec
+
+    def get_record_in_scope(self, memory_id: str,
+                            scope: Optional[Scope] = None) -> Optional[MemoryRecord]:
+        """get_record but enforce scope visibility: a record outside the requested scope is
+        invisible (returns None), so an id from another namespace can never be read cross-scope.
+        Reuses the engine's existing Scope.visible_to model, not a parallel filter."""
+        rec = self.store.get_record(memory_id)
+        if rec is None:
+            return None
+        if scope is not None and not rec.scope.visible_to(scope):
+            return None
+        return rec
+
+    def set_metadata(self, memory_id: str, metadata: dict,
+                     scope: Optional[Scope] = None) -> Optional[MemoryRecord]:
+        """Attach/merge metadata onto a memory's mutable state (the raw substrate is NOT touched).
+        Scope-checked so it cannot write across a namespace boundary."""
+        rec = self.get_record_in_scope(memory_id, scope)
+        if rec is None:
+            return None
+        rec.metadata.update(dict(metadata or {}))
+        self.store.upsert_record(rec)
+        return rec
+
     # ---- sleep: consolidation/replay -------------------------------------
     def consolidate(self, *, verify: bool = True, scope: Optional[Scope] = None) -> dict:
         """Offline replay loop. Clusters by shared entity, writes verified semantic
