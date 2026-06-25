@@ -98,6 +98,12 @@ class Engine:
         self.reflex_index = ReflexIndex()
         self._hotset: dict[str, "deque"] = {}
         self._hotset_lock = threading.Lock()
+        # Track 2 perfect sync: a monotonic per-NAMESPACE memory version. Bumped under the write
+        # lock on every content write; the answer cache tags entries with it so a write makes prior
+        # entries in that namespace unreachable (no stale-truth hits). Namespace-grained because a
+        # read sees all records visible_to it in the namespace, so a sub-scope write must invalidate
+        # a namespace-wide query's entry too.
+        self._ns_versions: dict[str, int] = {}
         if self.settings.reflex_recall_enabled:
             self.reflex_index.rebuild_from_store(self.store)
         # One shared wake/sleep/idle/repair coordinator (Phase 1) -- API and MCP route through it.
@@ -115,6 +121,16 @@ class Engine:
                                            memory_ids=list(memory_ids or []), payload=payload))
         except Exception as e:        # event emission is non-critical, but log rather than swallow
             _log.debug("brain-event emit failed: %s", e)
+
+    def _ns_version(self, namespace: str) -> int:
+        """Current memory version for a namespace (0 until the first content write)."""
+        return self._ns_versions.get(namespace, 0)
+
+    def _bump_ns_version(self, namespace: str) -> None:
+        """Advance a namespace's memory version. MUST be called under self._write_lock, on content
+        writes only (new records, extracted facts) -- not on FSRS/re-embed reconsolidation, which
+        does not change what is true, so the answer cache should survive across reads."""
+        self._ns_versions[namespace] = self._ns_versions.get(namespace, 0) + 1
 
     def _degraded(self, where: str, exc: Exception) -> None:
         """Record a best-effort hot-path failure WITHOUT silently swallowing it. A ModelCallError
@@ -244,6 +260,7 @@ class Engine:
             self.retriever.index_lexical(record)
             if self.settings.reflex_recall_enabled:
                 self.reflex_index.add_record(record)
+            self._bump_ns_version(scope.namespace)
 
         # Synaptic tagging and capture: a salient event up-weights temporally adjacent
         # in-scope memories (FSRS priority only -- never the ranking score). Skipped on the
@@ -380,6 +397,8 @@ class Engine:
                 if self.settings.reflex_recall_enabled:
                     self.reflex_index.add_record(rec)
                 out.append(rec)
+            if new_idx:                       # only a genuine new write changes what is true
+                self._bump_ns_version(scope.namespace)
             self.index.save()
             self.retriever.save_lexical()
         return out
@@ -490,11 +509,12 @@ class Engine:
         index is built lazily from the store on first use if it was not built at construction."""
         scope = scope or Scope()
         # When REFLEX_RECALL is on the index is built + maintained incrementally, so ensure_built is
-        # a no-op. When off it is NOT maintained, so this explicit on-demand call rebuilds from the
-        # store to stay correct against the current state (the store remains the source of truth).
+        # a no-op. When off it is NOT maintained, so this explicit on-demand call rebuilds -- but
+        # only when the store's record count changed since the last build (a cheap COUNT probe that
+        # catches even direct store writes). Repeated calls on an unchanged store reuse the index.
         if self.settings.reflex_recall_enabled:
             self.reflex_index.ensure_built(self.store)
-        else:
+        elif self.reflex_index.built_count != self.store.count(None):
             self.reflex_index.rebuild_from_store(self.store)
         packet = build_memory_packet(query, scope, store=self.store, graph=self.graph,
                                      index=self.reflex_index, settings=self.settings,
@@ -526,15 +546,19 @@ class Engine:
         if as_of is not None:
             use_cache = False
 
+        # Versioned cache invalidation: tag every lookup/store with the namespace's current memory
+        # version, so a content write makes prior entries unreachable (no stale-truth hits). version
+        # 0 (flag off) == the legacy never-invalidated cache, byte-identical.
+        cache_ver = self._ns_version(scope.namespace) if self.settings.cache_versioning_enabled else 0
         qvec = None
         if use_cache:
-            hit = self.cache.get(sk, query, None)        # exact-hash (no embedding)
+            hit = self.cache.get(sk, query, None, version=cache_ver)   # exact-hash (no embedding)
             if hit is not None:
                 return hit
             qvec = self.client.embed_text(query)         # embed once, reuse in retrieval
             if len(self._query_log) < 5000:              # bounded query log for pre-fetch
                 self._query_log.append((sk, qvec))
-            hit = self.cache.get(sk, query, qvec)        # cosine >= threshold
+            hit = self.cache.get(sk, query, qvec, version=cache_ver)   # cosine >= threshold
             if hit is not None:
                 return hit
 
@@ -651,7 +675,7 @@ class Engine:
         # product path (no-op unless BRAIN_EVENTS is on; the answer is never altered).
         self.lifecycle.after_recall(ans, scope)
         if use_cache:
-            self.cache.put(sk, query, qvec, ans)
+            self.cache.put(sk, query, qvec, ans, version=cache_ver)
         return ans
 
     def _emit_feedback(self, scope: Scope, query: str, qvec, candidates: list,
@@ -917,6 +941,8 @@ class Engine:
                                       sc.build_structure_code(rec, self.settings.struct_dim, gfeat))
                 if self.settings.reflex_recall_enabled:
                     self.reflex_index.add_record(rec)   # rec.entities now populated -> index them
+            for ns in {rec.scope.namespace for rec, _ in extracted}:
+                self._bump_ns_version(ns)               # facts/entities changed -> invalidate cache
             self.index.save()
             self.retriever.save_lexical()
         return {"pending_processed": len(pending), "facts_extracted": facts,

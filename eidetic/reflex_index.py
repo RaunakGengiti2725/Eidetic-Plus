@@ -52,12 +52,17 @@ class ReflexIndex:
     def __init__(self) -> None:
         self._lock = threading.RLock()
         self._built = False
+        self._built_count = -1            # store record count at last full rebuild (staleness probe)
         self._terms: dict[str, dict[str, set[str]]] = {}
         self._entities: dict[str, dict[str, set[str]]] = {}
 
     @property
     def built(self) -> bool:
         return self._built
+
+    @property
+    def built_count(self) -> int:
+        return self._built_count
 
     def add_record(self, rec: MemoryRecord) -> None:
         with self._lock:
@@ -72,6 +77,7 @@ class ReflexIndex:
             for rec in records:
                 self._add_locked(rec)
             self._built = True
+            self._built_count = len(records)
             return len(records)
 
     def ensure_built(self, store) -> None:

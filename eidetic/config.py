@@ -343,6 +343,14 @@ class Settings:
     reflex_w_hotset: float = field(default_factory=lambda: float(_get("REFLEX_W_HOTSET", "0.3")))
     reflex_hotset_size: int = field(default_factory=lambda: _get_int("REFLEX_HOTSET_SIZE", 64))
 
+    # --- Track 2 perfect sync: versioned answer-cache invalidation (correctness fix, default ON) --
+    # The answer cache is tagged with a per-NAMESPACE memory version; any content write in a
+    # namespace bumps it, so every prior cached answer in that namespace becomes unreachable (no
+    # stale-truth hits). Namespace (not scope_key) because a read sees every record visible_to it
+    # in the namespace, so a sub-scope write must still invalidate a namespace-wide query's entry.
+    # CACHE_VERSIONING=0 restores the legacy (never-invalidated) cache, byte-identical.
+    cache_versioning_enabled: bool = field(default_factory=lambda: _get_bool("CACHE_VERSIONING", "1"))
+
     # --- Connected Brain Loop: observation-only spine (all default OFF; baseline byte-identical) -
     # RecallTrace: the retriever records WHY it found/missed (enabled channels, per-channel rankings
     # and weights, fused scores, gist provenance, stage latency, dropped candidates). It is a pure

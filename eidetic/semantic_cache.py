@@ -29,8 +29,12 @@ class SemanticCache:
         # Both bounded to max_entries. _exact is an OrderedDict so it evicts oldest-first like
         # _vecs; an unbounded _exact pinned every historical Answer object and leaked memory in a
         # long-lived server (e.g. the MCP server) serving many distinct queries.
-        self._exact: "OrderedDict[str, Any]" = OrderedDict()  # (scope_key, query) -> value
-        self._vecs: list[tuple[str, np.ndarray, Any]] = []    # (scope_key, qvec, value)
+        # Entries carry the source-state VERSION they were computed at. A get only hits when the
+        # caller's current version matches, so a write that bumps the version makes every prior
+        # entry unreachable -> no stale-truth hit. version=0 everywhere == the legacy (never
+        # invalidated) cache, byte-identical.
+        self._exact: "OrderedDict[str, tuple[int, Any]]" = OrderedDict()  # hash -> (version, value)
+        self._vecs: list[tuple[str, int, np.ndarray, Any]] = []           # (scope_key, version, qvec, value)
         # Shared across concurrent asks on one Engine -> guard every mutation/read of the two
         # containers (OrderedDict mutation + list append/pop are not atomic under the GIL across
         # the move_to_end/popitem sequence).
@@ -55,33 +59,36 @@ class SemanticCache:
             t += 0.02
         return max(0.80, min(0.98, t))
 
-    def get(self, scope_key: str, query: str, qvec: Optional[np.ndarray]) -> Optional[Any]:
+    def get(self, scope_key: str, query: str, qvec: Optional[np.ndarray],
+            version: int = 0) -> Optional[Any]:
         h = self._hash(scope_key, query)
         with self._lock:
-            if h in self._exact:
-                return self._exact[h]
+            entry = self._exact.get(h)
+            if entry is not None and entry[0] == version:
+                return entry[1]
             if qvec is None or not self._vecs:
                 return None
             vecs = list(self._vecs)              # snapshot under lock; scoring is read-only
         q = _norm(qvec)
         best, best_sim = None, 0.0
-        for sk, v, value in vecs:
-            if sk != scope_key:
+        for sk, ver, v, value in vecs:
+            if sk != scope_key or ver != version:
                 continue
             sim = float(v @ q)
             if sim > best_sim:
                 best, best_sim = value, sim
         return best if best_sim >= self.threshold_for(query) else None
 
-    def put(self, scope_key: str, query: str, qvec: Optional[np.ndarray], value: Any) -> None:
+    def put(self, scope_key: str, query: str, qvec: Optional[np.ndarray], value: Any,
+            version: int = 0) -> None:
         h = self._hash(scope_key, query)
         with self._lock:
-            self._exact[h] = value
+            self._exact[h] = (version, value)
             self._exact.move_to_end(h)
             if len(self._exact) > self.max_entries:
                 self._exact.popitem(last=False)          # evict oldest, mirroring _vecs
             if qvec is not None:
-                self._vecs.append((scope_key, _norm(qvec), value))
+                self._vecs.append((scope_key, version, _norm(qvec), value))
                 if len(self._vecs) > self.max_entries:
                     self._vecs.pop(0)
 
