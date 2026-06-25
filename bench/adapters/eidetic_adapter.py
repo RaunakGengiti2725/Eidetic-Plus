@@ -76,3 +76,38 @@ class EideticSystem(MemorySystem):
             search_ms=search_ms, e2e_ms=e2e_ms, abstained=False,
             extra={"citations": len(cands), "coverage": coverage},
         )
+
+
+class EideticFullSystem(EideticSystem):
+    """The PRODUCT row. Same write/consolidate path as the neutral eidetic-plus row, but the
+    answer applies the product policy: NLI verification + abstention + proof (engine.retriever's
+    full answer()), so the scoreboard sees the honesty differentiators -- verified recall with a
+    citable immutable source, and an explicit abstention when evidence is insufficient -- that no
+    baseline has. Reports verified/abstained/confidence in `extra` for the report's product metrics.
+
+    (Retrieval is the same retrieve() the neutral row uses, so search_ms/context_tokens stay
+    cleanly comparable; the cache/reflex/reconsolidation WRAPPERS in engine.ask() are latency
+    features that do not change this accuracy/honesty comparison.)
+    """
+
+    name = "eidetic-plus-full"
+
+    def answer(self, namespace: str, question: str,
+               as_of: Optional[float] = None) -> AnswerResult:
+        scope = Scope(namespace=namespace)
+        t0 = time.perf_counter()
+        cands = self.engine.retriever.retrieve(question, at=as_of, scope=scope)
+        search_ms = (time.perf_counter() - t0) * 1000.0
+        ans = self.engine.retriever.answer(question, at=as_of, verify=True, scope=scope,
+                                           precomputed=cands)
+        e2e_ms = (time.perf_counter() - t0) * 1000.0
+        blocks = self.engine.retriever.assemble_context(question, cands, at=as_of, scope=scope)
+        ctx_tokens = sum(approx_tokens(b) for b in blocks)
+        abstained = ans.note.startswith("abstained")
+        return AnswerResult(
+            answer=ans.answer, context_tokens=ctx_tokens,
+            search_ms=search_ms, e2e_ms=e2e_ms, abstained=abstained,
+            extra={"verified": bool(ans.verified), "confidence": float(ans.confidence),
+                   "citations": len(ans.citations), "note": ans.note,
+                   "policy": "verify+abstain+proof"},
+        )

@@ -46,7 +46,18 @@ def make_system(name: str):
     if name == "graphiti":
         from .adapters.graphiti_adapter import GraphitiSystem
         return GraphitiSystem()
-    raise SystemExit(f"Unknown system '{name}' (choose from eidetic, mem0, graphiti).")
+    if name in ("rag-full", "ragfull"):
+        from .adapters.rag_adapter import RagFullSystem
+        return RagFullSystem()
+    if name in ("rag-vector", "ragvector", "rag"):
+        from .adapters.rag_adapter import RagVectorSystem
+        return RagVectorSystem()
+    if name in ("eidetic-full", "eidetic-plus-full"):
+        from .adapters.eidetic_adapter import EideticFullSystem
+        return EideticFullSystem()
+    raise SystemExit(
+        f"Unknown system '{name}' (choose from eidetic, eidetic-full, mem0, graphiti, "
+        "rag-full, rag-vector).")
 
 
 def _slice(samples: list, subset: int, offset: int) -> list:
