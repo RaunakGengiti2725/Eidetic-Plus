@@ -834,6 +834,26 @@ class Retriever:
                 pass  # fall back to text verification below
         return self.verify(self._ground_truth(rec), hypothesis)
 
+    def _abstention_confidence(self, candidates: list[RetrievalCandidate],
+                               citations: list[Citation]) -> tuple[float, dict]:
+        """Blend the four abstention signals into a confidence score (Phase 2). Two are structural
+        (channel agreement, proof completeness) so the gate does not rest on the model's
+        self-report. Returns (confidence, per-signal dict)."""
+        from . import abstention as _ab
+        s = self.settings
+        entail = max((c.nli_score for c in citations if c.nli_label == NLILabel.ENTAILMENT),
+                     default=0.0)
+        coverage = max((c.dense_score for c in candidates), default=0.0)
+        agreement = (_ab.channel_agreement(max(candidates, key=lambda c: c.fused_score))
+                     if candidates else 0.0)
+        proof = _ab.proof_completeness(citations)
+        conf = _ab.combine_confidence(
+            entail, coverage, agreement, proof,
+            w_entail=s.abstention_w_entail, w_coverage=s.abstention_w_coverage,
+            w_agreement=s.abstention_w_agreement, w_proof=s.abstention_w_proof)
+        return conf, {"entail": float(entail), "coverage": min(1.0, max(0.0, coverage)),
+                      "agreement": agreement, "proof": proof}
+
     # ---- end-to-end answer -----------------------------------------------
     def answer(self, query: str, at: Optional[float] = None, *, verify: bool = True,
                scope: Optional[Scope] = None, qvec: Optional[np.ndarray] = None,
@@ -883,16 +903,29 @@ class Retriever:
         verified = (entailed > 0) if verify else False
         unverified: list[str] = []
         abstained = False
-        # Abstention gate: weak evidence AND nothing entails -> abstain, don't guess.
-        if verify and not verified and coverage < self.settings.abstention_threshold:
+        note = ""
+        # Calibrated abstention (Phase 2). When ABSTENTION_V2 is on, gate on a multi-signal
+        # confidence (entailment + coverage + structural channel-agreement + proof-completeness)
+        # against the dev-calibrated tau. When off, the original coverage gate runs unchanged.
+        if verify and self.settings.abstention_v2_enabled:
+            conf, sig = self._abstention_confidence(candidates, citations)
+            if conf < self.settings.abstention_v2_tau:
+                abstained = True
+                text = "I don't have enough verified evidence in memory to answer that confidently."
+                note = (f"abstained: confidence {conf:.2f} < tau "
+                        f"{self.settings.abstention_v2_tau:.2f} (entail={sig['entail']:.2f} "
+                        f"coverage={sig['coverage']:.2f} agreement={sig['agreement']:.2f} "
+                        f"proof={sig['proof']:.2f})")
+            elif not verified:
+                note = "unverified: no source entails the answer"
+                unverified = [text]
+        elif verify and not verified and coverage < self.settings.abstention_threshold:
             abstained = True
             text = "I don't have enough verified evidence in memory to answer that confidently."
             note = f"abstained: insufficient evidence (coverage {coverage:.2f})"
         elif verify and not verified:
             note = "unverified: no source entails the answer"
             unverified = [text]
-        else:
-            note = ""
 
         top_rerank = max((c.rerank_score for c in candidates), default=0.0)
         if abstained:

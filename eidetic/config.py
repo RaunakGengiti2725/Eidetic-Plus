@@ -139,6 +139,17 @@ class Settings:
     # --- Sweepable optimization params (safe defaults; tune on a subset after the key) ---
     # Abstention gate: abstain when combined entailment+coverage is below this (calibrate it).
     abstention_threshold: float = field(default_factory=lambda: float(_get("ABSTENTION_THRESHOLD", "0.4")))
+    # Phase 2 calibrated abstention (default OFF -> the coverage gate above is unchanged). When on,
+    # confidence = w_entail*top_entailment + w_coverage*coverage + w_agreement*channel_agreement +
+    # w_proof*proof_completeness; abstain if confidence < tau. tau is dev-calibrated via
+    # abstention.pick_tau (precision target), never a magic literal. Agreement + proof are
+    # STRUCTURAL signals (independent of the model's self-report).
+    abstention_v2_enabled: bool = field(default_factory=lambda: _get_bool("ABSTENTION_V2", "0"))
+    abstention_v2_tau: float = field(default_factory=lambda: float(_get("ABSTENTION_V2_TAU", "0.5")))
+    abstention_w_entail: float = field(default_factory=lambda: float(_get("ABSTENTION_W_ENTAIL", "0.4")))
+    abstention_w_coverage: float = field(default_factory=lambda: float(_get("ABSTENTION_W_COVERAGE", "0.2")))
+    abstention_w_agreement: float = field(default_factory=lambda: float(_get("ABSTENTION_W_AGREEMENT", "0.2")))
+    abstention_w_proof: float = field(default_factory=lambda: float(_get("ABSTENTION_W_PROOF", "0.2")))
     # Cross-encoder rerank (qwen3-rerank): on/off + candidate depth (~50 -> final_topk).
     rerank_enabled: bool = field(default_factory=lambda: _get_bool("RERANK_ENABLED", "1"))
     rerank_fail_open: bool = field(default_factory=lambda: _get_bool("RERANK_FAIL_OPEN", "0"))
