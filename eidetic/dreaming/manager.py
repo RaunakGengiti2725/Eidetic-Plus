@@ -95,8 +95,10 @@ def run_memory_manager(engine, scope=None) -> dict:
     # The enabled orchestration is intentionally thin and fail-loud; it is exercised only with a
     # funded key (no mocks). It reuses engine.client.find_contradictions for the contradiction
     # signal and engine.graph.add_fact for ADD/UPDATE. Left as the documented integration point.
-    raise NotImplementedError(
-        "run_memory_manager enabled path requires a funded DashScope key (dup-embedding + "
-        "contradiction detection are real calls); the deterministic router classify_operation "
-        "is what is offline-validated. Enable + measure on the dev split when quota is restored."
+    from ..errors import FeatureNotImplementedError
+    raise FeatureNotImplementedError(
+        "MEMORY_MANAGER is experimental and not implemented yet; default off. The deterministic "
+        "router classify_operation IS offline-validated; the enabled execution path (dup-embedding "
+        "+ contradiction detection, real calls) is a documented integration point to build + "
+        "measure on the dev split when quota is restored."
     )

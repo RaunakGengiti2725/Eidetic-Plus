@@ -8,6 +8,7 @@ sleep (scheduled):  consolidate -> dedup/pattern-separation -> verified semantic
 """
 from __future__ import annotations
 
+import logging
 import re
 import tempfile
 import time
@@ -37,6 +38,8 @@ from .vector_index import make_vector_index
 # memories within this window (dossier 6.7 -> ~1 hour for the biological analog).
 TAG_CAPTURE_WINDOW_SEC = 3600.0
 TAG_CAPTURE_SALIENCE = 0.7  # only events at/above this salience tag their neighbors
+
+_log = logging.getLogger("eidetic.engine")
 
 
 class Engine:
@@ -84,8 +87,19 @@ class Engine:
         try:
             self.brain_log.emit(BrainEvent(type=etype, namespace=namespace,
                                            memory_ids=list(memory_ids or []), payload=payload))
-        except Exception:
-            pass
+        except Exception as e:        # event emission is non-critical, but log rather than swallow
+            _log.debug("brain-event emit failed: %s", e)
+
+    def _degraded(self, where: str, exc: Exception) -> None:
+        """Record a best-effort hot-path failure WITHOUT silently swallowing it. A ModelCallError
+        (key / quota / model) is logged at WARNING so a degraded run is never mistaken for a healthy
+        one; other narrow errors log at debug. Best-effort behavior continues either way."""
+        from .dashscope_client import ModelCallError
+        if isinstance(exc, ModelCallError):
+            _log.warning("degraded[%s]: a model call failed and was downgraded (best-effort): %s",
+                         where, exc)
+        else:
+            _log.debug("degraded[%s]: %s", where, exc)
 
     # ---- wake: write path -------------------------------------------------
     def ingest(
@@ -301,8 +315,8 @@ class Engine:
                 # only -- neither enters the ranking score, so recall stays age-independent.
                 try:
                     self.index.update(rec.memory_id, self.client.embed_text(rec.text))
-                except Exception:
-                    pass
+                except Exception as e:        # re-embed is best-effort; never silently swallow it
+                    self._degraded("reinforce-reembed", e)
                 fsrs.reinforce(rec.fsrs, importance=rec.importance)
                 self.store.upsert_record(rec)
                 confirmed.append(rec.memory_id)
@@ -360,8 +374,8 @@ class Engine:
             self.feedback.append(scope.namespace or "default", query, feats,
                                  arm=self.settings.fusion_method,
                                  reward=1.0 if confirmed else 0.0, qvec=qvec)
-        except Exception:
-            pass        # feedback is best-effort; never break the read path on a logging error
+        except Exception as e:        # feedback is best-effort; log rather than break the read path
+            self._degraded("feedback-log", e)
 
     def learn_fusion_weights(self) -> dict:
         """Idle cadence: replay the dev feedback buffer through the EG/FTRL learner and persist
@@ -528,8 +542,8 @@ class Engine:
                 try:
                     triples.extend(self._visual_triples(
                         self.substrate.get(rec.content_hash), rec.modality))
-                except Exception:
-                    pass
+                except Exception as e:        # visual extraction is best-effort; log, don't swallow
+                    self._degraded("visual-extract", e)
             return rec, triples
 
         with ThreadPoolExecutor(max_workers=max_workers) as ex:

@@ -75,7 +75,11 @@ class Settings:
     # Ingestion models
     ocr_model: str = field(default_factory=lambda: _get("OCR_MODEL", "qwen-vl-ocr"))
     asr_model: str = field(default_factory=lambda: _get("ASR_MODEL", "qwen3-asr-flash"))
-    doc_model: str = field(default_factory=lambda: _get("DOC_MODEL", "qwen-doc-turbo"))
+    # Document reading goes through the OpenAI-compatible Files API (file-extract + fileid://),
+    # which requires a long-context reader. qwen-long is the model that path needs; DOC_MODEL is
+    # the single knob (the old default qwen-doc-turbo was never actually used -- read_document
+    # hardcoded qwen-long, so DOC_MODEL was dead config). Needs account access to the chosen model.
+    doc_model: str = field(default_factory=lambda: _get("DOC_MODEL", "qwen-long"))
     video_model: str = field(default_factory=lambda: _get("VIDEO_MODEL", "qwen-vl-plus"))
 
     # Local storage (dev)

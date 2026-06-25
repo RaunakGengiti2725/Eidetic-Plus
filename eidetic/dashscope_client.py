@@ -479,7 +479,9 @@ class DashScopeClient:
                 f"{base}/chat/completions",
                 headers={**headers, "Content-Type": "application/json"},
                 json={
-                    "model": self.settings.doc_model if self.settings.doc_model.startswith("qwen-long") else "qwen-long",
+                    # Use the configured document model (DOC_MODEL). The Files API file-extract
+                    # path needs a long-context reader (qwen-long); DOC_MODEL is the single knob.
+                    "model": self.settings.doc_model,
                     "messages": [
                         {"role": "system", "content": f"fileid://{file_id}"},
                         {"role": "user", "content": "Output the full text content of this document verbatim."},

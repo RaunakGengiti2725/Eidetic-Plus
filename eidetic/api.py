@@ -116,6 +116,15 @@ async def stats(namespace: Optional[str] = None, agent_id: Optional[str] = None,
     return await run_in_threadpool(engine().stats, scope)
 
 
+@app.get("/api/preflight")
+async def preflight():
+    """Preflight doctor: one real call per capability against the configured model IDs (embed /
+    chat / rerank / multimodal / document), distinguishing a quota block from a dead key/model.
+    Makes real calls when a key is set; reports skipped:no_key otherwise. Never a fabricated pass."""
+    from .doctor import preflight as _preflight
+    return await run_in_threadpool(_preflight, engine())
+
+
 @app.post("/api/memories/text")
 async def add_text(body: TextMemoryIn):
     rec = await run_in_threadpool(

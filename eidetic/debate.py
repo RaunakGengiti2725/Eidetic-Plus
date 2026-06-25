@@ -57,8 +57,10 @@ def run_conflict_debate(engine, query: str, role_retrievers=None) -> dict:
     under the current quota block). Advisory only -- it never overrides a verified answer."""
     if not getattr(engine.settings, "debate_enabled", False):
         return {"skipped": "disabled"}
-    raise NotImplementedError(
-        "run_conflict_debate enabled path needs a funded DashScope key (2-3 retriever rounds are "
-        "real calls); aggregate_verdicts is the offline-validated guard. Enable + measure on the "
-        "dev split when quota is restored, and only on detected conflicts (latency/consensus risk)."
+    from .errors import FeatureNotImplementedError
+    raise FeatureNotImplementedError(
+        "DEBATE is experimental and not implemented yet; default off. aggregate_verdicts IS the "
+        "offline-validated consensus guard; the enabled debate rounds (2-3 retriever calls, real) "
+        "are a documented integration point to build + measure on the dev split (only on detected "
+        "conflicts) when quota is restored."
     )

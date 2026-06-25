@@ -256,6 +256,24 @@ sharper with use without ever learning to prefer recent memories.
 
 ---
 
+## Preflight doctor (verify the live key before you trust a number)
+
+The moment a real `DASHSCOPE_API_KEY` is in `.env`, run the preflight doctor — it makes
+**one real call per capability** (embed, chat, rerank, multimodal, document) against the
+configured model IDs and reports pass/fail + latency, telling a **quota block** apart from a
+dead key / renamed model. It never returns a green check on a dead call:
+
+```bash
+python -m eidetic.doctor          # also: GET /api/preflight, or the MCP `preflight` tool
+```
+
+Without a key every capability reports `skipped: no_key` (honest, not a fake pass). Exit codes:
+`0` healthy, `2` quota-exhausted (key valid, free tier spent), `1` degraded, `3` no key.
+
+**One documented deferral:** video *keyframe* extraction (`engine._visual_triples` returns `[]`
+for video) is intentional — video is still ingested for real through the
+description/transcription path (`describe_video`), so this is a design choice, not a hidden gap.
+
 ## Prove it live
 
 Age-independence is not only an offline plot — it is a **live, on-demand** measurement

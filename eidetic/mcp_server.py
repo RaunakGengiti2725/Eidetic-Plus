@@ -225,6 +225,16 @@ def health_report(namespace: str = "default", agent_id: Optional[str] = None,
 
 
 @mcp.tool()
+def preflight() -> dict:
+    """Run the preflight doctor: one real call per capability (embed / chat / rerank / multimodal /
+    document) against the configured model IDs, reporting pass/fail + latency and telling a quota
+    block apart from a dead key/model. Needs DASHSCOPE_API_KEY (makes real calls); without one it
+    reports every capability as skipped:no_key -- never a fake pass."""
+    from .doctor import preflight as _preflight
+    return _preflight(engine())
+
+
+@mcp.tool()
 def brain_health_score(namespace: str = "default", agent_id: Optional[str] = None,
                        project_id: Optional[str] = None) -> dict:
     """A local BrainHealthScore in [0,1] for a scope plus its components (recall connectivity,
