@@ -319,6 +319,9 @@ class BrainEventType(str, Enum):
     REFLEX_FALLBACK = "reflex_fallback"        # a miss routed to full retrieval
     # Track 2 perfect sync: a derived surface (vector index / BM25) is behind the source-of-truth.
     SYNC_DEBT_DETECTED = "sync_debt_detected"
+    # Track 9 Flow: predictive idle warmup pre-built a query; cold-start activation priming ran.
+    FLOW_WARMED = "flow_warmed"
+    FLOW_PRIMED = "flow_primed"
 
 
 class BrainEvent(BaseModel):

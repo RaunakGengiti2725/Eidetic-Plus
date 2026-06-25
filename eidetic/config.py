@@ -368,6 +368,37 @@ class Settings:
     # memory still prevents a false abstain).
     false_premise_enabled: bool = field(default_factory=lambda: _get_bool("FALSE_PREMISE", "0"))
 
+    # --- Track 9 Flow / Instinct Recall (all default OFF / zero-amplitude; flag-off byte-identical) -
+    # One per-namespace ActivationField is the shared working-memory substrate every recall path
+    # reads and every confirmed recall writes. Activation is ACCESS-recency only (never memory age).
+    # FLOW_ACTIVATION=0 => the field is never built, _hotset is unchanged, retrieve() activation is
+    # None, no new BrainEvents -- byte-identical to today on every touched surface.
+    flow_activation_enabled: bool = field(default_factory=lambda: _get_bool("FLOW_ACTIVATION", "0"))
+    flow_decay: float = field(default_factory=lambda: float(_get("FLOW_DECAY", "0.85")))
+    flow_floor: float = field(default_factory=lambda: float(_get("FLOW_FLOOR", "0.05")))
+    flow_cap: int = field(default_factory=lambda: _get_int("FLOW_CAP", 512))
+    flow_inject_confirmed: float = field(default_factory=lambda: float(_get("FLOW_INJECT_CONFIRMED", "1.0")))
+    flow_spread_factor: float = field(default_factory=lambda: float(_get("FLOW_SPREAD_FACTOR", "0.4")))
+    flow_session_decay: float = field(default_factory=lambda: float(_get("FLOW_SESSION_DECAY", "0.6")))
+    # Continuous activation axis in the reflex packet. Feeds RANKING only, never match_strength /
+    # coverage, so instinct surfaces a memory but can never fabricate a confident answer.
+    reflex_w_activation: float = field(default_factory=lambda: float(_get("REFLEX_W_ACTIVATION", "0.4")))
+    # Field-seeded candidates: union the top-activated ids into the reflex seed set (store-gated).
+    flow_field_seed: bool = field(default_factory=lambda: _get_bool("FLOW_FIELD_SEED", "0"))
+    flow_seed_topk: int = field(default_factory=lambda: _get_int("FLOW_SEED_TOPK", 8))
+    # Cold-start priming amplitudes (0.0 = no prime, the default).
+    flow_prime_query: float = field(default_factory=lambda: float(_get("FLOW_PRIME_QUERY", "0.0")))
+    flow_prime_ingest: float = field(default_factory=lambda: float(_get("FLOW_PRIME_INGEST", "0.0")))
+    flow_salience_decay: bool = field(default_factory=lambda: _get_bool("FLOW_SALIENCE_DECAY", "0"))
+    # Predictive idle warmup of Markov-predicted next queries into the PrefetchCache.
+    flow_warmup_enabled: bool = field(default_factory=lambda: _get_bool("FLOW_WARMUP", "0"))
+    flow_warmup_topk: int = field(default_factory=lambda: _get_int("FLOW_WARMUP_TOPK", 3))
+    # Hybrid retrieve activation channel (reflex-miss / REFLEX_RECALL=0 paths get instinct too).
+    flow_hybrid_channel_enabled: bool = field(default_factory=lambda: _get_bool("FLOW_HYBRID_CHANNEL", "0"))
+    flow_hybrid_weight: float = field(default_factory=lambda: float(_get("FLOW_HYBRID_WEIGHT", "0.35")))
+    # Activation-informed scratchpad / context assembly blend.
+    flow_context_weight: float = field(default_factory=lambda: float(_get("FLOW_CONTEXT_WEIGHT", "0.25")))
+
     # --- Connected Brain Loop: observation-only spine (all default OFF; baseline byte-identical) -
     # RecallTrace: the retriever records WHY it found/missed (enabled channels, per-channel rankings
     # and weights, fused scores, gist provenance, stage latency, dropped candidates). It is a pure

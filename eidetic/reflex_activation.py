@@ -61,11 +61,12 @@ def _clamp01(x: float) -> float:
 
 def build_memory_packet(query: str, scope: Optional[Scope] = None, *, store, graph,
                         index: ReflexIndex, settings: Settings, as_of: Optional[float] = None,
-                        hot_ids: Optional[set] = None,
+                        hot_ids: Optional[set] = None, activation: Optional[dict] = None,
                         reference_time: Optional[float] = None) -> MemoryPacket:
     t0 = time.perf_counter()
     scope = scope or Scope()
     hot_ids = hot_ids or set()
+    act = activation or {}
     lat: dict[str, float] = {}
 
     def mark(stage: str, since: float) -> float:
@@ -82,8 +83,16 @@ def build_memory_packet(query: str, scope: Optional[Scope] = None, *, store, gra
     t1 = mark("parse", t0)
 
     seed_ids = index.seeds(scope.namespace, entities=q_entities, terms=q_terms)
+    # Field-seed (Track 9): union the top-activated ids into the seed set so a hot memory the query
+    # never named can be recalled. The store-load below re-applies scope + bi-temporal validity, so
+    # these are gated exactly like lexical seeds (cannot leak, cannot expire-violate).
+    if act and settings.flow_field_seed:
+        top_active = sorted(act.items(), key=lambda kv: -kv[1])[: max(0, settings.flow_seed_topk)]
+        seed_ids = set(seed_ids) | {mid for mid, _ in top_active}
     if settings.reflex_max_seeds and len(seed_ids) > settings.reflex_max_seeds:
-        seed_ids = set(sorted(seed_ids)[:settings.reflex_max_seeds])
+        # keep activated seeds preferentially when truncating (instinct should not be dropped first).
+        ordered = sorted(seed_ids, key=lambda m: (-act.get(m, 0.0), m))
+        seed_ids = set(ordered[:settings.reflex_max_seeds])
     t2 = mark("seed", t1)
 
     # Load every seed through the store; the store re-applies scope + bi-temporal validity.
@@ -113,6 +122,11 @@ def build_memory_packet(query: str, scope: Optional[Scope] = None, *, store, gra
         if temporal > 0.0:
             temporal_match_ids.append(mid)
         hot = 1.0 if mid in hot_ids else 0.0
+        # `hot` stays BINARY -> it (and only it) feeds match_strength, so the coverage gate and the
+        # flag-off path are byte-identical. Continuous field `activation` is a SEPARATE axis that
+        # feeds the aggregate (ranking) only -- it never touches match_strength, so a field-seeded
+        # content-less memory has coverage 0 and is still NLI-gated. Instinct surfaces, never fabricates.
+        act_val = float(act.get(mid, 0.0))
         # Content coverage is the STRONGER of the two content axes (a perfect lexical-only match is
         # a confident hit, not a half one), with a small bonus when both fire, then small time/hot
         # bonuses. Bounded to [0,1]; it becomes the candidate's dense_score, and reflex_min_coverage
@@ -120,9 +134,10 @@ def build_memory_packet(query: str, scope: Optional[Scope] = None, *, store, gra
         content = max(lexical, entity) + 0.2 * min(lexical, entity)
         match_strength = _clamp01(content + 0.1 * temporal + 0.05 * hot)
         scores[mid] = ReflexScore(entity=entity, lexical=lexical, temporal=temporal,
-                                  hotset=hot, match_strength=match_strength)
+                                  hotset=hot, activation=act_val, match_strength=match_strength)
         axes = [name for name, val in (("entity", entity), ("lexical", lexical),
-                                       ("temporal", temporal), ("hotset", hot)) if val > 0.0]
+                                       ("temporal", temporal), ("hotset", hot),
+                                       ("activation", act_val)) if val > 0.0]
         paths[mid] = axes
     t4 = mark("score", t3)
 
@@ -152,22 +167,26 @@ def build_memory_packet(query: str, scope: Optional[Scope] = None, *, store, gra
     for mid in records:
         s = scores.get(mid)
         if s is None:
-            s = ReflexScore()
+            s = ReflexScore(activation=float(act.get(mid, 0.0)))
             scores[mid] = s
             paths.setdefault(mid, [])
+            if s.activation > 0.0:
+                paths[mid].append("activation")
         if coact_raw.get(mid):
             s.coactivation = _clamp01(coact_raw[mid] / n_strong)
             if "coactivation" not in paths[mid]:
                 paths[mid].append("coactivation")
     t5 = mark("coactivation", t4)
 
-    # Final aggregate (now that co-activation is known) + ranking.
+    # Final aggregate (now that co-activation is known) + ranking. The continuous activation axis
+    # contributes to RANKING only (reflex_w_activation); match_strength/coverage stay content-only.
     for mid, s in scores.items():
         s.aggregate = (settings.reflex_w_entity * s.entity
                        + settings.reflex_w_lexical * s.lexical
                        + settings.reflex_w_temporal * s.temporal
                        + settings.reflex_w_coactivation * s.coactivation
-                       + settings.reflex_w_hotset * s.hotset)
+                       + settings.reflex_w_hotset * s.hotset
+                       + settings.reflex_w_activation * s.activation)
     ranked = sorted(records.keys(), key=lambda m: (-scores[m].aggregate, m))[:settings.reflex_topk]
 
     # Live fact edges + supersession chains for the matched entities (bounded, read on demand).

@@ -28,6 +28,7 @@ class ReflexScore(BaseModel):
     temporal: float = 0.0
     coactivation: float = 0.0
     hotset: float = 0.0
+    activation: float = 0.0      # Track 9: continuous field activation -> ranking only, not coverage
     aggregate: float = 0.0
     match_strength: float = 0.0
 
