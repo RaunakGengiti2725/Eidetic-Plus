@@ -305,6 +305,9 @@ class Settings:
     # Short-circuit verification: verify in rerank order, stop once this many entailments are found.
     fast_verify_enabled: bool = field(default_factory=lambda: _get_bool("FAST_VERIFY", "0"))
     verify_citation_cap: int = field(default_factory=lambda: _get_int("VERIFY_CITATION_CAP", 3))
+    # S2 write-path: debounce index saves (1 = save every ingest, baseline). Higher amortizes the
+    # save; rebuild_index_from_store recovers a lost index from the substrate+SQLite source of truth.
+    index_save_debounce: int = field(default_factory=lambda: _get_int("INDEX_SAVE_DEBOUNCE", 1))
 
     # --- Connected Brain Loop: observation-only spine (all default OFF; baseline byte-identical) -
     # RecallTrace: the retriever records WHY it found/missed (enabled channels, per-channel rankings

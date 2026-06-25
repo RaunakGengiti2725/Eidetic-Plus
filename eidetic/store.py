@@ -199,6 +199,17 @@ class RecordStore:
         ).fetchall()
         return [MemoryRecord.model_validate_json(r["json"]) for r in rows]
 
+    def records_in_time_range(self, lo: float, hi: float,
+                              scope: Optional[Scope] = None) -> list[MemoryRecord]:
+        """Records whose valid_at falls in [lo, hi] within scope (S2: bounded tag-and-capture
+        windowed query instead of an O(N) full scan)."""
+        clause, params = self._scope_clause(scope)
+        rows = self._conn().execute(
+            "SELECT json FROM memories WHERE valid_at>=? AND valid_at<=?" + clause,
+            [lo, hi, *params],
+        ).fetchall()
+        return [MemoryRecord.model_validate_json(r["json"]) for r in rows]
+
     def ids_in_scope(self, scope: Optional[Scope] = None) -> set[str]:
         """All memory_ids within scope, ignoring bi-temporal validity (used for
         scope-local novelty/surprise so cross-scope content can't perturb salience)."""

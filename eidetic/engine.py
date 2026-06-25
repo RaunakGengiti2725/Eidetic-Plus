@@ -55,6 +55,7 @@ class Engine:
         # drained on the idle/sleep cadence (the embed runs OFF the write lock).
         self._reembed_queue: set[str] = set()
         self._reembed_lock = threading.Lock()
+        self._ingest_since_save = 0          # S2 debounced-save counter (guarded by the write lock)
         self.substrate = make_substrate(self.settings)
         self.store = RecordStore(self.settings.sqlite_path)
         self.index = make_vector_index(self.settings)
@@ -223,7 +224,7 @@ class Engine:
         # the lock -> no model call is held here).
         with self._write_lock:
             self.index.add(record.memory_id, content_vec, struct_vec)
-            self.index.save()
+            self._maybe_save_index()
             self.store.upsert_record(record)
             self.retriever.index_lexical(record)
 
@@ -272,6 +273,96 @@ class Engine:
             w_surprise=s.affect_w_surprise, w_emphasis=s.affect_w_emphasis,
             w_helpful=s.affect_w_helpful)
 
+    def _maybe_save_index(self) -> None:
+        """Debounced index save (S2). INDEX_SAVE_DEBOUNCE=1 (default) saves every time (baseline);
+        higher amortizes saves. Must be called under the write lock. A lost index is recoverable
+        via rebuild_index_from_store (the index is a derived cache of the source of truth)."""
+        self._ingest_since_save += 1
+        if self._ingest_since_save >= max(1, self.settings.index_save_debounce):
+            self.index.save()
+            self._ingest_since_save = 0
+
+    def flush_index(self) -> None:
+        """Force-persist the index (S2): call on shutdown / after a debounced batch."""
+        with self._write_lock:
+            self.index.save()
+            self.retriever.save_lexical()
+            self._ingest_since_save = 0
+
+    def rebuild_index_from_store(self) -> dict:
+        """Rebuild the vector index from the SOURCE OF TRUTH (substrate + SQLite records). The index
+        is a derived cache; this recovers a debounced/lost/corrupt index with no data loss. Re-embeds
+        each record's text (governed, OFF the lock); rebuilds UNDER the lock. Raw store untouched."""
+        recs = list(self.store.all_records(None))
+        texts = [r.text or r.summary or "" for r in recs]
+        vecs = (self.client.embed_texts(texts) if texts
+                else np.zeros((0, self.settings.embed_dim), np.float32))
+        with self._write_lock:
+            for f in list(self.settings.index_dir.glob("*")):
+                if f.name.startswith(("numpy_index", "hnsw", "quant")):
+                    try:
+                        f.unlink()
+                    except OSError:
+                        pass
+            self.index = make_vector_index(self.settings)     # fresh empty index (files removed)
+            self.retriever.index = self.index
+            for r, v in zip(recs, vecs):
+                self.index.add(r.memory_id, v, sc.build_structure_code(r, self.settings.struct_dim))
+            self.index.save()
+            self._ingest_since_save = 0
+        return {"rebuilt": len(recs)}
+
+    def ingest_many(self, items, *, valid_at: Optional[float] = None,
+                    scope: Optional[Scope] = None) -> list:
+        """Batched bulk ingest (S2, LLM-free fast path): embed ALL texts in batches (N/10 round
+        trips instead of N) and write every record under ONE lock acquisition. Per-scope dedup +
+        substrate put. Records are marked pending_consolidation -> run consolidate_pending for full
+        extraction. Returns the records (existing ones for duplicates)."""
+        items = list(items)
+        if not items:
+            return []
+        scope = scope or Scope()
+        va = now() if valid_at is None else valid_at
+        prepared = []                       # (item, content_hash, raw_uri, existing_or_None)
+        for item in items:
+            h = sha256_hex(item.raw_bytes)
+            existing = self.store.get_by_hash(h, scope)
+            if existing is not None:
+                prepared.append((item, None, None, existing))
+            else:
+                ch, uri = self.substrate.put(item.raw_bytes)
+                prepared.append((item, ch, uri, None))
+        new_idx = [i for i, p in enumerate(prepared) if p[3] is None]
+        texts = [prepared[i][0].text for i in new_idx]
+        vecs = (self.client.embed_texts(texts) if texts          # batched embed, OFF the lock
+                else np.zeros((0, self.settings.embed_dim), np.float32))
+        vec_by_i = {new_idx[k]: vecs[k] for k in range(len(new_idx))}
+        out: list = []
+        with self._write_lock:
+            for i, (item, ch, uri, existing) in enumerate(prepared):
+                if existing is not None:
+                    out.append(existing)
+                    continue
+                content_vec = vec_by_i[i]
+                surprise = salience_mod.compute_surprise(content_vec, self.index, self.store, scope)
+                sal = salience_mod.Salience(surprise=surprise, importance=0.5,
+                                            salience=max(0.0, min(1.0, 0.45 * surprise + 0.275)))
+                rec = MemoryRecord(
+                    content_hash=ch, modality=item.modality, raw_uri=uri,
+                    raw_bytes_len=len(item.raw_bytes), text=item.text,
+                    is_described=item.is_described, source=item.source, scope=scope, valid_at=va,
+                    surprise=sal.surprise, importance=sal.importance, salience=sal.salience,
+                    fsrs=fsrs.init_state(sal.importance, sal.surprise, va),
+                    metadata={"pending_consolidation": True})
+                self.index.add(rec.memory_id, content_vec,
+                               sc.build_structure_code(rec, self.settings.struct_dim))
+                self.store.upsert_record(rec)
+                self.retriever.index_lexical(rec, save=False)
+                out.append(rec)
+            self.index.save()
+            self.retriever.save_lexical()
+        return out
+
     def _enqueue_reembed(self, memory_ids) -> None:
         """S1: queue confirmed-citation memory_ids for a deferred re-embed (drained on idle/sleep)."""
         ids = list(memory_ids)
@@ -308,8 +399,10 @@ class Engine:
         """Up-weight retention of memories temporally adjacent to a salient event. Store mutations
         (FSRS reinforce + upsert) run under the write lock; no model call is involved."""
         tagged = 0
+        # S2: windowed query (O(window)) instead of an O(store) full scan.
+        lo, hi = record.valid_at - TAG_CAPTURE_WINDOW_SEC, record.valid_at + TAG_CAPTURE_WINDOW_SEC
         with self._write_lock:
-            for r in self.store.all_records(scope):
+            for r in self.store.records_in_time_range(lo, hi, scope):
                 if r.memory_id == record.memory_id:
                     continue
                 if abs(r.valid_at - record.valid_at) <= TAG_CAPTURE_WINDOW_SEC:
