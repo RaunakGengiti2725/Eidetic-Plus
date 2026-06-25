@@ -150,6 +150,16 @@ def reflex_recall(query: str, namespace: str = "default", agent_id: Optional[str
 
 
 @mcp.tool()
+def sync_health(namespace: str = "default", agent_id: Optional[str] = None,
+                project_id: Optional[str] = None) -> dict:
+    """Track 2 synchronization report for a scope: whether the rebuildable surfaces (vector index,
+    BM25) are consistent with the source-of-truth store, the namespace memory version, and reflex
+    index status. Reports a `repair` hint (rebuild_index_from_store) when a surface is behind.
+    Read-only, no key, no fabricated numbers (all counted from the live surfaces)."""
+    return engine().sync_health(scope=_scope(namespace, agent_id, project_id))
+
+
+@mcp.tool()
 def consolidate(namespace: str = "default", agent_id: Optional[str] = None,
                 project_id: Optional[str] = None) -> dict:
     """Run the unified sleep cycle for a scope: consolidate_pending (so pending fast writes flow

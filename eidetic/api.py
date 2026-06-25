@@ -185,6 +185,16 @@ async def reflex_recall(body: ReflexRecallIn):
     return packet.public_dict()
 
 
+@app.get("/api/sync_health")
+async def sync_health(namespace: str = "default", agent_id: Optional[str] = None,
+                      project_id: Optional[str] = None):
+    """Track 2 synchronization report: are the rebuildable surfaces (vector index, BM25) consistent
+    with the source-of-truth store, plus the namespace memory version + reflex status. Read-only,
+    no key. Mirrors the MCP `sync_health` tool."""
+    scope = _scope(namespace, agent_id, project_id)
+    return await run_in_threadpool(engine().sync_health, scope)
+
+
 @app.get("/api/memories")
 async def list_memories(namespace: Optional[str] = None, agent_id: Optional[str] = None,
                         project_id: Optional[str] = None):

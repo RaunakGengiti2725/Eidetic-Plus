@@ -106,6 +106,11 @@ class Engine:
         self._ns_versions: dict[str, int] = {}
         if self.settings.reflex_recall_enabled:
             self.reflex_index.rebuild_from_store(self.store)
+        # Track 2.3: surface governor 429/backoff as a RATE_LIMITED BrainEvent. The hook runs on the
+        # worker thread off-lock; it only appends an event (no re-entry into the governor).
+        _gov = getattr(self.client, "_governor", None)
+        if _gov is not None:
+            _gov.on_rate_limit = self._on_rate_limit
         # One shared wake/sleep/idle/repair coordinator (Phase 1) -- API and MCP route through it.
         from .lifecycle import LifecycleController
         self.lifecycle = LifecycleController(self)
@@ -131,6 +136,12 @@ class Engine:
         writes only (new records, extracted facts) -- not on FSRS/re-embed reconsolidation, which
         does not change what is true, so the answer cache should survive across reads."""
         self._ns_versions[namespace] = self._ns_versions.get(namespace, 0) + 1
+
+    def _on_rate_limit(self, info: dict) -> None:
+        """Governor hook: a real model call hit a retryable 429 and backed off. Emit RATE_LIMITED
+        (no-op unless BRAIN_EVENTS is on). Best-effort, runs on the calling worker thread."""
+        self._brain(BrainEventType.RATE_LIMITED, **{k: info.get(k) for k in
+                                                    ("attempt", "sleep_s", "retry_after")})
 
     def _degraded(self, where: str, exc: Exception) -> None:
         """Record a best-effort hot-path failure WITHOUT silently swallowing it. A ModelCallError
@@ -526,6 +537,37 @@ class Engine:
                         coverage=packet.coverage, latency_ms=packet.latency_ms.get("total"))
         return packet
 
+    def sync_health(self, scope: Optional[Scope] = None) -> dict:
+        """Track 2 derived synchronization report: are the rebuildable surfaces (vector index, BM25)
+        consistent with the source-of-truth store, plus the namespace memory version and reflex
+        status. The vector index and BM25 are GLOBAL (not per-scope), so only like-for-like global
+        counts are compared -- comparing a global surface to a scoped store count would invent debt.
+        Emits SYNC_DEBT_DETECTED when a surface is behind. Read-only; no model call; no key."""
+        scope = scope or Scope()
+        store_global = self.store.count(None)
+        vector_global = len(self.index)
+        bm25_global = (len(self.retriever.bm25.docs)
+                       if self.settings.persistent_bm25_enabled else None)
+        surfaces = {
+            "store_records_global": store_global,
+            "store_records_scope": self.store.count(scope),
+            "vector_index_global": vector_global,
+            "bm25_docs_global": bm25_global,
+            "memory_version": self._ns_version(scope.namespace),
+            "reflex_index": {"enabled": self.settings.reflex_recall_enabled,
+                             "built": self.reflex_index.built,
+                             "built_count": self.reflex_index.built_count},
+        }
+        debt: list[dict] = []
+        if vector_global != store_global:
+            debt.append({"surface": "vector_index", "expected": store_global, "actual": vector_global})
+        if bm25_global is not None and bm25_global != store_global:
+            debt.append({"surface": "bm25", "expected": store_global, "actual": bm25_global})
+        if debt:
+            self._brain(BrainEventType.SYNC_DEBT_DETECTED, namespace=scope.namespace, debt=debt)
+        return {"in_sync": not debt, "surfaces": surfaces, "debt": debt,
+                "repair": "rebuild_index_from_store" if debt else None}
+
     # ---- wake: read path --------------------------------------------------
     def ask(self, query: str, *, at: Optional[float] = None, verify: bool = True,
             scope: Optional[Scope] = None, as_of: Optional[float] = None,
@@ -537,10 +579,13 @@ class Engine:
         if self.settings.markov_prefetch_enabled:
             self._observe_query(query)
         use_cache = use_cache and self.settings.semantic_cache_enabled
-        # Cache bypass when the brain loop is observing: a semantic-cache hit returns a stale Answer
-        # WITHOUT a fresh RecallTrace / BrainEvents, which would stale proof + health + channel-win
-        # telemetry. Bypass so those metrics stay live. Default flags off -> caching is unchanged.
-        if self.settings.recall_trace_enabled or self.settings.brain_events_enabled:
+        # Cache bypass when observing. RECALL_TRACE always bypasses: a cache hit carries no fresh
+        # trace, and trace inspection wants the real retrieval. BRAIN_EVENTS bypasses ONLY when
+        # versioning is off -- a non-versioned hit could be a stale truth with no fresh event. With
+        # versioning on, a hit is truth-fresh, so we keep the cache and emit CACHE_HIT instead (a hit
+        # IS the absence of retrieval; that is exactly what CACHE_HIT represents).
+        if self.settings.recall_trace_enabled or (
+                self.settings.brain_events_enabled and not self.settings.cache_versioning_enabled):
             use_cache = False
         # Time-travel (as_of) queries are not cached (the answer depends on the as-of time).
         if as_of is not None:
@@ -554,12 +599,14 @@ class Engine:
         if use_cache:
             hit = self.cache.get(sk, query, None, version=cache_ver)   # exact-hash (no embedding)
             if hit is not None:
+                self._brain(BrainEventType.CACHE_HIT, namespace=scope.namespace, mode="exact")
                 return hit
             qvec = self.client.embed_text(query)         # embed once, reuse in retrieval
             if len(self._query_log) < 5000:              # bounded query log for pre-fetch
                 self._query_log.append((sk, qvec))
             hit = self.cache.get(sk, query, qvec, version=cache_ver)   # cosine >= threshold
             if hit is not None:
+                self._brain(BrainEventType.CACHE_HIT, namespace=scope.namespace, mode="semantic")
                 return hit
 
         # Track 1 Reflex Recall: try the LOCAL fast path first. On a confident hit, feed the reflex

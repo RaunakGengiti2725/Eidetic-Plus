@@ -317,6 +317,8 @@ class BrainEventType(str, Enum):
     REFLEX_HIT = "reflex_hit"                  # reflex packet was confident -> fed the reader
     REFLEX_MISS = "reflex_miss"                # reflex coverage below the bar
     REFLEX_FALLBACK = "reflex_fallback"        # a miss routed to full retrieval
+    # Track 2 perfect sync: a derived surface (vector index / BM25) is behind the source-of-truth.
+    SYNC_DEBT_DETECTED = "sync_debt_detected"
 
 
 class BrainEvent(BaseModel):

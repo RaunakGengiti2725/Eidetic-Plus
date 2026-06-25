@@ -71,6 +71,10 @@ class RateGovernor:
         self.max_retries = int(max_retries)
         self.backoff_base = float(backoff_base)
         self.backoff_max = float(backoff_max)
+        # Optional telemetry hook fired on each retryable 429/backoff. MUST be cheap, thread-safe,
+        # and must NOT re-enter the governor; it runs on the worker thread off-lock (model calls
+        # never hold the engine write lock). Best-effort: a hook failure never breaks the call.
+        self.on_rate_limit: Optional[Callable[[dict], None]] = None
 
     def _take_token(self) -> None:
         while True:
@@ -109,6 +113,12 @@ class RateGovernor:
             sleep_s = (retry_after if retry_after is not None
                        else min(self.backoff_max,
                                 self.backoff_base * (2 ** attempt) + random.uniform(0, self.backoff_base)))
+            if self.on_rate_limit is not None:
+                try:
+                    self.on_rate_limit({"attempt": attempt, "sleep_s": sleep_s,
+                                        "retry_after": retry_after})
+                except Exception:        # telemetry must never break a real model call
+                    pass
             time.sleep(sleep_s)
         raise ModelCallError("rate-limit retries exhausted")  # pragma: no cover
 
