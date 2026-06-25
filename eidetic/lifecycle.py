@@ -62,6 +62,10 @@ class LifecycleController:
         from .optim.daemon import OptimizerDaemon
         report = OptimizerDaemon(self.engine).idle_tick(run_dream=run_dream)
         try:
+            report["reembed_drain"] = self.engine.drain_reembed_queue()   # S1 deferred re-embed
+        except Exception:
+            pass
+        try:
             report["connection_effectiveness"] = self.engine.connection_effectiveness()
         except Exception:
             pass

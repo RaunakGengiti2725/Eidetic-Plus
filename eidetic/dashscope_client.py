@@ -340,6 +340,50 @@ class DashScopeClient:
             label = "neutral"
         return label, float(max(0.0, min(1.0, data.get("confidence", 0.5))))
 
+    def nli_batch(self, pairs: list[tuple]) -> list[tuple]:
+        """S1: judge EVERY (premise, hypothesis) pair in ONE request -> per-pair (label, conf).
+        Turns ~N NLI calls into 1 (faster + rate-limit-friendly) while keeping entailment-only
+        semantics identical. Sources are numbered and judged INDEPENDENTLY.
+
+        Edge cases (no fabrication): an unparseable response fails loud via chat_json; a missing
+        index in the array is treated as 'neutral' (conservative -- an unjudged source is not
+        grounded). Chunks into batches so the token budget never overflows."""
+        pairs = list(pairs)
+        if not pairs:
+            return []
+        out: list[tuple] = []
+        for start in range(0, len(pairs), 12):     # bounded batch size for the token budget
+            chunk = pairs[start:start + 12]
+            blocks = "\n\n".join(
+                f"[{i}] PREMISE: {str(p)[:3000]}\nHYPOTHESIS: {str(h)[:1200]}"
+                for i, (p, h) in enumerate(chunk))
+            data = self.chat_json(
+                self.settings.verify_model,
+                "You are a strict natural-language-inference judge. For EACH numbered "
+                "(PREMISE, HYPOTHESIS) pair, decide if the PREMISE entails the HYPOTHESIS. Judge "
+                "each pair INDEPENDENTLY -- do not let one source influence another. Reply ONLY as "
+                "JSON: {\"results\":[{\"index\":<i>,\"label\":\"entailment\"|\"neutral\"|"
+                "\"contradiction\",\"confidence\":<0..1>}]}. Use 'entailment' only when the premise "
+                "fully supports the hypothesis with no added claims.",
+                blocks, temperature=0.0, max_tokens=64 + 24 * len(chunk),
+            )
+            results = data.get("results", []) if isinstance(data, dict) else []
+            chunk_out: list[tuple] = [("neutral", 0.0)] * len(chunk)   # missing -> neutral
+            for r in results:
+                if not isinstance(r, dict):
+                    continue
+                try:
+                    i = int(r.get("index"))
+                except (TypeError, ValueError):
+                    continue
+                if 0 <= i < len(chunk):
+                    label = str(r.get("label", "neutral")).lower().strip()
+                    if label not in ("entailment", "neutral", "contradiction"):
+                        label = "neutral"
+                    chunk_out[i] = (label, float(max(0.0, min(1.0, r.get("confidence", 0.5)))))
+            out.extend(chunk_out)
+        return out
+
     # ---- Component 6: reranking ------------------------------------------
     def rerank(self, query: str, documents: list[str], top_n: int) -> list[tuple[int, float]]:
         """qwen3-rerank. Returns [(original_index, relevance_score)] sorted desc."""

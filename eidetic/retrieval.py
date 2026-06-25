@@ -884,6 +884,53 @@ class Retriever:
                 pass  # fall back to text verification below
         return self.verify(self._ground_truth(rec), hypothesis)
 
+    def _verify_candidates(self, candidates: list[RetrievalCandidate], text: str,
+                           verify: bool) -> tuple[list[Citation], int]:
+        """Verify candidates against the answer and build citations. Strategy (S1, flag-gated):
+        batched NLI (one request), short-circuit (stop after the citation cap), or the baseline
+        per-candidate serial path. With both flags off this is byte-identical to the old loop."""
+        s = self.settings
+        labels: list[tuple] = [(NLILabel.NEUTRAL, 0.0)] * len(candidates)
+        if verify:
+            if s.batch_nli_enabled:
+                # Text sources judged together in ONE call; image sources judged against pixels.
+                text_idx = [i for i, c in enumerate(candidates)
+                            if c.record.modality != Modality.IMAGE]
+                pairs = [(self._ground_truth(candidates[i].record), text) for i in text_idx]
+                batch = self.client.nli_batch(pairs) if pairs else []
+                for j, i in enumerate(text_idx):
+                    if j < len(batch):
+                        lab, conf = batch[j]
+                        labels[i] = (NLILabel(lab), conf)
+                for i, c in enumerate(candidates):
+                    if c.record.modality == Modality.IMAGE:
+                        labels[i] = self.verify_citation(c.record, text)
+            elif s.fast_verify_enabled:
+                found = 0
+                for i, c in enumerate(candidates):
+                    if found >= s.verify_citation_cap:
+                        break                       # short-circuit: the rest stay neutral
+                    labels[i] = self.verify_citation(c.record, text)
+                    if labels[i][0] == NLILabel.ENTAILMENT:
+                        found += 1
+            else:
+                for i, c in enumerate(candidates):
+                    labels[i] = self.verify_citation(c.record, text)
+        citations: list[Citation] = []
+        entailed = 0
+        for i, c in enumerate(candidates):
+            rec = c.record
+            lab, conf = labels[i]
+            citations.append(Citation(
+                memory_id=rec.memory_id, content_hash=rec.content_hash,
+                raw_uri=rec.raw_uri, source=rec.source, valid_at=rec.valid_at,
+                snippet=(rec.text or rec.summary or "")[:240],
+                nli_label=lab, nli_score=conf,
+            ))
+            if lab == NLILabel.ENTAILMENT:
+                entailed += 1
+        return citations, entailed
+
     def _abstention_confidence(self, candidates: list[RetrievalCandidate],
                                citations: list[Citation]) -> tuple[float, dict]:
         """Blend the four abstention signals into a confidence score (Phase 2). Two are structural
@@ -934,21 +981,7 @@ class Retriever:
         model = reader_model or _reader_model(query, self.settings)
         text = self.client.generate_answer(query, blocks, model=model)  # real call
 
-        citations: list[Citation] = []
-        entailed = 0
-        for c in candidates:
-            rec = c.record
-            label, conf = (NLILabel.NEUTRAL, 0.0)
-            if verify:
-                label, conf = self.verify_citation(rec, text)  # text NLI or visual judge
-            citations.append(Citation(
-                memory_id=rec.memory_id, content_hash=rec.content_hash,
-                raw_uri=rec.raw_uri, source=rec.source, valid_at=rec.valid_at,
-                snippet=(rec.text or rec.summary or "")[:240],
-                nli_label=label, nli_score=conf,
-            ))
-            if label == NLILabel.ENTAILMENT:
-                entailed += 1
+        citations, entailed = self._verify_candidates(candidates, text, verify)
 
         verified = (entailed > 0) if verify else False
         unverified: list[str] = []

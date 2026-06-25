@@ -296,6 +296,16 @@ class Settings:
     scratchpad_topk: int = field(default_factory=lambda: _get_int("SCRATCHPAD_TOPK", 5))
     scratchpad_min_salience: float = field(default_factory=lambda: float(_get("SCRATCHPAD_MIN_SALIENCE", "0.6")))
 
+    # --- S1 read-path latency (best-of-fastest plan; all default OFF, semantics preserved) -------
+    # Batched NLI: judge all candidate sources in ONE request instead of N (faster + rate-friendly).
+    batch_nli_enabled: bool = field(default_factory=lambda: _get_bool("BATCH_NLI", "0"))
+    # Defer the confirmed-citation re-embed off the answer path to the idle/sleep drain (FSRS +
+    # verified-helpful stay synchronous). Emits REEMBED_DEFERRED.
+    defer_reembed_enabled: bool = field(default_factory=lambda: _get_bool("DEFER_REEMBED", "0"))
+    # Short-circuit verification: verify in rerank order, stop once this many entailments are found.
+    fast_verify_enabled: bool = field(default_factory=lambda: _get_bool("FAST_VERIFY", "0"))
+    verify_citation_cap: int = field(default_factory=lambda: _get_int("VERIFY_CITATION_CAP", 3))
+
     # --- Connected Brain Loop: observation-only spine (all default OFF; baseline byte-identical) -
     # RecallTrace: the retriever records WHY it found/missed (enabled channels, per-channel rankings
     # and weights, fused scores, gist provenance, stage latency, dropped candidates). It is a pure

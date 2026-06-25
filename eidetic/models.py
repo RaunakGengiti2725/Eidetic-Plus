@@ -307,6 +307,12 @@ class BrainEventType(str, Enum):
     HEALTH_DEBT_DETECTED = "health_debt_detected"
     OPTIMIZER_PROMOTED = "optimizer_promoted"
     OPTIMIZER_REJECTED = "optimizer_rejected"
+    # Fastest-best-agent spine extensions (one event per significant operation).
+    REEMBED_DEFERRED = "reembed_deferred"      # S1: confirmed re-embed pushed to the idle drain
+    SUPERSEDED = "superseded"                  # C2: a fact's old edge was closed by an update
+    RATE_LIMITED = "rate_limited"              # F1: a governed call hit a 429 and backed off
+    CACHE_HIT = "cache_hit"                    # S4: a recall served from cache (proof/health note)
+    INTEGRITY_CHECKED = "integrity_checked"    # C1: an operation-level integrity scan ran
 
 
 class BrainEvent(BaseModel):

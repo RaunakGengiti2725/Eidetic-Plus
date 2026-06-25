@@ -51,6 +51,10 @@ class Engine:
         # shared in-memory index / BM25 / graph-write tail / caches. Reads (search) stay lock-free.
         # INVARIANT: never hold this lock across a model call (that would deadlock the rate governor).
         self._write_lock = threading.RLock()
+        # S1 deferred re-embed queue: confirmed-citation re-embeds pushed off the answer path and
+        # drained on the idle/sleep cadence (the embed runs OFF the write lock).
+        self._reembed_queue: set[str] = set()
+        self._reembed_lock = threading.Lock()
         self.substrate = make_substrate(self.settings)
         self.store = RecordStore(self.settings.sqlite_path)
         self.index = make_vector_index(self.settings)
@@ -268,6 +272,38 @@ class Engine:
             w_surprise=s.affect_w_surprise, w_emphasis=s.affect_w_emphasis,
             w_helpful=s.affect_w_helpful)
 
+    def _enqueue_reembed(self, memory_ids) -> None:
+        """S1: queue confirmed-citation memory_ids for a deferred re-embed (drained on idle/sleep)."""
+        ids = list(memory_ids)
+        with self._reembed_lock:
+            self._reembed_queue.update(ids)
+        self._brain(BrainEventType.REEMBED_DEFERRED, memory_ids=ids, queued=len(ids))
+
+    def drain_reembed_queue(self, *, max_items: int = 256) -> dict:
+        """Drain the deferred re-embed queue (S1): embed OFF the write lock, then apply the index
+        updates UNDER the lock. Records superseded/forgotten before the drain are skipped. Idempotent
+        and safe to call from the idle/sleep cadence."""
+        with self._reembed_lock:
+            ids = list(self._reembed_queue)[:max_items]
+            self._reembed_queue.difference_update(ids)
+        if not ids:
+            return {"reembedded": 0}
+        embedded: dict = {}
+        for mid in ids:
+            rec = self.store.get_record(mid)
+            if rec is None:                          # superseded / forgotten -> skip
+                continue
+            try:
+                embedded[mid] = self.client.embed_text(rec.text)   # model call, OFF the lock
+            except Exception as e:
+                self._degraded("drain-reembed", e)
+        with self._write_lock:
+            for mid, vec in embedded.items():
+                self.index.update(mid, vec)
+            if embedded:
+                self.index.save()
+        return {"reembedded": len(embedded)}
+
     def _tag_and_capture(self, record: MemoryRecord, scope: Scope) -> int:
         """Up-weight retention of memories temporally adjacent to a salient event. Store mutations
         (FSRS reinforce + upsert) run under the write lock; no model call is involved."""
@@ -362,17 +398,21 @@ class Engine:
         confirmed: list[str] = []
         contradicted: list[str] = []
         reembed: dict[str, "np.ndarray"] = {}
+        defer = self.settings.defer_reembed_enabled
         for cit in ans.citations:
             if cit.nli_label == NLILabel.ENTAILMENT:
                 confirmed.append(cit.memory_id)
-                rec = self.store.get_record(cit.memory_id)
-                if rec is not None:
-                    try:
-                        reembed[cit.memory_id] = self.client.embed_text(rec.text)
-                    except Exception as e:        # re-embed best-effort; never silently swallow it
-                        self._degraded("reinforce-reembed", e)
+                if not defer:                       # inline re-embed (off the lock); else deferred
+                    rec = self.store.get_record(cit.memory_id)
+                    if rec is not None:
+                        try:
+                            reembed[cit.memory_id] = self.client.embed_text(rec.text)
+                        except Exception as e:      # best-effort; never silently swallow it
+                            self._degraded("reinforce-reembed", e)
             elif cit.nli_label == NLILabel.CONTRADICTION:
                 contradicted.append(cit.memory_id)
+        if defer and confirmed:                     # push the re-embed to the idle/sleep drain
+            self._enqueue_reembed(confirmed)
         # PHASE 2 (write lock): apply all index/store/graph mutations atomically. Records are
         # re-read under the lock so the read-modify-write is not lost under concurrent recall.
         with self._write_lock:
@@ -598,10 +638,13 @@ class Engine:
         which is in the ranking path, so it has no effect on retrieval accuracy."""
         from concurrent.futures import ThreadPoolExecutor
 
+        # Idle/sleep cadence also drains the deferred re-embed queue (S1).
+        reembed = self.drain_reembed_queue()
         pending = [r for r in self.store.all_records(scope)
                    if r.metadata.get("pending_consolidation")]
         if not pending:
-            return {"pending_processed": 0, "facts_extracted": 0, "events_indexed": 0}
+            return {"pending_processed": 0, "facts_extracted": 0, "events_indexed": 0,
+                    "reembedded": reembed.get("reembedded", 0)}
 
         def _extract(rec: MemoryRecord) -> tuple[MemoryRecord, list[dict]]:
             triples: list[dict[str, str]] = []
