@@ -10,6 +10,7 @@ Component 3 structure code.
 """
 from __future__ import annotations
 
+import threading
 from typing import Optional
 
 import networkx as nx
@@ -31,6 +32,11 @@ class KnowledgeGraph:
     def __init__(self, store: RecordStore, deterministic_conflicts: bool = False):
         self.store = store
         self.deterministic_conflicts = deterministic_conflicts
+        # F2: serialize the contradiction-closure read-modify-write (edges_touching -> close ->
+        # add_edge). Without it two concurrent conflicting facts for the same (src, relation) can
+        # both pass the active-check and both stay active, silently breaking conflict resolution.
+        # In-process RLock (the stack is threads-only by design); no model call is held under it.
+        self._lock = threading.RLock()
 
     # ---- write path -------------------------------------------------------
     def add_fact(
@@ -55,27 +61,30 @@ class KnowledgeGraph:
         # co_activated is a MULTI-valued association (a memory links to many others), so
         # it is exempt from the single-valued (src, relation) contradiction rule.
         single_valued = relation != CO_ACTIVATED
-        for e in self.store.edges_touching(src, scope) if single_valued else []:
-            if (
-                _norm(e.src) == _norm(src)
-                and _norm(e.relation) == _norm(relation)
-                and _norm(e.dst) != _norm(dst)
-                and e.is_active_at(valid_at)
-            ):
-                e.invalid_at = valid_at
-                e.expired_at = valid_at
-                self.store.add_edge(e)  # close, never delete
-                invalidated.append(e)
+        # Atomic closure: the active-check read, the close-writes, and the new-edge write must not
+        # interleave with a concurrent conflicting add_fact (else both could stay active).
+        with self._lock:
+            for e in self.store.edges_touching(src, scope) if single_valued else []:
+                if (
+                    _norm(e.src) == _norm(src)
+                    and _norm(e.relation) == _norm(relation)
+                    and _norm(e.dst) != _norm(dst)
+                    and e.is_active_at(valid_at)
+                ):
+                    e.invalid_at = valid_at
+                    e.expired_at = valid_at
+                    self.store.add_edge(e)  # close, never delete
+                    invalidated.append(e)
 
-        edge = Edge(
-            src=src, dst=dst, relation=relation,
-            fact=fact or f"{src} {relation} {dst}",
-            source_memory_id=source_memory_id, valid_at=valid_at, scope=scope,
-            supersedes=invalidated[0].edge_id if invalidated else None,
-        )
-        self.store.add_edge(edge)
-        if self.deterministic_conflicts and single_valued:
-            self._intervalize_single_value(src, relation, scope)
+            edge = Edge(
+                src=src, dst=dst, relation=relation,
+                fact=fact or f"{src} {relation} {dst}",
+                source_memory_id=source_memory_id, valid_at=valid_at, scope=scope,
+                supersedes=invalidated[0].edge_id if invalidated else None,
+            )
+            self.store.add_edge(edge)
+            if self.deterministic_conflicts and single_valued:
+                self._intervalize_single_value(src, relation, scope)
         return edge, invalidated
 
     def _intervalize_single_value(self, src: str, relation: str, scope: Scope) -> None:
