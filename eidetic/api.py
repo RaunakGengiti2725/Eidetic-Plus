@@ -185,6 +185,18 @@ async def reflex_recall(body: ReflexRecallIn):
     return packet.public_dict()
 
 
+@app.get("/api/truth_ledger")
+async def truth_ledger(query: str, namespace: str = "default", agent_id: Optional[str] = None,
+                       project_id: Optional[str] = None, verify: bool = True):
+    """Answer `query` and return its full TRUTH LEDGER: the proof tree enriched with each
+    citation's validity window, current-ness, supersession chains, and the final claim_status
+    (verified / contradicted / abstained / unverified). Needs DASHSCOPE_API_KEY (it answers).
+    Mirrors the MCP `truth_ledger` tool."""
+    scope = _scope(namespace, agent_id, project_id)
+    ans = await run_in_threadpool(lambda: _guard(engine().ask, query, verify=verify, scope=scope))
+    return await run_in_threadpool(lambda: engine().truth_ledger(ans, scope=scope))
+
+
 @app.get("/api/sync_health")
 async def sync_health(namespace: str = "default", agent_id: Optional[str] = None,
                       project_id: Optional[str] = None):

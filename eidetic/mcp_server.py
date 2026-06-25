@@ -150,6 +150,24 @@ def reflex_recall(query: str, namespace: str = "default", agent_id: Optional[str
 
 
 @mcp.tool()
+def truth_ledger(query: str, namespace: str = "default", agent_id: Optional[str] = None,
+                 project_id: Optional[str] = None, verify: bool = True) -> dict:
+    """Answer `query` and return its full TRUTH LEDGER: the complete chain from raw bytes to current
+    truth. Each cited source carries its immutable hash/snippet, NLI grounding, bi-temporal validity
+    window, whether it is still current, and the supersession chain of any fact it sourced (oldest
+    first, closed facts retained); plus a final claim_status (verified / contradicted / abstained /
+    unverified). The proof-grade 'show your work' surface. Needs DASHSCOPE_API_KEY (it answers)."""
+    scope = _scope(namespace, agent_id, project_id)
+    try:
+        ans = engine().ask(query, verify=verify, scope=scope)
+        return engine().truth_ledger(ans, scope=scope)
+    except ModelCallError as e:
+        raise RuntimeError(
+            f"truth_ledger needs the model and no result was fabricated: {e}. "
+            "Set DASHSCOPE_API_KEY to enable it.")
+
+
+@mcp.tool()
 def sync_health(namespace: str = "default", agent_id: Optional[str] = None,
                 project_id: Optional[str] = None) -> dict:
     """Track 2 synchronization report for a scope: whether the rebuildable surfaces (vector index,

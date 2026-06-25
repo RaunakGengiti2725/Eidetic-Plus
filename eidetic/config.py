@@ -355,6 +355,19 @@ class Settings:
     # explicit future-dated ingestion). A cache-entry TTL would bound this -- deferred follow-up.
     cache_versioning_enabled: bool = field(default_factory=lambda: _get_bool("CACHE_VERSIONING", "1"))
 
+    # --- Track 3 false-premise abstention (default OFF; flag-off byte-identical) -----------------
+    # A presuppositional question ("Why did Alice leave Google?") presupposes a relationship between
+    # its entities. When ON, if the question names >=2 entities and NO in-scope memory co-mentions a
+    # pair AND no graph edge connects a pair (TOTAL disconnection), abstain with a structured
+    # missing-premise reason instead of letting the reader confabulate. Bias is toward answering: a
+    # false abstain is a recall regression, a miss just falls back to the normal answer+NLI path.
+    # Deterministic + no model call on the abstain path. KNOWN LIMITS (recall regressions, not
+    # correctness): the entity signal is parse_query's capitalized/quoted/ID forms (a fully
+    # lowercased question yields no entities -> no check); coreference/pronoun memories and aliases
+    # (Meta vs stored Facebook) are not resolved. Matching IS case-insensitive (a lowercase stored
+    # memory still prevents a false abstain).
+    false_premise_enabled: bool = field(default_factory=lambda: _get_bool("FALSE_PREMISE", "0"))
+
     # --- Connected Brain Loop: observation-only spine (all default OFF; baseline byte-identical) -
     # RecallTrace: the retriever records WHY it found/missed (enabled channels, per-channel rankings
     # and weights, fused scores, gist provenance, stage latency, dropped candidates). It is a pure

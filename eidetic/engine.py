@@ -575,6 +575,17 @@ class Engine:
         scope = scope or Scope()
         read_at = as_of if as_of is not None else at
         sk = scope.key()
+        # Track 3.3 false-premise gate (flag-off -> skipped, byte-identical). A presuppositional
+        # question whose entities are totally disconnected in memory abstains HERE, before any
+        # retrieval or model call -- the reader can never confabulate a relationship memory denies.
+        if self.settings.false_premise_enabled:
+            fp = self.check_false_premise(query, scope=scope, as_of=read_at)
+            if fp is not None:
+                note = f"abstained: false-premise ({fp['category']})"
+                self._brain(BrainEventType.ANSWER_ABSTAINED, namespace=scope.namespace,
+                            note=note, reason=fp["category"])
+                return Answer(question=query, answer=fp["message"], verified=False,
+                              confidence=0.0, retrieved_count=0, note=note)
         # Prospective memory: learn P(next query-signature | current) for predictive prefetch.
         if self.settings.markov_prefetch_enabled:
             self._observe_query(query)
@@ -1297,6 +1308,40 @@ class Engine:
                  "current": e.is_active_at(now_t), "source_memory_id": e.source_memory_id}
                 for e in edges]
 
+    def check_false_premise(self, question: str, *, scope: Optional[Scope] = None,
+                            as_of: Optional[float] = None) -> Optional[dict]:
+        """Track 3.3: detect a presuppositional question whose entities are TOTALLY disconnected in
+        memory. Returns a structured abstention dict when the premise is unsupported, else None
+        (proceed to the normal answer+NLI path). Deterministic, no model call.
+
+        Rule (biased toward answering -- a false abstain is a recall regression): only when the
+        question names >=2 entities AND no in-scope active memory co-mentions a pair AND no active
+        graph edge directly connects a pair. Matching is case-insensitive. The entity signal is
+        parse_query's capitalized/quoted/ID forms (a fully lowercased question yields no entities,
+        so no check fires); coreference and aliases are not resolved (documented limits)."""
+        from .events import parse_query
+        from .graph import _norm
+        scope = scope or Scope()
+        at = now() if as_of is None else as_of
+        ents = parse_query(question, at).get("entities", [])
+        ent_norms = list(dict.fromkeys(e.strip().lower() for e in ents if e.strip()))
+        if len(ent_norms) < 2:
+            return None
+        for r in self.store.active_records_at(at, scope):
+            hay = (r.text or r.summary or "").lower()
+            if sum(1 for e in ent_norms if e in hay) >= 2:
+                return None                       # a memory co-mentions >=2 query entities
+        for e in self.store.active_edges_touching_many(set(ents), at, scope):
+            ends = {_norm(e.src), _norm(e.dst)}
+            if sum(1 for x in ent_norms if x in ends) >= 2:
+                return None                       # an edge directly connects two query entities
+        return {
+            "abstain": True, "category": "missing_premise", "entities": ents,
+            "message": ("I don't have evidence in memory connecting " + " and ".join(ents)
+                        + ", so I can't answer a question that presupposes a relationship "
+                          "between them."),
+        }
+
     def integrity_report(self, scope: Optional[Scope] = None) -> dict:
         """C1 operation-level integrity (HaluMem-style), provable from the BrainEvent stream + the
         store. Every rate is counted, never fabricated. Emits INTEGRITY_CHECKED. Needs BRAIN_EVENTS
@@ -1389,6 +1434,54 @@ class Engine:
         """The RecallTrace from the most recent traced retrieve (None unless RECALL_TRACE is on).
         Explains why the last read found/missed what it did."""
         return self.retriever.last_trace
+
+    @staticmethod
+    def _claim_status(answer) -> str:
+        """The final status of an answer's claim, from verified/note/NLI ONLY -- never influenced
+        by whether a citation happened to source a supersession chain."""
+        note = answer.note or ""
+        if note.startswith("abstained"):
+            return "abstained"
+        if answer.verified:
+            return "verified"
+        if any(c.nli_label == NLILabel.CONTRADICTION for c in (answer.citations or [])):
+            return "contradicted"
+        return "unverified"
+
+    def truth_ledger(self, answer, *, with_paths: bool = True,
+                     scope: Optional[Scope] = None) -> dict:
+        """Track 3.1: the complete chain from raw bytes to current truth. The proof tree
+        (prove_answer: raw hash/span, NLI label, recall paths) enriched per citation with its
+        bi-temporal validity window, whether it is still current, and the supersession chain of any
+        fact it sourced (oldest first, closed facts retained). Adds claim_status (verified /
+        contradicted / abstained / unverified). Read-only, deterministic, no model call."""
+        from collections import defaultdict
+        scope = scope or Scope()
+        base = self.prove(answer, with_paths=with_paths)
+        edges_by_src: dict[str, list] = defaultdict(list)
+        for e in self.store.all_edges(scope):
+            if e.source_memory_id and not getattr(e, "inferred", False):
+                edges_by_src[e.source_memory_id].append(e)
+        for item in base.get("evidence", []):
+            rec = self.store.get_record(item["memory_id"])
+            if rec is None:
+                continue
+            item["validity_window"] = {"valid_at": rec.valid_at, "invalid_at": rec.invalid_at,
+                                       "expired_at": rec.expired_at}
+            item["is_current"] = rec.is_active_at()
+            chains, seen = [], set()
+            for e in edges_by_src.get(rec.memory_id, []):
+                key = (e.src.lower(), e.relation.lower())
+                if key in seen:
+                    continue
+                seen.add(key)
+                hist = self.fact_history(e.src, e.relation, scope=scope)
+                if len(hist) > 1:                       # only when there IS a supersession chain
+                    chains.append({"src": e.src, "relation": e.relation, "history": hist})
+            if chains:
+                item["supersession_chains"] = chains
+        base["claim_status"] = self._claim_status(answer)
+        return base
 
     def build_scratchpad(self, scope: Optional[Scope] = None, *, top_k: Optional[int] = None,
                          min_salience: Optional[float] = None, at: Optional[float] = None) -> list:
