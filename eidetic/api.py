@@ -174,10 +174,12 @@ async def ask(body: AskIn):
 
 @app.post("/api/reflex_recall")
 async def reflex_recall(body: ReflexRecallIn):
-    """Sub-second LOCAL recall: the MemoryPacket of candidate memories for a query, built from the
-    derived index + live graph/store with NO model call (no embed, no NLI, no reader). Works
-    WITHOUT a key. Mirrors the MCP `reflex_recall` tool. This is recall (candidates + provenance),
-    not a verified answer -- use /api/ask for the NLI-gated answer."""
+    """LOCAL recall: the MemoryPacket of candidate memories for a query, built from the derived
+    index + live graph/store with NO model call (no embed, no NLI, no reader). Works WITHOUT a key.
+    Mirrors the MCP `reflex_recall` tool. This is recall (candidates + provenance), not a verified
+    answer -- use /api/ask for the NLI-gated answer. Sub-second when REFLEX_RECALL=1 (the index is
+    maintained incrementally); with the flag off the index is rebuilt from the store per call
+    (O(records), correct but not sub-second on a large store)."""
     packet = await run_in_threadpool(
         lambda: engine().reflex_recall(body.query, scope=body.to_scope(), as_of=body.as_of))
     return packet.public_dict()
