@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import re
 import tempfile
+import time
 from pathlib import Path
 from typing import Optional
 
@@ -29,7 +30,7 @@ from .dashscope_client import DashScopeClient
 from .events import parse_query, select_for_query
 from .graph import KnowledgeGraph
 from .models import (Answer, Citation, MemoryRecord, Modality, NLILabel,
-                     RetrievalCandidate, Scope, now)
+                     RecallTrace, RetrievalCandidate, Scope, now)
 from .optim import adaptive_k as _adaptive_k
 from .optim import conformal as _conformal
 from .optim import fusion as _fusion
@@ -244,6 +245,9 @@ class Retriever:
         self.client = client
         self.settings = settings or get_settings()
         self.bm25 = PersistentBM25(self.settings.index_dir / "bm25_index.json")
+        # Connected Brain Loop: the last RecallTrace, populated only when RECALL_TRACE is on.
+        # Observation-only side channel -- never read by ranking. None until the first traced call.
+        self.last_trace: Optional[RecallTrace] = None
 
     def index_lexical(self, rec: MemoryRecord, *, save: bool = True) -> bool:
         """Update the persistent lexical channel on ingest. No-op when the flag is off."""
@@ -301,6 +305,13 @@ class Retriever:
 
         parsed = parse_query(query, at)  # operation / entities / is_namey / is_multihop
         s = self.settings
+
+        # Connected Brain Loop: RecallTrace instrumentation is fully gated -- when off, not a
+        # single extra call runs and the candidate list is byte-identical to the baseline path.
+        record_trace = s.recall_trace_enabled
+        _lat: dict[str, float] = {}
+        _t0 = time.perf_counter() if record_trace else 0.0
+        _mark = _t0
 
         allowed = set(records)
         # 3b Rocchio PRF: confidence-gated query expansion toward the top evidence centroid.
@@ -366,10 +377,13 @@ class Retriever:
         rankings = [dense_order, bm25_order]
         weights = [wd, wb * (1.6 if parsed["is_namey"] else 1.0)]
         score_maps: list[dict] = [dense_map, bm25_map]
+        channel_names = ["dense", "bm25"] if record_trace else None
         if graph_order:
             rankings.append(graph_order)
             weights.append(wg * (1.6 if parsed["is_multihop"] else 1.0))
             score_maps.append(graph_scores)
+            if record_trace:
+                channel_names.append("graph")
         # Phase-1 multi-view channels (each appends only when its flag is on; neutral path
         # unchanged when off). Provenance for gist boosts is recorded for prove_answer.
         self._gist_provenance: dict = {}
@@ -377,20 +391,45 @@ class Retriever:
             so, sm = self._run_struct(parsed, allowed)
             if so:
                 rankings.append(so); weights.append(s.rrf_w_struct); score_maps.append(sm)
+                if record_trace:
+                    channel_names.append("struct")
         if s.event_ranking_enabled:
             eo, em = self._run_event(parsed, records, at, scope)
             if eo:
                 rankings.append(eo); weights.append(s.rrf_w_event); score_maps.append(em)
+                if record_trace:
+                    channel_names.append("event")
         if s.gist_channel_enabled:
             go, gm, self._gist_provenance = self._run_gist(qvec, scope, allowed)
             if go:
                 rankings.append(go); weights.append(s.rrf_w_gist); score_maps.append(gm)
+                if record_trace:
+                    channel_names.append("gist")
+        if s.coactivation_channel_enabled:
+            co, cm = self._run_coactivation(dense, records, at, scope, allowed)
+            if co:
+                rankings.append(co); weights.append(s.rrf_w_coact); score_maps.append(cm)
+                if record_trace:
+                    channel_names.append("coactivation")
         if recency_order:
             rankings.append(recency_order)
             weights.append(s.rrf_w_recency)
             n_rec = len(recency_order)
             score_maps.append({mid: float(n_rec - i) for i, mid in enumerate(recency_order)})
+            if record_trace:
+                channel_names.append("recency")
+        if record_trace:
+            _lat["channels_ms"] = (time.perf_counter() - _mark) * 1000.0
+            _mark = time.perf_counter()
         fused = self._fuse(rankings, score_maps, weights)
+        # Memory typing coordinator (Phase 4): a soft, flag-gated prior that nudges the candidates
+        # whose MIRIX type matches the query class. Bounded to a fraction of the top fused score,
+        # so it re-orders ties without overriding strong content matches. Off -> fused untouched.
+        if s.memory_typing_enabled:
+            self._apply_type_prior(fused, records, parsed, query)
+        if record_trace:
+            _lat["fuse_ms"] = (time.perf_counter() - _mark) * 1000.0
+            _mark = time.perf_counter()
         if len(fused) < s.final_topk and use_recency:
             for mid in recency_order:
                 fused.setdefault(mid, 0.0)
@@ -402,7 +441,24 @@ class Retriever:
             bm25_score=bm25_map.get(mid, 0.0), graph_score=graph_scores.get(mid, 0.0),
             fused_score=fused[mid]) for mid in fused}
         ranked = _dedup(sorted(cands.values(), key=lambda c: -c.fused_score))
-        return self._finalize(query, ranked)
+        final = self._finalize(query, ranked)
+        if record_trace:
+            _lat["finalize_ms"] = (time.perf_counter() - _mark) * 1000.0
+            _lat["total_ms"] = (time.perf_counter() - _t0) * 1000.0
+            sel = [c.record.memory_id for c in final]
+            sel_set = set(sel)
+            self.last_trace = RecallTrace(
+                query=query, scope=scope, parsed_query=parsed,
+                enabled_channels=list(channel_names),
+                channel_results={n: list(r) for n, r in zip(channel_names, rankings)},
+                channel_weights={n: float(w) for n, w in zip(channel_names, weights)},
+                fused_scores={k: float(v) for k, v in fused.items()},
+                gist_provenance=dict(self._gist_provenance),
+                selected_candidates=sel,
+                dropped_candidates=[mid for mid in fused if mid not in sel_set],
+                latency_by_stage=_lat, token_budget=s.context_token_budget,
+            )
+        return final
 
     # ---- online weight learning + PRF ------------------------------------
     def _content_weights(self) -> tuple[float, float, float]:
@@ -492,6 +548,59 @@ class Retriever:
                     m[mid] = max(0.0, sim)
                     prov[mid] = g.cid
         return order, m, prov
+
+    def _run_coactivation(self, dense: list, records: dict, at, scope: Scope,
+                          allowed: set) -> tuple[list[str], dict]:
+        """Co-activation channel: memories co-confirmed with the top dense hits in PAST recalls
+        (graph CO_ACTIVATED links, Section 7.3) are pulled in as candidates. This is multi-hop
+        recall -- a memory sharing no query words but repeatedly used together with a dense hit
+        surfaces here. Ranks by co-activation frequency (how many seeds link to it), never by age."""
+        seeds = [mid for mid, _ in dense[:10]]
+        if not seeds:
+            return [], {}
+        seed_set = set(seeds)
+        freq: dict[str, int] = {}
+        for mid in seeds:
+            for linked in self.graph.linked_memories(mid, scope, at):
+                if linked in allowed and linked not in seed_set:
+                    freq[linked] = freq.get(linked, 0) + 1
+        if not freq:
+            return [], {}
+        order = [m for m, _ in sorted(freq.items(), key=lambda x: -x[1])]
+        return order, {m: float(c) for m, c in freq.items()}
+
+    # ---- memory typing coordinator (Phase 4, soft prior) ------------------
+    @staticmethod
+    def _query_class(parsed: dict, query: str) -> str:
+        """Coarse query class for the type-priority coordinator (deterministic, no model)."""
+        q = (query or "").lower()
+        if parsed.get("ranges") or parsed.get("operation") in ("order", "count"):
+            return "temporal"
+        if any(k in q for k in ("how to", "how do i", "steps", "procedure", "instructions",
+                                "install", "configure", "set up", "deploy", "recipe")):
+            return "procedural"
+        if any(k in q for k in ("prefer", "favorite", "favourite", "i like", "i love",
+                                "allerg", "usually", "always", "my ")):
+            return "preference"
+        return "factual"
+
+    def _apply_type_prior(self, fused: dict, records: dict, parsed: dict, query: str) -> None:
+        """Mutate `fused` in place with a bounded type-match bonus. The bonus is at most
+        type_prior_weight * max_fused, so it breaks ties toward the query class's preferred MIRIX
+        types without swamping a strong content match. A no-op if no candidate carries a type."""
+        from .memory_types import type_priority
+        order = type_priority(self._query_class(parsed, query))
+        rank = {t.value: (len(order) - i) for i, t in enumerate(order)}
+        mx_rank = max(rank.values()) if rank else 1
+        mx_fused = max(fused.values()) if fused else 0.0
+        if mx_fused <= 0.0:
+            return
+        w = self.settings.type_prior_weight
+        for mid in fused:
+            rec = records.get(mid)
+            t = (getattr(rec, "metadata", None) or {}).get("type") if rec else None
+            if t and t in rank:
+                fused[mid] += w * (rank[t] / mx_rank) * mx_fused
 
     # ---- fusion + final selection ----------------------------------------
     def _fuse(self, rankings: list[list[str]], score_maps: list[dict],

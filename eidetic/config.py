@@ -204,6 +204,10 @@ class Settings:
     # MemMA evidence-grounded self-repair sweep inside the dreaming engine (LLM-gated, offline).
     dream_repair_enabled: bool = field(default_factory=lambda: _get_bool("DREAM_REPAIR", "0"))
     dream_repair_topk: int = field(default_factory=lambda: _get_int("DREAM_REPAIR_TOPK", 16))
+    # Guarded repair APPLY (Phase 5): when on, apply_proposals may execute INSERT/MERGE repairs
+    # via immutable ingest + bi-temporal supersession (NEVER raw deletion). Off -> apply is always
+    # a dry-run that returns the plan without touching the store. Promote only behind the guard.
+    dream_repair_apply_enabled: bool = field(default_factory=lambda: _get_bool("DREAM_REPAIR_APPLY", "0"))
     # Per-triple anomaly scoring threshold (flag low-confidence observed edges for repair).
     anomaly_threshold: float = field(default_factory=lambda: float(_get("ANOMALY_THRESHOLD", "0.35")))
     # MIRIX-style role typing of memories (deterministic classifier; LLM typing optional/gated).
@@ -229,6 +233,24 @@ class Settings:
     gist_channel_enabled: bool = field(default_factory=lambda: _get_bool("GIST_CHANNEL", "0"))
     rrf_w_gist: float = field(default_factory=lambda: float(_get("RRF_W_GIST", "0.4")))
     graph_vocab_seeding: bool = field(default_factory=lambda: _get_bool("GRAPH_VOCAB_SEEDING", "0"))
+    # Co-activation channel (Phase 2): pull in memories co-confirmed with the top dense hits in
+    # past recalls (graph CO_ACTIVATED links) as candidates. Multi-hop recall; ranks by
+    # co-activation frequency, never by age. Default OFF.
+    coactivation_channel_enabled: bool = field(default_factory=lambda: _get_bool("COACTIVATION_CHANNEL", "0"))
+    rrf_w_coact: float = field(default_factory=lambda: float(_get("RRF_W_COACT", "0.5")))
+    # Memory typing coordinator (Phase 4): classify type on ingest + soft retrieval prior that
+    # boosts the query class's preferred MIRIX types. MEMORY_TYPING gates BOTH (default OFF).
+    type_prior_weight: float = field(default_factory=lambda: float(_get("TYPE_PRIOR_WEIGHT", "0.15")))
+
+    # --- Connected Brain Loop: observation-only spine (all default OFF; baseline byte-identical) -
+    # RecallTrace: the retriever records WHY it found/missed (enabled channels, per-channel rankings
+    # and weights, fused scores, gist provenance, stage latency, dropped candidates). It is a pure
+    # side channel -- when on, the returned candidate list is identical to the flags-off path.
+    recall_trace_enabled: bool = field(default_factory=lambda: _get_bool("RECALL_TRACE", "0"))
+    # BrainEvent log: the engine emits a typed improvement stream (ingest/recall/verify/abstain/
+    # contradiction/...). In-memory and NON-LEARNING in this slice; if ever persisted or fed to a
+    # learner it MUST honor the FeedbackBuffer integrity wall (is_benchmark_namespace / is_dev).
+    brain_events_enabled: bool = field(default_factory=lambda: _get_bool("BRAIN_EVENTS", "0"))
 
     # --- Dreaming engine: token-free continuous consolidation (all sweepable) -----------
     # Replay priority = surprise^w_s * need^w_n * (1-retrievability)^w_r (exponents).

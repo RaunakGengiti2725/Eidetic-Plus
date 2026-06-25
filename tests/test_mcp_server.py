@@ -146,6 +146,26 @@ def test_readonly_and_consolidate_need_no_key(mcp_engine):
     assert isinstance(mcp_server.consolidate(namespace="empty"), dict)   # token-free dream pass
 
 
+# ---- Connected Brain Loop parity tools (Phase 6) -------------------------------------------
+def test_brain_parity_tools_are_listed():
+    names = {t.name for t in asyncio.run(mcp_server.mcp.list_tools())}
+    assert {"sleep", "memory_autopsy", "recall_trace", "prove_age_independence"} <= names
+
+
+def test_mcp_sleep_is_offline_on_quiet_scope(mcp_engine):
+    out = mcp_server.sleep(namespace="quiet")
+    assert out["consolidate_pending"]["pending_processed"] == 0 and "dream" in out
+
+
+def test_mcp_memory_autopsy_diagnoses_missing_write(mcp_engine):
+    out = mcp_server.memory_autopsy("what is the zebra protocol", namespace="empty")
+    assert out["diagnosis"] == "missing_write"
+
+
+def test_mcp_recall_trace_empty_without_flag(mcp_engine):
+    assert mcp_server.recall_trace() == {}        # RECALL_TRACE off -> no trace surfaced
+
+
 # ---- entry point ---------------------------------------------------------------------------
 def test_main_entry_point_runs_stdio(monkeypatch):
     called = {}

@@ -118,7 +118,9 @@ def recall(query: str, namespace: str = "default", agent_id: Optional[str] = Non
         if isinstance(out.get("citations"), list) and limit and limit > 0:
             out["citations"] = out["citations"][:limit]
         if prove:
-            out["proof"] = engine().prove(ans)
+            # include recall-path metadata in the proof when RECALL_TRACE is on (the trace from
+            # this ask is the freshest one); otherwise the legacy pathless proof.
+            out["proof"] = engine().prove(ans, with_paths=engine().settings.recall_trace_enabled)
         return out
     except ModelCallError as e:
         raise RuntimeError(
@@ -220,6 +222,58 @@ def health_report(namespace: str = "default", agent_id: Optional[str] = None,
     inferred facts, derived/replay debt, orphan records, and age spread. Every figure is counted
     from the store, never fabricated. Works without a key."""
     return engine().memory_health_report(scope=_scope(namespace, agent_id, project_id))
+
+
+@mcp.tool()
+def brain_health_score(namespace: str = "default", agent_id: Optional[str] = None,
+                       project_id: Optional[str] = None) -> dict:
+    """A local BrainHealthScore in [0,1] for a scope plus its components (recall connectivity,
+    proof coverage, temporal coverage, channel diversity, orphan/contradiction/stale-gist debt).
+    A diagnostic rollup of counted store + event figures, NOT a benchmark. Read-only, no key."""
+    return engine().brain_health_score(scope=_scope(namespace, agent_id, project_id))
+
+
+@mcp.tool()
+def sleep(namespace: str = "default", agent_id: Optional[str] = None,
+          project_id: Optional[str] = None, llm_summaries: bool = False) -> dict:
+    """Run the unified sleep cycle for a scope: consolidate_pending -> dream -> optional LLM
+    summaries (the same path the HTTP API uses, so both transports behave identically). Token-free
+    and key-free when nothing is pending and llm_summaries is False; never deletes a raw record."""
+    return engine().sleep(scope=_scope(namespace, agent_id, project_id),
+                          llm_summaries=llm_summaries)
+
+
+@mcp.tool()
+def memory_autopsy(question: str, namespace: str = "default", agent_id: Optional[str] = None,
+                   project_id: Optional[str] = None) -> dict:
+    """Read-only diagnosis of WHY a question would miss in a scope (missing write, pending
+    consolidation, entity-extraction failure, event-normalization failure, vector underfill, or a
+    retrieval/reader failure), with a suggested repair. Counted from the store; no key needed."""
+    return engine().memory_autopsy(question, scope=_scope(namespace, agent_id, project_id))
+
+
+@mcp.tool()
+def recall_trace() -> dict:
+    """The RecallTrace from the most recent traced recall: which channels fired, their weights,
+    fused scores, and stage latency. Returns {} unless RECALL_TRACE is enabled. Read-only, no key.
+    This is the 'why did recall find/miss that?' introspection surface."""
+    t = engine().recall_trace()
+    return t.model_dump() if t is not None else {}
+
+
+@mcp.tool()
+def prove_age_independence(namespace: str = "default", agent_id: Optional[str] = None,
+                           project_id: Optional[str] = None, k: int = 5) -> dict:
+    """Compute recall@k and p95 latency vs memory AGE on the current scope and report the slopes
+    (flat = age-independent recall, the signature property). Needs DASHSCOPE_API_KEY (it embeds
+    partial cues for the probe). Mirrors the HTTP /api/prove_age_independence route."""
+    try:
+        return engine().prove_age_independence(
+            scope=_scope(namespace, agent_id, project_id), k=k)
+    except ModelCallError as e:
+        raise RuntimeError(
+            f"prove_age_independence needs the model and no result was fabricated: {e}. "
+            "Set DASHSCOPE_API_KEY to enable it.")
 
 
 def main() -> None:

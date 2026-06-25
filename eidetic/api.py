@@ -187,6 +187,59 @@ async def reawaken(memory_id: str):
     return _record_brief(rec)
 
 
+@app.post("/api/sleep")
+async def sleep(namespace: Optional[str] = None, agent_id: Optional[str] = None,
+                project_id: Optional[str] = None, llm_summaries: bool = Query(False)):
+    """The unified sleep cycle (consolidate_pending -> dream -> optional LLM summaries), identical
+    to the MCP `sleep` tool. Token-free + key-free when nothing is pending and llm_summaries off."""
+    scope = _scope(namespace, agent_id, project_id) if namespace else None
+    return await run_in_threadpool(
+        lambda: _guard(engine().sleep, scope=scope, llm_summaries=llm_summaries))
+
+
+@app.post("/api/dream")
+async def dream(namespace: Optional[str] = None, agent_id: Optional[str] = None,
+                project_id: Optional[str] = None):
+    """Token-free dreaming pass (replay / inference / multi-resolution gists) for a scope. Mirrors
+    the MCP `consolidate` tool; never deletes a raw record. Works without a key."""
+    scope = _scope(namespace, agent_id, project_id) if namespace else None
+    return await run_in_threadpool(engine().dream, scope=scope)
+
+
+@app.get("/api/health_report")
+async def health_report(namespace: str = "default", agent_id: Optional[str] = None,
+                        project_id: Optional[str] = None):
+    """Read-only scope self-diagnosis (coverage, contradiction load, debt, orphans). Mirrors the
+    MCP `health_report` tool. Every figure is counted from the store; works without a key."""
+    scope = _scope(namespace, agent_id, project_id)
+    return await run_in_threadpool(engine().memory_health_report, scope)
+
+
+@app.get("/api/brain_health_score")
+async def brain_health_score(namespace: str = "default", agent_id: Optional[str] = None,
+                             project_id: Optional[str] = None):
+    """Local BrainHealthScore + components for a scope (diagnostic rollup, not a benchmark).
+    Mirrors the MCP `brain_health_score` tool. Read-only, no key."""
+    scope = _scope(namespace, agent_id, project_id)
+    return await run_in_threadpool(engine().brain_health_score, scope)
+
+
+@app.get("/api/memory_autopsy")
+async def memory_autopsy(question: str, namespace: str = "default",
+                         agent_id: Optional[str] = None, project_id: Optional[str] = None):
+    """Read-only failure diagnosis for a would-be-missed question (mirrors the MCP tool). No key."""
+    scope = _scope(namespace, agent_id, project_id)
+    return await run_in_threadpool(engine().memory_autopsy, question, scope=scope)
+
+
+@app.get("/api/recall_trace")
+async def recall_trace():
+    """The most recent RecallTrace (why the last recall found/missed what it did). {} unless
+    RECALL_TRACE is enabled. Mirrors the MCP `recall_trace` tool. Read-only, no key."""
+    t = await run_in_threadpool(engine().recall_trace)
+    return t.model_dump() if t is not None else {}
+
+
 @app.get("/api/prove_age_independence")
 async def prove_age_independence(namespace: str = "default", agent_id: Optional[str] = None,
                                  project_id: Optional[str] = None, k: int = Query(5)):

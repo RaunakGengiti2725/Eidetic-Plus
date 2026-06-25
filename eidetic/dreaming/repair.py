@@ -124,3 +124,50 @@ def run_sweep(engine, scope=None) -> dict:
                 proposals.append(RepairProposal(rec.memory_id, probe, ans.answer, diag, action).__dict__)
     return {"proposals": proposals, "targets": len(targets),
             "note": "proposal-only; apply behind the EvolveMem guard"}
+
+
+def _action_of(p) -> str:
+    a = p.get("action") if isinstance(p, dict) else getattr(p, "action", None)
+    return a.value if hasattr(a, "value") else str(a)
+
+
+def _field(p, name: str, default=""):
+    return p.get(name, default) if isinstance(p, dict) else getattr(p, name, default)
+
+
+def apply_proposals(engine, proposals, scope=None, *, apply: bool = False) -> dict:
+    """Guarded repair APPLY. Dry-run by DEFAULT (apply=False, or DREAM_REPAIR_APPLY off): returns
+    the planned actions WITHOUT touching the store. When apply=True AND DREAM_REPAIR_APPLY is on:
+
+      INSERT -> ingest a NEW correction memory (immutable; the old memory is never deleted).
+      MERGE  -> ingest the corrected/consolidated statement as a new memory; the bi-temporal graph
+                supersession (graph.add_fact, invalidate-not-delete) then closes the stale edge on
+                the next consolidation pass.
+      SKIP   -> ignored.
+
+    The raw store is NEVER mutated or deleted here: every applied repair is an additive immutable
+    ingest. INSERT/MERGE both require a funded key (the ingest embeds). Returns a report."""
+    from ..models import BrainEventType, Scope
+    scope = scope or Scope()
+    can_apply = bool(apply) and getattr(engine.settings, "dream_repair_apply_enabled", False)
+    planned: list[dict] = []
+    applied: list[dict] = []
+    for p in proposals or []:
+        action = _action_of(p)
+        if action == RepairAction.SKIP.value:
+            continue
+        correction = _field(p, "answer", "")
+        plan = {"target_id": _field(p, "target_id", ""), "action": action,
+                "correction": correction, "diagnosis": _field(p, "diagnosis", "")}
+        planned.append(plan)
+        if can_apply and correction.strip():
+            rec = engine.ingest_text(correction, source="memma-repair", scope=scope,
+                                     consolidate_now=False)            # additive, never deletes
+            applied.append({"action": action, "new_memory_id": rec.memory_id,
+                            "supersedes_target": _field(p, "target_id", "")})
+            engine._brain(BrainEventType.REPAIR_APPLIED, namespace=scope.namespace,
+                          memory_ids=[rec.memory_id], kind=action)
+    return {"planned": planned, "applied": applied,
+            "applied_count": len(applied),
+            "mode": "applied" if can_apply else "dry-run",
+            "note": "raw store never mutated; repairs are additive immutable ingests"}

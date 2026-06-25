@@ -237,3 +237,88 @@ class Answer(BaseModel):
     generated_by: str = ""
     retrieved_count: int = 0
     note: str = ""
+
+
+# --------------------------------------------------------------------------
+# Connected Brain Loop: the brain spine (observation-only contracts).
+#
+# These make retrieval explainable (RecallTrace), citations portable across
+# answer/proof/repair/health (EvidencePacket), and improvement signals uniform
+# (BrainEvent). They are a SIDE CHANNEL: nothing here participates in ranking,
+# candidate selection, or answer generation -- every field is read off
+# already-computed state, so enabling them is byte-identical to the baseline
+# read/write path. See eidetic/brain.py for the builders + QualityGate logic.
+# --------------------------------------------------------------------------
+class RecallTrace(BaseModel):
+    """Why a single retrieval found (or missed) what it did. Built behind RECALL_TRACE,
+    it observes the candidate list without altering it. Powers proof recall-paths, the
+    failure autopsy, and channel-win statistics."""
+    query: str = ""
+    scope: Scope = Field(default_factory=Scope)
+    parsed_query: dict[str, Any] = Field(default_factory=dict)
+    enabled_channels: list[str] = Field(default_factory=list)
+    channel_results: dict[str, list[str]] = Field(default_factory=dict)   # channel -> ranked ids
+    channel_weights: dict[str, float] = Field(default_factory=dict)
+    fused_scores: dict[str, float] = Field(default_factory=dict)
+    gist_provenance: dict[str, str] = Field(default_factory=dict)         # member_id -> gist cid
+    selected_candidates: list[str] = Field(default_factory=list)
+    dropped_candidates: list[str] = Field(default_factory=list)
+    latency_by_stage: dict[str, float] = Field(default_factory=dict)      # stage -> milliseconds
+    token_budget: int = 0
+    abstention_reason: str = ""
+
+    def paths_for(self, memory_id: str) -> list[str]:
+        """The channels that surfaced `memory_id` -- its retrieval paths, in channel order."""
+        return [ch for ch, ids in self.channel_results.items() if memory_id in ids]
+
+
+class EvidencePacket(BaseModel):
+    """A portable citation: the one evidence shape answer, proof, repair, and health all reason
+    over (so no subsystem invents its own). Built from an Answer's Citation + its RecallTrace."""
+    memory_id: str
+    content_hash: str = ""
+    raw_uri: str = ""
+    raw_span: str = ""
+    valid_at: float = 0.0
+    invalid_at: Optional[float] = None
+    retrieval_paths: list[str] = Field(default_factory=list)   # channels that surfaced it
+    channel_scores: dict[str, float] = Field(default_factory=dict)
+    nli_label: NLILabel = NLILabel.NEUTRAL
+    nli_score: float = 0.0
+    is_inferred: bool = False
+    derived_from: str = ""                # gist cid when the memory was surfaced via a dream gist
+    contradiction_edges: list[str] = Field(default_factory=list)
+
+
+class BrainEventType(str, Enum):
+    MEMORY_INGESTED = "memory_ingested"
+    MEMORY_RECALLED = "memory_recalled"
+    ANSWER_VERIFIED = "answer_verified"
+    ANSWER_ABSTAINED = "answer_abstained"
+    RETRIEVAL_MISSED = "retrieval_missed"
+    CONTRADICTION_DETECTED = "contradiction_detected"
+    DREAM_GIST_CREATED = "dream_gist_created"
+    REPAIR_PROPOSED = "repair_proposed"
+    REPAIR_APPLIED = "repair_applied"
+    HEALTH_DEBT_DETECTED = "health_debt_detected"
+    OPTIMIZER_PROMOTED = "optimizer_promoted"
+    OPTIMIZER_REJECTED = "optimizer_rejected"
+
+
+class BrainEvent(BaseModel):
+    """One entry in the single improvement stream. Feedback, repair, health, and optimizer
+    loops consume events instead of hidden side effects."""
+    type: BrainEventType
+    namespace: str = "default"
+    at: float = Field(default_factory=now)
+    memory_ids: list[str] = Field(default_factory=list)
+    payload: dict[str, Any] = Field(default_factory=dict)
+
+
+class QualityGateResult(BaseModel):
+    """The verdict of a QualityGate run: every new brain connection must pass before it ships
+    by default. `passed` is the AND of all checks that were actually run (None = not checked)."""
+    feature: str
+    passed: bool = False
+    checks: dict[str, bool] = Field(default_factory=dict)
+    notes: list[str] = Field(default_factory=list)

@@ -24,7 +24,9 @@ from .dashscope_client import DashScopeClient, get_client
 from .events import EventRecord, normalize_dates
 from .graph import KnowledgeGraph
 from .ingestion import IngestInput, from_bytes, from_file, from_text
-from .models import Answer, MemoryRecord, Modality, NLILabel, Scope, now
+from .brain import BrainEventLog, build_evidence_packets
+from .models import (Answer, BrainEvent, BrainEventType, EvidencePacket, MemoryRecord,
+                     Modality, NLILabel, RecallTrace, Scope, now)
 from .retrieval import Retriever
 from .semantic_cache import SemanticCache
 from .store import RecordStore
@@ -63,6 +65,27 @@ class Engine:
         # Prospective memory: a first-order Markov model of query-signature transitions.
         from .optim.markov import MarkovPrefetcher
         self.markov = MarkovPrefetcher()
+        # Connected Brain Loop: the single in-memory improvement stream. Constructing an empty
+        # ring is free; emission is gated on BRAIN_EVENTS so baseline behavior is unchanged.
+        self.brain_log = BrainEventLog()
+        # Channel-win ledger (Phase 3): which channels surfaced the confirmed source per verified
+        # answer. In-memory counter, only written under BRAIN_EVENTS; never feeds a learner.
+        self._channel_wins: dict[str, int] = {}
+        # One shared wake/sleep/idle/repair coordinator (Phase 1) -- API and MCP route through it.
+        from .lifecycle import LifecycleController
+        self.lifecycle = LifecycleController(self)
+
+    def _brain(self, etype: BrainEventType, *, namespace: str = "default",
+               memory_ids: Optional[list] = None, **payload) -> None:
+        """Emit one BrainEvent -- a no-op unless BRAIN_EVENTS is on. Best-effort: a logging
+        failure never breaks the wake/sleep path."""
+        if not self.settings.brain_events_enabled:
+            return
+        try:
+            self.brain_log.emit(BrainEvent(type=etype, namespace=namespace,
+                                           memory_ids=list(memory_ids or []), payload=payload))
+        except Exception:
+            pass
 
     # ---- wake: write path -------------------------------------------------
     def ingest(
@@ -146,6 +169,12 @@ class Engine:
                 gfeat["degree"] = float(np.mean([a["degree"] for a in agg]))
         struct_vec = sc.build_structure_code(record, self.settings.struct_dim, gfeat)
 
+        # MIRIX memory typing (Phase 4): tag the record's role from cheap deterministic signals
+        # (no model call) so the retrieval coordinator can route by type. Gated; metadata-only.
+        if self.settings.memory_typing_enabled:
+            from .memory_types import classify_record
+            record.metadata["type"] = classify_record(record).value
+
         self.index.add(record.memory_id, content_vec, struct_vec)
         self.index.save()
         self.store.upsert_record(record)
@@ -156,6 +185,9 @@ class Engine:
         # LLM-free fast path (its O(N) scan runs during consolidation instead).
         if consolidate_now and sal.salience >= TAG_CAPTURE_SALIENCE:
             self._tag_and_capture(record, scope)
+        self._brain(BrainEventType.MEMORY_INGESTED, namespace=scope.namespace,
+                    memory_ids=[record.memory_id], modality=record.modality.value,
+                    pending=not consolidate_now)
         return record
 
     def _visual_triples(self, raw_bytes: bytes, modality: Modality) -> list[dict[str, str]]:
@@ -286,6 +318,23 @@ class Engine:
             self.index.save()
         if self.settings.feedback_enabled and precomputed is not None:
             self._emit_feedback(scope, query, qvec, precomputed, confirmed)
+        # Connected Brain Loop: project the answer onto the improvement stream (gated).
+        if self.settings.brain_events_enabled:
+            cited = [c.memory_id for c in ans.citations]
+            self._brain(BrainEventType.MEMORY_RECALLED, namespace=scope.namespace,
+                        memory_ids=cited, retrieved=ans.retrieved_count, verified=ans.verified)
+            if any(c.nli_label == NLILabel.CONTRADICTION for c in ans.citations):
+                self._brain(BrainEventType.CONTRADICTION_DETECTED, namespace=scope.namespace,
+                            memory_ids=cited)
+            if ans.verified:
+                self._brain(BrainEventType.ANSWER_VERIFIED, namespace=scope.namespace,
+                            memory_ids=confirmed, confidence=ans.confidence)
+            elif ans.note.startswith("abstained"):
+                self._brain(BrainEventType.ANSWER_ABSTAINED, namespace=scope.namespace,
+                            note=ans.note)
+            else:
+                self._brain(BrainEventType.RETRIEVAL_MISSED, namespace=scope.namespace,
+                            memory_ids=cited, note=ans.note)
         if use_cache:
             self.cache.put(sk, query, qvec, ans)
         return ans
@@ -630,6 +679,9 @@ class Engine:
             min_cluster=self.settings.dream_cluster_min)
         for g in gists:
             self.store.add_derived(g)
+        if gists:
+            self._brain(BrainEventType.DREAM_GIST_CREATED, namespace=scope.namespace,
+                        gists=len(gists), members=len(items))
         return {"gists_built": len(gists), "members": len(items)}
 
     def build_prefetch(self, *, scope: Optional[Scope] = None,
@@ -770,7 +822,181 @@ class Engine:
             "has_api_key": self.settings.has_api_key,
         }
 
-    def prove(self, answer) -> dict:
-        """Proof tree for an Answer (provenance as a first-class output). Read-only."""
+    def brain_health_score(self, scope: Optional[Scope] = None) -> dict:
+        """A LOCAL diagnostic composite (Phase 8) -- NOT a benchmark. Rolls the health report, the
+        BrainEvent stream, and the channel-win ledger into one BrainHealthScore in [0,1] with its
+        components, so connectivity debt is visible at a glance. Every input is counted from the
+        store / in-memory stream; nothing is fabricated or measured against held-out data."""
+        scope = scope or Scope()
+        h = self.memory_health_report(scope)
+        counts = self.brain_log.counts()
+        wins = self._channel_wins
+        mem = max(1, h["memories"])
+        verified = counts.get("answer_verified", 0)
+        abstained = counts.get("answer_abstained", 0)
+        missed = counts.get("retrieval_missed", 0)
+        answered = verified + abstained + missed
+
+        recall_connectivity = 1.0 - min(1.0, h["orphan_records"] / mem)
+        proof_coverage = (verified / answered) if answered else 0.0
+        temporal_coverage = min(1.0, h["events"] / mem)
+        channel_diversity = min(1.0, len(wins) / 4.0)            # >=4 distinct winners = full
+        repair_readiness = 1.0 if (counts.get("repair_proposed", 0)
+                                   or counts.get("repair_applied", 0)) else 0.5
+        orphan_rate = min(1.0, h["orphan_records"] / mem)
+        contradiction_rate = min(1.0, h["contradiction_load"] / max(1, h["edges"]))
+        stale_gist_rate = min(1.0, h["replay_debt"] / mem)
+        unsupported_rate = ((abstained + missed) / answered) if answered else 0.0
+
+        good = (recall_connectivity + proof_coverage + temporal_coverage
+                + repair_readiness + channel_diversity) / 5.0
+        bad = (orphan_rate + contradiction_rate + stale_gist_rate + unsupported_rate) / 4.0
+        score = max(0.0, min(1.0, good - 0.5 * bad))
+        components = {
+            "recall_connectivity": recall_connectivity, "proof_coverage": proof_coverage,
+            "temporal_coverage": temporal_coverage, "repair_readiness": repair_readiness,
+            "channel_diversity": channel_diversity, "orphan_rate": orphan_rate,
+            "contradiction_rate": contradiction_rate, "stale_gist_rate": stale_gist_rate,
+            "unsupported_answer_rate": unsupported_rate,
+        }
+        return {
+            "scope": scope.model_dump(),
+            "brain_health_score": round(score, 4),
+            "components": {k: round(v, 4) for k, v in components.items()},
+            "events": counts, "channel_wins": dict(wins),
+        }
+
+    def memory_autopsy(self, failed_question: str, *, scope: Optional[Scope] = None,
+                       at: Optional[float] = None) -> dict:
+        """Read-only failure autopsy (Phase 5): diagnose WHY a question would miss, from
+        deterministic store/index state -- no model call, no fabricated numbers. Turns a miss into
+        a targeted repair class so dream/repair can aim at the real failure, not guess."""
+        from .events import parse_query
+        scope = scope or Scope()
+        at = now() if at is None else at
+        parsed = parse_query(failed_question, at)
+        recs = self.store.active_records_at(at, scope)
+
+        def _terms(t: str) -> set:
+            return set(re.findall(r"[a-z0-9]+", (t or "").lower()))
+
+        qterms = _terms(failed_question)
+        matching = [r for r in recs if qterms & _terms(r.text or r.summary or "")]
+        pending = [r for r in recs if r.metadata.get("pending_consolidation")]
+        events = self.store.events_in_scope(scope.namespace)
+
+        if not recs or not matching:
+            diagnosis = "missing_write"
+            action = "no in-scope memory mentions the query terms; ingest the source"
+        elif pending:
+            diagnosis = "pending_consolidation_not_run"
+            action = "run sleep()/consolidate_pending to extract facts, events, and types"
+        elif all(not r.entities for r in matching):
+            diagnosis = "entity_extraction_failure"
+            action = "consolidate to extract entities, or enable graph vocab seeding"
+        elif parsed.get("ranges") and not events:
+            diagnosis = "event_normalization_failure"
+            action = "consolidate_pending to index temporal events for the date constraint"
+        elif not self.index.get_vectors([r.memory_id for r in matching]):
+            diagnosis = "vector_underfill"
+            action = "the matching memories are not indexed; repair/rebuild the vector index"
+        else:
+            diagnosis = "retrieval_or_reader"
+            action = ("info present and indexed; likely a rerank / reader / proof failure -- "
+                      "needs a live probe to disambiguate")
+        return {
+            "question": failed_question, "scope": scope.model_dump(),
+            "diagnosis": diagnosis, "suggested_action": action,
+            "in_scope_memories": len(recs), "matching_memories": len(matching),
+            "pending_consolidation": len(pending), "events_in_scope": len(events),
+            "has_api_key": self.settings.has_api_key,
+        }
+
+    def apply_repair_proposals(self, proposals, *, scope: Optional[Scope] = None,
+                               apply: bool = False) -> dict:
+        """Guarded repair apply (Phase 5). Dry-run unless apply=True AND DREAM_REPAIR_APPLY is on;
+        applied repairs are additive immutable ingests (INSERT/MERGE), never raw deletions."""
+        from .dreaming.repair import apply_proposals
+        return apply_proposals(self, proposals, scope or Scope(), apply=apply)
+
+    def prove(self, answer, *, with_paths: bool = False) -> dict:
+        """Proof tree for an Answer (provenance as a first-class output). Read-only.
+
+        with_paths=True splices in the last RecallTrace's recall-path metadata (which channels
+        surfaced each cited memory, gist provenance). The trace is matched to the answer by
+        question text, so a cache hit or a stale trace simply yields the legacy (pathless) proof
+        rather than misattributed paths. Default with_paths=False is byte-identical to before."""
         from .proofs import prove_answer
-        return prove_answer(answer)
+        trace = self.retriever.last_trace if with_paths else None
+        return prove_answer(answer, trace)
+
+    def recall_trace(self) -> Optional[RecallTrace]:
+        """The RecallTrace from the most recent traced retrieve (None unless RECALL_TRACE is on).
+        Explains why the last read found/missed what it did."""
+        return self.retriever.last_trace
+
+    def explain_candidate(self, memory_id: str) -> Optional[dict]:
+        """'Why this memory?' (Phase 6): from the last RecallTrace, the channels that surfaced
+        `memory_id`, its per-channel rank score and weight, fused score, and gist provenance.
+        None when no trace exists or the id never appeared in the last retrieval."""
+        trace = self.retriever.last_trace
+        if trace is None:
+            return None
+        paths = trace.paths_for(memory_id)
+        if not paths and memory_id not in trace.fused_scores:
+            return None
+        return {
+            "memory_id": memory_id,
+            "retrieval_paths": paths,
+            "channel_ranks": {ch: len(trace.channel_results[ch]) - trace.channel_results[ch].index(memory_id)
+                              for ch in paths},
+            "channel_weights": {ch: float(trace.channel_weights.get(ch, 0.0)) for ch in paths},
+            "fused_score": float(trace.fused_scores.get(memory_id, 0.0)),
+            "via_gist": trace.gist_provenance.get(memory_id, ""),
+            "selected": memory_id in trace.selected_candidates,
+        }
+
+    def evidence_packets(self, answer) -> list[EvidencePacket]:
+        """The Answer's citations as portable EvidencePackets, enriched with recall paths from
+        the last (matching) RecallTrace. The one evidence shape proof/repair/health all consume."""
+        return build_evidence_packets(answer, self.retriever.last_trace)
+
+    # ---- unified lifecycle (Phase 1) -------------------------------------
+    def sleep(self, *, scope: Optional[Scope] = None, llm_summaries: bool = False) -> dict:
+        """The one sleep path (consolidate_pending -> dream -> optional LLM summaries) via the
+        shared LifecycleController, so API and MCP get identical sleep semantics. Free + offline
+        when nothing is pending and llm_summaries is False."""
+        return self.lifecycle.sleep(scope, llm_summaries=llm_summaries)
+
+    def idle_tick(self, *, run_dream: bool = False) -> dict:
+        """One idle optimization cadence (learn fusion weights from the dev buffer, optional dream)
+        plus a connection-effectiveness snapshot. Token-free unless run_dream pulls an LLM config."""
+        return self.lifecycle.idle_tick(run_dream=run_dream)
+
+    # ---- channel-win ledger + connection effectiveness (Phase 3) ---------
+    def record_channel_wins(self, answer) -> dict:
+        """Tally which retrieval channels surfaced the ENTAILMENT-confirmed sources of `answer`,
+        read off the last matching RecallTrace. In-memory only; never feeds a learner (the
+        integrity wall lives in FeedbackBuffer). No-op without a matching trace."""
+        trace = self.retriever.last_trace
+        if trace is None or trace.query != answer.question:
+            return self._channel_wins
+        for c in answer.citations:
+            if c.nli_label == NLILabel.ENTAILMENT:
+                for ch in trace.paths_for(c.memory_id):
+                    self._channel_wins[ch] = self._channel_wins.get(ch, 0) + 1
+        return self._channel_wins
+
+    def channel_win_stats(self) -> dict:
+        """The channel-win counts so far (which channels actually win on confirmed answers).
+        A channel that never wins and never feeds proof/repair is debt -- wire it or keep it off."""
+        return dict(self._channel_wins)
+
+    def connection_effectiveness(self) -> dict:
+        """A local report of how the enabled brain paths are firing: BrainEvent counts + the
+        channel-win ledger. Read-only, no model call, no fabricated numbers."""
+        return {
+            "events": self.brain_log.counts(),
+            "channel_wins": dict(self._channel_wins),
+            "total_events": len(self.brain_log),
+        }
