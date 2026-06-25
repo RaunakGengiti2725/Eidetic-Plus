@@ -13,6 +13,7 @@ import re
 import tempfile
 import threading
 import time
+from collections import deque
 from pathlib import Path
 from typing import Optional
 
@@ -29,6 +30,9 @@ from .ingestion import IngestInput, from_bytes, from_file, from_text
 from .brain import BrainEventLog, build_evidence_packets
 from .models import (Answer, BrainEvent, BrainEventType, EvidencePacket, MemoryRecord,
                      Modality, NLILabel, RecallTrace, Scope, now)
+from .reflex import MemoryPacket
+from .reflex_activation import build_memory_packet
+from .reflex_index import ReflexIndex
 from .retrieval import Retriever
 from .semantic_cache import SemanticCache
 from .store import RecordStore
@@ -85,6 +89,15 @@ class Engine:
         # answer, keyed BY NAMESPACE so brain_health_score(scope=...) never mixes activity across
         # scopes. In-memory counter, only written under BRAIN_EVENTS; never feeds a learner.
         self._channel_wins: dict[str, dict[str, int]] = {}
+        # Track 1 Reflex Recall: a derived inverted index (entity/term -> memory_ids) + a small
+        # per-namespace hot working set. Maintained ONLY when REFLEX_RECALL is on, so the flag-off
+        # write path is byte-identical. Built once from the store at construction when enabled, then
+        # kept current incrementally under the same write lock that guards the vector index.
+        self.reflex_index = ReflexIndex()
+        self._hotset: dict[str, "deque"] = {}
+        self._hotset_lock = threading.Lock()
+        if self.settings.reflex_recall_enabled:
+            self.reflex_index.rebuild_from_store(self.store)
         # One shared wake/sleep/idle/repair coordinator (Phase 1) -- API and MCP route through it.
         from .lifecycle import LifecycleController
         self.lifecycle = LifecycleController(self)
@@ -227,6 +240,8 @@ class Engine:
             self._maybe_save_index()
             self.store.upsert_record(record)
             self.retriever.index_lexical(record)
+            if self.settings.reflex_recall_enabled:
+                self.reflex_index.add_record(record)
 
         # Synaptic tagging and capture: a salient event up-weights temporally adjacent
         # in-scope memories (FSRS priority only -- never the ranking score). Skipped on the
@@ -310,6 +325,8 @@ class Engine:
                 self.index.add(r.memory_id, v, sc.build_structure_code(r, self.settings.struct_dim))
             self.index.save()
             self._ingest_since_save = 0
+            if self.settings.reflex_recall_enabled:
+                self.reflex_index.rebuild_from_store(self.store)
         return {"rebuilt": len(recs)}
 
     def ingest_many(self, items, *, valid_at: Optional[float] = None,
@@ -358,6 +375,8 @@ class Engine:
                                sc.build_structure_code(rec, self.settings.struct_dim))
                 self.store.upsert_record(rec)
                 self.retriever.index_lexical(rec, save=False)
+                if self.settings.reflex_recall_enabled:
+                    self.reflex_index.add_record(rec)
                 out.append(rec)
             self.index.save()
             self.retriever.save_lexical()
@@ -441,6 +460,44 @@ class Engine:
         return self.ingest(from_bytes(data, filename, self.client, source), valid_at=valid_at,
                            extract_graph=extract_graph, scope=scope, consolidate_now=consolidate_now)
 
+    # ---- reflex recall: the sub-second LOCAL candidate path ----------------
+    def _hotset_ids(self, namespace: str) -> set:
+        with self._hotset_lock:
+            dq = self._hotset.get(namespace)
+            return set(dq) if dq else set()
+
+    def _touch_hotset(self, namespace: str, ids) -> None:
+        """Record recently-recalled memory_ids per namespace (a small bounded working set). This is
+        an ACCESS-recency signal feeding only the reflex hot-set axis -- never a memory-AGE term, so
+        age-independence is preserved. Maintained only when reflex recall is enabled."""
+        ids = [i for i in (ids or []) if i]
+        if not ids:
+            return
+        with self._hotset_lock:
+            dq = self._hotset.get(namespace)
+            if dq is None:
+                dq = deque(maxlen=max(1, self.settings.reflex_hotset_size))
+                self._hotset[namespace] = dq
+            for i in ids:
+                dq.append(i)
+
+    def reflex_recall(self, query: str, *, scope: Optional[Scope] = None,
+                      as_of: Optional[float] = None, emit: bool = True) -> MemoryPacket:
+        """Build a local MemoryPacket for `query` with NO model call (no embed, no NLI, no reader).
+        This is the anti-RAG recall surface API/MCP expose and the ask() fast path consumes. The
+        index is built lazily from the store on first use if it was not built at construction."""
+        scope = scope or Scope()
+        self.reflex_index.ensure_built(self.store)
+        packet = build_memory_packet(query, scope, store=self.store, graph=self.graph,
+                                     index=self.reflex_index, settings=self.settings,
+                                     as_of=as_of, hot_ids=self._hotset_ids(scope.namespace))
+        if emit and self.settings.brain_events_enabled:
+            hit = packet.coverage >= self.settings.reflex_min_coverage and bool(packet.items)
+            self._brain(BrainEventType.REFLEX_HIT if hit else BrainEventType.REFLEX_MISS,
+                        namespace=scope.namespace, memory_ids=packet.candidate_ids(),
+                        coverage=packet.coverage, latency_ms=packet.latency_ms.get("total"))
+        return packet
+
     # ---- wake: read path --------------------------------------------------
     def ask(self, query: str, *, at: Optional[float] = None, verify: bool = True,
             scope: Optional[Scope] = None, as_of: Optional[float] = None,
@@ -473,11 +530,31 @@ class Engine:
             if hit is not None:
                 return hit
 
+        # Track 1 Reflex Recall: try the LOCAL fast path first. On a confident hit, feed the reflex
+        # candidates to the reader as `precomputed` (skipping ANN/rerank, with no embed/NLI in the
+        # recall itself); NLI/abstention/proof still gate the FINAL answer. On a low-coverage miss,
+        # fall back to full retrieval. Flag-off -> this block never runs (baseline byte-identical).
+        reflex_candidates = None
+        if self.settings.reflex_recall_enabled:
+            packet = self.reflex_recall(query, scope=scope, as_of=read_at, emit=False)
+            if packet.coverage >= self.settings.reflex_min_coverage and packet.items:
+                reflex_candidates = packet.to_candidates()
+                self._brain(BrainEventType.REFLEX_HIT, namespace=scope.namespace,
+                            memory_ids=packet.candidate_ids(), coverage=packet.coverage,
+                            latency_ms=packet.latency_ms.get("total"))
+            else:
+                self._brain(BrainEventType.REFLEX_MISS, namespace=scope.namespace,
+                            coverage=packet.coverage)
+                self._brain(BrainEventType.REFLEX_FALLBACK, namespace=scope.namespace)
+
         # When the idle learner is fed, retrieve candidates explicitly so per-channel
         # contributions are available for feedback; otherwise answer() retrieves internally
         # exactly as before (the default call signature is unchanged).
         precomputed = None
-        if self.settings.feedback_enabled:
+        if reflex_candidates is not None:
+            ans = self.retriever.answer(query, at=read_at, verify=verify, scope=scope, qvec=qvec,
+                                        precomputed=reflex_candidates, reader_model=reader_model)
+        elif self.settings.feedback_enabled:
             precomputed = self.retriever.retrieve(query, at=read_at, scope=scope, qvec=qvec)
             ans = self.retriever.answer(query, at=read_at, verify=verify, scope=scope, qvec=qvec,
                                         precomputed=precomputed, reader_model=reader_model)
@@ -531,6 +608,10 @@ class Engine:
                 self.index.save()
         if self.settings.feedback_enabled and precomputed is not None:
             self._emit_feedback(scope, query, qvec, precomputed, confirmed)
+        # Reflex hot working set: remember what this recall confirmed (or cited) so the next reflex
+        # burst can prefer it. Access-recency only -- never a memory-age term.
+        if self.settings.reflex_recall_enabled:
+            self._touch_hotset(scope.namespace, confirmed or [c.memory_id for c in ans.citations])
         # Connected Brain Loop: project the answer onto the improvement stream (gated).
         if self.settings.brain_events_enabled:
             cited = [c.memory_id for c in ans.citations]

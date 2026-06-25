@@ -313,6 +313,10 @@ class BrainEventType(str, Enum):
     RATE_LIMITED = "rate_limited"              # F1: a governed call hit a 429 and backed off
     CACHE_HIT = "cache_hit"                    # S4: a recall served from cache (proof/health note)
     INTEGRITY_CHECKED = "integrity_checked"    # C1: an operation-level integrity scan ran
+    # Track 1 Reflex Recall: the sub-second local candidate path's outcome on the ask() path.
+    REFLEX_HIT = "reflex_hit"                  # reflex packet was confident -> fed the reader
+    REFLEX_MISS = "reflex_miss"                # reflex coverage below the bar
+    REFLEX_FALLBACK = "reflex_fallback"        # a miss routed to full retrieval
 
 
 class BrainEvent(BaseModel):

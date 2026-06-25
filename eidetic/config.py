@@ -319,6 +319,30 @@ class Settings:
     # Difficulty-adaptive retrieval depth: easy single-hop queries return fewer candidates (pay less).
     difficulty_adaptive_depth_enabled: bool = field(default_factory=lambda: _get_bool("DIFFICULTY_ADAPTIVE_DEPTH", "0"))
 
+    # --- Track 1 Reflex Recall: the anti-RAG sub-second LOCAL candidate path (all default OFF) ---
+    # A reflex packet is built from a derived inverted index + live graph/store reads -- NO model
+    # call, NO embedding, NO NLI. When confident (top coverage >= reflex_min_coverage) the engine
+    # feeds the reflex candidates to answer() as `precomputed`, skipping ANN/rerank; otherwise it
+    # falls back to full retrieval. NLI/abstention/proof still gate every FINAL answer. The index
+    # is maintained ONLY when enabled, so REFLEX_RECALL=0 is byte-identical to baseline.
+    reflex_recall_enabled: bool = field(default_factory=lambda: _get_bool("REFLEX_RECALL", "0"))
+    reflex_budget_ms: int = field(default_factory=lambda: _get_int("REFLEX_RECALL_BUDGET_MS", 100))
+    # A reflex HIT requires the top candidate's content coverage to clear this. It is also the
+    # `dense_score` the candidate carries into answer(), so a hit is always >= abstention_threshold
+    # (no confident reflex hit can spuriously abstain on coverage).
+    reflex_min_coverage: float = field(default_factory=lambda: float(_get("REFLEX_RECALL_MIN_COVERAGE", "0.65")))
+    reflex_topk: int = field(default_factory=lambda: _get_int("REFLEX_RECALL_TOPK", 20))
+    reflex_max_seeds: int = field(default_factory=lambda: _get_int("REFLEX_RECALL_MAX_SEEDS", 400))
+    reflex_coact_seeds: int = field(default_factory=lambda: _get_int("REFLEX_RECALL_COACT_SEEDS", 8))
+    # Activation-burst score weights. The temporal axis ranks by overlap with the QUERY's time
+    # constraint, never by memory recency -- age-independence is preserved (re-prove after enabling).
+    reflex_w_entity: float = field(default_factory=lambda: float(_get("REFLEX_W_ENTITY", "1.0")))
+    reflex_w_lexical: float = field(default_factory=lambda: float(_get("REFLEX_W_LEXICAL", "1.0")))
+    reflex_w_temporal: float = field(default_factory=lambda: float(_get("REFLEX_W_TEMPORAL", "0.7")))
+    reflex_w_coactivation: float = field(default_factory=lambda: float(_get("REFLEX_W_COACTIVATION", "0.5")))
+    reflex_w_hotset: float = field(default_factory=lambda: float(_get("REFLEX_W_HOTSET", "0.3")))
+    reflex_hotset_size: int = field(default_factory=lambda: _get_int("REFLEX_HOTSET_SIZE", 64))
+
     # --- Connected Brain Loop: observation-only spine (all default OFF; baseline byte-identical) -
     # RecallTrace: the retriever records WHY it found/missed (enabled channels, per-channel rankings
     # and weights, fused scores, gist provenance, stage latency, dropped candidates). It is a pure
