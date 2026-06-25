@@ -103,6 +103,25 @@ def test_packet_candidate_ids_are_deterministic(fresh_settings):
     assert a == b
 
 
+def test_strong_lexical_only_query_is_a_confident_hit(fresh_settings):
+    """A lowercase query with no extractable entity and no time window (entity/temporal/hot all 0)
+    but a strong lexical match MUST still clear reflex_min_coverage -- otherwise reflex never fires
+    on ordinary queries and only capitalized-entity / temporal queries activate the fast path."""
+    p = _packet(fresh_settings, "quarterly revenue figures summary",
+                [_rec("m1", "the quarterly revenue figures summary was published")])
+    assert p.scores["m1"].entity == 0.0
+    assert p.scores["m1"].temporal == 0.0
+    assert p.coverage >= fresh_settings.reflex_min_coverage
+
+
+def test_weak_lexical_overlap_is_a_miss(fresh_settings):
+    """Precision guard: only a small fraction of query terms present -> below the bar -> the reflex
+    coverage must stay under reflex_min_coverage so a recalibrated gate never feeds junk candidates."""
+    p = _packet(fresh_settings, "alpha beta gamma delta epsilon omega",
+                [_rec("m1", "alpha completely unrelated content here today")])
+    assert p.coverage < fresh_settings.reflex_min_coverage
+
+
 def test_packet_public_dict_is_serializable_without_record_bodies(fresh_settings):
     p = _packet(fresh_settings, "Helios revenue", [_rec("m1", "Helios revenue grew")])
     pub = p.public_dict()

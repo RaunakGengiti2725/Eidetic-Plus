@@ -137,6 +137,22 @@ def test_consolidate_pending_indexes_extracted_entities(fresh_settings):
     assert mid in e.reflex_index.seeds("default", entities=["Zephyr"], terms=[])
 
 
+def test_reflex_hit_sets_a_fresh_recall_trace(fresh_settings):
+    """A reflex hit bypasses retrieve() (where last_trace is built), so proof recall-paths and
+    channel-win telemetry would otherwise read a STALE trace from a prior query. The hit must set
+    an honest reflex trace for the current query."""
+    e = _engine(fresh_settings, reflex_recall_enabled=True, recall_trace_enabled=True,
+                brain_events_enabled=True, semantic_cache_enabled=False)
+    e.ingest_text("The Helios project quarterly revenue was 4.2 million dollars",
+                  source="memo", extract_graph=False, consolidate_now=False)
+    e.ask("What was the Helios project revenue?")
+    tr = e.retriever.last_trace
+    assert tr is not None
+    assert tr.query == "What was the Helios project revenue?"
+    assert "reflex" in tr.enabled_channels
+    assert tr.selected_candidates
+
+
 def test_reflex_recall_event_types_exist():
     for name in ("REFLEX_HIT", "REFLEX_MISS", "REFLEX_FALLBACK"):
         assert hasattr(BrainEventType, name)

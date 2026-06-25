@@ -113,7 +113,12 @@ def build_memory_packet(query: str, scope: Optional[Scope] = None, *, store, gra
         if temporal > 0.0:
             temporal_match_ids.append(mid)
         hot = 1.0 if mid in hot_ids else 0.0
-        match_strength = _clamp01(0.55 * lexical + 0.45 * entity + 0.15 * temporal + 0.1 * hot)
+        # Content coverage is the STRONGER of the two content axes (a perfect lexical-only match is
+        # a confident hit, not a half one), with a small bonus when both fire, then small time/hot
+        # bonuses. Bounded to [0,1]; it becomes the candidate's dense_score, and reflex_min_coverage
+        # stays >= abstention_threshold so a hit can never spuriously abstain on coverage.
+        content = max(lexical, entity) + 0.2 * min(lexical, entity)
+        match_strength = _clamp01(content + 0.1 * temporal + 0.05 * hot)
         scores[mid] = ReflexScore(entity=entity, lexical=lexical, temporal=temporal,
                                   hotset=hot, match_strength=match_strength)
         axes = [name for name, val in (("entity", entity), ("lexical", lexical),

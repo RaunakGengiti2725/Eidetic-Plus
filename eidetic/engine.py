@@ -544,6 +544,16 @@ class Engine:
                 self._brain(BrainEventType.REFLEX_HIT, namespace=scope.namespace,
                             memory_ids=packet.candidate_ids(), coverage=packet.coverage,
                             latency_ms=packet.latency_ms.get("total"))
+                # A reflex hit skips retrieve(), where last_trace is built. Set an honest reflex
+                # trace so proof recall-paths and channel-win telemetry attribute THIS query (not a
+                # stale one) to the reflex channel. Only meaningful when trace/brain is observing.
+                if self.settings.recall_trace_enabled or self.settings.brain_events_enabled:
+                    self.retriever.last_trace = RecallTrace(
+                        query=query, scope=scope, enabled_channels=["reflex"],
+                        channel_results={"reflex": packet.candidate_ids()},
+                        fused_scores={c.memory_id: c.score.aggregate for c in packet.items},
+                        selected_candidates=packet.candidate_ids(),
+                        latency_by_stage=dict(packet.latency_ms))
             else:
                 self._brain(BrainEventType.REFLEX_MISS, namespace=scope.namespace,
                             coverage=packet.coverage)
