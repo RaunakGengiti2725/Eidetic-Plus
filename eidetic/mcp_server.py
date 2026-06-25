@@ -134,6 +134,20 @@ def recall(query: str, namespace: str = "default", agent_id: Optional[str] = Non
 
 
 @mcp.tool()
+def reflex_recall(query: str, namespace: str = "default", agent_id: Optional[str] = None,
+                  project_id: Optional[str] = None, as_of: Optional[float] = None) -> dict:
+    """Sub-second LOCAL recall: the candidate memories a query activates, with their provenance
+    (content hash, validity, score breakdown, co-activation paths, supersession chains), built from
+    a derived index + live graph reads with NO model call -- no embedding, no NLI, no reader. Works
+    WITHOUT a key. Scope-filtered. This returns RECALL (candidates), not a verified answer; use
+    `recall` for the NLI-gated, cited answer. Useful as a fast pre-check or a debugging/control
+    view of what the engine would activate."""
+    packet = engine().reflex_recall(query, scope=_scope(namespace, agent_id, project_id),
+                                    as_of=as_of)
+    return packet.public_dict()
+
+
+@mcp.tool()
 def consolidate(namespace: str = "default", agent_id: Optional[str] = None,
                 project_id: Optional[str] = None) -> dict:
     """Run the unified sleep cycle for a scope: consolidate_pending (so pending fast writes flow

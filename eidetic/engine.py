@@ -489,7 +489,13 @@ class Engine:
         This is the anti-RAG recall surface API/MCP expose and the ask() fast path consumes. The
         index is built lazily from the store on first use if it was not built at construction."""
         scope = scope or Scope()
-        self.reflex_index.ensure_built(self.store)
+        # When REFLEX_RECALL is on the index is built + maintained incrementally, so ensure_built is
+        # a no-op. When off it is NOT maintained, so this explicit on-demand call rebuilds from the
+        # store to stay correct against the current state (the store remains the source of truth).
+        if self.settings.reflex_recall_enabled:
+            self.reflex_index.ensure_built(self.store)
+        else:
+            self.reflex_index.rebuild_from_store(self.store)
         packet = build_memory_packet(query, scope, store=self.store, graph=self.graph,
                                      index=self.reflex_index, settings=self.settings,
                                      as_of=as_of, hot_ids=self._hotset_ids(scope.namespace))

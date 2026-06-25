@@ -76,6 +76,11 @@ class AskIn(ScopeIn):
     prove: bool = False
 
 
+class ReflexRecallIn(ScopeIn):
+    query: str
+    as_of: Optional[float] = None
+
+
 # ---- helpers --------------------------------------------------------------
 def _record_brief(rec) -> dict:
     return {
@@ -165,6 +170,17 @@ async def ask(body: AskIn):
         out["proof"] = await run_in_threadpool(
             lambda: engine().prove(ans, with_paths=engine().settings.recall_trace_enabled))
     return out
+
+
+@app.post("/api/reflex_recall")
+async def reflex_recall(body: ReflexRecallIn):
+    """Sub-second LOCAL recall: the MemoryPacket of candidate memories for a query, built from the
+    derived index + live graph/store with NO model call (no embed, no NLI, no reader). Works
+    WITHOUT a key. Mirrors the MCP `reflex_recall` tool. This is recall (candidates + provenance),
+    not a verified answer -- use /api/ask for the NLI-gated answer."""
+    packet = await run_in_threadpool(
+        lambda: engine().reflex_recall(body.query, scope=body.to_scope(), as_of=body.as_of))
+    return packet.public_dict()
 
 
 @app.get("/api/memories")
