@@ -92,22 +92,36 @@ class EideticFullSystem(EideticSystem):
 
     name = "eidetic-plus-full"
 
+    _ABSTAIN_TEXT = "I don't have enough verified evidence in memory to answer that confidently."
+
     def answer(self, namespace: str, question: str,
                as_of: Optional[float] = None) -> AnswerResult:
         scope = Scope(namespace=namespace)
+        r = self.engine.retriever
+        s = self.engine.settings
         t0 = time.perf_counter()
-        cands = self.engine.retriever.retrieve(question, at=as_of, scope=scope)
+        cands = r.retrieve(question, at=as_of, scope=scope)
         search_ms = (time.perf_counter() - t0) * 1000.0
-        ans = self.engine.retriever.answer(question, at=as_of, verify=True, scope=scope,
-                                           precomputed=cands)
+        blocks = r.assemble_context(question, cands, at=as_of, scope=scope)
+        # NEUTRALITY: generate through the SAME fixed reader (model + prompt) as every baseline, so
+        # the scoreboard measures memory, not answerer. The product policy -- NLI verification +
+        # abstention + proof -- is then layered on THAT answer (the honesty differentiator), not on
+        # a stronger private reader. (engine.ask()'s own reader/cascade is a separate latency/quality
+        # feature, deliberately kept OUT of the neutral accuracy comparison.)
+        text = answer_with_fixed_reader(question, blocks)
+        citations, entailed = r._verify_candidates(cands, text, True)
+        verified = entailed > 0
+        coverage = max((c.dense_score for c in cands), default=0.0)
+        if s.abstention_v2_enabled:
+            conf, _sig = r._abstention_confidence(cands, citations)
+            abstained = conf < s.abstention_v2_tau
+        else:
+            abstained = (not verified) and coverage < s.abstention_threshold
         e2e_ms = (time.perf_counter() - t0) * 1000.0
-        blocks = self.engine.retriever.assemble_context(question, cands, at=as_of, scope=scope)
-        ctx_tokens = sum(approx_tokens(b) for b in blocks)
-        abstained = ans.note.startswith("abstained")
         return AnswerResult(
-            answer=ans.answer, context_tokens=ctx_tokens,
+            answer=(self._ABSTAIN_TEXT if abstained else text),
+            context_tokens=sum(approx_tokens(b) for b in blocks),
             search_ms=search_ms, e2e_ms=e2e_ms, abstained=abstained,
-            extra={"verified": bool(ans.verified), "confidence": float(ans.confidence),
-                   "citations": len(ans.citations), "note": ans.note,
-                   "policy": "verify+abstain+proof"},
+            extra={"verified": bool(verified and not abstained), "coverage": coverage,
+                   "citations": len(citations), "policy": "fixed-reader + verify+abstain+proof"},
         )

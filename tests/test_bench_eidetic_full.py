@@ -18,6 +18,7 @@ from eidetic.engine import Engine
 class _FakeReader:
     def __init__(self, dim):
         self.dim = dim
+        self.reader_models = []
 
     def _e(self, t):
         v = np.zeros(self.dim, np.float32)
@@ -35,7 +36,9 @@ class _FakeReader:
     def extract_edges(self, text):
         return []
 
-    def generate_answer(self, q, blocks, model=None):
+    def chat(self, model, system, user, **kw):
+        # the ONE fixed reader path (answer_with_fixed_reader) calls client.chat(READER_MODEL, ...).
+        self.reader_models.append(model)
         return "Alice works at Acme Corporation"
 
     def nli(self, premise, hypothesis):
@@ -47,7 +50,12 @@ def _engine(tmp_path, monkeypatch, **kw):
     monkeypatch.setenv("VECTOR_BACKEND", "numpy")
     get_settings.cache_clear()
     s = replace(get_settings(), rerank_enabled=False, **kw)
-    return Engine(s, client=_FakeReader(s.embed_dim))
+    e = Engine(s, client=_FakeReader(s.embed_dim))
+    # The fixed reader (answer_with_fixed_reader) uses the MODULE-level get_client; point it at the
+    # same fake the engine uses so the offline test exercises the real parity path with no key.
+    from bench import reader as bench_reader
+    monkeypatch.setattr(bench_reader, "get_client", lambda: e.client)
+    return e
 
 
 def test_eidetic_full_applies_verification_and_reports(tmp_path, monkeypatch):
@@ -62,6 +70,11 @@ def test_eidetic_full_applies_verification_and_reports(tmp_path, monkeypatch):
     assert ar.extra["verified"] is True
     assert ar.abstained is False
     assert ar.context_tokens > 0
+    # NEUTRALITY: the product row must answer through the SAME fixed reader as every baseline
+    # (answer_with_fixed_reader -> client.chat(READER_MODEL, ...)), not the product's own qwen3-max
+    # reader -- otherwise an accuracy edge is confounded by answerer strength.
+    from bench import reader as bench_reader
+    assert e.client.reader_models == [bench_reader.READER_MODEL]
     get_settings.cache_clear()
 
 
