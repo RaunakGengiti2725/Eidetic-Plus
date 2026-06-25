@@ -132,3 +132,28 @@ def test_truth_ledger_http_and_mcp(tmp_path, monkeypatch):
         monkeypatch.setattr(api_mod, "_engine", None)
         monkeypatch.setattr(mcp_server, "_engine", None)
         get_settings.cache_clear()
+
+
+def test_truth_ledger_http_preserves_recall_paths(tmp_path, monkeypatch):
+    # ask + truth_ledger must run on ONE threadpool thread, else the thread-local last_trace is lost
+    # and recall_paths silently vanish over HTTP.
+    import pytest
+    pytest.importorskip("starlette")
+    from starlette.testclient import TestClient
+    import eidetic.api as api_mod
+    from eidetic.config import get_settings
+
+    monkeypatch.setenv("DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("VECTOR_BACKEND", "numpy")
+    get_settings.cache_clear()
+    try:
+        eng = Engine(replace(get_settings(), rerank_enabled=False, semantic_cache_enabled=False,
+                             recall_trace_enabled=True), client=_Reader(get_settings().embed_dim))
+        eng.ingest_text("Alice works at Acme Corporation", consolidate_now=False)
+        monkeypatch.setattr(api_mod, "_engine", eng)
+        led = TestClient(api_mod.app).get(
+            "/api/truth_ledger?query=where does Alice work&namespace=default").json()
+        assert led["evidence"] and "recall_paths" in led["evidence"][0]
+    finally:
+        monkeypatch.setattr(api_mod, "_engine", None)
+        get_settings.cache_clear()

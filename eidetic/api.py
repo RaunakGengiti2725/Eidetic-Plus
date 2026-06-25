@@ -193,8 +193,15 @@ async def truth_ledger(query: str, namespace: str = "default", agent_id: Optiona
     (verified / contradicted / abstained / unverified). Needs DASHSCOPE_API_KEY (it answers).
     Mirrors the MCP `truth_ledger` tool."""
     scope = _scope(namespace, agent_id, project_id)
-    ans = await run_in_threadpool(lambda: _guard(engine().ask, query, verify=verify, scope=scope))
-    return await run_in_threadpool(lambda: engine().truth_ledger(ans, scope=scope))
+
+    def _answer_and_prove():
+        # ONE threadpool thread: truth_ledger(with_paths) reads the retriever's THREAD-LOCAL
+        # last_trace, so ask + truth_ledger must run on the same thread or the recall-paths splice
+        # silently sees a foreign/None trace and drops the paths.
+        ans = _guard(engine().ask, query, verify=verify, scope=scope)
+        return engine().truth_ledger(ans, scope=scope)
+
+    return await run_in_threadpool(_answer_and_prove)
 
 
 @app.get("/api/sync_health")
