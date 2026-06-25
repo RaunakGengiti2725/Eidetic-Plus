@@ -27,7 +27,7 @@ from .bm25 import BM25, PersistentBM25
 from .config import Settings, get_settings
 from .conflicts import CurrentValueResolution, resolve_current_value_question
 from .dashscope_client import DashScopeClient
-from .events import parse_query, select_for_query
+from .events import event_chain, parse_query, select_for_query
 from .graph import KnowledgeGraph
 from .models import (Answer, Citation, MemoryRecord, Modality, NLILabel,
                      RecallTrace, RetrievalCandidate, Scope, now)
@@ -710,6 +710,15 @@ class Retriever:
         parsed = parse_query(query, at)
         events = self.store.events_in_scope(scope.namespace)
         event_blocks = [e.as_text() for e in select_for_query(events, parsed, at)[:8]]
+        # Phase 5: a chronological event chain for order/sequence/temporal queries (gated). Selection
+        # + ordering only; the shared reader still computes the answer.
+        chain_blocks: list[str] = []
+        if (self.settings.event_chain_context_enabled
+                and (parsed.get("operation") in ("order", "count") or parsed.get("ranges"))):
+            chain = event_chain(events, parsed, at)
+            if chain:
+                chain_blocks = ["Event timeline (chronological): "
+                                + " -> ".join(e.as_text() for e in chain)]
         pref_blocks = [f"User preference: {p}" for p in self.store.get_profile(scope.namespace)[:3]]
         resolver_blocks = (
             self._conflict_resolution_blocks(query, candidates, at)
@@ -738,7 +747,7 @@ class Retriever:
         # then budgeting truncated from the tail, which is where edge_place puts the 2nd-highest
         # priority block, so a high-priority block was dropped before lower-priority raw chunks.
         budgeted = _budget_blocks(
-            resolver_blocks + event_blocks + pref_blocks + raw_blocks,
+            resolver_blocks + event_blocks + chain_blocks + pref_blocks + raw_blocks,
             self.settings.context_token_budget)
         return edge_place(budgeted)
 

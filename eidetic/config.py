@@ -276,6 +276,10 @@ class Settings:
     # into salience via affect_w_helpful. Bounding is the age-leakage guard.
     verified_helpful_cap: int = field(default_factory=lambda: _get_int("VERIFIED_HELPFUL_CAP", 5))
 
+    # Phase 5 event-chain context: for order/sequence/temporal queries, add a chronologically
+    # ordered event chain to the context ('what changed after X'). Off -> context is unchanged.
+    event_chain_context_enabled: bool = field(default_factory=lambda: _get_bool("EVENT_CHAIN_CONTEXT", "0"))
+
     # --- Connected Brain Loop: observation-only spine (all default OFF; baseline byte-identical) -
     # RecallTrace: the retriever records WHY it found/missed (enabled channels, per-channel rankings
     # and weights, fused scores, gist provenance, stage latency, dropped candidates). It is a pure

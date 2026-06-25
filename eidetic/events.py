@@ -231,3 +231,20 @@ def select_for_query(events: list[EventRecord], parsed: dict,
     # broad entity like "Caroline" from drowning the specific "LGBTQ support group" event.
     scored.sort(key=lambda t: (-t[0], t[1].start if t[1].start is not None else 0.0))
     return [ev for _, ev in scored]
+
+
+def event_chain(events: list[EventRecord], parsed: dict,
+                reference_time: Optional[float] = None, *, window: int = 6) -> list[EventRecord]:
+    """Strengthened temporal indexing (Phase 5): for sequence / before-after / 'what changed after
+    X' / order questions, return the matched events in STRICT CHRONOLOGICAL order (the chain), so
+    the reader sees the progression. Deterministic -- selection + ordering only; the SHARED reader
+    still produces the answer (no temporal advantage in code).
+
+    Falls back to all time-stamped in-scope events (chronological) when the entity/range filter
+    matches nothing but the query is clearly chronological -- a bare 'what happened, in order?'."""
+    matched = select_for_query(events, parsed, reference_time)
+    if not matched:
+        matched = [e for e in events if e.start is not None]
+    chrono = sorted((e for e in matched if e.start is not None),
+                    key=lambda e: (e.start, e.end if e.end is not None else e.start))
+    return chrono[:window]
