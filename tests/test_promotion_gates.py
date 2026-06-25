@@ -64,6 +64,11 @@ def test_product_config_passes_quality_gate(fresh_settings):
                                        text="Alice works at Acme", scope=ns, valid_at=100.0))
     e.store.upsert_record(MemoryRecord(memory_id="m2", content_hash="h2",
                                        text="Alice works at Acme", scope=ns, valid_at=1_000_000.0))
+    # a foreign-namespace record with the SAME content -> the no_scope_leak gate now has teeth: a
+    # reflex/store regression that crossed the namespace boundary would surface it as a candidate.
+    e.store.upsert_record(MemoryRecord(memory_id="leak", content_hash="h2",
+                                       text="Alice works at Acme", scope=Scope(namespace="other"),
+                                       valid_at=100.0))
     e.reflex_index.rebuild_from_store(e.store)
 
     raw_before = sorted(r.content_hash for r in e.store.all_records(None))
