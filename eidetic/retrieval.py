@@ -130,6 +130,22 @@ def _hippo2_seed_entities(query: str, parsed: dict, store: RecordStore,
     return list(dict.fromkeys(out))[:16]
 
 
+def _vocab_seed_entities(query: str, corpus: list) -> list[str]:
+    """Graph-seed discovery from in-scope STORE vocabulary: match query tokens against the entity
+    names that actually occur in the scoped corpus (not only capitalized spans the parser caught).
+    This finds graph seeds for lowercase / multi-word entities a NER-style parse would miss."""
+    qterms = set(_TERM_RE.findall(query.lower()))
+    if not qterms:
+        return []
+    out: list[str] = []
+    for r in corpus:
+        for e in getattr(r, "entities", []):
+            el = str(e).lower()
+            if el in qterms or (qterms & set(el.split())):
+                out.append(e)
+    return list(dict.fromkeys(out))[:16]
+
+
 def _budget_blocks(blocks: list[str], token_budget: int) -> list[str]:
     """Token-budget the hybrid context (~4 chars/token) so the slice stays lean
     (lean-beats-full: a precise slice beats stuffing the whole noisy history)."""
@@ -335,6 +351,8 @@ class Retriever:
         seed_entities: list[str] = list(parsed["entities"])
         if s.hippo2_seeding_enabled:
             seed_entities.extend(_hippo2_seed_entities(query, parsed, self.store, at, scope))
+        if s.graph_vocab_seeding:
+            seed_entities.extend(_vocab_seed_entities(query, corpus))
         for mid, _ in dense[:10]:
             seed_entities.extend(records[mid].entities)
         graph_scores = self.graph.score_memories(
@@ -352,6 +370,21 @@ class Retriever:
             rankings.append(graph_order)
             weights.append(wg * (1.6 if parsed["is_multihop"] else 1.0))
             score_maps.append(graph_scores)
+        # Phase-1 multi-view channels (each appends only when its flag is on; neutral path
+        # unchanged when off). Provenance for gist boosts is recorded for prove_answer.
+        self._gist_provenance: dict = {}
+        if s.struct_channel_enabled:
+            so, sm = self._run_struct(parsed, allowed)
+            if so:
+                rankings.append(so); weights.append(s.rrf_w_struct); score_maps.append(sm)
+        if s.event_ranking_enabled:
+            eo, em = self._run_event(parsed, records, at, scope)
+            if eo:
+                rankings.append(eo); weights.append(s.rrf_w_event); score_maps.append(em)
+        if s.gist_channel_enabled:
+            go, gm, self._gist_provenance = self._run_gist(qvec, scope, allowed)
+            if go:
+                rankings.append(go); weights.append(s.rrf_w_gist); score_maps.append(gm)
         if recency_order:
             rankings.append(recency_order)
             weights.append(s.rrf_w_recency)
@@ -401,6 +434,64 @@ class Retriever:
         if not rel:
             return qvec
         return _rocchio.rocchio_expand(qvec, rel, alpha=s.rocchio_alpha, beta=s.rocchio_beta)
+
+    # ---- Phase-1 multi-view retrieval channels (dormant signals, flag-gated) ----------
+    def _run_struct(self, parsed: dict, allowed: set) -> tuple[list[str], dict]:
+        """Structure-code channel: rank by entity/role/modality similarity in STRUCTURE space.
+        Age-safe: the query structure code carries no temporal dimension, and the stored codes
+        encode only cyclic (not absolute-age) time, so this never slopes recall-vs-age."""
+        from . import structure_code as _sc
+        qstruct = _sc.build_query_structure_code(list(parsed.get("entities", [])),
+                                                 self.settings.struct_dim)
+        try:
+            hits = self.index.search_struct(qstruct, self.settings.ann_topk)
+        except Exception:
+            return [], {}
+        hits = [(mid, sc) for mid, sc in hits if mid in allowed]
+        return [mid for mid, _ in hits], dict(hits)
+
+    def _run_event(self, parsed: dict, records: dict, at, scope: Scope) -> tuple[list[str], dict]:
+        """Event-overlap channel: promote memories whose normalized event interval matches the
+        QUERY's temporal constraint (filter/count/order). Ranks by query-time match, NOT by the
+        memory's age, so it does not affect the flat recall-vs-age curve."""
+        events = self.store.events_in_scope(scope.namespace)
+        if not events:
+            return [], {}
+        matched = select_for_query(events, parsed, at)
+        order, m = [], {}
+        n = len(matched)
+        for rank, ev in enumerate(matched):
+            mid = getattr(ev, "source_memory_id", "")
+            if mid and mid in records and mid not in m:
+                order.append(mid)
+                m[mid] = float(n - rank)        # higher = earlier in the temporal match order
+        return order, m
+
+    def _run_gist(self, qvec, scope: Scope, allowed: set) -> tuple[list[str], dict, dict]:
+        """Derived-gist channel: a gist that matches the query boosts its RAW member memories
+        (gists help recall but never replace raw evidence). Returns (order, score_map, provenance:
+        member_id -> gist cid) so prove_answer can show recall came via a gist."""
+        gists = self.store.derived_in_scope(scope.namespace)
+        if not gists or qvec is None:
+            return [], {}, {}
+        q = np.asarray(qvec, dtype=np.float32)
+        qn = float(np.linalg.norm(q)) + 1e-9
+        scored = []
+        for g in gists:
+            if not getattr(g, "vector", None):
+                continue
+            gv = np.asarray(g.vector, dtype=np.float32)
+            sim = float(gv @ q / ((np.linalg.norm(gv) + 1e-9) * qn))
+            scored.append((g, sim))
+        scored.sort(key=lambda x: -x[1])
+        order, m, prov = [], {}, {}
+        for g, sim in scored[:8]:
+            for mid in getattr(g, "member_ids", []):
+                if mid in allowed and mid not in m:
+                    order.append(mid)
+                    m[mid] = max(0.0, sim)
+                    prov[mid] = g.cid
+        return order, m, prov
 
     # ---- fusion + final selection ----------------------------------------
     def _fuse(self, rankings: list[list[str]], score_maps: list[dict],

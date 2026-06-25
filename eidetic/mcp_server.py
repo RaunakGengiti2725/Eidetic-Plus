@@ -106,15 +106,19 @@ def remember(content: str, namespace: str = "default", agent_id: Optional[str] =
 
 @mcp.tool()
 def recall(query: str, namespace: str = "default", agent_id: Optional[str] = None,
-           project_id: Optional[str] = None, limit: int = 10, verify: bool = True) -> dict:
+           project_id: Optional[str] = None, limit: int = 10, verify: bool = True,
+           prove: bool = False) -> dict:
     """Retrieve relevant prior memories for a query within a scope. Returns a verified answer
     plus the cited immutable sources (hash, timestamp, NLI label, score) so the calling app can
-    cite them, or an explicit abstention. Never confabulates. Needs DASHSCOPE_API_KEY."""
+    cite them, or an explicit abstention. Set prove=True to also return a machine-readable proof
+    tree. Never confabulates. Needs DASHSCOPE_API_KEY."""
     try:
         ans = engine().ask(query, verify=verify, scope=_scope(namespace, agent_id, project_id))
         out = ans.model_dump()
         if isinstance(out.get("citations"), list) and limit and limit > 0:
             out["citations"] = out["citations"][:limit]
+        if prove:
+            out["proof"] = engine().prove(ans)
         return out
     except ModelCallError as e:
         raise RuntimeError(
@@ -207,6 +211,15 @@ def stats(namespace: str = "default", agent_id: Optional[str] = None,
     """Scope-level counts: number of memories, edges, indexed vectors, backend, key presence.
     Read-only, no fabricated numbers, works without a key."""
     return engine().stats(scope=_scope(namespace, agent_id, project_id))
+
+
+@mcp.tool()
+def health_report(namespace: str = "default", agent_id: Optional[str] = None,
+                  project_id: Optional[str] = None) -> dict:
+    """Read-only self-diagnosis of a scope: coverage, contradiction load, low-confidence and
+    inferred facts, derived/replay debt, orphan records, and age spread. Every figure is counted
+    from the store, never fabricated. Works without a key."""
+    return engine().memory_health_report(scope=_scope(namespace, agent_id, project_id))
 
 
 def main() -> None:

@@ -734,3 +734,43 @@ class Engine:
             "has_api_key": self.settings.has_api_key,
             "scope": scope.model_dump() if scope else None,
         }
+
+    def memory_health_report(self, scope: Optional[Scope] = None) -> dict:
+        """Read-only self-diagnosis of a scope: coverage, contradiction load, low-confidence and
+        inferred facts, derived/replay debt, orphan records, and age spread. No model call, no
+        fabricated numbers; every figure is counted from the store."""
+        scope = scope or Scope()
+        ns = scope.namespace
+        recs = self.store.all_records(scope)
+        edges = self.store.all_edges(scope)
+        now_t = now()
+        closed = sum(1 for e in edges if e.expired_at is not None or e.invalid_at is not None)
+        inferred = sum(1 for e in edges if getattr(e, "inferred", False))
+        low_conf = sum(1 for e in edges if getattr(e, "confidence", 1.0) < 0.5)
+        pruned = sum(1 for e in edges if getattr(e, "pruned", False))
+        orphans = sum(1 for r in recs if not r.entities)
+        distinct_entities = {e.lower() for r in recs for e in r.entities}
+        ages = [r.age_days(now_t) for r in recs]
+        gists = self.store.derived_count(ns)
+        return {
+            "scope": scope.model_dump(),
+            "memories": len(recs),
+            "edges": len(edges),
+            "derived_gists": gists,
+            "events": len(self.store.events_in_scope(ns)),
+            "distinct_entities": len(distinct_entities),
+            "contradiction_load": closed,        # bi-temporally closed (superseded) edges
+            "inferred_edges": inferred,
+            "low_confidence_edges": low_conf,
+            "pruned_edges": pruned,
+            "orphan_records": orphans,           # records with no extracted entities
+            "replay_debt": max(0, len(recs) - gists),   # raw memories not yet consolidated to a gist
+            "age_days_min": min(ages) if ages else 0.0,
+            "age_days_max": max(ages) if ages else 0.0,
+            "has_api_key": self.settings.has_api_key,
+        }
+
+    def prove(self, answer) -> dict:
+        """Proof tree for an Answer (provenance as a first-class output). Read-only."""
+        from .proofs import prove_answer
+        return prove_answer(answer)

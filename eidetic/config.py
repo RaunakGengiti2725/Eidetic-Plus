@@ -216,6 +216,20 @@ class Settings:
     cove_enabled: bool = field(default_factory=lambda: _get_bool("COVE", "0"))
     debate_enabled: bool = field(default_factory=lambda: _get_bool("DEBATE", "0"))
 
+    # --- Phase-1 multi-view retrieval channels (Memory Agent Upgrade; all default OFF) ---
+    # Each wires a dormant signal into the fused candidate ranking. Age-independence is preserved:
+    # the structure code encodes only CYCLIC temporal coordinates (never absolute age, see
+    # structure_code.py) and the query structure code has no temporal dims; the event channel ranks
+    # by overlap with the QUERY's time constraint, not the memory's age. Re-prove with
+    # engine.prove_age_independence after enabling.
+    struct_channel_enabled: bool = field(default_factory=lambda: _get_bool("STRUCT_CHANNEL", "0"))
+    rrf_w_struct: float = field(default_factory=lambda: float(_get("RRF_W_STRUCT", "0.5")))
+    event_ranking_enabled: bool = field(default_factory=lambda: _get_bool("EVENT_RANKING", "0"))
+    rrf_w_event: float = field(default_factory=lambda: float(_get("RRF_W_EVENT", "0.7")))
+    gist_channel_enabled: bool = field(default_factory=lambda: _get_bool("GIST_CHANNEL", "0"))
+    rrf_w_gist: float = field(default_factory=lambda: float(_get("RRF_W_GIST", "0.4")))
+    graph_vocab_seeding: bool = field(default_factory=lambda: _get_bool("GRAPH_VOCAB_SEEDING", "0"))
+
     # --- Dreaming engine: token-free continuous consolidation (all sweepable) -----------
     # Replay priority = surprise^w_s * need^w_n * (1-retrievability)^w_r (exponents).
     dream_replay_topk: int = field(default_factory=lambda: _get_int("DREAM_REPLAY_TOPK", 32))
