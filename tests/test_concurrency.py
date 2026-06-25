@@ -70,6 +70,38 @@ def test_concurrent_ingest_search_save_no_corruption(fresh_settings):
     assert len(make_vector_index(fresh_settings)) == total
 
 
+def test_quantized_index_lockfree_search_during_adds_no_oob(tmp_path):
+    # Quantized backend: locked writers + lock-free searchers (the F0 model). A search must never
+    # index a stale code array out of bounds while a concurrent add enlarges the index.
+    from eidetic.vector_index import QuantizedVectorIndex
+    idx = QuantizedVectorIndex(tmp_path, dim=16, struct_dim=4, kind="sq8", refine=True,
+                               refine_topn=10)
+    rng = np.random.default_rng(0)
+    lock = threading.Lock()
+    errors: list = []
+
+    def adder(i):
+        for j in range(20):
+            with lock:                          # writers serialize (the engine write lock)
+                idx.add(f"m{i}-{j}", rng.standard_normal(16).astype(np.float32))
+
+    def searcher():
+        try:
+            for _ in range(60):                 # searches are lock-free
+                idx.search(rng.standard_normal(16).astype(np.float32), 5)
+        except Exception as e:
+            errors.append(repr(e))
+
+    threads = ([threading.Thread(target=adder, args=(i,)) for i in range(4)]
+               + [threading.Thread(target=searcher) for _ in range(4)])
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert not errors, errors
+    assert len(idx) == 80
+
+
 def test_recall_trace_is_thread_local(engine):
     results: dict = {}
     barrier = threading.Barrier(5)

@@ -393,41 +393,49 @@ class QuantizedVectorIndex(NumpyVectorIndex):
             self._codes, _ = _q.rabitq_encode(self.content, self._rotation)
         self._codes_dirty = False
 
-    def _approx(self, qvec: np.ndarray) -> np.ndarray:
+    def _approx(self, qvec: np.ndarray, codes: Optional[np.ndarray] = None) -> np.ndarray:
         from .optim import quantize as _q
+        codes = self._codes if codes is None else codes
         if self.kind == "sq8":
-            return _q.sq8_scores(self._codes, qvec)
+            return _q.sq8_scores(codes, qvec)
         qpacked, _ = _q.rabitq_encode(qvec, self._rotation)
-        return _q.rabitq_cosine_estimate(_q.rabitq_hamming(self._codes, qpacked[0]),
-                                         self._code_dim)
+        return _q.rabitq_cosine_estimate(_q.rabitq_hamming(codes, qpacked[0]), self._code_dim)
 
     def search(self, query_vec, k, allowed_ids=None, ef=None):
-        if not self.ids:
+        # Snapshot ids/content/codes once and clamp to the common prefix, so a concurrent lock-free
+        # add() (which appends ids + reassigns content + marks codes dirty) can never index a stale
+        # code array out of bounds. Same discipline as NumpyVectorIndex._topk.
+        ids = self.ids
+        if not ids:
             return []
         self._ensure_codes()
-        if self._codes is None:
+        codes, content = self._codes, self.content
+        if codes is None:
+            return []
+        n = min(len(ids), content.shape[0], codes.shape[0])
+        if n == 0:
             return []
         if allowed_ids is not None:
-            pos = np.array([i for i, mid in enumerate(self.ids) if mid in allowed_ids])
+            pos = np.array([i for i in range(n) if ids[i] in allowed_ids])
             if pos.size == 0:
                 return []
         else:
-            pos = np.arange(len(self.ids))
-        approx = self._approx(query_vec)[pos]
+            pos = np.arange(n)
+        approx = self._approx(query_vec, codes)[pos]
         if self.refine:
             n_short = min(max(self.refine_topn, k), pos.size)
             local = np.argpartition(-approx, n_short - 1)[:n_short]
             sl = pos[local]
             q = _normalize(query_vec)
-            sims = self.content[sl] @ q
+            sims = content[sl] @ q
             kk = min(k, sims.shape[0])
             top = np.argpartition(-sims, kk - 1)[:kk]
             top = top[np.argsort(-sims[top])]
-            return [(self.ids[int(sl[i])], float(sims[i])) for i in top]
+            return [(ids[int(sl[i])], float(sims[i])) for i in top]
         kk = min(k, pos.size)
         top = np.argpartition(-approx, kk - 1)[:kk]
         top = top[np.argsort(-approx[top])]
-        return [(self.ids[int(pos[i])], float(approx[i])) for i in top]
+        return [(ids[int(pos[i])], float(approx[i])) for i in top]
 
 
 def make_vector_index(settings: Optional[Settings] = None) -> VectorIndex:
