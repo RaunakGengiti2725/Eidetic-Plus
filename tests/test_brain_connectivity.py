@@ -138,3 +138,21 @@ def test_gist_channel_does_not_leak_across_scopes(fresh_settings, tmp_path):
     r = Retriever(store, idx, KnowledgeGraph(store), object(), object(), s)
     ids = {c.record.memory_id for c in r.retrieve("q", scope=b, qvec=qvec, use_recency=False)}
     assert ids == {"b1"}                                  # A's gist never surfaces in B's scope
+
+
+# ---- anti-island: the fastest-best-agent waves are wired to the ONE spine (not islands) -----
+def test_anti_island_features_use_the_shared_spine(fresh_settings):
+    e = Engine(replace(fresh_settings, brain_events_enabled=True))
+    # (d) writes go through the lock; (c) model calls go through the governor.
+    assert hasattr(e, "_write_lock")
+    assert getattr(e.client, "_governor", None) is not None
+    # the spine carries an event type for each new operation.
+    for name in ("REEMBED_DEFERRED", "SUPERSEDED", "RATE_LIMITED", "CACHE_HIT", "INTEGRITY_CHECKED"):
+        assert hasattr(BrainEventType, name)
+    # (a) emit + (b) schedule: deferred re-embed emits REEMBED_DEFERRED and is drained by the kernel.
+    e._enqueue_reembed(["m1"])
+    assert e.brain_log.by_type(BrainEventType.REEMBED_DEFERRED)
+    assert "reembed_drain" in e.lifecycle.idle_tick()          # reachable from a LifecycleController loop
+    # the integrity scan emits its own event (consumes the stream, not a private log).
+    e.integrity_report()
+    assert e.brain_log.by_type(BrainEventType.INTEGRITY_CHECKED)

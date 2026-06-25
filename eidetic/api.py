@@ -243,6 +243,33 @@ async def health_report(namespace: str = "default", agent_id: Optional[str] = No
     return await run_in_threadpool(engine().memory_health_report, scope)
 
 
+@app.get("/api/value_as_of")
+async def value_as_of(entity: str, relation: str, as_of: Optional[float] = None,
+                      namespace: str = "default", agent_id: Optional[str] = None,
+                      project_id: Optional[str] = None):
+    """C2 time-travel: deterministic value of (entity, relation) valid at `as_of` (mirrors MCP)."""
+    scope = _scope(namespace, agent_id, project_id)
+    out = await run_in_threadpool(lambda: engine().value_as_of(entity, relation, as_of=as_of, scope=scope))
+    return out if out is not None else {"value": None, "note": "no fact valid as of that time"}
+
+
+@app.get("/api/fact_history")
+async def fact_history(entity: str, relation: str, namespace: str = "default",
+                       agent_id: Optional[str] = None, project_id: Optional[str] = None):
+    """C2 current-vs-historical supersession chain for (entity, relation) (mirrors MCP)."""
+    scope = _scope(namespace, agent_id, project_id)
+    hist = await run_in_threadpool(lambda: engine().fact_history(entity, relation, scope=scope))
+    return {"history": hist}
+
+
+@app.get("/api/integrity_report")
+async def integrity_report(namespace: str = "default", agent_id: Optional[str] = None,
+                           project_id: Optional[str] = None):
+    """C1 operation-level integrity report (mirrors MCP). Read-only, no key."""
+    scope = _scope(namespace, agent_id, project_id)
+    return await run_in_threadpool(engine().integrity_report, scope)
+
+
 @app.get("/api/scratchpad")
 async def scratchpad(namespace: str = "default", agent_id: Optional[str] = None,
                      project_id: Optional[str] = None):

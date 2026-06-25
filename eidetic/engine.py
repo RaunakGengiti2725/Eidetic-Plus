@@ -771,9 +771,12 @@ class Engine:
             # is tolerated by the LongMemEval temporal judge.)
             ev_range = self._event_epochs(date_ranges, rec.valid_at)
             for t in triples:
-                self.graph.add_fact(t["src"], t["relation"], t["dst"], fact=t["fact"],
-                                    source_memory_id=rec.memory_id, valid_at=rec.valid_at,
-                                    scope=rec.scope)
+                _edge, invalidated = self.graph.add_fact(
+                    t["src"], t["relation"], t["dst"], fact=t["fact"],
+                    source_memory_id=rec.memory_id, valid_at=rec.valid_at, scope=rec.scope)
+                if invalidated:                     # C2: an update closed an older edge
+                    self._brain(BrainEventType.SUPERSEDED, namespace=rec.scope.namespace,
+                                memory_ids=[rec.memory_id], closed=len(invalidated))
                 facts += 1
                 self.store.add_event(EventRecord(
                     subject=t["src"], verb=t["relation"], object=t["dst"], fact=t["fact"],
@@ -1085,6 +1088,63 @@ class Engine:
             "brain_health_score": round(score, 4),
             "components": {k: round(v, 4) for k, v in components.items()},
             "events": counts, "channel_wins": dict(wins),
+        }
+
+    def value_as_of(self, entity: str, relation: str, *, as_of: Optional[float] = None,
+                    scope: Optional[Scope] = None) -> Optional[dict]:
+        """C2 time-travel: the value of (entity, relation) VALID at `as_of` (now() if None), chosen
+        DETERMINISTICALLY from bi-temporal edges -- not an LLM guess. None if nothing was valid then.
+        This is the 'where did Alice work on date X' primitive Mem0 cannot answer."""
+        from .graph import _norm
+        scope = scope or Scope()
+        at = now() if as_of is None else as_of
+        cands = [e for e in self.store.all_edges(scope)
+                 if _norm(e.src) == _norm(entity) and _norm(e.relation) == _norm(relation)
+                 and not getattr(e, "inferred", False) and e.is_active_at(at)]
+        if not cands:
+            return None
+        best = max(cands, key=lambda e: (e.valid_at, e.created_at))
+        return {"entity": entity, "relation": relation, "value": best.dst,
+                "valid_at": best.valid_at, "as_of": at, "source_memory_id": best.source_memory_id}
+
+    def fact_history(self, entity: str, relation: str, *,
+                     scope: Optional[Scope] = None) -> list[dict]:
+        """C2 current-vs-historical: the full superseded chain for (entity, relation), oldest first,
+        each with its validity window. Closed facts are RETAINED (never deleted) -- the visible
+        supersession primitive the Mem0 issue says is missing."""
+        from .graph import _norm
+        scope = scope or Scope()
+        now_t = now()
+        edges = [e for e in self.store.all_edges(scope)
+                 if _norm(e.src) == _norm(entity) and _norm(e.relation) == _norm(relation)
+                 and not getattr(e, "inferred", False)]
+        edges.sort(key=lambda e: (e.valid_at, e.created_at))
+        return [{"value": e.dst, "valid_at": e.valid_at, "invalid_at": e.invalid_at,
+                 "current": e.is_active_at(now_t), "source_memory_id": e.source_memory_id}
+                for e in edges]
+
+    def integrity_report(self, scope: Optional[Scope] = None) -> dict:
+        """C1 operation-level integrity (HaluMem-style), provable from the BrainEvent stream + the
+        store. Every rate is counted, never fabricated. Emits INTEGRITY_CHECKED. Needs BRAIN_EVENTS
+        on (and traced recalls) for the answer-rate figures; the conflict load is always available."""
+        scope = scope or Scope()
+        counts = self.brain_log.counts(scope.namespace)
+        verified = counts.get("answer_verified", 0)
+        abstained = counts.get("answer_abstained", 0)
+        missed = counts.get("retrieval_missed", 0)
+        answered = verified + abstained + missed
+        h = self.memory_health_report(scope)
+        self._brain(BrainEventType.INTEGRITY_CHECKED, namespace=scope.namespace)
+        return {
+            "scope": scope.model_dump(),
+            "answered": answered,
+            # an answered-but-ungrounded recall is the fabrication-risk surface; we abstain instead.
+            "fabrication_rate": round(missed / answered, 4) if answered else 0.0,
+            "abstention_rate": round(abstained / answered, 4) if answered else 0.0,
+            "verified_rate": round(verified / answered, 4) if answered else 0.0,
+            "conflict_load": h["contradiction_load"],          # bi-temporally closed (superseded) edges
+            "superseded_events": counts.get("superseded", 0),
+            "memory_recalled": counts.get("memory_recalled", 0),
         }
 
     def memory_autopsy(self, failed_question: str, *, scope: Optional[Scope] = None,

@@ -230,6 +230,35 @@ def health_report(namespace: str = "default", agent_id: Optional[str] = None,
 
 
 @mcp.tool()
+def value_as_of(entity: str, relation: str, as_of: Optional[float] = None,
+                namespace: str = "default", agent_id: Optional[str] = None,
+                project_id: Optional[str] = None) -> dict:
+    """C2 time-travel: the DETERMINISTIC value of (entity, relation) valid at unix time `as_of`
+    (now if omitted), chosen from the bi-temporal graph -- not an LLM guess. Read-only, no key.
+    Answers 'where did Alice work on date X', which vector-only systems cannot."""
+    out = engine().value_as_of(entity, relation, as_of=as_of,
+                               scope=_scope(namespace, agent_id, project_id))
+    return out if out is not None else {"value": None, "note": "no fact valid as of that time"}
+
+
+@mcp.tool()
+def fact_history(entity: str, relation: str, namespace: str = "default",
+                 agent_id: Optional[str] = None, project_id: Optional[str] = None) -> dict:
+    """C2 current-vs-historical: the full superseded chain for (entity, relation), oldest first,
+    each with its validity window (closed facts retained, never deleted). Read-only, no key."""
+    return {"history": engine().fact_history(entity, relation,
+                                             scope=_scope(namespace, agent_id, project_id))}
+
+
+@mcp.tool()
+def integrity_report(namespace: str = "default", agent_id: Optional[str] = None,
+                     project_id: Optional[str] = None) -> dict:
+    """C1 operation-level integrity: fabrication / abstention / verified rates + conflict load,
+    counted from the BrainEvent stream + the store (never fabricated). Read-only, no key."""
+    return engine().integrity_report(scope=_scope(namespace, agent_id, project_id))
+
+
+@mcp.tool()
 def scratchpad(namespace: str = "default", agent_id: Optional[str] = None,
                project_id: Optional[str] = None) -> dict:
     """The working scratchpad for a scope: high-salience, verified, ACTIVE facts, each linked to its
