@@ -1,0 +1,118 @@
+{
+  "systems": [
+    "eidetic-plus-full",
+    "rag-vector"
+  ],
+  "accuracy": {
+    "eidetic-plus-full|locomo|temporal": {
+      "mean": 1.0,
+      "std": 0.0,
+      "ci95": [
+        0.34238022750665303,
+        1.0
+      ],
+      "successes": 2,
+      "n": 2
+    },
+    "eidetic-plus-full|locomo|open-domain": {
+      "mean": 1.0,
+      "std": 0.0,
+      "ci95": [
+        0.20654931437723745,
+        1.0
+      ],
+      "successes": 1,
+      "n": 1
+    },
+    "rag-vector|locomo|temporal": {
+      "mean": 0.2,
+      "std": 0.0,
+      "ci95": [
+        0.08065766257979806,
+        0.41601743225189364
+      ],
+      "successes": 4,
+      "n": 20
+    },
+    "rag-vector|locomo|open-domain": {
+      "mean": 1.0,
+      "std": 0.0,
+      "ci95": [
+        0.5655175352168251,
+        1.0
+      ],
+      "successes": 5,
+      "n": 5
+    },
+    "rag-vector|locomo|multi-hop": {
+      "mean": 0.4666666666666667,
+      "std": 0.0,
+      "ci95": [
+        0.24809535365737387,
+        0.698830199745016
+      ],
+      "successes": 7,
+      "n": 15
+    }
+  },
+  "head_to_head": {
+    "eidetic-plus-full|rag-vector|locomo|open-domain": {
+      "n": 1,
+      "a_only": 0,
+      "b_only": 0,
+      "both": 1,
+      "neither": 0,
+      "p_mcnemar": 1.0
+    },
+    "eidetic-plus-full|rag-vector|locomo|temporal": {
+      "n": 2,
+      "a_only": 1,
+      "b_only": 0,
+      "both": 1,
+      "neither": 0,
+      "p_mcnemar": 1.0
+    }
+  },
+  "survival": {
+    "eidetic-plus-full|rag-vector|locomo|open-domain": {
+      "runs": [
+        0
+      ],
+      "status": "needs-2-runs"
+    },
+    "eidetic-plus-full|rag-vector|locomo|temporal": {
+      "runs": [
+        0
+      ],
+      "status": "needs-2-runs"
+    }
+  },
+  "cost": {
+    "rag-vector": {
+      "tokens_per_write": 15511,
+      "tokens_per_query": 1882.025
+    },
+    "eidetic-plus-full": {
+      "tokens_per_write": 15511,
+      "tokens_per_query": 7949.333333333333
+    }
+  },
+  "latency": {
+    "rag-vector": {
+      "search_p50": 1322.541833447758,
+      "search_p95": 1703.3501788275312,
+      "e2e_p50": 3856.153729488142,
+      "e2e_p95": 6221.168856241269
+    },
+    "eidetic-plus-full": {
+      "search_p50": 2433.444167021662,
+      "search_p95": 10155.768204759806,
+      "e2e_p50": 11642.735583009198,
+      "e2e_p95": 25006.081758264918
+    }
+  },
+  "judge": {
+    "judge_model": "qwen3-max",
+    "judge_backend": "dashscope"
+  }
+}

@@ -60,6 +60,8 @@ def aggregate(rows: list[dict]) -> dict:
     paired: dict = defaultdict(dict)                         # (ds,cat,sample,run) -> sys -> correct
     systems, cats_by_ds = set(), defaultdict(set)
     for r in rows:
+        if r.get("error"):       # transport/runtime error on this question -> excluded from accuracy
+            continue
         sys, ds, cat = r["system"], r["dataset"], r["category"]
         systems.add(sys)
         cats_by_ds[ds].add(cat)

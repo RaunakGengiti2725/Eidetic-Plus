@@ -1,0 +1,57 @@
+{
+  "systems": [
+    "eidetic-plus-full"
+  ],
+  "accuracy": {
+    "eidetic-plus-full|locomo|temporal": {
+      "mean": 0.42857142857142855,
+      "std": 0.0,
+      "ci95": [
+        0.15821985525146975,
+        0.7495416354723428
+      ],
+      "successes": 3,
+      "n": 7
+    },
+    "eidetic-plus-full|locomo|open-domain": {
+      "mean": 1.0,
+      "std": 0.0,
+      "ci95": [
+        0.20654931437723745,
+        1.0
+      ],
+      "successes": 1,
+      "n": 1
+    },
+    "eidetic-plus-full|locomo|multi-hop": {
+      "mean": 0.75,
+      "std": 0.0,
+      "ci95": [
+        0.30064184258240184,
+        0.9544127391902995
+      ],
+      "successes": 3,
+      "n": 4
+    }
+  },
+  "head_to_head": {},
+  "survival": {},
+  "cost": {
+    "eidetic-plus-full": {
+      "tokens_per_write": 15511,
+      "tokens_per_query": 7957.583333333333
+    }
+  },
+  "latency": {
+    "eidetic-plus-full": {
+      "search_p50": 1903.3319579903036,
+      "search_p95": 2196.7863105994184,
+      "e2e_p50": 10824.725125043187,
+      "e2e_p95": 11723.830654338235
+    }
+  },
+  "judge": {
+    "judge_model": "qwen3-max",
+    "judge_backend": "dashscope"
+  }
+}

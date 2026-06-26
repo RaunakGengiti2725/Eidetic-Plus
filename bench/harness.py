@@ -38,6 +38,7 @@ class QResult:
     age_days: Optional[float] = None
     n_sessions: int = 0
     extra: dict = field(default_factory=dict)
+    error: str = ""          # transport/runtime error on this question (excluded from accuracy)
 
 
 def _group_by_sessions(samples: list[Sample]) -> list[tuple[list, list[Sample]]]:
@@ -103,17 +104,31 @@ def run_system(system: MemorySystem, samples: list[Sample], judge: Judge, *,
                 system.consolidate(ns)
 
                 for s in qs:
-                    ar = system.answer(ns, s.question, as_of=s.question_time)
-                    correct = _judge_sample(judge, s, ar.answer)
-                    qr = QResult(
-                        system=system.name, dataset=s.dataset, category=s.category,
-                        sample_id=s.sample_id, question=s.question, gold=s.gold,
-                        predicted=ar.answer, correct=bool(correct),
-                        write_tokens=write_tokens, query_tokens=ar.context_tokens,
-                        search_ms=ar.search_ms, e2e_ms=ar.e2e_ms, abstained=ar.abstained,
-                        run_idx=run_idx, age_days=_age_days(s), n_sessions=len(sessions),
-                        extra=ar.extra,
-                    )
+                    # Per-question resilience: a transient transport/runtime error on ONE question
+                    # must not abort the whole system's run (losing every other answerable question).
+                    # Record it with an `error` flag and continue; analysis excludes errored rows
+                    # from accuracy (never silently counted right or wrong).
+                    try:
+                        ar = system.answer(ns, s.question, as_of=s.question_time)
+                        correct = _judge_sample(judge, s, ar.answer)
+                        qr = QResult(
+                            system=system.name, dataset=s.dataset, category=s.category,
+                            sample_id=s.sample_id, question=s.question, gold=s.gold,
+                            predicted=ar.answer, correct=bool(correct),
+                            write_tokens=write_tokens, query_tokens=ar.context_tokens,
+                            search_ms=ar.search_ms, e2e_ms=ar.e2e_ms, abstained=ar.abstained,
+                            run_idx=run_idx, age_days=_age_days(s), n_sessions=len(sessions),
+                            extra=ar.extra,
+                        )
+                    except Exception as e:  # noqa: BLE001 - record + continue, never abort the run
+                        qr = QResult(
+                            system=system.name, dataset=s.dataset, category=s.category,
+                            sample_id=s.sample_id, question=s.question, gold=s.gold,
+                            predicted="", correct=False, write_tokens=write_tokens,
+                            query_tokens=0, search_ms=0.0, e2e_ms=0.0, abstained=False,
+                            run_idx=run_idx, age_days=_age_days(s), n_sessions=len(sessions),
+                            error=f"{type(e).__name__}: {str(e)[:200]}",
+                        )
                     fh.write(json.dumps(asdict(qr)) + "\n")
                     fh.flush()
                     results.append(qr)
