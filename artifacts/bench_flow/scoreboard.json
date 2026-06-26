@@ -1,0 +1,57 @@
+{
+  "systems": [
+    "rag-full"
+  ],
+  "accuracy": {
+    "rag-full|locomo|temporal": {
+      "mean": 0.5,
+      "std": 0.0,
+      "ci95": [
+        0.18761630648265054,
+        0.8123836935173494
+      ],
+      "successes": 3,
+      "n": 6
+    },
+    "rag-full|locomo|open-domain": {
+      "mean": 1.0,
+      "std": 0.0,
+      "ci95": [
+        0.20654931437723745,
+        1.0
+      ],
+      "successes": 1,
+      "n": 1
+    },
+    "rag-full|locomo|multi-hop": {
+      "mean": 1.0,
+      "std": 0.0,
+      "ci95": [
+        0.4385029682449546,
+        1.0
+      ],
+      "successes": 3,
+      "n": 3
+    }
+  },
+  "head_to_head": {},
+  "survival": {},
+  "cost": {
+    "rag-full": {
+      "tokens_per_write": 15511,
+      "tokens_per_query": 15511
+    }
+  },
+  "latency": {
+    "rag-full": {
+      "search_p50": 0.011541531421244144,
+      "search_p95": 0.020112592028453936,
+      "e2e_p50": 16513.150041515473,
+      "e2e_p95": 78775.37722940902
+    }
+  },
+  "judge": {
+    "judge_model": "qwen3-max",
+    "judge_backend": "dashscope"
+  }
+}

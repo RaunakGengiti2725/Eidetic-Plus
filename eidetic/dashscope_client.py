@@ -49,6 +49,23 @@ def _is_rate_limit(msg: str) -> bool:
     return any(h in m for h in _RATE_HINTS)
 
 
+# Transient TRANSPORT failures (the connection dropped, not the model). Distinct from a model/quota
+# error: the SAME call can succeed on retry, so we retry with backoff rather than fail the whole run
+# on a TLS blip. Retrying never fabricates -- it re-issues the identical request; after the retry
+# budget it still raises loud.
+_TRANSIENT_HINTS = ("ssl", "eof", "timed out", "timeout", "connection reset", "connectionreset",
+                    "connection aborted", "connection error", "connectionerror", "max retries",
+                    "maxretryerror", "remote end closed", "broken pipe", "read timed out",
+                    "temporarily unavailable", "bad gateway", "502", "503", "504")
+
+
+def _is_transient(exc: Exception) -> bool:
+    name = type(exc).__name__.lower()
+    if any(h in name for h in ("ssl", "timeout", "connection")):
+        return True
+    return any(h in (str(exc) or "").lower() for h in _TRANSIENT_HINTS)
+
+
 def _retry_after_seconds(msg: str) -> Optional[float]:
     m = re.search(r"retry[-\s]?after[:\s]+(\d+(?:\.\d+)?)", (msg or "").lower())
     return float(m.group(1)) if m else None
@@ -109,6 +126,10 @@ class RateGovernor:
                     if attempt >= self.max_retries or not _is_rate_limit(str(e)):
                         raise
                     retry_after = _retry_after_seconds(str(e))
+                except Exception as e:               # transient TRANSPORT blip (SSL/timeout/reset)?
+                    if attempt >= self.max_retries or not _is_transient(e):
+                        raise                        # a real error (code/model) -> fail loud
+                    retry_after = None
             # backoff OUTSIDE the slot so a waiting call does not hold a concurrency slot.
             sleep_s = (retry_after if retry_after is not None
                        else min(self.backoff_max,

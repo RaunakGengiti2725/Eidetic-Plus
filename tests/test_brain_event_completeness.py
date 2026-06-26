@@ -54,6 +54,30 @@ def test_governor_fires_on_rate_limit_callback_per_429():
     assert len(calls) == 2                      # two 429s retried -> two callbacks
 
 
+def test_governor_retries_transient_transport_error_then_succeeds():
+    import ssl
+    g = RateGovernor(rpm=600, max_concurrency=2, max_retries=3, backoff_base=0.0, backoff_max=0.0)
+    n = {"i": 0}
+
+    def flaky():
+        n["i"] += 1
+        if n["i"] < 3:
+            raise ssl.SSLEOFError("[SSL: UNEXPECTED_EOF_WHILE_READING]")
+        return "ok"
+
+    assert g.run(flaky) == "ok"          # a TLS blip is retried, not fatal
+    assert n["i"] == 3
+
+
+def test_governor_fails_loud_on_non_transient_and_exhausted():
+    g = RateGovernor(rpm=600, max_concurrency=2, max_retries=3, backoff_base=0.0, backoff_max=0.0)
+    import pytest as _pytest
+    with _pytest.raises(ValueError):     # a real code error is NOT retried
+        g.run(lambda: (_ for _ in ()).throw(ValueError("real bug")))
+    with _pytest.raises(ModelCallError):  # quota exhaustion is NOT retried (never succeeds)
+        g.run(lambda: (_ for _ in ()).throw(ModelCallError("HTTP 403: free tier exhausted")))
+
+
 def test_governor_does_not_fire_callback_on_non_rate_error():
     calls = []
     g = RateGovernor(rpm=600, max_concurrency=2, max_retries=2, backoff_base=0.0, backoff_max=0.0)
