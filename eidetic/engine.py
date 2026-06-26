@@ -30,6 +30,7 @@ from .ingestion import IngestInput, from_bytes, from_file, from_text
 from .brain import BrainEventLog, build_evidence_packets
 from .models import (Answer, BrainEvent, BrainEventType, EvidencePacket, MemoryRecord,
                      Modality, NLILabel, RecallTrace, Scope, now)
+from .activation import ActivationField
 from .reflex import MemoryPacket
 from .reflex_activation import build_memory_packet
 from .reflex_index import ReflexIndex
@@ -98,6 +99,14 @@ class Engine:
         self.reflex_index = ReflexIndex()
         self._hotset: dict[str, "deque"] = {}
         self._hotset_lock = threading.Lock()
+        # Track 9 Flow: one per-namespace ActivationField (the shared working-memory substrate) +
+        # per-namespace turn locks so a turn's decay+inject+spread sequence is atomic (never held
+        # across the reader/model call). Built ONLY when flow is on -> flag-off byte-identical.
+        self.activation = (ActivationField(decay=self.settings.flow_decay,
+                                           floor=self.settings.flow_floor, cap=self.settings.flow_cap)
+                           if self.settings.flow_activation_enabled else None)
+        self._flow_turn_locks: dict[str, threading.Lock] = {}
+        self._flow_locks_guard = threading.Lock()
         # Track 2 perfect sync: a monotonic per-NAMESPACE memory version. Bumped under the write
         # lock on every content write; the answer cache tags entries with it so a write makes prior
         # entries in that namespace unreachable (no stale-truth hits). Namespace-grained because a
@@ -272,6 +281,7 @@ class Engine:
             if self.settings.reflex_recall_enabled:
                 self.reflex_index.add_record(record)
             self._bump_ns_version(scope.namespace)
+        self._flow_prime_ingest(scope.namespace, record.memory_id)   # no-op unless FLOW_PRIME_INGEST>0
 
         # Synaptic tagging and capture: a salient event up-weights temporally adjacent
         # in-scope memories (FSRS priority only -- never the ranking score). Skipped on the
@@ -492,8 +502,91 @@ class Engine:
         return self.ingest(from_bytes(data, filename, self.client, source), valid_at=valid_at,
                            extract_graph=extract_graph, scope=scope, consolidate_now=consolidate_now)
 
+    # ---- Track 9 Flow hub: one writer (commit), many readers (snapshot) ----
+    def _flow_turn_lock(self, namespace: str) -> "threading.Lock":
+        with self._flow_locks_guard:
+            lk = self._flow_turn_locks.get(namespace)
+            if lk is None:
+                lk = threading.Lock()
+                self._flow_turn_locks[namespace] = lk
+            return lk
+
+    def _flow_snapshot(self, namespace: str) -> Optional[dict]:
+        """The current activation map for a namespace (None when flow is off). Every recall surface
+        reads this; it never mutates the field."""
+        if self.activation is None:
+            return None
+        return self.activation.snapshot(namespace)
+
+    def _salience_of(self, memory_id: str) -> float:
+        """Access-time salience in [0,1] for salience-modulated decay: static importance + bounded
+        verified-helpful usage. NEVER reads FSRS retrievability/priority (those decay with
+        time-since-review and would smuggle a memory-age signal into the decay rate)."""
+        rec = self.store.get_record(memory_id)
+        if rec is None:
+            return 0.0
+        return max(0.0, min(1.0, 0.6 * rec.importance + 0.1 * rec.verified_helpful_count))
+
+    def _flow_begin_turn(self, namespace: str, query: str, *, scope: Scope,
+                         as_of: Optional[float] = None) -> None:
+        """Start a turn: one salience-modulated decay, then an optional weak query-entity prime.
+        The decay+prime sequence is atomic under the per-namespace turn lock (never held across a
+        model call). No-op when flow is off."""
+        if self.activation is None:
+            return
+        sal = self._salience_of if self.settings.flow_salience_decay else None
+        with self._flow_turn_lock(namespace):
+            self.activation.decay(namespace, factor=self.settings.flow_decay, salience=sal)
+            amt = self.settings.flow_prime_query
+            if amt > 0.0:
+                self.reflex_index.ensure_built(self.store)
+                from .events import parse_query
+                parsed = parse_query(query, as_of)
+                from .reflex_index import tokenize
+                seeds = self.reflex_index.seeds(namespace, entities=parsed.get("entities", []),
+                                                terms=tokenize(query))
+                if seeds:
+                    self.activation.inject(namespace, list(seeds)[:self.settings.flow_seed_topk], amount=amt)
+                    self._brain(BrainEventType.FLOW_PRIMED, namespace=namespace, kind="query")
+
+    def _flow_commit_recall(self, namespace: str, confirmed: list, scope: Scope,
+                            read_at: Optional[float]) -> None:
+        """Write the turn's confirmed recall into the field: inject confirmed ids, then a one-hop
+        CO_ACTIVATED spread to their neighbors (weaker). Atomic under the turn lock. The field is
+        ephemeral and one-directional -- it NEVER writes back to the store or the CO_ACTIVATED graph
+        (no self-reinforcing loop). No-op when flow is off."""
+        if self.activation is None:
+            return
+        ids = [i for i in (confirmed or []) if i]
+        if not ids:
+            return
+        amt = self.settings.flow_inject_confirmed
+        spread_amt = amt * self.settings.flow_spread_factor
+        with self._flow_turn_lock(namespace):
+            self.activation.inject(namespace, ids, amount=amt)
+            if spread_amt > 0.0:
+                neighbors: set = set()
+                for cid in ids:
+                    for nid in self.graph.linked_memories(cid, scope, read_at):
+                        if nid not in ids:
+                            neighbors.add(nid)
+                if neighbors:
+                    self.activation.inject(namespace, list(neighbors), amount=spread_amt)
+
+    def _flow_prime_ingest(self, namespace: str, memory_id: str) -> None:
+        """Cold-start warm a freshly ingested memory (off by default: flow_prime_ingest=0.0)."""
+        if self.activation is None or self.settings.flow_prime_ingest <= 0.0 or not memory_id:
+            return
+        self.activation.inject(namespace, [memory_id], amount=self.settings.flow_prime_ingest)
+        self._brain(BrainEventType.FLOW_PRIMED, namespace=namespace, kind="ingest")
+
     # ---- reflex recall: the sub-second LOCAL candidate path ----------------
     def _hotset_ids(self, namespace: str) -> set:
+        # Single warm-state: when flow is on, the activation field IS the working set (ids above the
+        # floor). When off, the legacy binary hotset deque. No dual warm-state.
+        if self.activation is not None:
+            return {mid for mid, v in self.activation.snapshot(namespace).items()
+                    if v >= self.settings.flow_floor}
         with self._hotset_lock:
             dq = self._hotset.get(namespace)
             return set(dq) if dq else set()
@@ -501,7 +594,9 @@ class Engine:
     def _touch_hotset(self, namespace: str, ids) -> None:
         """Record recently-recalled memory_ids per namespace (a small bounded working set). This is
         an ACCESS-recency signal feeding only the reflex hot-set axis -- never a memory-AGE term, so
-        age-independence is preserved. Maintained only when reflex recall is enabled."""
+        age-independence is preserved. Retired when flow is on (activation is the only warm-state)."""
+        if self.activation is not None:
+            return
         ids = [i for i in (ids or []) if i]
         if not ids:
             return
@@ -514,10 +609,15 @@ class Engine:
                 dq.append(i)
 
     def reflex_recall(self, query: str, *, scope: Optional[Scope] = None,
-                      as_of: Optional[float] = None, emit: bool = True) -> MemoryPacket:
+                      as_of: Optional[float] = None, emit: bool = True,
+                      begin_turn: bool = True) -> MemoryPacket:
         """Build a local MemoryPacket for `query` with NO model call (no embed, no NLI, no reader).
         This is the anti-RAG recall surface API/MCP expose and the ask() fast path consumes. The
-        index is built lazily from the store on first use if it was not built at construction."""
+        index is built lazily from the store on first use if it was not built at construction.
+
+        Flow: a standalone call begins a turn (one decay + optional prime) so API/MCP reflex gets
+        instinct too; ask() passes begin_turn=False because it already began the turn (avoids a
+        double-decay when ask calls reflex_recall internally)."""
         scope = scope or Scope()
         # When REFLEX_RECALL is on the index is built + maintained incrementally, so ensure_built is
         # a no-op. When off it is NOT maintained, so this explicit on-demand call rebuilds -- but
@@ -527,9 +627,17 @@ class Engine:
             self.reflex_index.ensure_built(self.store)
         elif self.reflex_index.built_count != self.store.count(None):
             self.reflex_index.rebuild_from_store(self.store)
+        if begin_turn and self.activation is not None:
+            self._flow_begin_turn(scope.namespace, query, scope=scope, as_of=as_of)
+        # Single warm-state: flow on -> activation snapshot (and no binary hot_ids); flow off ->
+        # the legacy binary hotset and no activation map.
+        if self.activation is not None:
+            activation, hot = self._flow_snapshot(scope.namespace), set()
+        else:
+            activation, hot = None, self._hotset_ids(scope.namespace)
         packet = build_memory_packet(query, scope, store=self.store, graph=self.graph,
                                      index=self.reflex_index, settings=self.settings,
-                                     as_of=as_of, hot_ids=self._hotset_ids(scope.namespace))
+                                     as_of=as_of, hot_ids=hot, activation=activation)
         if emit and self.settings.brain_events_enabled:
             hit = packet.coverage >= self.settings.reflex_min_coverage and bool(packet.items)
             self._brain(BrainEventType.REFLEX_HIT if hit else BrainEventType.REFLEX_MISS,
@@ -620,13 +728,19 @@ class Engine:
                 self._brain(BrainEventType.CACHE_HIT, namespace=scope.namespace, mode="semantic")
                 return hit
 
+        # Track 9 Flow: begin the turn (one decay + optional query prime) ONLY now that this is a
+        # real recall -- a cache hit returned above without mutating the field. Done once here, so
+        # the nested reflex_recall call below passes begin_turn=False (no double-decay).
+        if self.settings.flow_activation_enabled:
+            self._flow_begin_turn(scope.namespace, query, scope=scope, as_of=read_at)
+
         # Track 1 Reflex Recall: try the LOCAL fast path first. On a confident hit, feed the reflex
         # candidates to the reader as `precomputed` (skipping ANN/rerank, with no embed/NLI in the
         # recall itself); NLI/abstention/proof still gate the FINAL answer. On a low-coverage miss,
         # fall back to full retrieval. Flag-off -> this block never runs (baseline byte-identical).
         reflex_candidates = None
         if self.settings.reflex_recall_enabled:
-            packet = self.reflex_recall(query, scope=scope, as_of=read_at, emit=False)
+            packet = self.reflex_recall(query, scope=scope, as_of=read_at, emit=False, begin_turn=False)
             if packet.coverage >= self.settings.reflex_min_coverage and packet.items:
                 reflex_candidates = packet.to_candidates()
                 self._brain(BrainEventType.REFLEX_HIT, namespace=scope.namespace,
@@ -708,10 +822,15 @@ class Engine:
                 self.index.save()
         if self.settings.feedback_enabled and precomputed is not None:
             self._emit_feedback(scope, query, qvec, precomputed, confirmed)
-        # Reflex hot working set: remember what this recall confirmed (or cited) so the next reflex
-        # burst can prefer it. Access-recency only -- never a memory-age term.
-        if self.settings.reflex_recall_enabled:
-            self._touch_hotset(scope.namespace, confirmed or [c.memory_id for c in ans.citations])
+        # Working set write. Track 9 Flow (single warm-state): when flow is on, commit the confirmed
+        # recall into the ActivationField (inject + one-hop spread) -- this is the ONE writer, read
+        # by every recall surface. When flow is off, the legacy reflex hotset. Access-recency only,
+        # never a memory-age term. The flow commit runs even with REFLEX_RECALL off (hybrid reads it).
+        warm_ids = confirmed or [c.memory_id for c in ans.citations]
+        if self.settings.flow_activation_enabled:
+            self._flow_commit_recall(scope.namespace, warm_ids, scope, read_at)
+        elif self.settings.reflex_recall_enabled:
+            self._touch_hotset(scope.namespace, warm_ids)
         # Connected Brain Loop: project the answer onto the improvement stream (gated).
         if self.settings.brain_events_enabled:
             cited = [c.memory_id for c in ans.citations]
