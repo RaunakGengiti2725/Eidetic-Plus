@@ -11,10 +11,17 @@ import os
 from eidetic.config import get_settings
 from eidetic.dashscope_client import get_client
 
-from .judge import FIXED_READER_PROMPT
+from .judge import FIXED_READER_PHOTOGRAPHIC_PROMPT, FIXED_READER_PROMPT
 
 # Pin one reader model across all systems (override with READER_MODEL; pin a snapshot).
 READER_MODEL = os.environ.get("READER_MODEL", "").strip() or "qwen-plus"
+
+# READER_MODE selects the shared answer prompt. "default" (the default) keeps FIXED_READER_PROMPT
+# byte-identical; "photographic"/"extractive" switches to the verbatim-quoting prompt. Applied to
+# every system (shared reader), so the comparison stays fair.
+READER_MODE = os.environ.get("READER_MODE", "default").strip().lower()
+_READER_PROMPT = (FIXED_READER_PHOTOGRAPHIC_PROMPT
+                  if READER_MODE in ("photographic", "extractive") else FIXED_READER_PROMPT)
 
 # Per-block char cap fed to the reader. Default 3000 = byte-identical to the historical harness;
 # raise (e.g. 8000) so a retrieved session whose key fact sits past char 3000 reaches the reader.
@@ -23,7 +30,7 @@ READER_MODEL = os.environ.get("READER_MODEL", "").strip() or "qwen-plus"
 READER_BLOCK_CHARS = int(os.environ.get("READER_BLOCK_CHARS", "3000"))
 
 FIXED_READER_COT_PROMPT = (
-    FIXED_READER_PROMPT
+    _READER_PROMPT
     + "\n\nBefore answering, write brief evidence notes for each useful source. "
       "Reply ONLY as JSON: {\"notes\":[{\"source\":\"S0\",\"relevant\":true,"
       "\"note\":\"...\"}],\"answer\":\"...\"}. The answer must contain only the final "
@@ -44,6 +51,6 @@ def answer_with_fixed_reader(question: str, context_blocks: list[str]) -> str:
             from eidetic.dashscope_client import ModelCallError
             raise ModelCallError("Fixed reader COT response did not include a non-empty JSON answer.")
         return answer.strip()
-    return client.chat(READER_MODEL, FIXED_READER_PROMPT,
+    return client.chat(READER_MODEL, _READER_PROMPT,
                        f"Question: {question}\n\nMemory/context:\n{ctx}",
                        temperature=0.1, max_tokens=512)

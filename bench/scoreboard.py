@@ -58,12 +58,29 @@ def aggregate(rows: list[dict]) -> dict:
     search: dict = defaultdict(list)
     e2e: dict = defaultdict(list)
     paired: dict = defaultdict(dict)                         # (ds,cat,sample,run) -> sys -> correct
+    # Integrity rollup: verified recall vs fabrication, read straight off the logged verify/abstain
+    # flags. Honesty differentiators no accuracy column shows -- does an emitted answer carry an
+    # entailment proof, or is it an unproven claim. Pooled across runs (no per-run std needed).
+    integrity: dict = defaultdict(lambda: {"n": 0, "verified_correct": 0, "answered": 0,
+                                           "unverified_answered": 0, "abstained": 0})
     systems, cats_by_ds = set(), defaultdict(set)
     for r in rows:
         if r.get("error"):       # transport/runtime error on this question -> excluded from accuracy
             continue
         sys, ds, cat = r["system"], r["dataset"], r["category"]
         systems.add(sys)
+        ig = integrity[sys]
+        ig["n"] += 1
+        _abst = bool(r.get("abstained"))
+        _ver = bool((r.get("extra") or {}).get("verified"))
+        if _abst:
+            ig["abstained"] += 1
+        else:
+            ig["answered"] += 1
+            if not _ver:
+                ig["unverified_answered"] += 1   # emitted without an entailment proof
+        if r.get("correct") and _ver:
+            ig["verified_correct"] += 1
         cats_by_ds[ds].add(cat)
         ok = 1.0 if r["correct"] else 0.0
         by_run[(sys, ds, cat)].setdefault(r["run_idx"], []).append(ok)
@@ -135,7 +152,8 @@ def aggregate(rows: list[dict]) -> dict:
         survival[(a, b, ds, cat)] = {"runs": common, "status": status}
     return {"systems": sorted(systems), "acc": acc, "cats_by_ds": {k: sorted(v) for k, v in cats_by_ds.items()},
             "cost": cost, "latency": latency, "n_by_cat": dict(n_by_cat),
-            "acc_ci": acc_ci, "head_to_head": head_to_head, "survival": survival}
+            "acc_ci": acc_ci, "head_to_head": head_to_head, "survival": survival,
+            "integrity": {s: dict(v) for s, v in integrity.items()}}
 
 
 def _acc_cell(acc, sys, ds, cat) -> str:
@@ -236,6 +254,27 @@ def render(out_dir: Path, judge_desc: Optional[dict] = None) -> Path:
         lines.append(f"| {s} | {la['search_p50']:.1f} | {la['search_p95']:.1f} | "
                      f"{la['e2e_p50']:.1f} | {la['e2e_p95']:.1f} |")
     lines.append("")
+
+    integ = agg.get("integrity", {})
+    if integ:
+        lines.append("## Integrity (verified recall vs fabrication) - from logged verify/abstain flags\n")
+        lines.append("_verified accuracy = correct AND entailment-proven; fabrication rate = answered "
+                     "WITHOUT a proof; abstention rate = declined for lack of evidence. Meaningful only "
+                     "for the verifying rows (eidetic-plus-full / eidetic-product); rows without a "
+                     "verify step report 0 verified by construction._\n")
+        lines.append("| system | n | verified accuracy | fabrication rate | abstention rate |")
+        lines.append("|---|---:|---:|---:|---:|")
+        for s in systems:
+            ig = integ.get(s)
+            if not ig or ig["n"] == 0:
+                continue
+            n = ig["n"]
+            va = ig["verified_correct"] / n
+            fr = ig["unverified_answered"] / n
+            ar = ig["abstained"] / n
+            lines.append(f"| {s} | {n} | {va * 100:.1f}% | {fr * 100:.1f}% | {ar * 100:.1f}% |")
+        lines.append("")
+
     lines.append(_BEAM_NOTE)
     md.write_text("\n".join(lines) + "\n")
     (out_dir / "scoreboard.json").write_text(json.dumps({
@@ -255,5 +294,6 @@ def render(out_dir: Path, judge_desc: Optional[dict] = None) -> Path:
             f"{k[0]}|{k[1]}|{k[2]}|{k[3]}": v for k, v in agg["survival"].items()
         },
         "cost": agg["cost"], "latency": agg["latency"], "judge": judge_desc,
+        "integrity": agg.get("integrity", {}),
     }, indent=2))
     return md

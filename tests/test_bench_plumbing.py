@@ -55,6 +55,30 @@ def test_reader_block_chars_env_override(monkeypatch):
     importlib.reload(reader)  # restore default for other tests
 
 
+def test_reader_mode_default_is_byte_identical(monkeypatch):
+    monkeypatch.delenv("READER_MODE", raising=False)
+    import bench.judge as judge
+    import bench.reader as reader
+
+    importlib.reload(reader)
+    assert reader._READER_PROMPT is judge.FIXED_READER_PROMPT
+    assert reader._READER_PROMPT == judge.FIXED_READER_PROMPT
+
+
+def test_reader_mode_photographic_selects_extractive_prompt(monkeypatch):
+    import bench.judge as judge
+
+    for mode in ("photographic", "extractive"):
+        monkeypatch.setenv("READER_MODE", mode)
+        import bench.reader as reader
+
+        importlib.reload(reader)
+        assert reader._READER_PROMPT == judge.FIXED_READER_PHOTOGRAPHIC_PROMPT
+        assert "photographic recall" in reader._READER_PROMPT
+    monkeypatch.delenv("READER_MODE", raising=False)
+    importlib.reload(reader)  # restore default for other tests
+
+
 def test_make_system_knows_product_name():
     # Exercise the routing table without constructing a real Engine: the name must be recognized
     # (not fall through to the "Unknown system" SystemExit).

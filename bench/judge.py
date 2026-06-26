@@ -25,6 +25,25 @@ FIXED_READER_PROMPT = (
     "answer, say you do not have that information."
 )
 
+# Photographic / extractive reader (READER_MODE=photographic). Quote verbatim spans with [S#]
+# tags instead of paraphrasing, which attacks two measured loss modes: reader over-generation
+# (listing more than the gold wants) and paraphrase temporal errors (relative-date drift). It is
+# selected in bench/reader.py and applied to ALL systems equally (lives in the shared reader), so
+# the comparison stays fair. Default mode keeps FIXED_READER_PROMPT byte-identical.
+FIXED_READER_PHOTOGRAPHIC_PROMPT = (
+    "You are a memory agent with photographic recall. You may ONLY state facts that appear "
+    "VERBATIM or as direct entailments in the cited sources [S0], [S1], ...\n\n"
+    "Rules:\n"
+    "1. Quote the exact words from memory when stating specific facts (names, dates, titles, "
+    "numbers).\n"
+    "2. Tag every claim with its source: [S3] \"exact quote here\".\n"
+    "3. For temporal questions: use the [Session date YYYY-MM-DD] prefix on each block as ground "
+    "truth, and answer the relative expression the question asks for.\n"
+    "4. If the exact fact is not in any source block, say: \"I do not have that in memory.\"\n"
+    "5. Do NOT infer, generalize, or combine facts the sources do not explicitly support.\n"
+    "6. Prefer a short, exact answer over a long, approximate one."
+)
+
 _YESNO = re.compile(r"\b(yes|no|correct|incorrect|true|false)\b", re.I)
 _WORD = re.compile(r"[a-z0-9]+")
 
