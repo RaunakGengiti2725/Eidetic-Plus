@@ -38,6 +38,36 @@ _RATE_HINTS = ("429", "throttl", "rate limit", "requests rate", "request rate",
                "rate increased too quickly", "allocationquota", "too many requests")
 
 
+def chunk_text(text: str, chunk: int, overlap: int) -> list[str]:
+    """Split `text` into overlapping windows of <=`chunk` chars stepping by `chunk-overlap`.
+
+    Pure + deterministic (no model call) so the chunked-extraction capture-fidelity path is
+    unit-testable offline. A `chunk<=overlap` or non-positive `chunk` collapses to one window
+    (defensive: never produce an infinite/zero-step loop)."""
+    if chunk <= 0 or len(text) <= chunk:
+        return [text]
+    step = chunk - overlap
+    if step <= 0:
+        return [text]
+    return [text[i:i + chunk] for i in range(0, len(text), step) if text[i:i + chunk]]
+
+
+def dedupe_triples(triples: list[dict[str, str]]) -> list[dict[str, str]]:
+    """Merge triples from overlapping windows, keeping first-seen order. Identity key is the
+    case-folded (src, relation, dst) -- the same fact extracted from two windows collapses to
+    one. Pure + deterministic (offline-testable)."""
+    seen: set[tuple[str, str, str]] = set()
+    out: list[dict[str, str]] = []
+    for t in triples:
+        key = (str(t.get("src", "")).strip().lower(),
+               str(t.get("relation", "")).strip().lower(),
+               str(t.get("dst", "")).strip().lower())
+        if all(key) and key not in seen:
+            seen.add(key)
+            out.append(t)
+    return out
+
+
 def _is_rate_limit(msg: str) -> bool:
     """A retryable rate-limit / throttle signal (HTTP 429 or the DashScope stability guard).
 
@@ -318,14 +348,31 @@ class DashScopeClient:
 
     # ---- Component 2/7: extraction ---------------------------------------
     def extract_edges(self, text: str) -> list[dict[str, str]]:
-        """qwen-plus entity/relation extraction for the bi-temporal graph."""
+        """qwen-plus entity/relation extraction for the bi-temporal graph.
+
+        Default path: a single call on text[:6000] (byte-identical to the historical write).
+        When EXTRACT_CHUNKING is on AND the text exceeds the single-call cap, the text is split
+        into overlapping windows, each extracted, and the triples merged+deduped -- so facts
+        beyond char ~6000 still enter the graph/events (long LoCoMo/LongMemEval sessions). This
+        multiplies the extraction LLM call 2-3x on long sessions, hence gated (default OFF)."""
+        s = self.settings
+        if s.extract_chunking_enabled and len(text) > 6000:
+            windows = chunk_text(text, s.extract_chunk_chars, s.extract_chunk_overlap)
+            triples: list[dict[str, str]] = []
+            for w in windows:
+                triples.extend(self._extract_edges_window(w))
+            return dedupe_triples(triples)
+        return self._extract_edges_window(text[:6000])
+
+    def _extract_edges_window(self, window: str) -> list[dict[str, str]]:
+        """One extraction call over an already-prepared text window (no re-truncation)."""
         model = self.settings.salience_model if self.settings.extract_light_enabled else self.settings.extract_model
         data = self.chat_json(
             model,
             "Extract factual (subject, relation, object) triples from the text for a "
             "knowledge graph. Reply ONLY as JSON: {\"triples\": [{\"src\":..,\"relation\":..,"
             "\"dst\":..,\"fact\":..}]}. Keep entity names canonical and short. Empty list if none.",
-            f"Text:\n{text[:6000]}",
+            f"Text:\n{window}",
             temperature=0.0, max_tokens=1024,
         )
         triples = data.get("triples", []) if isinstance(data, dict) else []

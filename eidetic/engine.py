@@ -1101,7 +1101,14 @@ class Engine:
                     valid_at=rec.valid_at,
                 ))
                 events_total += 1
-            if preferences.is_preference(rec.text):
+            if self.settings.pref_sentence_scan_enabled:
+                # Scan every sentence/turn so mid-conversation preferences become profile lines.
+                lines = preferences.extract_all_preferences(rec.text)
+                for line in lines:
+                    self.store.add_profile_line(rec.scope.namespace, line, salience=rec.salience)
+                if lines:
+                    rec.metadata["type"] = "preference"
+            elif preferences.is_preference(rec.text):
                 pref = preferences.extract_preference(rec.text)
                 if pref:
                     self.store.add_profile_line(rec.scope.namespace, pref, salience=rec.salience)
@@ -1110,6 +1117,13 @@ class Engine:
                 rec.importance = self.client.score_importance(rec.text)   # real qwen-flash
                 rec.salience = max(0.0, min(1.0, 0.45 * rec.surprise + 0.55 * rec.importance))
             rec.entities = entities
+            # MIRIX role typing AFTER consolidation (entities now populated). The deterministic
+            # classifier is token-free, so this activates the MEMORY_TYPING retrieval prior on the
+            # async write path the bench uses (ingest fast path never sets metadata.type). A record
+            # already typed "preference" above keeps that stronger label. Gated (default OFF).
+            if self.settings.memory_typing_enabled and rec.metadata.get("type") != "preference":
+                from .memory_types import classify_record
+                rec.metadata["type"] = classify_record(rec).value
             rec.metadata["pending_consolidation"] = False
             rec.metadata["dates"] = [r["start"] for r in date_ranges]
             rel_by_id[rec.memory_id] = [t["relation"] for t in triples]

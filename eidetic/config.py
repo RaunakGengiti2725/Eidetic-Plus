@@ -247,7 +247,21 @@ class Settings:
     markov_prefetch_enabled: bool = field(default_factory=lambda: _get_bool("MARKOV_PREFETCH", "0"))
     # CoVe factored verification + bounded conflict-only debate (LLM-gated).
     cove_enabled: bool = field(default_factory=lambda: _get_bool("COVE", "0"))
+    cove_questions: int = field(default_factory=lambda: int(_get("COVE_QUESTIONS", "3")))
     debate_enabled: bool = field(default_factory=lambda: _get_bool("DEBATE", "0"))
+
+    # Chunked fact extraction (capture fidelity). When OFF (default) extract_edges sends a single
+    # text[:6000] call -- byte-identical to the historical write path. When ON, a session longer
+    # than the single-call cap is split into overlapping windows and the triples merged+deduped, so
+    # facts beyond char ~6000 still enter the graph/events (long LoCoMo / LongMemEval sessions).
+    # This multiplies the extraction LLM call 2-3x on long sessions, hence gated.
+    extract_chunking_enabled: bool = field(default_factory=lambda: _get_bool("EXTRACT_CHUNKING", "0"))
+    extract_chunk_chars: int = field(default_factory=lambda: int(_get("EXTRACT_CHUNK_CHARS", "4000")))
+    extract_chunk_overlap: int = field(default_factory=lambda: int(_get("EXTRACT_CHUNK_OVERLAP", "400")))
+    # Sentence-level preference scan. OFF (default): one profile line per session (first match) --
+    # byte-identical to the historical write. ON: every preference-bearing sentence in the session
+    # becomes a profile line (mid-conversation preferences are no longer lost). Token-free.
+    pref_sentence_scan_enabled: bool = field(default_factory=lambda: _get_bool("PREF_SENTENCE_SCAN", "0"))
 
     # --- Phase-1 multi-view retrieval channels (Memory Agent Upgrade; all default OFF) ---
     # Each wires a dormant signal into the fused candidate ranking. Age-independence is preserved:

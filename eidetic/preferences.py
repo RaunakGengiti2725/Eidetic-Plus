@@ -40,3 +40,23 @@ def extract_preference(text: str) -> str | None:
         if _PREF_RE.search(sentence):
             return sentence.strip()
     return body.strip() if is_preference(text) else None
+
+
+def extract_all_preferences(text: str) -> list[str]:
+    """Return EVERY preference-bearing sentence in `text`, one per stated preference, in order
+    and deduped. A session blob mixes several turns; `extract_preference` returns only the first
+    match, so mid-conversation preferences are lost. The sentence scan (gated PREF_SENTENCE_SCAN)
+    surfaces all of them. Splits per line first (turn boundaries) then per sentence. Pure +
+    deterministic (offline-testable)."""
+    if not text:
+        return []
+    out: list[str] = []
+    seen: set[str] = set()
+    for line in text.splitlines():
+        body = _ROLE_PREFIX.sub("", line)
+        for sentence in re.split(r"(?<=[.!?])\s+", body):
+            s = sentence.strip()
+            if s and _PREF_RE.search(s) and s.lower() not in seen:
+                seen.add(s.lower())
+                out.append(s)
+    return out
