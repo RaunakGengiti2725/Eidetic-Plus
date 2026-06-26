@@ -8,12 +8,23 @@ invalidated fact expires from the scratchpad automatically. Pure + offline-testa
 from __future__ import annotations
 
 
-def select_scratchpad(records, *, top_k: int = 5, min_salience: float = 0.6) -> list[dict]:
+def select_scratchpad(records, *, top_k: int = 5, min_salience: float = 0.6,
+                      activation=None, weight: float = 0.0) -> list[dict]:
     """Pick up to `top_k` ACTIVE records with salience >= min_salience, ordered by salience then
-    verified-helpful count. Each entry carries its content hash (provenance), never replacing raw."""
+    verified-helpful count. Each entry carries its content hash (provenance), never replacing raw.
+
+    Track 9 Flow: with an `activation` map + `weight`, rank by salience + weight*activation so a
+    field-warm fact surfaces in context even when salience alone would not top-k it. The
+    min_salience eligibility is unchanged (the scratchpad stays salient facts). activation=None /
+    weight=0 -> ranking is identical to today (byte-identical)."""
+    act = activation or {}
     eligible = [r for r in records if float(getattr(r, "salience", 0.0)) >= min_salience]
-    eligible.sort(key=lambda r: (float(getattr(r, "salience", 0.0)),
-                                 int(getattr(r, "verified_helpful_count", 0))), reverse=True)
+
+    def _score(r) -> float:
+        return float(getattr(r, "salience", 0.0)) + weight * float(act.get(r.memory_id, 0.0))
+
+    eligible.sort(key=lambda r: (_score(r), int(getattr(r, "verified_helpful_count", 0))),
+                  reverse=True)
     out: list[dict] = []
     for r in eligible[:max(0, top_k)]:
         out.append({

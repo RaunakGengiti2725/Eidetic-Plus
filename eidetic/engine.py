@@ -770,12 +770,14 @@ class Engine:
         precomputed = None
         if reflex_candidates is not None:
             ans = self.retriever.answer(query, at=read_at, verify=verify, scope=scope, qvec=qvec,
-                                        precomputed=reflex_candidates, reader_model=reader_model)
+                                        precomputed=reflex_candidates, reader_model=reader_model,
+                                        activation=flow_act)
         elif self.settings.feedback_enabled or flow_act:
             precomputed = self.retriever.retrieve(query, at=read_at, scope=scope, qvec=qvec,
                                                   activation=flow_act)
             ans = self.retriever.answer(query, at=read_at, verify=verify, scope=scope, qvec=qvec,
-                                        precomputed=precomputed, reader_model=reader_model)
+                                        precomputed=precomputed, reader_model=reader_model,
+                                        activation=flow_act)
         else:
             ans = self.retriever.answer(query, at=read_at, verify=verify, scope=scope, qvec=qvec,
                                         reader_model=reader_model)
@@ -1618,7 +1620,9 @@ class Engine:
         return select_scratchpad(
             recs, top_k=top_k if top_k is not None else self.settings.scratchpad_topk,
             min_salience=(min_salience if min_salience is not None
-                          else self.settings.scratchpad_min_salience))
+                          else self.settings.scratchpad_min_salience),
+            activation=self._flow_snapshot(scope.namespace),     # Track 9: field-warm facts surface
+            weight=self.settings.flow_context_weight)
 
     def salience_explanation(self, memory_id: str,
                              scope: Optional[Scope] = None) -> Optional[dict]:

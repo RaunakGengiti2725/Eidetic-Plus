@@ -763,7 +763,8 @@ class Retriever:
 
     def assemble_context(self, query: str, candidates: list[RetrievalCandidate],
                          at: Optional[float] = None, scope: Optional[Scope] = None,
-                         include_conflict_resolution: bool = True) -> list[str]:
+                         include_conflict_resolution: bool = True,
+                         activation: Optional[dict] = None) -> list[str]:
         """Build the token-budgeted context blocks: structured event-calendar selection +
         surfaced typed preferences (uncompressed), then Hopfield-ordered raw chunks
         (optionally extractively compressed), with lost-in-the-middle edge placement.
@@ -793,7 +794,9 @@ class Retriever:
             from .scratchpad import select_scratchpad
             active = self.store.active_records_at(at if at is not None else now(), scope)
             entries = select_scratchpad(active, top_k=self.settings.scratchpad_topk,
-                                        min_salience=self.settings.scratchpad_min_salience)
+                                        min_salience=self.settings.scratchpad_min_salience,
+                                        activation=activation,
+                                        weight=self.settings.flow_context_weight)
             if entries:
                 scratchpad_blocks = ["Scratchpad (high-salience verified facts): "
                                      + " | ".join(e["text"] for e in entries)]
@@ -1008,7 +1011,7 @@ class Retriever:
     def answer(self, query: str, at: Optional[float] = None, *, verify: bool = True,
                scope: Optional[Scope] = None, qvec: Optional[np.ndarray] = None,
                precomputed: Optional[list[RetrievalCandidate]] = None,
-               reader_model: Optional[str] = None) -> Answer:
+               reader_model: Optional[str] = None, activation: Optional[dict] = None) -> Answer:
         at = now() if at is None else at
         scope = scope or Scope()
         # `precomputed` lets a caller time retrieval separately and avoid re-retrieving.
@@ -1029,7 +1032,7 @@ class Retriever:
 
         # Shared context assembly (event calendar + preferences + raw chunks, edge-placed).
         blocks = self.assemble_context(query, candidates, at, scope,
-                                       include_conflict_resolution=False)
+                                       include_conflict_resolution=False, activation=activation)
         # reader_model pins one fixed answerer (neutral harness); else the difficulty cascade.
         # Speculative cascade (S5): try the cheap tier first, escalate only on a grounding miss.
         if self.settings.cascade_enabled and reader_model is None:
