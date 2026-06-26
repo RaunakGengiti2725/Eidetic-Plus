@@ -4,6 +4,7 @@ graph/facts are built by consolidate_pending() between ingest and query, off the
 """
 from __future__ import annotations
 
+import os
 import time
 from typing import Optional
 
@@ -12,6 +13,10 @@ from eidetic.models import Scope, now
 
 from ..reader import answer_with_fixed_reader
 from .base import AnswerResult, MemorySystem, WriteResult, approx_tokens
+
+
+def _truthy(name: str) -> bool:
+    return os.environ.get(name, "0").strip().lower() in ("1", "true", "yes")
 
 
 class EideticSystem(MemorySystem):
@@ -31,27 +36,52 @@ class EideticSystem(MemorySystem):
         # assistant turns first-class. The LLM-free fast write only embeds (no LLM here).
         scope = Scope(namespace=namespace)
         valid_at = session_time if session_time is not None else now()
-        text = "\n".join(
-            f"{t.get('role', 'user')}: {t.get('content', '')}".strip()
-            for t in turns if (t.get("content") or "").strip()
-        ).strip()
+        lines = [f"{t.get('role', 'user')}: {t.get('content', '')}".strip()
+                 for t in turns if (t.get("content") or "").strip()]
+        text = "\n".join(lines).strip()
         if not text:
             return WriteResult(tokens=0, ms=0.0)
+        # INGEST_GRANULARITY: session (default, byte-identical to the historical write) | turn
+        # (one record per non-empty turn, ~15x cost) | hybrid (session record PLUS short turn-window
+        # records for sharper embeddings, so a buried fact is also retrievable at finer grain). All
+        # records carry the SAME session valid_at, so the bi-temporal anchor is unchanged.
+        granularity = os.environ.get("INGEST_GRANULARITY", "session").strip().lower()
         t0 = time.perf_counter()
-        self.engine.ingest_text(text, source=session_id, valid_at=valid_at,
-                                scope=scope, consolidate_now=False)  # LLM-free write
+        if granularity == "turn":
+            for i, line in enumerate(lines):
+                self.engine.ingest_text(line, source=f"{session_id}#t{i}", valid_at=valid_at,
+                                        scope=scope, consolidate_now=False)
+        elif granularity == "hybrid":
+            self.engine.ingest_text(text, source=session_id, valid_at=valid_at,
+                                    scope=scope, consolidate_now=False)
+            win = max(1, int(os.environ.get("INGEST_WINDOW_TURNS", "5")))
+            for j in range(0, len(lines), win):
+                chunk = "\n".join(lines[j:j + win]).strip()
+                if chunk and chunk != text:
+                    self.engine.ingest_text(chunk, source=f"{session_id}#w{j // win}",
+                                            valid_at=valid_at, scope=scope, consolidate_now=False)
+        else:  # "session" (default) and any unknown value -> the original single-record write
+            self.engine.ingest_text(text, source=session_id, valid_at=valid_at,
+                                    scope=scope, consolidate_now=False)  # LLM-free write
         return WriteResult(tokens=approx_tokens(text), ms=(time.perf_counter() - t0) * 1000.0)
 
     def consolidate(self, namespace: str) -> None:
         # Async build: parallel fact extraction, bi-temporal graph, events, date normalization,
         # typed preferences. score_importance=False (importance isn't in the ranking path).
-        self.engine.consolidate_pending(scope=Scope(namespace=namespace), score_importance=False)
+        scope = Scope(namespace=namespace)
+        # FULL_SLEEP=1: run the unified lifecycle sleep (consolidate_pending -> dream replay+infer
+        # +multi-resolution gist), so the dream/gist channels have output to read. Token-free
+        # (llm_summaries=False). Default path stays consolidate_pending-only + the DREAM_AB hook,
+        # byte-identical to the historical bench build.
+        if _truthy("FULL_SLEEP"):
+            self.engine.sleep(scope=scope, llm_summaries=False)
+            return
+        self.engine.consolidate_pending(scope=scope, score_importance=False)
         # Dreaming-engine A/B hook (token-free): set DREAM_AB=1 to run one idle consolidation
         # pass (replay + inferred link prediction + multi-resolution gist) so the dreaming
         # layer can be measured dream-on vs dream-off against the scoreboard. Off by default.
-        import os
-        if os.environ.get("DREAM_AB", "0") in ("1", "true", "yes"):
-            self.engine.dream(scope=Scope(namespace=namespace))
+        if _truthy("DREAM_AB"):
+            self.engine.dream(scope=scope)
 
     def answer(self, namespace: str, question: str,
                as_of: Optional[float] = None) -> AnswerResult:
@@ -124,4 +154,39 @@ class EideticFullSystem(EideticSystem):
             search_ms=search_ms, e2e_ms=e2e_ms, abstained=abstained,
             extra={"verified": bool(verified and not abstained), "coverage": coverage,
                    "citations": len(citations), "policy": "fixed-reader + verify+abstain+proof"},
+        )
+
+
+class EideticProductSystem(EideticSystem):
+    """The PRODUCT-CEILING row: the full engine.ask() path users actually run -- semantic cache,
+    reflex local recall, flow activation, the difficulty cascade (qwen-flash -> qwen3-max on a
+    grounding miss), NLI verify + abstention + proof, and post-answer coactivation/reconsolidation.
+    Unlike the two neutral rows it does NOT pin the shared fixed reader: the cascade picks the
+    answerer, so this measures the deployed product's ceiling, not the memory-only comparison.
+    The delta (product minus eidetic-plus-full) is the cascade+reflex+flow value.
+
+    Bundle to exercise it: REFLEX_RECALL=1 FLOW_ACTIVATION=1 SPECULATIVE_CASCADE=1
+    SEMANTIC_CACHE=1 COVE=1 ACTIVE_RETRIEVAL=1 (plus the promoted graph/coact defaults).
+    """
+
+    name = "eidetic-product"
+
+    def answer(self, namespace: str, question: str,
+               as_of: Optional[float] = None) -> AnswerResult:
+        scope = Scope(namespace=namespace)
+        t0 = time.perf_counter()
+        ans = self.engine.ask(question, at=as_of, scope=scope, verify=True)
+        e2e_ms = (time.perf_counter() - t0) * 1000.0
+        note = ans.note or ""
+        abstained = note.startswith("abstained")
+        # engine.ask() bundles retrieval into the answer, so search_ms isn't separately timed here;
+        # report e2e and let the cost/latency tables carry the cascade/cache effect. context_tokens
+        # come from the cited sources (proof surface), approximated from citation snippets.
+        ctx_tokens = sum(approx_tokens(getattr(c, "snippet", "") or "") for c in ans.citations)
+        return AnswerResult(
+            answer=ans.answer, context_tokens=ctx_tokens,
+            search_ms=0.0, e2e_ms=e2e_ms, abstained=abstained,
+            extra={"verified": bool(ans.verified and not abstained),
+                   "confidence": ans.confidence, "citations": len(ans.citations),
+                   "note": note, "policy": "engine.ask: cache+reflex+flow+cascade+verify+abstain"},
         )

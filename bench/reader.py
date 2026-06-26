@@ -16,6 +16,12 @@ from .judge import FIXED_READER_PROMPT
 # Pin one reader model across all systems (override with READER_MODEL; pin a snapshot).
 READER_MODEL = os.environ.get("READER_MODEL", "").strip() or "qwen-plus"
 
+# Per-block char cap fed to the reader. Default 3000 = byte-identical to the historical harness;
+# raise (e.g. 8000) so a retrieved session whose key fact sits past char 3000 reaches the reader.
+# Applied EQUALLY to every system (it lives in the shared fixed reader), so the comparison stays
+# fair -- baselines benefit from the larger window too.
+READER_BLOCK_CHARS = int(os.environ.get("READER_BLOCK_CHARS", "3000"))
+
 FIXED_READER_COT_PROMPT = (
     FIXED_READER_PROMPT
     + "\n\nBefore answering, write brief evidence notes for each useful source. "
@@ -28,7 +34,7 @@ FIXED_READER_COT_PROMPT = (
 
 def answer_with_fixed_reader(question: str, context_blocks: list[str]) -> str:
     client = get_client()
-    ctx = "\n\n".join(f"[S{i}] {b[:3000]}" for i, b in enumerate(context_blocks))
+    ctx = "\n\n".join(f"[S{i}] {b[:READER_BLOCK_CHARS]}" for i, b in enumerate(context_blocks))
     if get_settings().reader_cot_enabled:
         data = client.chat_json(READER_MODEL, FIXED_READER_COT_PROMPT,
                                 f"Question: {question}\n\nMemory/context:\n{ctx}",

@@ -55,9 +55,12 @@ def make_system(name: str):
     if name in ("eidetic-full", "eidetic-plus-full"):
         from .adapters.eidetic_adapter import EideticFullSystem
         return EideticFullSystem()
+    if name in ("eidetic-product", "eidetic-plus-product"):
+        from .adapters.eidetic_adapter import EideticProductSystem
+        return EideticProductSystem()
     raise SystemExit(
-        f"Unknown system '{name}' (choose from eidetic, eidetic-full, mem0, graphiti, "
-        "rag-full, rag-vector).")
+        f"Unknown system '{name}' (choose from eidetic, eidetic-full, eidetic-product, mem0, "
+        "graphiti, rag-full, rag-vector).")
 
 
 def _slice(samples: list, subset: int, offset: int) -> list:
