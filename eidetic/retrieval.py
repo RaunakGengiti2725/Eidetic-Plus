@@ -289,7 +289,8 @@ class Retriever:
 
     # ---- retrieval --------------------------------------------------------
     def retrieve(self, query: str, at: Optional[float] = None, scope: Optional[Scope] = None,
-                 qvec: Optional[np.ndarray] = None, use_recency: bool = True) -> list[RetrievalCandidate]:
+                 qvec: Optional[np.ndarray] = None, use_recency: bool = True,
+                 activation: Optional[dict] = None) -> list[RetrievalCandidate]:
         """Hybrid read path: dense + BM25 + single-step PPR + recency -> RRF -> rerank.
 
         Scope + bi-temporal as-of filter applied first. `qvec` may be passed to avoid a
@@ -423,11 +424,21 @@ class Retriever:
                 if record_trace:
                     channel_names.append("gist")
         if s.coactivation_channel_enabled:
-            co, cm = self._run_coactivation(dense, records, at, scope, allowed)
+            co, cm = self._run_coactivation(dense, records, at, scope, allowed, activation=activation)
             if co:
                 rankings.append(co); weights.append(s.rrf_w_coact); score_maps.append(cm)
                 if record_trace:
                     channel_names.append("coactivation")
+        # Track 9 Flow: activation channel -- field-warm memories the query never named ride into
+        # the hybrid candidates (gated to the in-scope active corpus via `allowed`). Ranking only;
+        # dense_score stays 0 for an activation-seeded id, so coverage/abstention are untouched.
+        # activation=None or flag off -> not added -> byte-identical.
+        if s.flow_hybrid_channel_enabled and activation:
+            ao, am = self._run_activation(allowed, activation)
+            if ao:
+                rankings.append(ao); weights.append(s.flow_hybrid_weight); score_maps.append(am)
+                if record_trace:
+                    channel_names.append("activation")
         if recency_order:
             rankings.append(recency_order)
             weights.append(s.rrf_w_recency)
@@ -569,13 +580,31 @@ class Retriever:
                     prov[mid] = g.cid
         return order, m, prov
 
+    def _run_activation(self, allowed: set, activation: Optional[dict]) -> tuple[list[str], dict]:
+        """Track 9 Flow activation channel: in-scope active ids whose field activation clears the
+        floor, ordered by activation. Restricting to `allowed` (the scope + bi-temporal corpus) is
+        the store gate -- a cross-scope or expired activated id is dropped, never surfaced."""
+        if not activation:
+            return [], {}
+        floor = self.settings.flow_floor
+        items = [(mid, float(v)) for mid, v in activation.items() if mid in allowed and v >= floor]
+        items.sort(key=lambda kv: -kv[1])
+        return [mid for mid, _ in items], {mid: v for mid, v in items}
+
     def _run_coactivation(self, dense: list, records: dict, at, scope: Scope,
-                          allowed: set) -> tuple[list[str], dict]:
+                          allowed: set, activation: Optional[dict] = None) -> tuple[list[str], dict]:
         """Co-activation channel: memories co-confirmed with the top dense hits in PAST recalls
         (graph CO_ACTIVATED links, Section 7.3) are pulled in as candidates. This is multi-hop
         recall -- a memory sharing no query words but repeatedly used together with a dense hit
-        surfaces here. Ranks by co-activation frequency (how many seeds link to it), never by age."""
+        surfaces here. Ranks by co-activation frequency (how many seeds link to it), never by age.
+
+        Flow: the strongest field-activated ids are unioned into the walk seeds, so coactivation
+        inherits field warmth even when the activation channel flag itself is off."""
         seeds = [mid for mid, _ in dense[:10]]
+        if activation:
+            top_active = sorted((kv for kv in activation.items() if kv[0] in allowed),
+                                key=lambda kv: -kv[1])[: max(0, self.settings.flow_seed_topk)]
+            seeds = list(dict.fromkeys(seeds + [mid for mid, _ in top_active]))
         if not seeds:
             return [], {}
         seed_set = set(seeds)

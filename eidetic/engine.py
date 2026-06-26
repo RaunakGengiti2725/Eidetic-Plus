@@ -763,13 +763,17 @@ class Engine:
 
         # When the idle learner is fed, retrieve candidates explicitly so per-channel
         # contributions are available for feedback; otherwise answer() retrieves internally
-        # exactly as before (the default call signature is unchanged).
+        # exactly as before (the default call signature is unchanged). Track 9: on the hybrid path
+        # (reflex miss / REFLEX_RECALL=0) pass the field snapshot so instinct reaches hybrid too
+        # (inert when the activation channels are off; None when flow is off -> byte-identical).
+        flow_act = self._flow_snapshot(scope.namespace) if self.settings.flow_activation_enabled else None
         precomputed = None
         if reflex_candidates is not None:
             ans = self.retriever.answer(query, at=read_at, verify=verify, scope=scope, qvec=qvec,
                                         precomputed=reflex_candidates, reader_model=reader_model)
-        elif self.settings.feedback_enabled:
-            precomputed = self.retriever.retrieve(query, at=read_at, scope=scope, qvec=qvec)
+        elif self.settings.feedback_enabled or flow_act:
+            precomputed = self.retriever.retrieve(query, at=read_at, scope=scope, qvec=qvec,
+                                                  activation=flow_act)
             ans = self.retriever.answer(query, at=read_at, verify=verify, scope=scope, qvec=qvec,
                                         precomputed=precomputed, reader_model=reader_model)
         else:
