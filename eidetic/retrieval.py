@@ -302,7 +302,16 @@ class Retriever:
         if len(self.index) == 0:
             return []
         if qvec is None:
-            qvec = self.client.embed_text(query)  # real call
+            # MIRIX Active Retrieval: generate an anticipated topic/sub-question and fold it into
+            # the EMBED query so dense recall is scaffolded toward what answering needs (multi-hop /
+            # temporal). Real qwen-flash call, hence gated (ACTIVE_RETRIEVAL, default OFF). parse_query
+            # below still runs on the ORIGINAL query, so BM25/operation/entity semantics are unchanged.
+            embed_query = query
+            if self.settings.active_retrieval_enabled:
+                topic = self.client.generate_topic(query)
+                if topic:
+                    embed_query = f"{query} {topic}"
+            qvec = self.client.embed_text(embed_query)  # real call
 
         # Scope + bi-temporal as-of filter -> the in-scope, currently-valid corpus.
         corpus = self.store.active_records_at(at, scope)
@@ -1051,6 +1060,24 @@ class Retriever:
             text = self.client.generate_answer(query, blocks, model=model)
             citations, entailed = self._verify_candidates(candidates, text, verify)
 
+        # CoVe (Chain-of-Verification): factored fact-check of a grounded draft. Plan independent
+        # verification questions, answer each ONLY from the retrieved blocks (factored -> the model
+        # cannot copy its own hallucination), and re-verify the sub-answer against the candidates.
+        # If a verification question's independent answer is itself ungrounded, the draft
+        # over-claims -> drop entailment so the abstention/unverified path below takes over. Real
+        # LLM calls, hence gated (COVE, default OFF). Lives in answer() -> the engine.ask product
+        # path only; the neutral fixed-reader rows do not call this.
+        cove_failed = False
+        if self.settings.cove_enabled and verify and entailed > 0:
+            qs = self.client.plan_verification_questions(text, n=self.settings.cove_questions)
+            for q in qs:
+                check = self.client.generate_answer(q, blocks, model=self.settings.verify_model)
+                _c, sub_entailed = self._verify_candidates(candidates, check, True)
+                if sub_entailed == 0:
+                    entailed = 0          # factored check failed -> treat the draft as unverified
+                    cove_failed = True
+                    break
+
         verified = (entailed > 0) if verify else False
         unverified: list[str] = []
         abstained = False
@@ -1068,14 +1095,16 @@ class Retriever:
                         f"coverage={sig['coverage']:.2f} agreement={sig['agreement']:.2f} "
                         f"proof={sig['proof']:.2f})")
             elif not verified:
-                note = "unverified: no source entails the answer"
+                note = ("unverified: a CoVe verification question was not grounded in memory"
+                        if cove_failed else "unverified: no source entails the answer")
                 unverified = [text]
         elif verify and not verified and coverage < self.settings.abstention_threshold:
             abstained = True
             text = "I don't have enough verified evidence in memory to answer that confidently."
             note = f"abstained: insufficient evidence (coverage {coverage:.2f})"
         elif verify and not verified:
-            note = "unverified: no source entails the answer"
+            note = ("unverified: a CoVe verification question was not grounded in memory"
+                    if cove_failed else "unverified: no source entails the answer")
             unverified = [text]
 
         top_rerank = max((c.rerank_score for c in candidates), default=0.0)
