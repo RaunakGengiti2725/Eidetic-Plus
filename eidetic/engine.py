@@ -534,7 +534,16 @@ class Engine:
         model call). No-op when flow is off."""
         if self.activation is None:
             return
-        sal = self._salience_of if self.settings.flow_salience_decay else None
+        # Salience-modulated decay reads each active id's static salience. Precompute the map HERE
+        # (off the ActivationField lock) and pass an in-memory dict.get to decay -- never a callable
+        # that does a per-id store.get_record while the field's global lock is held (that would
+        # serialize every namespace on N SQLite reads). NOTE: FLOW_SALIENCE_DECAY still costs
+        # O(active-field) reads per turn, so it must NOT default on without an inject-time salience
+        # snapshot; default 0 keeps this path cold.
+        sal = None
+        if self.settings.flow_salience_decay:
+            sal_map = {mid: self._salience_of(mid) for mid in self.activation.snapshot(namespace)}
+            sal = sal_map.get
         with self._flow_turn_lock(namespace):
             self.activation.decay(namespace, factor=self.settings.flow_decay, salience=sal)
             amt = self.settings.flow_prime_query

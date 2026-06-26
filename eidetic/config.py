@@ -389,6 +389,9 @@ class Settings:
     # Cold-start priming amplitudes (0.0 = no prime, the default).
     flow_prime_query: float = field(default_factory=lambda: float(_get("FLOW_PRIME_QUERY", "0.0")))
     flow_prime_ingest: float = field(default_factory=lambda: float(_get("FLOW_PRIME_INGEST", "0.0")))
+    # FOOTGUN: salience-modulated decay reads each active id's static salience per turn. The engine
+    # precomputes the map off the field lock, but it still costs O(active-field) store reads per ask
+    # -- do NOT default this on without an inject-time salience snapshot (in-memory decay). Default 0.
     flow_salience_decay: bool = field(default_factory=lambda: _get_bool("FLOW_SALIENCE_DECAY", "0"))
     # Predictive idle warmup of Markov-predicted next queries into the PrefetchCache.
     flow_warmup_enabled: bool = field(default_factory=lambda: _get_bool("FLOW_WARMUP", "0"))

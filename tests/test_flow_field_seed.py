@@ -4,6 +4,7 @@ it (scope + bi-temporal validity), and match_strength stays content-only so it c
 coverage or bypass abstention. Instinct surfaces; it never fabricates."""
 from __future__ import annotations
 
+import time
 from dataclasses import replace
 
 from eidetic.graph import KnowledgeGraph
@@ -56,3 +57,20 @@ def test_field_seed_off_does_not_seed(fresh_settings):
     p = build_memory_packet("alpha keyword", Scope(), store=store, graph=graph, index=idx,
                             settings=s, activation={"m_quiet": 1.0})
     assert "m_quiet" not in p.candidate_ids()             # flag off -> no field seed
+
+
+def test_flow_packet_holds_reflex_budget_with_warm_field(fresh_settings):
+    """The one offline 'faster' guard: FLOW=1 with field-seed + a warm field must still build the
+    reflex packet under the local budget on 1k records (field-seed/activation must not blow it)."""
+    s = replace(fresh_settings, flow_field_seed=True, flow_seed_topk=8, reflex_w_activation=0.4)
+    records = [_rec(f"m{i}", f"record number {i} about projects revenue and metrics")
+               for i in range(1000)]
+    records.append(_rec("hit", "the special helios alpha keyword target memory"))
+    store, graph, idx = _fixture(s, records)
+    activation = {f"m{i}": 1.0 for i in range(8)}         # warm field
+    t0 = time.perf_counter()
+    p = build_memory_packet("special helios alpha keyword target", Scope(), store=store,
+                            graph=graph, index=idx, settings=s, activation=activation)
+    elapsed_ms = (time.perf_counter() - t0) * 1000.0
+    assert "hit" in p.candidate_ids()
+    assert elapsed_ms < 100.0, f"FLOW=1 reflex packet took {elapsed_ms:.1f}ms (budget 100ms)"
