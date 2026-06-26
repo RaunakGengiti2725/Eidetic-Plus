@@ -45,6 +45,11 @@ class EideticSystem(MemorySystem):
         # (one record per non-empty turn, ~15x cost) | hybrid (session record PLUS short turn-window
         # records for sharper embeddings, so a buried fact is also retrievable at finer grain). All
         # records carry the SAME session valid_at, so the bi-temporal anchor is unchanged.
+        # FAIRNESS GUARDRAIL: hybrid/turn change ONLY the eidetic write path (the baseline adapters
+        # ignore this env), and hybrid intentionally double-ingests (session + windows), which adds
+        # duplicate graph facts and enlarges eidetic's candidate pool. Use these for eidetic-vs-
+        # eidetic ablations ONLY; do NOT enable them in a cross-system reported run, or the
+        # comparison is no longer apples-to-apples.
         granularity = os.environ.get("INGEST_GRANULARITY", "session").strip().lower()
         t0 = time.perf_counter()
         if granularity == "turn":
@@ -69,12 +74,14 @@ class EideticSystem(MemorySystem):
         # Async build: parallel fact extraction, bi-temporal graph, events, date normalization,
         # typed preferences. score_importance=False (importance isn't in the ranking path).
         scope = Scope(namespace=namespace)
-        # FULL_SLEEP=1: run the unified lifecycle sleep (consolidate_pending -> dream replay+infer
-        # +multi-resolution gist), so the dream/gist channels have output to read. Token-free
-        # (llm_summaries=False). Default path stays consolidate_pending-only + the DREAM_AB hook,
-        # byte-identical to the historical bench build.
+        # FULL_SLEEP=1: consolidate_pending + dream (replay + inferred links + multi-resolution
+        # gist), so the dream/gist channels have output to read. This is exactly the default build
+        # PLUS the DREAM_AB hook -- a true superset, and token-free (score_importance=False keeps
+        # the per-record qwen-flash importance call off, matching the default path). Default path
+        # stays consolidate_pending-only + the optional DREAM_AB hook, byte-identical to before.
         if _truthy("FULL_SLEEP"):
-            self.engine.sleep(scope=scope, llm_summaries=False)
+            self.engine.consolidate_pending(scope=scope, score_importance=False)
+            self.engine.dream(scope=scope)
             return
         self.engine.consolidate_pending(scope=scope, score_importance=False)
         # Dreaming-engine A/B hook (token-free): set DREAM_AB=1 to run one idle consolidation
@@ -174,19 +181,28 @@ class EideticProductSystem(EideticSystem):
     def answer(self, namespace: str, question: str,
                as_of: Optional[float] = None) -> AnswerResult:
         scope = Scope(namespace=namespace)
+        r = self.engine.retriever
+        # Report cost (tokens/query) and search latency on the SAME block basis as every other row,
+        # so the columns are comparable: engine.ask() does not expose its internal reader blocks, so
+        # we time a retrieve and assemble the context the reader consumes. (This is a representative
+        # retrieve for accounting; the cache/reflex path engine.ask actually takes may differ.) The
+        # ANSWER itself still comes from the full product path (engine.ask) below.
+        t_s = time.perf_counter()
+        cands = r.retrieve(question, at=as_of, scope=scope)
+        search_ms = (time.perf_counter() - t_s) * 1000.0
+        blocks = r.assemble_context(question, cands, at=as_of, scope=scope)
+        ctx_tokens = sum(approx_tokens(b) for b in blocks)
         t0 = time.perf_counter()
         ans = self.engine.ask(question, at=as_of, scope=scope, verify=True)
         e2e_ms = (time.perf_counter() - t0) * 1000.0
         note = ans.note or ""
         abstained = note.startswith("abstained")
-        # engine.ask() bundles retrieval into the answer, so search_ms isn't separately timed here;
-        # report e2e and let the cost/latency tables carry the cascade/cache effect. context_tokens
-        # come from the cited sources (proof surface), approximated from citation snippets.
-        ctx_tokens = sum(approx_tokens(getattr(c, "snippet", "") or "") for c in ans.citations)
         return AnswerResult(
             answer=ans.answer, context_tokens=ctx_tokens,
-            search_ms=0.0, e2e_ms=e2e_ms, abstained=abstained,
+            search_ms=search_ms, e2e_ms=e2e_ms, abstained=abstained,
             extra={"verified": bool(ans.verified and not abstained),
                    "confidence": ans.confidence, "citations": len(ans.citations),
+                   "proof_surface_tokens": sum(
+                       approx_tokens(getattr(c, "snippet", "") or "") for c in ans.citations),
                    "note": note, "policy": "engine.ask: cache+reflex+flow+cascade+verify+abstain"},
         )

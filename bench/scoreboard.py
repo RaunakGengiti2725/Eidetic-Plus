@@ -62,7 +62,8 @@ def aggregate(rows: list[dict]) -> dict:
     # flags. Honesty differentiators no accuracy column shows -- does an emitted answer carry an
     # entailment proof, or is it an unproven claim. Pooled across runs (no per-run std needed).
     integrity: dict = defaultdict(lambda: {"n": 0, "verified_correct": 0, "answered": 0,
-                                           "unverified_answered": 0, "abstained": 0})
+                                           "unverified_answered": 0, "abstained": 0,
+                                           "has_verify": False})
     systems, cats_by_ds = set(), defaultdict(set)
     for r in rows:
         if r.get("error"):       # transport/runtime error on this question -> excluded from accuracy
@@ -73,6 +74,8 @@ def aggregate(rows: list[dict]) -> dict:
         ig["n"] += 1
         _abst = bool(r.get("abstained"))
         _ver = bool((r.get("extra") or {}).get("verified"))
+        if _ver or _abst:
+            ig["has_verify"] = True              # this system has a verify/abstain step
         if _abst:
             ig["abstained"] += 1
         else:
@@ -257,22 +260,28 @@ def render(out_dir: Path, judge_desc: Optional[dict] = None) -> Path:
 
     integ = agg.get("integrity", {})
     if integ:
-        lines.append("## Integrity (verified recall vs fabrication) - from logged verify/abstain flags\n")
-        lines.append("_verified accuracy = correct AND entailment-proven; fabrication rate = answered "
-                     "WITHOUT a proof; abstention rate = declined for lack of evidence. Meaningful only "
-                     "for the verifying rows (eidetic-plus-full / eidetic-product); rows without a "
-                     "verify step report 0 verified by construction._\n")
-        lines.append("| system | n | verified accuracy | fabrication rate | abstention rate |")
+        lines.append("## Integrity (verified recall) - from logged verify/abstain flags\n")
+        lines.append("_verified accuracy = correct AND entailment-proven, over ALL questions (so "
+                     "abstentions and unverifiable categories depress it -- it is a recall metric, "
+                     "not comparable to judge accuracy). unproven-answer rate = answered WITHOUT an "
+                     "entailment proof (NOT a fabrication count: an unproven answer can still be "
+                     "correct). abstention rate = declined for lack of evidence. Systems without a "
+                     "verify step (rag-full / rag-vector / mem0) show N/A -- they emit no proofs by "
+                     "construction, which is not the same as fabricating._\n")
+        lines.append("| system | n | verified accuracy (/n) | unproven-answer rate | abstention rate |")
         lines.append("|---|---:|---:|---:|---:|")
         for s in systems:
             ig = integ.get(s)
             if not ig or ig["n"] == 0:
                 continue
             n = ig["n"]
-            va = ig["verified_correct"] / n
-            fr = ig["unverified_answered"] / n
             ar = ig["abstained"] / n
-            lines.append(f"| {s} | {n} | {va * 100:.1f}% | {fr * 100:.1f}% | {ar * 100:.1f}% |")
+            if ig.get("has_verify"):
+                va = f"{ig['verified_correct'] / n * 100:.1f}%"
+                up = f"{ig['unverified_answered'] / n * 100:.1f}%"
+            else:
+                va = up = "N/A (no verify step)"
+            lines.append(f"| {s} | {n} | {va} | {up} | {ar * 100:.1f}% |")
         lines.append("")
 
     lines.append(_BEAM_NOTE)

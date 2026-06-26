@@ -308,9 +308,12 @@ class Retriever:
             # below still runs on the ORIGINAL query, so BM25/operation/entity semantics are unchanged.
             embed_query = query
             if self.settings.active_retrieval_enabled:
-                topic = self.client.generate_topic(query)
-                if topic:
-                    embed_query = f"{query} {topic}"
+                try:                                    # best-effort: a failed topic call must never
+                    topic = self.client.generate_topic(query)   # abort core recall -> fall back to
+                    if topic:                                    # the raw query, like the other
+                        embed_query = f"{query} {topic}"         # optional retrieval channels.
+                except Exception:
+                    pass
             qvec = self.client.embed_text(embed_query)  # real call
 
         # Scope + bi-temporal as-of filter -> the in-scope, currently-valid corpus.
@@ -1069,14 +1072,17 @@ class Retriever:
         # path only; the neutral fixed-reader rows do not call this.
         cove_failed = False
         if self.settings.cove_enabled and verify and entailed > 0:
-            qs = self.client.plan_verification_questions(text, n=self.settings.cove_questions)
-            for q in qs:
-                check = self.client.generate_answer(q, blocks, model=self.settings.verify_model)
-                _c, sub_entailed = self._verify_candidates(candidates, check, True)
-                if sub_entailed == 0:
-                    entailed = 0          # factored check failed -> treat the draft as unverified
-                    cove_failed = True
-                    break
+            try:                              # best-effort: a failed CoVe call must never abort
+                qs = self.client.plan_verification_questions(text, n=self.settings.cove_questions)
+                for q in qs:
+                    check = self.client.generate_answer(q, blocks, model=self.settings.verify_model)
+                    _c, sub_entailed = self._verify_candidates(candidates, check, True)
+                    if sub_entailed == 0:
+                        entailed = 0      # factored check failed -> treat the draft as unverified
+                        cove_failed = True
+                        break
+            except Exception:
+                pass                          # answer() proceeds on the pre-CoVe verdict
 
         # Span-level NLI: verify EACH sentence of a multi-sentence answer against the sources, so a
         # partly-grounded answer can't ride one entailed sentence. One unentailed claim -> demote.
@@ -1091,6 +1097,16 @@ class Retriever:
                         entailed = 0      # an ungrounded claim demotes the whole answer
                         span_failed = True
                         break
+
+        # A CoVe/SPAN demotion means the draft over-claims: strip the ENTAILMENT evidence so the
+        # abstention gate, the proof surface, AND engine.ask()'s post-answer reconsolidation never
+        # treat an ungrounded draft's citations as confirmed -- otherwise reconsolidation would
+        # FSRS-reinforce, re-embed, and co-activate the very memories the factored check rejected.
+        # CONTRADICTION citations stay untouched (a contradicting source is still contradicting).
+        if cove_failed or span_failed:
+            citations = [c.model_copy(update={"nli_label": NLILabel.NEUTRAL, "nli_score": 0.0})
+                         if c.nli_label == NLILabel.ENTAILMENT else c
+                         for c in citations]
 
         verified = (entailed > 0) if verify else False
         unverified: list[str] = []

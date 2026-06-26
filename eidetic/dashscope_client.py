@@ -48,7 +48,9 @@ def chunk_text(text: str, chunk: int, overlap: int) -> list[str]:
         return [text]
     step = chunk - overlap
     if step <= 0:
-        return [text]
+        step = chunk          # degenerate overlap>=chunk -> non-overlapping full coverage, never
+        #                       a single untruncated window sent to the extraction LLM, never a
+        #                       zero/negative-step infinite loop.
     return [text[i:i + chunk] for i in range(0, len(text), step) if text[i:i + chunk]]
 
 

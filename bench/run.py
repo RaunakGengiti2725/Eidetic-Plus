@@ -119,7 +119,9 @@ def write_manifest(out: Path, args, judge_desc: dict, samples: list | None = Non
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="Eidetic-Plus neutral benchmark harness")
-    ap.add_argument("--systems", default="eidetic", help="comma list: eidetic,mem0,graphiti")
+    ap.add_argument("--systems", default="eidetic",
+                    help="comma list: eidetic, eidetic-full, eidetic-product, mem0, graphiti, "
+                         "rag-full, rag-vector")
     ap.add_argument("--dataset", default="locomo",
                     choices=["longmemeval", "locomo", "memoryagentbench", "beam", "both", "all"])
     ap.add_argument("--subset", type=int, default=10, help="limit samples per dataset (<=0 = full)")

@@ -27,6 +27,7 @@ from .dashscope_client import DashScopeClient, get_client
 from .events import EventRecord, normalize_dates
 from .graph import KnowledgeGraph
 from .ingestion import IngestInput, from_bytes, from_file, from_text
+from .memory_types import classify_record
 from .brain import BrainEventLog, build_evidence_packets
 from .models import (Answer, BrainEvent, BrainEventType, EvidencePacket, MemoryRecord,
                      Modality, NLILabel, RecallTrace, Scope, now)
@@ -268,7 +269,6 @@ class Engine:
         # MIRIX memory typing (Phase 4): tag the record's role from cheap deterministic signals
         # (no model call) so the retrieval coordinator can route by type. Gated; metadata-only.
         if self.settings.memory_typing_enabled:
-            from .memory_types import classify_record
             record.metadata["type"] = classify_record(record).value
 
         # Index-write tail under the write lock (content_vec / struct_vec were computed above, OFF
@@ -1103,9 +1103,13 @@ class Engine:
                 events_total += 1
             if self.settings.pref_sentence_scan_enabled:
                 # Scan every sentence/turn so mid-conversation preferences become profile lines.
+                # Pass a normalized dedup key so casing/whitespace variants across sessions don't
+                # bloat the profile (exact-string dedup alone would let "I like Tea" and "i like
+                # tea" both land).
                 lines = preferences.extract_all_preferences(rec.text)
                 for line in lines:
-                    self.store.add_profile_line(rec.scope.namespace, line, salience=rec.salience)
+                    self.store.add_profile_line(rec.scope.namespace, line, salience=rec.salience,
+                                                dedup_key=" ".join(line.lower().split()))
                 if lines:
                     rec.metadata["type"] = "preference"
             elif preferences.is_preference(rec.text):
@@ -1117,12 +1121,12 @@ class Engine:
                 rec.importance = self.client.score_importance(rec.text)   # real qwen-flash
                 rec.salience = max(0.0, min(1.0, 0.45 * rec.surprise + 0.55 * rec.importance))
             rec.entities = entities
-            # MIRIX role typing AFTER consolidation (entities now populated). The deterministic
-            # classifier is token-free, so this activates the MEMORY_TYPING retrieval prior on the
-            # async write path the bench uses (ingest fast path never sets metadata.type). A record
-            # already typed "preference" above keeps that stronger label. Gated (default OFF).
+            # MIRIX role typing on the async consolidate path via the token-free deterministic
+            # classifier (reads text/modality only). This activates the MEMORY_TYPING retrieval
+            # prior on the write path the bench uses -- the fast ingest path never sets
+            # metadata.type. A record already typed "preference" above keeps that stronger label.
+            # Gated (default OFF).
             if self.settings.memory_typing_enabled and rec.metadata.get("type") != "preference":
-                from .memory_types import classify_record
                 rec.metadata["type"] = classify_record(rec).value
             rec.metadata["pending_consolidation"] = False
             rec.metadata["dates"] = [r["start"] for r in date_ranges]

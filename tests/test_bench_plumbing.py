@@ -79,12 +79,17 @@ def test_reader_mode_photographic_selects_extractive_prompt(monkeypatch):
     importlib.reload(reader)  # restore default for other tests
 
 
-def test_make_system_knows_product_name():
-    # Exercise the routing table without constructing a real Engine: the name must be recognized
-    # (not fall through to the "Unknown system" SystemExit).
+def test_make_system_knows_product_name(monkeypatch):
+    # Exercise the ROUTING BEHAVIOR (not just that a string literal exists): both product aliases
+    # must construct an EideticProductSystem, and an unknown name must still raise. Stub the Engine
+    # constructor so no real Engine/index is built offline.
+    import pytest
+
+    import bench.adapters.eidetic_adapter as ea
     import bench.run as run
 
-    src = run.make_system.__code__.co_consts
-    # The accepted aliases live as string constants in make_system.
-    flat = " ".join(str(c) for c in src)
-    assert "eidetic-product" in flat
+    monkeypatch.setattr(ea.EideticProductSystem, "__init__", lambda self: None)
+    assert isinstance(run.make_system("eidetic-product"), ea.EideticProductSystem)
+    assert isinstance(run.make_system("eidetic-plus-product"), ea.EideticProductSystem)
+    with pytest.raises(SystemExit):
+        run.make_system("totally-bogus-system")

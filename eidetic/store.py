@@ -340,13 +340,23 @@ class RecordStore:
         return [EventRecord.model_validate_json(r["json"]) for r in rows]
 
     # ---- per-user preference profile -------------------------------------
-    def add_profile_line(self, namespace: str, line: str, salience: float = 0.5) -> None:
+    def add_profile_line(self, namespace: str, line: str, salience: float = 0.5,
+                         dedup_key: Optional[str] = None) -> None:
         c = self._conn()
-        exists = c.execute(
-            "SELECT 1 FROM profiles WHERE namespace=? AND line=?", (namespace, line)
-        ).fetchone()
-        if exists:
-            return
+        if dedup_key is None:
+            # Default (all existing callers): exact-string dedup -- byte-identical to before.
+            exists = c.execute(
+                "SELECT 1 FROM profiles WHERE namespace=? AND line=?", (namespace, line)
+            ).fetchone()
+            if exists:
+                return
+        else:
+            # Near-duplicate dedup: skip if any existing line normalizes to the same key (the
+            # sentence-scan path passes a lower+whitespace-collapsed key, so casing/spacing
+            # variants of the same preference don't bloat the profile). Profiles are small.
+            rows = c.execute("SELECT line FROM profiles WHERE namespace=?", (namespace,)).fetchall()
+            if any(" ".join(r["line"].lower().split()) == dedup_key for r in rows):
+                return
         c.execute("INSERT INTO profiles (namespace, line, salience, created_at) VALUES (?,?,?,?)",
                   (namespace, line, salience, now()))
         c.commit()

@@ -30,6 +30,7 @@ def test_integrity_counts_verified_unverified_abstained():
     assert ig["abstained"] == 1                 # q2
     assert ig["answered"] == 3                  # q0,q1,q3
     assert ig["unverified_answered"] == 2       # q1,q3 emitted without a proof
+    assert ig["has_verify"] is True             # q0 verified + q2 abstained -> has a verify step
 
 
 def test_integrity_excludes_error_rows():
@@ -47,4 +48,5 @@ def test_integrity_baseline_zero_verified():
             for i in range(5)]
     ig = aggregate(rows)["integrity"]["rag-vector"]
     assert ig["verified_correct"] == 0
-    assert ig["unverified_answered"] == 5        # fabrication rate would be 100%
+    assert ig["unverified_answered"] == 5        # all unproven -> shows N/A, never "fabrication"
+    assert ig["has_verify"] is False             # no verify step -> N/A in the rendered table
