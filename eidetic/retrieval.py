@@ -1078,10 +1078,30 @@ class Retriever:
                     cove_failed = True
                     break
 
+        # Span-level NLI: verify EACH sentence of a multi-sentence answer against the sources, so a
+        # partly-grounded answer can't ride one entailed sentence. One unentailed claim -> demote.
+        # Whole-answer NLI already covers a single-sentence answer, so only multi-claim answers run.
+        span_failed = False
+        if self.settings.span_nli_enabled and verify and entailed > 0:
+            claims = [c for c in _sentences(text) if len(c) >= self.settings.span_nli_min_chars]
+            if len(claims) > 1:
+                for claim in claims:
+                    _c, claim_entailed = self._verify_candidates(candidates, claim, True)
+                    if claim_entailed == 0:
+                        entailed = 0      # an ungrounded claim demotes the whole answer
+                        span_failed = True
+                        break
+
         verified = (entailed > 0) if verify else False
         unverified: list[str] = []
         abstained = False
         note = ""
+        if cove_failed:
+            _unverified_reason = "unverified: a CoVe verification question was not grounded in memory"
+        elif span_failed:
+            _unverified_reason = "unverified: a sentence-level claim was not grounded in memory"
+        else:
+            _unverified_reason = "unverified: no source entails the answer"
         # Calibrated abstention (Phase 2). When ABSTENTION_V2 is on, gate on a multi-signal
         # confidence (entailment + coverage + structural channel-agreement + proof-completeness)
         # against the dev-calibrated tau. When off, the original coverage gate runs unchanged.
@@ -1095,16 +1115,14 @@ class Retriever:
                         f"coverage={sig['coverage']:.2f} agreement={sig['agreement']:.2f} "
                         f"proof={sig['proof']:.2f})")
             elif not verified:
-                note = ("unverified: a CoVe verification question was not grounded in memory"
-                        if cove_failed else "unverified: no source entails the answer")
+                note = _unverified_reason
                 unverified = [text]
         elif verify and not verified and coverage < self.settings.abstention_threshold:
             abstained = True
             text = "I don't have enough verified evidence in memory to answer that confidently."
             note = f"abstained: insufficient evidence (coverage {coverage:.2f})"
         elif verify and not verified:
-            note = ("unverified: a CoVe verification question was not grounded in memory"
-                    if cove_failed else "unverified: no source entails the answer")
+            note = _unverified_reason
             unverified = [text]
 
         top_rerank = max((c.rerank_score for c in candidates), default=0.0)

@@ -139,6 +139,62 @@ def test_cove_off_skips_verification_questions(fresh_settings):
     assert ans.verified is True                      # main draft entailed, no CoVe demotion
 
 
+def _span_retriever(settings, claim_entailed_for):
+    """A retriever for SPAN_NLI: the whole-answer verify entails (1); per-claim verify returns
+    `claim_entailed_for(claim_text)` for each sentence checked."""
+    s = settings
+    client = _CoveClient()
+    r = _retriever(s, client)
+    rec = MemoryRecord(memory_id="m1", content_hash="h1", text="Mel reads and runs",
+                       scope=Scope(), valid_at=1.0)
+    cand = RetrievalCandidate(record=rec, dense_score=0.9, bm25_score=0.6, graph_score=0.4,
+                              fused_score=1.0, rerank_score=0.9)
+    cit = [Citation(memory_id="m1", content_hash="h1", raw_uri="", source="u", valid_at=1.0,
+                    nli_label=NLILabel.ENTAILMENT, nli_score=0.95)]
+
+    state = {"first": True}
+
+    def fake_verify(cands, text, verify):
+        if state["first"]:
+            state["first"] = False
+            return (cit, 1)                     # whole-answer entails
+        return (cit, 1 if claim_entailed_for(text) else 0)   # per-claim
+
+    r._verify_candidates = fake_verify
+    r._try_conflict_resolver = lambda *a, **k: None
+    r.assemble_context = lambda *a, **k: ["[S0] Mel reads and runs"]
+    # The reader returns a TWO-sentence answer, one of which is ungrounded.
+    client.generate_answer = lambda q, b, model=None: "Mel reads books. Mel pilots jets."
+    return r, [cand]
+
+
+def test_span_nli_demotes_when_one_claim_ungrounded(fresh_settings):
+    s = replace(fresh_settings, span_nli_enabled=True, cove_enabled=False, cascade_enabled=False,
+                abstention_v2_enabled=False, abstention_threshold=0.0)
+    # "pilots jets" is not grounded -> the whole answer demotes.
+    r, cands = _span_retriever(s, claim_entailed_for=lambda t: "reads" in t)
+    ans = r.answer("what does Mel do", verify=True, precomputed=cands)
+    assert ans.verified is False
+    assert "sentence-level claim" in ans.note
+
+
+def test_span_nli_keeps_verified_when_all_claims_grounded(fresh_settings):
+    s = replace(fresh_settings, span_nli_enabled=True, cove_enabled=False, cascade_enabled=False,
+                abstention_v2_enabled=False, abstention_threshold=0.0)
+    r, cands = _span_retriever(s, claim_entailed_for=lambda t: True)
+    ans = r.answer("what does Mel do", verify=True, precomputed=cands)
+    assert ans.verified is True
+
+
+def test_span_nli_off_keeps_whole_answer_verdict(fresh_settings):
+    s = replace(fresh_settings, span_nli_enabled=False, cove_enabled=False, cascade_enabled=False,
+                abstention_v2_enabled=False, abstention_threshold=0.0)
+    r, cands = _span_retriever(s, claim_entailed_for=lambda t: False)  # would fail if it ran
+    ans = r.answer("what does Mel do", verify=True, precomputed=cands)
+    assert ans.verified is True                  # span check never ran -> whole-answer verdict
+
+
 def test_retrieval_wiring_flags_default_off(fresh_settings):
     assert fresh_settings.active_retrieval_enabled is False
     assert fresh_settings.cove_enabled is False
+    assert fresh_settings.span_nli_enabled is False

@@ -249,6 +249,13 @@ class Settings:
     cove_enabled: bool = field(default_factory=lambda: _get_bool("COVE", "0"))
     cove_questions: int = field(default_factory=lambda: int(_get("COVE_QUESTIONS", "3")))
     debate_enabled: bool = field(default_factory=lambda: _get_bool("DEBATE", "0"))
+    # Span-level NLI: verify EACH sentence/claim of a multi-sentence answer against the cited
+    # sources, not just the whole answer as one hypothesis. A single unentailed claim demotes the
+    # answer to unverified -> abstain/strip, so a partly-grounded answer can't ride one good
+    # sentence. Multiplies NLI on multi-sentence answers, hence gated (default OFF). Fires in
+    # answer() -> the engine.ask product path only.
+    span_nli_enabled: bool = field(default_factory=lambda: _get_bool("SPAN_NLI", "0"))
+    span_nli_min_chars: int = field(default_factory=lambda: int(_get("SPAN_NLI_MIN_CHARS", "12")))
 
     # Chunked fact extraction (capture fidelity). When OFF (default) extract_edges sends a single
     # text[:6000] call -- byte-identical to the historical write path. When ON, a session longer
