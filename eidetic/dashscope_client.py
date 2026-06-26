@@ -42,8 +42,9 @@ def chunk_text(text: str, chunk: int, overlap: int) -> list[str]:
     """Split `text` into overlapping windows of <=`chunk` chars stepping by `chunk-overlap`.
 
     Pure + deterministic (no model call) so the chunked-extraction capture-fidelity path is
-    unit-testable offline. A `chunk<=overlap` or non-positive `chunk` collapses to one window
-    (defensive: never produce an infinite/zero-step loop)."""
+    unit-testable offline. A non-positive `chunk` (or text shorter than one window) returns a single
+    window; a degenerate `overlap>=chunk` falls back to non-overlapping full coverage (step=chunk)
+    -- defensive: never an infinite/zero-step loop, never one untruncated window to the LLM."""
     if chunk <= 0 or len(text) <= chunk:
         return [text]
     step = chunk - overlap

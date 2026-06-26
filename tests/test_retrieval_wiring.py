@@ -141,6 +141,22 @@ def test_cove_passed_check_keeps_verified(fresh_settings):
     assert any(c.nli_label == NLILabel.ENTAILMENT for c in ans.citations)
 
 
+def test_cove_call_failure_falls_back_to_pre_cove_verdict(fresh_settings):
+    # Best-effort guard: if plan_verification_questions raises, CoVe is skipped and answer() keeps
+    # the pre-CoVe verdict instead of propagating the exception.
+    s = replace(fresh_settings, cove_enabled=True, cove_questions=1, cascade_enabled=False,
+                abstention_v2_enabled=False, abstention_threshold=0.0)
+    r, cands = _cove_retriever(s, sub_entailed=0)
+
+    def boom(draft, n=3):
+        raise RuntimeError("verification planner down")
+
+    r.client.plan_verification_questions = boom
+    ans = r.answer("where did Mel move from", verify=True, precomputed=cands)  # must not raise
+    assert ans.verified is True                       # pre-CoVe verdict stands
+    assert "CoVe" not in ans.note
+
+
 def test_cove_off_skips_verification_questions(fresh_settings):
     s = replace(fresh_settings, cove_enabled=False, cascade_enabled=False,
                 abstention_v2_enabled=False, abstention_threshold=0.0)

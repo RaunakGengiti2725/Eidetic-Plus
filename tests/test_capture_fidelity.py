@@ -163,6 +163,20 @@ def test_pref_sentence_scan_on_surfaces_every_preference(fresh_settings):
     assert any("tea over coffee" in p for p in profile)   # mid-conversation pref no longer lost
 
 
+def test_pref_sentence_scan_dedupes_casing_variants_across_sessions(fresh_settings):
+    # The normalized dedup_key collapses casing/whitespace variants so the same stated preference
+    # across two sessions yields ONE profile line (not two).
+    s = replace(fresh_settings, pref_sentence_scan_enabled=True)
+    engine = Engine(s, client=_FakeClient(s.embed_dim))
+    scope = Scope(namespace="capdup")
+    engine.ingest_text("user: I love jazz.", source="s1", scope=scope, consolidate_now=False)
+    engine.consolidate_pending(scope=scope, score_importance=False)
+    engine.ingest_text("user: I   LOVE   jazz.", source="s2", scope=scope, consolidate_now=False)
+    engine.consolidate_pending(scope=scope, score_importance=False)
+    jazz = [p for p in engine.store.get_profile("capdup") if "jazz" in p.lower()]
+    assert len(jazz) == 1
+
+
 def test_pref_sentence_scan_off_keeps_first_only(fresh_settings):
     # Default behavior: one profile line per session (the first preference). Byte-identical path.
     s = replace(fresh_settings, pref_sentence_scan_enabled=False)
