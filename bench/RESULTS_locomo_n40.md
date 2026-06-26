@@ -9,19 +9,33 @@ answerer strength. Dataset `data/bench/locomo/locomo10.json`, split=all, **n=40,
 > `mem0ai` + Neo4j). LongMemEval (the corpus≫context test where eidetic's edge is largest) was
 > not cached and its download failed — the strongest eidetic case is NOT yet measured.
 
-## Headline
+## Headline (with significance — read the McNemar, not the raw %)
 
-| system | accuracy | multi-hop | temporal | open | tokens/query | e2e p50 |
-|---|---:|---:|---:|---:|---:|---:|
-| **eidetic-plus-full (tuned)** | **65.0%** (26/40) | 73% | 55% | 80% | 7938 | ~12.0s |
-| eidetic-plus-full (default) | 60.0% (24/40) | 60% | 55% | 80% | 7921 | ~10.7s |
-| rag-full (stuff-all-context) | 57.5% (23/40) | 67% | 45% | 80% | 15511 | ~3.9s |
-| rag-vector (classic chunk+embed+topk) | 40.0% (16/40) | 47% | 20% | 100% | 1882 | ~2.6s |
+| system | accuracy | tokens/query | e2e p50 |
+|---|---:|---:|---:|
+| eidetic-plus-full (tuned, graph+coact) | 65.0% (26/40) | 7938 | ~12.0s |
+| eidetic-plus-full (default) | 60.0% (24/40) | 7921 | ~10.7s |
+| rag-full (stuff-all-context) | 57.5% (23/40) | 15511 | ~3.9s |
+| rag-vector (classic chunk+embed+topk) | 40.0% (16/40) | 1882 | ~2.6s |
 
-Eidetic **beats the full-context upper bound by +7.5 pts and classic vector RAG by +25 pts**, at
-**half rag-full's tokens**, winning multi-hop AND temporal. The full-context baseline is strong on
-LoCoMo only because each conversation fits in the context window; eidetic matches/beats it while
-staying retrieval-ranked (the property that scales past the context window).
+Paired McNemar (same n40b run, default eidetic 60%):
+- **eidetic vs rag-full: p=1.000 (7 vs 6) — a STATISTICAL TIE.** The raw +2.5/+7.5pt gap is within
+  run-to-run noise. The honest, robust claim is **accuracy PARITY with full-context RAG at HALF its
+  tokens** — and eidetic stays retrieval-ranked, which scales past the context window where
+  stuff-everything cannot. NOT "eidetic beats full-context."
+- **eidetic vs rag-vector: p≈0.10 (13 vs 5) — eidetic leads strongly, trending but not yet
+  significant at n=40.** This is the apples-to-apples memory-agent comparison; +10 questions favor
+  eidetic; likely significant with more samples. Confound: eidetic feeds the reader ~7900 tokens vs
+  rag-vector's ~1900, so part of the lead is "4× the context" — the honest framing is the
+  **accuracy/token operating point**, where eidetic dominates the curve.
+
+n=40, 1 run -> no per-category result is CI-clear ("needs-2-runs"). Treat all margins as a signal to
+confirm via a multi-run dev-split gate, not a banked win.
+
+NOTE: this run validated ACCURACY, not the "faster"/Flow claim Track 9 was about. The bench adapter
+uses retrieve()+answer() directly, NOT engine.ask(), so reflex/Flow never engaged; the 2.3x latency
+win came from batched NLI (a separate track), not instinct. Flow's benefit (warm/repeated queries)
+is not exercised by distinct LoCoMo questions and remains unmeasured.
 
 ## Tuned config (measured best)
 
