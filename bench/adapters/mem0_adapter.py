@@ -38,6 +38,19 @@ _LLM_MODEL = os.environ.get("BENCH_BASELINE_LLM", "qwen-flash")  # baseline extr
 _EMBED_MODEL = "text-embedding-v4"
 
 
+def _is_skippable_add_error(exc: Exception) -> bool:
+    """A per-session add() failure that is CONTENT-specific (a 4xx bad request: moderation, an
+    oversized window, or a malformed-for-this-content extraction) and therefore safe to skip for one
+    session rather than abort the whole sample. A 5xx / network / dependency error returns False so it
+    still fails loud. Mem0 wraps the underlying OpenAI BadRequestError in a RuntimeError, so we match
+    on the surfaced text ('400' / 'bad request' / the moderation phrases)."""
+    m = (str(exc) or "").lower()
+    if any(h in m for h in ("inappropriate content", "data_inspection", "data inspection",
+                            "content_filter", "content filter")):
+        return True
+    return ("400" in m) or ("bad request" in m) or ("badrequest" in m)
+
+
 class Mem0System(MemorySystem):
     """Real Mem0 (2.0.7) under test, backed by DashScope-hosted Qwen models."""
 
@@ -152,7 +165,18 @@ class Mem0System(MemorySystem):
         if not content:
             return WriteResult(tokens=0, ms=0.0)
         t0 = time.perf_counter()
-        self._add_turn("user", content, namespace)
+        try:
+            self._add_turn("user", content, namespace)
+        except Exception as e:  # noqa: BLE001 - classified below; non-4xx still fails loud
+            # FAIRNESS: a content-specific 4xx (moderation / oversized / bad request) on ONE session
+            # must not abort the whole sample -- the eidetic adapter likewise skips content it cannot
+            # process (a moderated extraction window), so skipping the session here keeps the
+            # comparison apples-to-apples instead of zeroing mem0 on a single flagged session. Any
+            # other error (5xx, network, dependency) still fails loud. Logged, never silently mocked.
+            if _is_skippable_add_error(e):
+                print(f"  [mem0] skipped a session ({namespace}): {type(e).__name__}: {str(e)[:120]}")
+                return WriteResult(tokens=0, ms=(time.perf_counter() - t0) * 1000.0)
+            raise
         return WriteResult(tokens=approx_tokens(content), ms=(time.perf_counter() - t0) * 1000.0)
 
     def _add_turn(self, role: str, content: str, namespace: str) -> None:

@@ -13,6 +13,7 @@ cd "$(dirname "$0")/.."
 # is needed (and sourcing under set -e was aborting the batch on quirky .env lines).
 
 OFFSET="${1:?offset}"; N="${2:?n}"; TAG="${3:?tag}"
+SYSTEMS="${4:-eidetic-full,rag-full,rag-vector,mem0}"   # 4th arg: comma list for the head-to-head
 PY=.venv/bin/python
 export DASHSCOPE_MAX_CONCURRENCY="${DASHSCOPE_MAX_CONCURRENCY:-4}"
 OUT="artifacts/proof/${TAG}"
@@ -27,7 +28,7 @@ echo "=================================================================="
 echo ">>> [1/3] head-to-head (METABOLISM_MODE=1 for all; shared Tier-A reader)"
 METABOLISM_MODE=1 DATA_DIR="data/proof_${TAG}_h2h" \
   $PY -m bench.run --dataset longmemeval --sample-offset "$OFFSET" --subset "$N" \
-  --systems eidetic-full,rag-full,rag-vector,mem0 --out "$H2H" --split all
+  --systems "$SYSTEMS" --out "$H2H" --split all
 
 # --- 2) Attribution ablation: SAME eidetic, memory/metabolism components OFF, reader+proof HELD ON.
 #        This isolates the MEMORY layer (consolidation/dreaming/channels/capture/graph-temporal),
