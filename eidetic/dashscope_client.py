@@ -216,6 +216,58 @@ def _strip_json(text: str) -> str:
     return text
 
 
+def _salvage_json_objects(raw: str) -> list[dict]:
+    """Recover every COMPLETE, balanced ``{...}`` object from a possibly-truncated JSON string.
+    Used when an LLM JSON array overflowed max_tokens and was cut mid-element: the valid leading
+    objects are still usable, the incomplete trailing one (and an unclosed outer wrapper) are
+    dropped. String contents are respected so a literal brace inside a value never mis-closes an
+    object. Never fabricates -- it only parses bytes the model actually emitted in full."""
+    out: list[dict] = []
+    stack: list[int] = []
+    in_str = False
+    esc = False
+    for i, ch in enumerate(raw or ""):
+        if in_str:
+            if esc:
+                esc = False
+            elif ch == "\\":
+                esc = True
+            elif ch == '"':
+                in_str = False
+            continue
+        if ch == '"':
+            in_str = True
+        elif ch == "{":
+            stack.append(i)
+        elif ch == "}" and stack:
+            start = stack.pop()
+            try:
+                obj = json.loads(raw[start : i + 1])
+            except json.JSONDecodeError:
+                continue
+            if isinstance(obj, dict):
+                out.append(obj)
+    return out
+
+
+def _parse_triples(raw: str) -> list[dict]:
+    """Parse a ``{"triples": [...]}`` extraction response into complete triple dicts, tolerant to a
+    max_tokens truncation that cut the array mid-element. Strict JSON first; on failure, salvage the
+    complete objects. Only triples with src+relation+dst survive (the cut-off one is dropped). Never
+    fabricates a triple the model did not fully emit."""
+    cand: list = []
+    try:
+        data = json.loads(_strip_json(raw or ""))
+        if isinstance(data, dict):
+            cand = data.get("triples", []) or []
+        elif isinstance(data, list):
+            cand = data
+    except json.JSONDecodeError:
+        cand = _salvage_json_objects(raw or "")
+    return [t for t in cand
+            if isinstance(t, dict) and t.get("src") and t.get("relation") and t.get("dst")]
+
+
 class DashScopeClient:
     """Thin, synchronous wrapper over the dashscope SDK with region + key wired in."""
 
@@ -393,17 +445,22 @@ class DashScopeClient:
         return self._extract_edges_window(text[:6000])
 
     def _extract_edges_window(self, window: str) -> list[dict[str, str]]:
-        """One extraction call over an already-prepared text window (no re-truncation)."""
+        """One extraction call over an already-prepared text window (no re-truncation).
+
+        Parsed with _parse_triples (truncation-resilient): a dense window can emit more triples than
+        max_tokens fits, cutting the JSON array mid-object. We raise the cap to 2048 to fit the common
+        case and salvage complete triples from the rest, so an overflowing extraction degrades to
+        "fewer facts this window" instead of aborting the whole consolidation/run. Never fabricated."""
         model = self.settings.salience_model if self.settings.extract_light_enabled else self.settings.extract_model
-        data = self.chat_json(
+        raw = self.chat(
             model,
             "Extract factual (subject, relation, object) triples from the text for a "
             "knowledge graph. Reply ONLY as JSON: {\"triples\": [{\"src\":..,\"relation\":..,"
             "\"dst\":..,\"fact\":..}]}. Keep entity names canonical and short. Empty list if none.",
             f"Text:\n{window}",
-            temperature=0.0, max_tokens=1024,
+            json_mode=True, temperature=0.0, max_tokens=2048,
         )
-        triples = data.get("triples", []) if isinstance(data, dict) else []
+        triples = _parse_triples(raw)
         out = []
         for t in triples:
             if t.get("src") and t.get("relation") and t.get("dst"):
