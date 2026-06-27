@@ -1,12 +1,12 @@
 # Connected Brain Loop
 
-Status: **all 8 phases of the [plan](/Users/raunakgengiti/.cursor/plans/connected_brain_loop_6448de96.plan.md) implemented**, in the order the plan prescribes (improvement gates + brain spine first, then connect outward). Everything is offline, deterministic, and default-OFF; with the flags off the read/write path is byte-identical to before and the full offline suite passes. No live benchmark lift is claimed (quota-blocked — see the bottom).
+Status: **all 8 phases of the [plan](/Users/raunakgengiti/.cursor/plans/connected_brain_loop_6448de96.plan.md) implemented**, in the order the plan prescribes (improvement gates + brain spine first, then connect outward). Everything is offline, deterministic, and default-OFF; with the flags off the read/write path is byte-identical to before and the full offline suite passes. No live benchmark lift is claimed (quota-blocked -- see the bottom).
 
 The organizing discipline throughout: **a connection only ships if it (a) is gated so flags-off preserves the baseline, (b) recovers a real miss or adds real diagnostics, and (c) is explainable through a RecallTrace / EvidencePacket / BrainEvent.** A memory surfaced invisibly to the brain does not pass.
 
 ## The brain spine (Phase 1.5)
 
-Observation-only contracts that make every subsystem speak one language. Nothing here ranks, selects, or generates — it reads already-computed state.
+Observation-only contracts that make every subsystem speak one language. Nothing here ranks, selects, or generates -- it reads already-computed state.
 
 | Contract | Module |
 |---|---|
@@ -17,15 +17,15 @@ Observation-only contracts that make every subsystem speak one language. Nothing
 
 | Phase | What landed | Key surface |
 |---|---|---|
-| 1 — Unified lifecycle | `LifecycleController` (one wake/sleep/idle/repair path for API + MCP); `engine.sleep()` = consolidate_pending → dream → optional LLM summaries | [`eidetic/lifecycle.py`](../eidetic/lifecycle.py) |
-| 1.5 — Spine | RecallTrace / EvidencePacket / BrainEvent / QualityGate | `brain.py`, `models.py` |
-| 2 — Dream → recall | co-activation channel (`COACTIVATION_CHANNEL`); gist provenance into proof; inferred edges stay labeled hints | `retrieval.py` |
-| 3 — Idle optimization | channel-win ledger (`record_channel_wins`/`channel_win_stats`); `engine.idle_tick()`; `connection_effectiveness()` | `engine.py`, `lifecycle.py` |
-| 4 — Memory typing | classify type on ingest + soft type-priority retrieval prior (`MEMORY_TYPING`) | `engine.py`, `retrieval.py`, `memory_types.py` |
-| 5 — Guarded repair | `apply_proposals` (INSERT/MERGE via immutable ingest + supersession; dry-run default, `DREAM_REPAIR_APPLY`); `memory_autopsy()` offline failure classifier | `dreaming/repair.py`, `engine.py` |
-| 6 — Proof surface + parity | `explain_candidate` ("why this memory?"); MCP tools `sleep`/`recall_trace`/`memory_autopsy`/`prove_age_independence`/`brain_health_score`; matching `/api/*` routes | `engine.py`, `mcp_server.py`, `api.py` |
-| 7 — Connectivity | tests proving each subsystem feeds another with invariants held | [`tests/test_brain_connectivity.py`](../tests/test_brain_connectivity.py) |
-| 8 — Quality gates | `brain_health_score` (local composite, not a benchmark); synthetic improvement gates; updated-fact supersession invariant | `engine.py`, `tests/` |
+| 1 -- Unified lifecycle | `LifecycleController` (one wake/sleep/idle/repair path for API + MCP); `engine.sleep()` = consolidate_pending → dream → optional LLM summaries | [`eidetic/lifecycle.py`](../eidetic/lifecycle.py) |
+| 1.5 -- Spine | RecallTrace / EvidencePacket / BrainEvent / QualityGate | `brain.py`, `models.py` |
+| 2 -- Dream → recall | co-activation channel (`COACTIVATION_CHANNEL`); gist provenance into proof; inferred edges stay labeled hints | `retrieval.py` |
+| 3 -- Idle optimization | channel-win ledger (`record_channel_wins`/`channel_win_stats`); `engine.idle_tick()`; `connection_effectiveness()` | `engine.py`, `lifecycle.py` |
+| 4 -- Memory typing | classify type on ingest + soft type-priority retrieval prior (`MEMORY_TYPING`) | `engine.py`, `retrieval.py`, `memory_types.py` |
+| 5 -- Guarded repair | `apply_proposals` (INSERT/MERGE via immutable ingest + supersession; dry-run default, `DREAM_REPAIR_APPLY`); `memory_autopsy()` offline failure classifier | `dreaming/repair.py`, `engine.py` |
+| 6 -- Proof surface + parity | `explain_candidate` ("why this memory?"); MCP tools `sleep`/`recall_trace`/`memory_autopsy`/`prove_age_independence`/`brain_health_score`; matching `/api/*` routes | `engine.py`, `mcp_server.py`, `api.py` |
+| 7 -- Connectivity | tests proving each subsystem feeds another with invariants held | [`tests/test_brain_connectivity.py`](../tests/test_brain_connectivity.py) |
+| 8 -- Quality gates | `brain_health_score` (local composite, not a benchmark); synthetic improvement gates; updated-fact supersession invariant | `engine.py`, `tests/` |
 
 ## Flags (all default `0`)
 

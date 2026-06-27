@@ -1,9 +1,9 @@
-# Benchmark-Dominance Plan — Implementation Progress
+# Benchmark-Dominance Plan -- Implementation Progress
 
 **Status: code shipped, proof pending.** Every code deliverable below is landed, default-OFF, and
 offline-unit-tested (full suite **520 passed**). The *measurement* program (live runs, sweeps,
 calibration, significance) is **DashScope-quota-blocked** and unrun. **No accuracy numbers are
-claimed in this document** — a number that does not reproduce does not exist. The plan's target
+claimed in this document** -- a number that does not reproduce does not exist. The plan's target
 figures (≥75% LME, +10pp, "best memory agent") are *gated on the measurement program*, not
 assertable from this session.
 
@@ -59,7 +59,7 @@ results until executed on `--split test` with the significance gate:
 - Temporal bundle / dream+gist ablations; INGEST_GRANULARITY ablation.
 - Mem0 / Graphiti head-to-head runs.
 - `eidetic-product` ceiling run; 10-run variance + McNemar (`bench/reproduce.sh`).
-- Promoting any proven flag to a code default (the plan's `promote-graph-defaults`) — only after a
+- Promoting any proven flag to a code default (the plan's `promote-graph-defaults`) -- only after a
   dev-gate win. Defaults are intentionally unchanged this session.
 
 ### What the existing n40 logs already show (re-rendered, not a new run)
@@ -67,7 +67,7 @@ results until executed on `--split test` with the significance gate:
 Re-rendering the integrity row over the **existing** `artifacts/bench_n40b` logs (no new calls):
 the verifying row carries entailment proofs while the RAG baselines have **no verify step at all**
 (100% of their answers are unproven). It also honestly shows the verifying row's **own**
-unverified-emit gap — exactly the integrity hole COVE/SPAN_NLI/abstention-v2 target. The point of
+unverified-emit gap -- exactly the integrity hole COVE/SPAN_NLI/abstention-v2 target. The point of
 the row is to make that gap visible and drive it down; it is not yet driven down (needs runs).
 
 ---
@@ -78,7 +78,7 @@ the row is to make that gap visible and drive it down; it is not yet driven down
 export DASHSCOPE_MAX_CONCURRENCY=2 DASHSCOPE_RPM=30
 export BATCH_NLI=1 FAST_VERIFY=1 COACTIVATION_CHANNEL=1 GRAPH_VOCAB_SEEDING=1
 
-# 0. Smoke (cheap) — confirm the pipeline end-to-end on 5 questions.
+# 0. Smoke (cheap) -- confirm the pipeline end-to-end on 5 questions.
 python -m bench.run --systems eidetic-full --dataset locomo --subset 5 --split dev \
   --out artifacts/smoke --overwrite
 

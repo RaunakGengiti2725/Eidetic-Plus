@@ -1,8 +1,8 @@
-# Always-On Optimization — a three-tier menu of continuous optimizers
+# Always-On Optimization -- a three-tier menu of continuous optimizers
 
 This implements the formula-level optimizer menu from *"Always-On Optimization for Eidetic-Plus."*
 Everything here is **lightweight (numpy / SQLite / DashScope)** and lands behind config flags
-that **default to the current behavior** — so the shipped baseline is unchanged and every
+that **default to the current behavior** -- so the shipped baseline is unchanged and every
 optimizer is an independent A/B flag.
 
 ## The integrity wall (non-negotiable)
@@ -10,7 +10,7 @@ optimizer is an independent A/B flag.
 No continuous optimizer may read, fit to, or cache a benchmark **test** item.
 
 - `bench/datasets.split_of(sample_id)` deterministically partitions every dataset into a
-  private **dev** split (~20%) and a held-out **test** split. It is a stable hash — no extra file.
+  private **dev** split (~20%) and a held-out **test** split. It is a stable hash -- no extra file.
 - `bench.run --split test` (and `reproduce.sh`) produce the **reported** numbers.
 - `bench.sweep` is **locked to `--split dev`** (argparse rejects `test`); `bench.calibrate`
   firewalls to dev log rows.
@@ -22,7 +22,7 @@ No continuous optimizer may read, fit to, or cache a benchmark **test** item.
 Two more invariants every optimizer honors:
 
 - **Age-independence.** Learned fusion weights and FadeMem strength feed **index priority /
-  pruning only — never the retrieval ranking score**, preserving the flat recall-vs-age curve.
+  pruning only -- never the retrieval ranking score**, preserving the flat recall-vs-age curve.
   (The recency channel weight is never learned.)
 - **Never delete a raw record.** Index tombstones / pruning are index-layer only; the WORM
   substrate is untouched.
@@ -79,13 +79,13 @@ qNEHVI (BoTorch/torch), RL retrieval policies (R3-style), GPU TransE/IncDE train
 ## Honest status
 
 Every optimizer above is **validated for correctness** by offline unit tests (synthetic data,
-no API key) — including known-answer tests for TPE/NSGA-II/ASHA/Lasso and recall tests for
+no API key) -- including known-answer tests for TPE/NSGA-II/ASHA/Lasso and recall tests for
 quantization. **They are NOT validated for benchmark lift**: a live run is currently blocked by
 DashScope quota (HTTP 403, free tier exhausted), and the methodology forbids tuning on test
 items. So as shipped, the model's behavior is **byte-for-byte the prior baseline plus dormant,
 flag-gated machinery**. Realizing measurable gains requires the runbook below.
 
-## Runbook — turn the machinery into measured gains
+## Runbook -- turn the machinery into measured gains
 
 ```bash
 # 0. Restore paid quota: disable "use free tier only" in the DashScope console (or add billing).

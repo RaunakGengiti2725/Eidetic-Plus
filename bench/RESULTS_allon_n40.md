@@ -1,10 +1,10 @@
-# Full-scale all-architecture run — LoCoMo c0, n=40 (real numbers)
+# Full-scale all-architecture run -- LoCoMo c0, n=40 (real numbers)
 
-**Config:** maximal valid flag bundle — 52 of 60 boolean flags ON (photographic reader,
+**Config:** maximal valid flag bundle -- 52 of 60 boolean flags ON (photographic reader,
 READER_BLOCK_CHARS=8000, all retrieval channels, CoVe, span-NLI, abstention-v2, reflex/flow/cascade,
 FULL_SLEEP). Single run, LoCoMo conversation `c0`, first 40 questions, `--split all`, judge
 `qwen3-max`, reader `qwen-plus`. Date 2026-06-26. Excluded by design: DEBATE / MEMORY_MANAGER
-(crash stubs), DREAM_REPAIR / DREAM_REPAIR_APPLY / DREAM_USE_LLM_NLI (O(corpus×LLM) — never finished).
+(crash stubs), DREAM_REPAIR / DREAM_REPAIR_APPLY / DREAM_USE_LLM_NLI (O(corpus×LLM) -- never finished).
 
 ## Overall accuracy (correct / scored)
 
@@ -35,7 +35,7 @@ RAG by **+29.3pp**. (1 transport error on eidetic excluded from its denominator.
 | eidetic vs rag-full (multi-hop) | 1 | 1 | 1.000 | tie |
 | eidetic vs rag-full (open-domain) | 0 | 1 | 1.000 | eidetic lost 1 (parametric-inference refusal) |
 
-## Integrity (verified recall — the moat)
+## Integrity (verified recall -- the moat)
 
 | System | Verified accuracy (/n) | Unproven-answer rate | Abstention rate |
 |--------|------------------------|----------------------|-----------------|
@@ -50,10 +50,10 @@ RAG by **+29.3pp**. (1 transport error on eidetic excluded from its denominator.
   capture/reader/channel work shows up exactly where predicted (temporal 40% → 75%).
 - **Still one run, one conversation.** McNemar per-category is significant, but "slice survival" needs
   ≥2 runs and the headline public claim needs the 10-run `--split test` gate. Do NOT yet say "beats RAG"
-  unqualified — say "beats full-context RAG on temporal, p=0.039, single run, c0 n=40."
-- **eidetic loses open-domain** (2/4 vs rag-full 4/5) — the documented parametric-inference refusal; it
+  unqualified -- say "beats full-context RAG on temporal, p=0.039, single run, c0 n=40."
+- **eidetic loses open-domain** (2/4 vs rag-full 4/5) -- the documented parametric-inference refusal; it
   won't guess world-knowledge the memory doesn't state. Honest trade, not a bug.
-- **Token efficiency is a clean win:** 3476 vs 15511 tok/query — same or better accuracy at ~1/4.5 the
+- **Token efficiency is a clean win:** 3476 vs 15511 tok/query -- same or better accuracy at ~1/4.5 the
   context cost. This is the LongMemEval thesis in miniature.
 - **Not every flag could run.** 2 crash by design, 3 dream-LLM sweeps are O(corpus×LLM) and never
-  finished — 52 of 60 flags ran. "Literally every bit" is impossible by the code's own gating.
+  finished -- 52 of 60 flags ran. "Literally every bit" is impossible by the code's own gating.

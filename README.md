@@ -27,18 +27,18 @@ refuse to make, and the attribution-under-ablation program in
 
 ## Universal memory plugin (MCP)
 
-Eidetic-Plus is not just a service — it is a **universal memory backend** that any MCP
+Eidetic-Plus is not just a service -- it is a **universal memory backend** that any MCP
 host can mount over the *same* engine: Claude, Claude Code, Cursor, Cline, and Zed all
 get lossless, verified, age-independent memory with zero per-host integration. The MCP
 server (`eidetic/mcp_server.py`, built on **FastMCP**) is simply an additional transport
-over the exact `eidetic/engine.py` that FastAPI already uses — no logic is duplicated.
+over the exact `eidetic/engine.py` that FastAPI already uses -- no logic is duplicated.
 
 Seven MCP tools are exposed:
 
 | Tool | What it does |
 |------|--------------|
 | `remember` | Store a memory losslessly and immutably; returns its content hash + provenance. |
-| `recall` | Verified retrieval — returns the answer with cited immutable sources, or abstains. |
+| `recall` | Verified retrieval -- returns the answer with cited immutable sources, or abstains. |
 | `consolidate` | Run the sleep/replay loop (dedup, verified summaries, FSRS decay); never deletes raw. |
 | `reawaken` | Re-promote a down-weighted memory by its `memory_id` (the O(1) revert path). |
 | `list_memories` | List memories (newest first) with salience + FSRS retrievability. |
@@ -48,8 +48,8 @@ Seven MCP tools are exposed:
 **Scope on every query.** The five query/write tools (`remember`, `recall`,
 `consolidate`, `list_memories`, `prove_age_independence`) take a **scope**: a required
 `namespace` (default `"default"`) plus optional `agent_id` / `project_id`. The two
-record-addressing tools (`reawaken`, `get_raw`) take only an opaque `memory_id` — a
-handle you obtain from a scoped read — so they need no scope arguments. (See
+record-addressing tools (`reawaken`, `get_raw`) take only an opaque `memory_id` -- a
+handle you obtain from a scoped read -- so they need no scope arguments. (See
 [Scoping](#scoping-no-cross-tool-bleed).)
 
 **Run it:**
@@ -60,8 +60,7 @@ python -m eidetic.mcp_server --http   # streamable-http on EIDETIC_MCP_HOST:EIDE
 ```
 
 `--http` binds `EIDETIC_MCP_HOST` (default `127.0.0.1`) and `EIDETIC_MCP_PORT`
-(default `8765`). A missing `DASHSCOPE_API_KEY` fails loud as a clear MCP tool error —
-never a fabricated result.
+(default `8765`). A missing `DASHSCOPE_API_KEY` fails loud as a clear MCP tool error -- never a fabricated result.
 
 ---
 
@@ -69,11 +68,11 @@ never a fabricated result.
 
 The repo ships everything Claude Code needs to mount Eidetic-Plus as a plugin:
 
-- `.claude-plugin/plugin.json` — the plugin manifest (name `eidetic-plus`).
-- `.mcp.json` — a stdio MCP server entry that runs
+- `.claude-plugin/plugin.json` -- the plugin manifest (name `eidetic-plus`).
+- `.mcp.json` -- a stdio MCP server entry that runs
   `${CLAUDE_PLUGIN_ROOT}/.venv/bin/python -m eidetic.mcp_server` with
   `cwd: ${CLAUDE_PLUGIN_ROOT}`.
-- `.claude-plugin/marketplace.json` — a single-plugin marketplace pointing at this repo.
+- `.claude-plugin/marketplace.json` -- a single-plugin marketplace pointing at this repo.
 
 **(a) One-time setup** so the dependencies and the `.venv` referenced by `.mcp.json`
 actually exist:
@@ -123,7 +122,7 @@ together:
    is a *retrieval-priority* signal only; the raw bytes are always recoverable.
 2. **Age-independence at fixed N.** For a fixed corpus size, retrieval recall and
    latency do not depend on how old a memory is. (This is *not* a claim to defeat the
-   size-dependence inherent to approximate nearest-neighbor search — only that, holding
+   size-dependence inherent to approximate nearest-neighbor search -- only that, holding
    N constant, a 30-year-old memory is recalled as well and as fast as yesterday's.)
 3. **Full source + temporal provenance with bi-temporal contradiction handling.** Every
    answer cites the exact immutable source, its hash, its timestamps, and a confidence,
@@ -136,7 +135,7 @@ together:
 `scripts/signature_demo.py` ingests N distinct memories across ~30 simulated years of
 timestamps, then queries each one back by cue and bins the results by **memory age**.
 It plots two curves: **recall@k vs age** and **p95 retrieval latency vs age**. Both come
-out **flat** — the linear slope of each is reported in `/yr` and `ms/yr` and is
+out **flat** -- the linear slope of each is reported in `/yr` and `ms/yr` and is
 effectively zero. That flatness is the headline proof of age-independence at fixed N:
 the index has no concept of recency, so the oldest memory is recalled exactly as well,
 and as fast, as the newest.
@@ -161,7 +160,7 @@ The image is written to `artifacts/signature_recall_latency_vs_age.png`.
 | 2 | Hippocampal index = vector ANN (numpy exact + hnswlib HNSW) **and** a bi-temporal knowledge graph with in-app Personalized PageRank. | `eidetic/vector_index.py`, `eidetic/graph.py` |
 | 3 | Cognitive-coordinate map = metadata structure-code vector. Tolman-Eichenbaum *inspiration*, shipped as the honest metadata fallback; no absolute age is ever encoded. | `eidetic/structure_code.py` |
 | 4 | Write-time salience gate = Bayesian surprise (embedding distance to nearest) + `qwen-flash` importance, mapped to an initial FSRS state. | `eidetic/salience.py` |
-| 5 | Offline consolidation/replay + FSRS forgetting (power-law DSR). Forgetting **down-weights index priority only — it never deletes raw**. | `eidetic/fsrs.py`, `eidetic/engine.py` (`Engine.consolidate`) |
+| 5 | Offline consolidation/replay + FSRS forgetting (power-law DSR). Forgetting **down-weights index priority only -- it never deletes raw**. | `eidetic/fsrs.py`, `eidetic/engine.py` (`Engine.consolidate`) |
 | 6 | Reconstructive, verifiable retrieval: ANN top-k + bi-temporal filter → in-app PPR → Reciprocal Rank Fusion → `qwen3-rerank` → `qwen3-max` generation → NLI entailment check (premise = the immutable raw record). FSRS priority is deliberately **not** in the ranking path, which keeps recall age-independent. | `eidetic/retrieval.py` |
 | 7 | Provenance + contradiction engine: bi-temporal invalidation (`valid_at`/`invalid_at` world-time, `created_at`/`expired_at` system-time); every answer cites source + hash + timestamp + confidence. | `eidetic/graph.py`, `eidetic/retrieval.py` |
 
@@ -174,7 +173,7 @@ against the raw pixels (Component 6 extended to images). See
 **Two transports, one engine.** Beyond the FastAPI HTTP API, `eidetic/mcp_server.py`
 (FastMCP, stdio + streamable-http) exposes the same `eidetic/engine.py` as seven MCP
 tools so any MCP host can mount Eidetic-Plus as its memory backend. It is an additional
-transport — **no cognitive component is duplicated**. See
+transport -- **no cognitive component is duplicated**. See
 [Universal memory plugin (MCP)](#universal-memory-plugin-mcp).
 
 ```
@@ -211,11 +210,11 @@ transport — **no cognitive component is duplicated**. See
 
 Every read and write carries a **`Scope`**: a required `namespace`, plus optional
 `agent_id` and `project_id`. The `namespace` is a **hard boundary** enforced at the
-store, the vector index, and the graph — not a soft filter applied after retrieval. A
+store, the vector index, and the graph -- not a soft filter applied after retrieval. A
 write in namespace `A` is **invisible** from namespace `B`: a recall, listing, or graph
 query scoped to `B` simply cannot see it, and a contradicting fact in a different
 namespace does **not** invalidate an edge in another. The default namespace is the
-explicit string `"default"` — there is no global wildcard that reads across namespaces.
+explicit string `"default"` -- there is no global wildcard that reads across namespaces.
 (Raw bytes are content-addressed and shared by the substrate, but the *index entry* that
 makes a memory retrievable is scoped, so identical content in two namespaces yields two
 distinct, independently-addressed records.)
@@ -233,11 +232,11 @@ nothing written in `A`).
 Images are not collapsed into a single vector. When an image is ingested, the visual
 extractor (`qwen-vl-ocr` / `qwen-vl-plus`) turns screenshots, diagrams, and tables into
 **real graph entities and edges** that join the same bi-temporal knowledge graph as text
-facts — a chart becomes queryable structure, not an opaque blob.
+facts -- a chart becomes queryable structure, not an opaque blob.
 
 On top of that, Eidetic-Plus does **verified visual recall**: a visual claim is checked
 against the **raw pixels** (`qwen-vl-plus`), and an unsupported claim is rejected. The
-raw image — not a caption, not an embedding — is the arbiter. If the pixels show revenue
+raw image -- not a caption, not an embedding -- is the arbiter. If the pixels show revenue
 *falling*, the claim "revenue increased" is not entailed and is flagged. No competing
 agent-memory system does verified visual recall. (Proved by
 `tests/test_visual_verification.py`.)
@@ -249,7 +248,7 @@ agent-memory system does verified visual recall. (Proved by
 The engine learns from its own recalls without ever touching the ranking score:
 
 - **Reconsolidation as a write path.** A *confirmed* recall re-embeds the memory and
-  **up-weights** it (FSRS stability grows, retrievability resets) — the immune-system
+  **up-weights** it (FSRS stability grows, retrievability resets) -- the immune-system
   affinity-maturation story, where each successful retrieval sharpens the trace. A
   *contradicted* recall **suppresses** (down-weights) the memory; it is **never deleted**.
 - **Synaptic tagging-and-capture.** A salient event up-weights the memories temporally
@@ -264,7 +263,7 @@ The engine learns from its own recalls without ever touching the ranking score:
   (scoped) edge, kept out of the entity PPR graph.
 
 Crucially, **none of these signals enter the ranking score.** Exactly as with the FSRS
-priority in Component 6, they feed index priority, edges, and re-embedding — never the
+priority in Component 6, they feed index priority, edges, and re-embedding -- never the
 retrieval ranking path. That is what keeps recall **age-independent**: the engine gets
 sharper with use without ever learning to prefer recent memories.
 
@@ -272,7 +271,7 @@ sharper with use without ever learning to prefer recent memories.
 
 ## Preflight doctor (verify the live key before you trust a number)
 
-The moment a real `DASHSCOPE_API_KEY` is in `.env`, run the preflight doctor — it makes
+The moment a real `DASHSCOPE_API_KEY` is in `.env`, run the preflight doctor -- it makes
 **one real call per capability** (embed, chat, rerank, multimodal, document) against the
 configured model IDs and reports pass/fail + latency, telling a **quota block** apart from a
 dead key / renamed model. It never returns a green check on a dead call:
@@ -285,12 +284,12 @@ Without a key every capability reports `skipped: no_key` (honest, not a fake pas
 `0` healthy, `2` quota-exhausted (key valid, free tier spent), `1` degraded, `3` no key.
 
 **One documented deferral:** video *keyframe* extraction (`engine._visual_triples` returns `[]`
-for video) is intentional — video is still ingested for real through the
+for video) is intentional -- video is still ingested for real through the
 description/transcription path (`describe_video`), so this is a design choice, not a hidden gap.
 
 ## Prove it live
 
-Age-independence is not only an offline plot — it is a **live, on-demand** measurement
+Age-independence is not only an offline plot -- it is a **live, on-demand** measurement
 on the *current* store, callable two ways:
 
 ```bash
@@ -311,14 +310,14 @@ Open **http://localhost:8000/map** for an interactive 3D view of the store.
 
 It is a **projection**, not the storage format. The engine stores memory as
 high-dimensional (1024–2048-D) embeddings; the map runs **PCA** down to three dimensions
-purely for navigation. **The engine never stores memory in 3D** — collapsing the
+purely for navigation. **The engine never stores memory in 3D** -- collapsing the
 embedding to 3D would destroy the separating structure that makes retrieval work. In the
 map:
 
 - **Node colour** encodes **salience**.
 - **Node size** encodes **FSRS retrievability**.
 - **Edges** show bi-temporal validity (active vs invalidated; entity vs co-activation).
-- **Clicking a node** opens its **immutable provenance** — content hash, source, and
+- **Clicking a node** opens its **immutable provenance** -- content hash, source, and
   timestamps.
 
 The 3D renderer is vendored on disk (`/static/vendor/3d-force-graph.min.js`); no CDN is
@@ -337,9 +336,9 @@ retrieves its own context; that context is then turned into an answer by the sam
 `READER_MODEL` and the same fixed reader prompt for all three (the Eidetic-Plus adapter
 calls the identical `answer_with_fixed_reader` the baselines do). Eidetic-Plus's answer
 cascade, NLI verification, and abstention gate are **product features kept out of this
-neutral accuracy path** — they show up in the cost/latency tables and the verified-recall
+neutral accuracy path** -- they show up in the cost/latency tables and the verified-recall
 categorical win, not as an answerer advantage. It evaluates on
-**LongMemEval** and **LoCoMo** — restricted to LoCoMo's **four validated categories**
+**LongMemEval** and **LoCoMo** -- restricted to LoCoMo's **four validated categories**
 (`single-hop`, `multi-hop`, `temporal`, `open-domain`); the adversarial category is
 **excluded** because it lacks reliable ground truth. The judge is `qwen3-max` by default
 and is configurable to GPT-4o (via `JUDGE_BASE_URL` / `JUDGE_API_KEY` / `JUDGE_MODEL`) for
@@ -347,7 +346,7 @@ a leaderboard-comparable headline number; the harness records which judge was us
 
 It runs **≥10 independent runs** for variance and writes **one raw JSON line per
 question** (`artifacts/bench/<system>__run<N>.jsonl`), so every reported number
-reproduces from the raw logs — a number that does not reproduce does not exist.
+reproduces from the raw logs -- a number that does not reproduce does not exist.
 
 ```bash
 # Full study: both datasets, all four LoCoMo categories, >=10 runs for variance.
@@ -362,61 +361,60 @@ system-under-test interface, and the prerequisites.
 
 ### Competitive engine upgrades (now in the engine)
 
-These ship in `eidetic/` today and are **real and unit-tested offline** — no mocks:
+These ship in `eidetic/` today and are **real and unit-tested offline** -- no mocks:
 
-- **LLM-free write path** — `consolidate_now=False` ingest does **append + embed only**
+- **LLM-free write path** -- `consolidate_now=False` ingest does **append + embed only**
   (no synchronous LLM call on the hot path). The expensive work is deferred to an async
   **`consolidate_pending()`**: fact extraction, the bi-temporal graph build, active
   **conflict resolution** (invalidate-not-delete with `supersedes` edges), and date
   normalization. (`eidetic/engine.py`)
-- **Hybrid read path** — dense vectors **+ BM25** (`eidetic/bm25.py`, for exact
+- **Hybrid read path** -- dense vectors **+ BM25** (`eidetic/bm25.py`, for exact
   names/codes/numbers) **+ a single-step Personalized PageRank** expansion **+ recency**,
   fused by **Reciprocal Rank Fusion**, then an optional **`qwen3-rerank`** pass, a
   **bi-temporal as-of filter**, an **NLI abstention gate**, and finally a
   **token-budgeted** context. (`eidetic/retrieval.py`)
-- **Difficulty-routed answer cascade** — the reader is routed by question difficulty
+- **Difficulty-routed answer cascade** -- the reader is routed by question difficulty
   through `qwen-flash` → `qwen-plus` → `qwen3-max` (`_route_model` in
   `eidetic/retrieval.py`); ambiguous questions default to the conservative middle tier.
   (In the neutral harness this cascade is bypassed in favour of the one fixed reader, so
   accuracy is compared on memory quality alone.)
-- **Semantic cache** — exact-hash lookup first, then cosine similarity **≥ 0.9**
+- **Semantic cache** -- exact-hash lookup first, then cosine similarity **≥ 0.9**
   (`eidetic/semantic_cache.py`); `as_of` time-travel queries are never cached.
 - **HNSW** index parameters **M=32 / efSearch=256** (configurable; `eidetic/config.py`).
 
 ### Optimization playbook (parameterized, sweepable)
 
 The accuracy/efficiency optimizations from the playbook are **machinery now, tuned values
-later** — every knob is a `config.py` parameter with a safe default and is swept on a subset
+later** -- every knob is a `config.py` parameter with a safe default and is swept on a subset
 once a key is added (no value is hardcoded from guessing).
 
-- **Structured event calendar (Chronos-style)** — `eidetic/events.py`: async consolidation
+- **Structured event calendar (Chronos-style)** -- `eidetic/events.py`: async consolidation
   extracts subject-verb-object events, **normalizes reference-relative dates to explicit
   ISO-8601 ranges** ("yesterday", "3 days ago", "last May", "May 2023"), attaches paraphrase
   aliases, and indexes events **separately** from raw turns. At query time the question is
   parsed for entities + temporal constraints + operation (filter/count/order) and events are
-  selected by **interval overlap**. The calendar **selects and structures context — the
+  selected by **interval overlap**. The calendar **selects and structures context -- the
   shared reader still produces the answer string** (counts/orders), so no answerer advantage.
-- **First-class typed preferences** — `eidetic/preferences.py`: preference turns are typed and
+- **First-class typed preferences** -- `eidetic/preferences.py`: preference turns are typed and
   accumulated into a per-namespace profile that is **surfaced in the retrieved context**. The
   rubric-aware prompt lives in the **shared reader** (lifts all three systems equally).
-- **Calibrated abstention** — the NLI gate's threshold is a config parameter; `python -m
+- **Calibrated abstention** -- the NLI gate's threshold is a config parameter; `python -m
   bench.calibrate` computes a **conformal threshold** from a held-out subset of *real scored
   questions* (target ~95% answer precision). Real math, never a hardcoded magic cutoff.
-- **Query-adaptive hybrid retrieval** — weighted RRF (k=60) with BM25 up for name/date/ID
+- **Query-adaptive hybrid retrieval** -- weighted RRF (k=60) with BM25 up for name/date/ID
   queries and graph/PPR up for multi-hop; config-gated cross-encoder rerank (depth ~50→8);
   **lost-in-the-middle edge placement**; aggressive dedup; selective **extractive** raw-chunk
   compression (facts never compressed); optional **static-salience** index pruning (default
   off; uses surprise+importance, *not* decaying retrievability, so the flat curve is intact).
-- **Sweep** — `python -m bench.sweep --dry-run` enumerates a **coordinate-descent** plan
+- **Sweep** -- `python -m bench.sweep --dry-run` enumerates a **coordinate-descent** plan
   (abstention → rerank → RRF weights → efSearch → cascade) + an honest token-cost estimate,
   offline and score-free; the live sweep needs a funded key.
 
 Sweepable params (`config.py`): `abstention_threshold`, `rrf_w_*`, `rerank_enabled` /
 `rerank_depth`, `hnsw_ef_search`, `cascade_confidence`, `compression_ratio`,
-`salience_prune_threshold`. Playbook target numbers are **direction, not an assumed baseline**
-— the real baseline comes from the first run.
+`salience_prune_threshold`. Playbook target numbers are **direction, not an assumed baseline** -- the real baseline comes from the first run.
 
-### Always-on optimization (three-tier menu) — see [docs/optimization.md](docs/optimization.md)
+### Always-on optimization (three-tier menu) -- see [docs/optimization.md](docs/optimization.md)
 
 On top of the playbook, a **formula-level menu of continuous optimizers** (`eidetic/optim/`),
 all lightweight numpy/SQLite and **all flag-gated off by default** (the baseline is unchanged;
@@ -439,24 +437,23 @@ Learners read a dev-only `FeedbackBuffer`. Every formula is covered by offline u
 **Status (honest):** the machinery is validated for *correctness*, not yet for *benchmark lift*
 (a live run needs a funded key); the runbook to turn it into measured gains is in the doc.
 
-### Self-healing + society-of-memory — see [docs/self-healing.md](docs/self-healing.md)
+### Self-healing + society-of-memory -- see [docs/self-healing.md](docs/self-healing.md)
 
 A second menu of evidence-grounded mechanisms (`eidetic/dreaming/`, `eidetic/memory_types.py`,
 `eidetic/debate.py`, `bench/guard.py`), all flag-gated **off** by default:
 
-- **MemMA self-repair** — the agent quizzes itself, diagnoses what it can't answer, and routes a
+- **MemMA self-repair** -- the agent quizzes itself, diagnoses what it can't answer, and routes a
   SKIP/MERGE/INSERT repair onto the existing conflict resolver (proposal-only).
-- **EvolveMem auto-revert Guard** — promotes a tuned config only if it beats the champion on the
+- **EvolveMem auto-revert Guard** -- promotes a tuned config only if it beats the champion on the
   **dev** split by a significant paired-McNemar margin; never let self-modification regress the score.
 - **Per-triple anomaly scoring** (LOF + coherence + TransE) to target the repair sweep.
-- **Heuristic memory manager** (ADD/UPDATE/DELETE-tombstone/NOOP) — the API-only approximation of
+- **Heuristic memory manager** (ADD/UPDATE/DELETE-tombstone/NOOP) -- the API-only approximation of
   Memory-R1's GRPO manager (GPU training deliberately skipped).
 - **MIRIX role typing** (six memory types) + **Markov prospective prefetch** + **bounded-debate**
-  aggregation (≥2 agree, else abstain — guards against debate's "communication hallucination").
+  aggregation (≥2 agree, else abstain -- guards against debate's "communication hallucination").
 
 The deterministic cores are unit-tested offline; the LLM orchestration (probes, CoVe, debate
-rounds, HaluMem QA grading) is gated, fail-loud, and **unrun under the current quota block** —
-so this is **validated for correctness, not yet for benchmark lift**. The PDF is explicit that
+rounds, HaluMem QA grading) is gated, fail-loud, and **unrun under the current quota block** -- so this is **validated for correctness, not yet for benchmark lift**. The PDF is explicit that
 LoCoMo is near-saturated and the headroom is in HaluMem / knowledge-update / conflict-resolution;
 measure self-repair on HaluMem first (the runbook is in the doc). The integrity wall holds at
 every new entry point (the guard reads dev only; HaluMem routes through `split_of`).
@@ -464,7 +461,7 @@ every new entry point (the guard reads dev only; HaluMem routes through `split_o
 ### The claim, stated honestly
 
 Eidetic-Plus is **built to lead every LongMemEval + LoCoMo category at lower token cost
-and lower p95 latency than Mem0 and Graphiti** — and this is **provable via this harness
+and lower p95 latency than Mem0 and Graphiti** -- and this is **provable via this harness
 with one command** (`bash bench/reproduce.sh`). On top of that, it has **two categorical
 wins neither Mem0 nor Graphiti has**: **flat recall-vs-age** (see
 [The signature proof](#the-signature-proof)) and **verified recall with a citable,
@@ -474,7 +471,7 @@ in [Architecture](#architecture-seven-components)).
 The scoreboard ships **empty**: a **populated** scoreboard requires actually running the
 harness with a **funded DashScope key** plus the **baselines installed** (Mem0, Graphiti)
 **and a Neo4j AuraDB instance for Graphiti**. **BEAM contradiction resolution at 10M** is
-the **frontier**, not solved. **No mocks anywhere; never a fabricated score** — a missing
+the **frontier**, not solved. **No mocks anywhere; never a fabricated score** -- a missing
 key or missing dependency **fails loud** with a clear error rather than returning a fake
 result.
 
@@ -482,41 +479,40 @@ result.
 
 ## Dreaming Engine (token-free continuous consolidation)
 
-While idle, Eidetic-Plus keeps consolidating with **ZERO LLM calls** — only local math over
+While idle, Eidetic-Plus keeps consolidating with **ZERO LLM calls** -- only local math over
 the stored embeddings and the graph (`eidetic/dreaming/`). It is the machine analogue of
 sleep consolidation, and it is **strictly additive**: every output is a reversible,
-content-addressed, provenance-tagged **derived** record — the lossless store is never merged,
+content-addressed, provenance-tagged **derived** record -- the lossless store is never merged,
 averaged, or mutated (the vector-averaging fallacy measurably *increases* interference).
 
 Four token-free pieces, invoked via `engine.dream(scope=...)`:
 
-1. **Continuous replay scheduler** (`replay.py`) — priority = `surprise^a · need^b ·
+1. **Continuous replay scheduler** (`replay.py`) -- priority = `surprise^a · need^b ·
    (1−retrievability)^c` (surprise = ANN distance to nearest; need = entity PPR + recency;
    retrievability = FSRS). Pops top-k, reinforces FSRS (capped), then a **SHY-style** global
    pass renormalizes edge weights and prunes the weakest **by weight only** from the index
    (never by age → the flat curve is preserved; never the store).
 2. **Offline link prediction + rule mining + schemas** (`kg_embed.py` TransE in numpy,
-   `rules.py` Horn rules, Louvain schemas) — proposes edges/facts, each **confidence-gated**
+   `rules.py` Horn rules, Louvain schemas) -- proposes edges/facts, each **confidence-gated**
    into a **separate inferred layer** (`Edge.inferred=True`, flagged + provenance), excluded
    from observed reads. Targets multi-hop / multi-session.
-3. **Multi-resolution retrieval** (`multires.py`) — RAPTOR-style recursive **bounded-k**
+3. **Multi-resolution retrieval** (`multires.py`) -- RAPTOR-style recursive **bounded-k**
    clustering (near-linear) with a centroid gist per level; retrieval can hit any level. The
    lossless episode and every gist level are kept at once.
-4. **Predictive pre-fetch** (`prefetch.py`) — clusters the query log and pre-assembles each
+4. **Predictive pre-fetch** (`prefetch.py`) -- clusters the query log and pre-assembles each
    cluster's **context** (token-free); a query-time cosine match returns it with zero
    assembly tokens.
 
 **Invariants (each a passing test in `tests/test_dreaming.py`):** additive-only (lossless
 store byte-identical after a dream cycle); inferred items in a separate, flagged namespace;
-**no O(N²)** (replay computes graph features a constant number of times, not per record — the
+**no O(N²)** (replay computes graph features a constant number of times, not per record -- the
 exact pattern that hung an earlier run); the inferred gate; multi-resolution retrieval;
 pre-fetch hit.
 
 **Token-free gate, stated precisely:** the inferred-edge gate is **confidence + embedding
 support (token-free) by default**; real-NLI is **optional enrichment** (`DREAM_USE_LLM_NLI=1`,
 costs tokens), never a dependency. **Honest note:** human-readable schema *naming* and
-contradiction *resolution* (deciding which side wins) may still want an optional LLM pass —
-the token-free layer delivers value (gist, inferred links, replay, pre-fetch) without it.
+contradiction *resolution* (deciding which side wins) may still want an optional LLM pass -- the token-free layer delivers value (gist, inferred links, replay, pre-fetch) without it.
 
 **Measured vs scoreboard:** the layer is built and offline-verified; set `DREAM_AB=1` to run
 the dream pass in the harness and measure dream-on vs dream-off against
@@ -553,14 +549,14 @@ uvicorn eidetic.api:app --reload
 All configuration is read once at startup by `eidetic/config.py` from `.env`. See
 [`.env.example`](.env.example) for the full annotated template.
 
-- **`APP_ENV`** — selects only the storage/DB backend; every model call is identical
+- **`APP_ENV`** -- selects only the storage/DB backend; every model call is identical
   in both modes.
   - `dev` (default): local content-addressed substrate + SQLite state + local vector
     index (`hnswlib`, with a numpy brute-force fallback).
   - `prod`: Alibaba Cloud OSS-WORM + AnalyticDB for PostgreSQL + GDB.
-- **`DASHSCOPE_API_KEY`** — required for any model call. Get one at the DashScope
+- **`DASHSCOPE_API_KEY`** -- required for any model call. Get one at the DashScope
   console.
-- **`DASHSCOPE_REGION`** — `singapore` (default) uses `dashscope-intl.aliyuncs.com`;
+- **`DASHSCOPE_REGION`** -- `singapore` (default) uses `dashscope-intl.aliyuncs.com`;
   `beijing` uses `dashscope.aliyuncs.com`. The `qwen3-vl-embedding` multimodal
   **fusion mode** is **Beijing-only**. When running in Singapore, the multimodal
   embedder falls back to `tongyi-embedding-vision-plus` (the `MULTIMODAL_EMBED_MODEL`
@@ -569,18 +565,18 @@ All configuration is read once at startup by `eidetic/config.py` from `.env`. Se
 **Benchmark-harness config** (only needed to run `bench/`). Install the baselines with
 `.venv/bin/pip install -r requirements-bench.txt`, then set:
 
-- **`READER_MODEL`** — the ONE fixed answerer shared by every system (default `qwen-plus`;
+- **`READER_MODEL`** -- the ONE fixed answerer shared by every system (default `qwen-plus`;
   pin a snapshot so the alias does not rotate mid-study).
-- **`JUDGE_MODEL`** / **`JUDGE_BASE_URL`** / **`JUDGE_API_KEY`** — the ONE fixed judge.
+- **`JUDGE_MODEL`** / **`JUDGE_BASE_URL`** / **`JUDGE_API_KEY`** -- the ONE fixed judge.
   Defaults to `qwen3-max` on DashScope; set all three to point at an OpenAI-compatible
   endpoint (e.g. `JUDGE_BASE_URL=https://api.openai.com/v1`, `JUDGE_MODEL=gpt-4o`) for a
   leaderboard-comparable judge. `JUDGE_BASE_URL` set without `JUDGE_API_KEY` fails loud.
-- **`NEO4J_URI`** / **`NEO4J_USER`** / **`NEO4J_PASSWORD`** — required **only** by the
+- **`NEO4J_URI`** / **`NEO4J_USER`** / **`NEO4J_PASSWORD`** -- required **only** by the
   Graphiti baseline (a free Neo4j AuraDB instance works; no Docker required).
 
 **No mocked model outputs exist anywhere.** Every embedding, salience score, extraction,
 rerank, generation, and NLI check is a real Qwen/DashScope call. A missing or empty
-`DASHSCOPE_API_KEY` **fails loudly** — model-calling API endpoints return **HTTP 503**
+`DASHSCOPE_API_KEY` **fails loudly** -- model-calling API endpoints return **HTTP 503**
 with a clear detail string. Nothing is ever faked.
 
 ---
@@ -593,30 +589,30 @@ python -m pytest
 
 The suite enforces the four core guarantees plus the offline age-independence proof:
 
-1. **Write-once / no-overwrite** — the substrate is content-addressed, dedupes identical
+1. **Write-once / no-overwrite** -- the substrate is content-addressed, dedupes identical
    content, and the OS itself refuses to overwrite an object (`0o444`).
    (`tests/test_write_once.py`)
-2. **No-delete-on-forget** — after decades of FSRS decay, priority approaches zero but
+2. **No-delete-on-forget** -- after decades of FSRS decay, priority approaches zero but
    the raw bytes stay byte-for-byte intact and a strong cue restores priority.
    (`tests/test_no_delete_on_forget.py`)
-3. **NLI rejects an unsupported answer** — the anti-confabulation gate. This makes a
+3. **NLI rejects an unsupported answer** -- the anti-confabulation gate. This makes a
    real `qwen-plus` call, so it **needs a key**; with no `DASHSCOPE_API_KEY` it skips
    automatically (we never mock a model output). (`tests/test_nli_verification.py`)
-4. **Bi-temporal contradiction invalidation** — a contradicting fact closes the old edge
+4. **Bi-temporal contradiction invalidation** -- a contradicting fact closes the old edge
    bi-temporally while keeping full history queryable; nothing is deleted.
    (`tests/test_bitemporal_contradiction.py`)
-5. **Age-independence (offline)** — using synthetic vectors, the oldest and newest
+5. **Age-independence (offline)** -- using synthetic vectors, the oldest and newest
    inserts are recalled equally well; insertion order plays no role in ranking.
    (`tests/test_age_independence.py`)
-6. **Scope isolation** — a write in namespace `A` is invisible from namespace `B` at the
+6. **Scope isolation** -- a write in namespace `A` is invisible from namespace `B` at the
    store and graph level, dedup is per-scope, and a contradiction does not cross
    namespaces; a keyed end-to-end check confirms a recall in `B` retrieves nothing from
    `A`. (`tests/test_scope_isolation.py`)
-7. **Reconsolidation re-weighting** — a confirmed recall up-weights (stability grows,
+7. **Reconsolidation re-weighting** -- a confirmed recall up-weights (stability grows,
    retrievability resets); a contradicted recall down-weights but never deletes the
    record; co-activated memories gain a strengthened scoped edge.
    (`tests/test_reconsolidation.py`)
-8. **Visual-verification rejection** — a claim that contradicts a chart's pixels is not
+8. **Visual-verification rejection** -- a claim that contradicts a chart's pixels is not
    entailed (the raw image is the arbiter), and image ingest produces real graph
    entities. Makes real vision calls, so it **needs a key**; with no `DASHSCOPE_API_KEY`
    it skips automatically. (`tests/test_visual_verification.py`)
@@ -641,13 +637,13 @@ p95 latency, the linear slopes, and writes
 Selected by `APP_ENV=prod`. The prod backend maps directly onto Alibaba Cloud services
 while leaving every model call unchanged:
 
-- **OSS with WORM retention** — the immutable lossless substrate (Component 1). Objects
+- **OSS with WORM retention** -- the immutable lossless substrate (Component 1). Objects
   are written under a WORM retention policy (`OSS_WORM_RETENTION_DAYS`, default 3650).
-- **AnalyticDB for PostgreSQL with HNSW** — the vector index (Component 2 vectors).
-- **In-app Personalized PageRank over a bi-temporal graph** — associative expansion and
+- **AnalyticDB for PostgreSQL with HNSW** -- the vector index (Component 2 vectors).
+- **In-app Personalized PageRank over a bi-temporal graph** -- associative expansion and
   contradiction handling (Components 2 and 7), computed in-process.
-- **Function Compute cron** — drives the offline sleep/consolidation loop (Component 5).
-- **ECS / ACK** — hosts the always-on FastAPI backend (`eidetic.api:app`).
+- **Function Compute cron** -- drives the offline sleep/consolidation loop (Component 5).
+- **ECS / ACK** -- hosts the always-on FastAPI backend (`eidetic.api:app`).
 
 Configure prod via the `OSS_*` variables, `ADBPG_DSN`, and `GDB_ENDPOINT` in `.env`
 (ignored when `APP_ENV=dev`). See [`docs/architecture.md`](docs/architecture.md) for the
@@ -657,4 +653,4 @@ full deployment topology.
 
 ## License
 
-MIT — see [`LICENSE`](LICENSE).
+MIT -- see [`LICENSE`](LICENSE).
