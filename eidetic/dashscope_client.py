@@ -104,6 +104,26 @@ def _retry_after_seconds(msg: str) -> Optional[float]:
     return float(m.group(1)) if m else None
 
 
+# A 5xx from DashScope is a SERVER-side failure (internal error / overload / a pipeline hiccup) --
+# the IDENTICAL request can succeed on retry, so it is retryable exactly like a 429. A 4xx is a
+# CLIENT error (bad request: input too long, invalid parameter) and is DETERMINISTIC: retrying it
+# can never succeed and would only burn quota and delay the loud failure, so it is never retried.
+# This split is why a transient embedding 500 (InternalError.Algo.Embedding_pipeline_Error, observed
+# to recur on ~1-2% of embed calls independent of content) no longer aborts a whole benchmark run,
+# while a 400 InvalidParameter still fails fast. Quota EXHAUSTION stays non-retryable even if it is
+# ever surfaced as a 5xx. A deterministic 5xx is bounded by max_retries -> still fails loud, never
+# fabricates. _ok() is the single formatter and always embeds "(HTTP <code>)", so the status class
+# is reliably parseable from the message.
+_SERVER_ERROR_RE = re.compile(r"http\s*5\d\d", re.IGNORECASE)
+
+
+def _is_server_error(msg: str) -> bool:
+    m = (msg or "").lower()
+    if "exhaust" in m:                 # quota spent -> retrying can never succeed, fail loud
+        return False
+    return bool(_SERVER_ERROR_RE.search(m))
+
+
 class RateGovernor:
     """One shared budget for every model call: a token-bucket RPM limiter + a concurrency
     semaphore, with exponential backoff (jitter, Retry-After) on 429. Acquire an RPM token FIRST
@@ -149,16 +169,21 @@ class RateGovernor:
             self._sem.release()
 
     def run(self, fn: Callable[[], Any]) -> Any:
-        """Run a real model call under the budget, retrying ONLY rate-limit errors with backoff.
-        Any other ModelCallError fails loud immediately (never a fabricated result)."""
+        """Run a real model call under the budget, retrying rate-limit (429/throttle) AND transient
+        5xx server errors with backoff. A 4xx bad request and any other non-transient error fail
+        loud immediately; retries are bounded by max_retries so a result is never fabricated."""
         for attempt in range(self.max_retries + 1):
             with self._slot():
                 try:
                     return fn()
                 except ModelCallError as e:
-                    if attempt >= self.max_retries or not _is_rate_limit(str(e)):
+                    msg = str(e)
+                    # Retry rate limits (429/throttle) AND transient 5xx server errors; a 4xx bad
+                    # request is deterministic and fails loud immediately (never fabricated).
+                    if attempt >= self.max_retries or not (
+                            _is_rate_limit(msg) or _is_server_error(msg)):
                         raise
-                    retry_after = _retry_after_seconds(str(e))
+                    retry_after = _retry_after_seconds(msg)
                 except Exception as e:               # transient TRANSPORT blip (SSL/timeout/reset)?
                     if attempt >= self.max_retries or not _is_transient(e):
                         raise                        # a real error (code/model) -> fail loud
