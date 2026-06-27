@@ -320,11 +320,12 @@ def test_extract_light_uses_salience_model(fresh_settings):
     client.settings = settings
     seen = {}
 
-    def fake_chat_json(model, *_args, **_kw):
+    def fake_chat(model, *_args, **_kw):
+        # extraction now calls chat() (raw string) + a truncation-resilient parser, not chat_json.
         seen["model"] = model
-        return {"triples": [{"src": "Alice", "relation": "likes", "dst": "tea"}]}
+        return '{"triples": [{"src": "Alice", "relation": "likes", "dst": "tea"}]}'
 
-    client.chat_json = fake_chat_json
+    client.chat = fake_chat
     triples = client.extract_edges("Alice likes tea.")
     assert seen["model"] == "qwen-flash"
     assert triples[0]["src"] == "Alice"

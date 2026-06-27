@@ -78,13 +78,15 @@ def test_governor_fails_loud_on_non_transient_and_exhausted():
         g.run(lambda: (_ for _ in ()).throw(ModelCallError("HTTP 403: free tier exhausted")))
 
 
-def test_governor_does_not_fire_callback_on_non_rate_error():
+def test_governor_does_not_fire_callback_on_non_retryable_error():
     calls = []
     g = RateGovernor(rpm=600, max_concurrency=2, max_retries=2, backoff_base=0.0, backoff_max=0.0)
     g.on_rate_limit = lambda info: calls.append(info)
 
     def fn():
-        raise ModelCallError("DashScope call failed (HTTP 500): internal error")
+        # A 4xx bad request is deterministic/non-retryable (a 5xx server error now IS retried, so
+        # it would correctly fire the backoff telemetry -- see test_rate_governor).
+        raise ModelCallError("DashScope call failed (HTTP 400): InvalidParameter")
 
     try:
         g.run(fn)
