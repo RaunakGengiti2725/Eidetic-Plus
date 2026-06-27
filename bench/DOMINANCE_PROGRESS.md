@@ -1,11 +1,31 @@
 # Benchmark-Dominance Plan -- Implementation Progress
 
-**Status: code shipped, proof pending.** Every code deliverable below is landed, default-OFF, and
-offline-unit-tested (full suite **520 passed**). The *measurement* program (live runs, sweeps,
-calibration, significance) is **DashScope-quota-blocked** and unrun. **No accuracy numbers are
-claimed in this document** -- a number that does not reproduce does not exist. The plan's target
-figures (≥75% LME, +10pp, "best memory agent") are *gated on the measurement program*, not
-assertable from this session.
+## UPDATE (forgetting-machine model): key live, proof program RUNNING
+
+The DashScope key is now LIVE with quota, so the measurement program is no longer blocked. The
+forgetting-machine slice (`scripts/proof_slice.sh`) runs the head-to-head + attribution ablation on
+LongMemEval-S through one shared reader (`qwen-plus`) + judge (`qwen3-max`). First DIRECTIONAL result
+(multi-session, n=6, 1 run -- NOT significant, every McNemar p=1.0; see
+`bench/RESULTS_metabolism_multisession_n6.md`):
+- eidetic **33.3%** vs rag-full **16.7%** at **7,996 vs 122,752 tokens/query** (~15x cheaper) and
+  lower latency; ties rag-vector 33.3%.
+- Attribution: metabolism memory OFF (reader+proof fixed) drops 33.3 -> 16.7pp -- the long-horizon
+  gain is attributable to the memory layer (1 question flip, predicted direction).
+- Snap-back fidelity 285/285 = 100% over the run's corpus.
+Three benchmark-blocking robustness bugs were found+fixed to make the run complete at all (transient
+5xx retry, extraction-JSON truncation salvage, content-moderation-400 skip); the mem0 adapter now
+skips content-specific 4xx sessions for a fair row. Off-suite **567 passed**. A larger n=20
+multi-session run is in progress. Honesty bind unchanged (`docs/claims.md`): directional only; the
+significance gate is `bench/reproduce.sh` (multi-run); NO SOTA claim.
+
+---
+
+**Original status (pre-key): code shipped, proof pending.** Every code deliverable below is landed,
+default-OFF, and offline-unit-tested (full suite **520 passed** at the time of writing). The
+*measurement* program (live runs, sweeps, calibration, significance) was **DashScope-quota-blocked**
+and unrun. **No accuracy numbers are claimed in this section** -- a number that does not reproduce
+does not exist. The plan's target figures (≥75% LME, +10pp, "best memory agent") are *gated on the
+measurement program*, not assertable from that session.
 
 Branch: `connected-brain-loop`. All changes preserve the flag-off invariant: with every new flag
 at its default, the neutral bench write/read path is byte-identical to the prior runs.
