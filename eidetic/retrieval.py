@@ -862,9 +862,13 @@ class Retriever:
     ) -> Optional[CurrentValueResolution]:
         if not self.settings.conflict_resolver_enabled:
             return None
-        return resolve_current_value_question(
-            query, candidates, self.client.extract_current_value_matches, as_of
-        )
+        # The conflict resolver is an OPTIONAL read-path enhancement that needs the client's
+        # current-value extractor. If a client does not provide it, degrade gracefully (skip the
+        # resolver and fall back to the normal verified-answer path) rather than crashing the read.
+        extractor = getattr(self.client, "extract_current_value_matches", None)
+        if extractor is None:
+            return None
+        return resolve_current_value_question(query, candidates, extractor, as_of)
 
     def _answer_from_conflict_resolution(
         self, query: str, resolution: CurrentValueResolution, *, verify: bool
