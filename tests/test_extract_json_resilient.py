@@ -58,11 +58,16 @@ def test_salvage_respects_braces_inside_strings():
 def test_is_content_moderation_detects_only_true_moderation():
     assert _is_content_moderation(
         "DashScope call failed (HTTP 400): Input data may contain inappropriate content.") is True
-    assert _is_content_moderation("HTTP 400: data_inspection_failed: blocked") is True
+    assert _is_content_moderation(
+        "DashScope call failed (HTTP 400): data_inspection_failed: blocked") is True
     # NOT a moderation error -> must not be skipped (these are different failure classes).
     assert _is_content_moderation(
         "DashScope call failed (HTTP 400): InvalidParameter: Range of input length") is False
     assert _is_content_moderation("DashScope call failed (HTTP 500): InternalError.Algo") is False
+    # REGRESSION (review finding 1): a REAL 5xx whose body happens to mention 'data inspection'
+    # must NOT be mis-classified as moderation and swallowed -- it is a server error.
+    assert _is_content_moderation(
+        "DashScope call failed (HTTP 500): internal, data inspection subsystem crashed") is False
 
 
 def test_extract_edges_skips_moderated_window_gracefully(fresh_settings):

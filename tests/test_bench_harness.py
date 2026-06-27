@@ -397,6 +397,32 @@ def test_compare_flip_table_lists_gains_and_regressions(tmp_path):
     assert "Per-question flips" in md
 
 
+def test_compare_flip_table_dedupes_question_ids_across_runs(tmp_path):
+    # Review finding 2: with >1 run, a question that flips in both runs must be listed ONCE in the
+    # flip table (distinct questions), not "q1, q1".
+    from bench.compare import compare_dirs, render_markdown
+
+    control = tmp_path / "control"
+    experiment = tmp_path / "experiment"
+    control.mkdir()
+    experiment.mkdir()
+
+    def row(ok, run):
+        return {"system": "eidetic-plus", "dataset": "locomo", "category": "temporal",
+                "sample_id": "q1", "correct": ok, "run_idx": run,
+                "query_tokens": 100, "search_ms": 20, "e2e_ms": 120}
+
+    for run in (0, 1):
+        (control / f"eidetic-plus__run{run}.jsonl").write_text(json.dumps(row(False, run)))
+        (experiment / f"eidetic-plus__run{run}.jsonl").write_text(json.dumps(row(True, run)))
+    res = compare_dirs(control, experiment, system="eidetic-plus")
+    paired = res["comparisons"]["eidetic-plus|locomo|temporal"]["paired"]
+    assert paired["experiment_only"] == 2          # 2 discordant question-runs (McNemar is per-run)
+    md = render_markdown(res, tmp_path / "compare.md").read_text()
+    assert "q1, q1" not in md                       # q1 listed once, not duplicated per run
+    assert "| 1 | 0 | q1 | - |" in md              # 1 distinct gained question, 0 regressed
+
+
 def test_compare_dirs_fails_on_duplicate_rows(tmp_path):
     from bench.compare import compare_dirs
 

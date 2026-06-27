@@ -112,16 +112,28 @@ def _retry_after_seconds(msg: str) -> Optional[float]:
 # to recur on ~1-2% of embed calls independent of content) no longer aborts a whole benchmark run,
 # while a 400 InvalidParameter still fails fast. Quota EXHAUSTION stays non-retryable even if it is
 # ever surfaced as a 5xx. A deterministic 5xx is bounded by max_retries -> still fails loud, never
-# fabricates. _ok() is the single formatter and always embeds "(HTTP <code>)", so the status class
-# is reliably parseable from the message.
-_SERVER_ERROR_RE = re.compile(r"http\s*5\d\d", re.IGNORECASE)
+# fabricates.
+#
+# Classify on the AUTHORITATIVE status code, not a substring scan. _ok() is the single formatter and
+# always embeds "(HTTP <code>)", so we parse exactly that token. A naive `"5" in msg` / regex over the
+# whole message mis-fires: a real 500 whose body mentions "data inspection" would be mis-read as
+# moderation and SWALLOWED, and a 400 whose body references "http 500" would be wrongly retried.
+_HTTP_CODE_RE = re.compile(r"\(http\s*(\d{3})\)", re.IGNORECASE)
+
+
+def _http_status(msg: str) -> Optional[int]:
+    """The authoritative HTTP status from an _ok()-formatted ModelCallError ('(HTTP <code>)').
+    None when the message carries no such token (e.g. a JSON-parse ModelCallError) -- such errors
+    are then neither retried as a server error nor swallowed as moderation."""
+    m = _HTTP_CODE_RE.search(msg or "")
+    return int(m.group(1)) if m else None
 
 
 def _is_server_error(msg: str) -> bool:
-    m = (msg or "").lower()
-    if "exhaust" in m:                 # quota spent -> retrying can never succeed, fail loud
+    if "exhaust" in (msg or "").lower():   # quota spent -> retrying can never succeed, fail loud
         return False
-    return bool(_SERVER_ERROR_RE.search(m))
+    code = _http_status(msg)
+    return code is not None and 500 <= code < 600
 
 
 # DashScope content-moderation rejection (HTTP 400 'inappropriate content' / data inspection). It is
@@ -135,6 +147,12 @@ _MODERATION_HINTS = ("inappropriate content", "data_inspection", "data inspectio
 
 
 def _is_content_moderation(msg: str) -> bool:
+    # Moderation is a CLIENT-side (4xx) rejection AND carries a moderation hint. Gating on the
+    # parsed 4xx code means a 5xx server error whose body happens to mention "data inspection" is
+    # NOT swallowed as moderation -- it stays a server error (retried, then loud).
+    code = _http_status(msg)
+    if code is None or not (400 <= code < 500):
+        return False
     m = (msg or "").lower()
     return any(h in m for h in _MODERATION_HINTS)
 

@@ -51,7 +51,12 @@ def test_is_server_error_retries_5xx_not_4xx():
                             "InternalError.Algo.InvalidParameter: Range of input length") is False
     assert _is_server_error("DashScope call failed (HTTP 429): Throttling") is False
     # quota exhaustion stays non-retryable even if surfaced as a 5xx.
-    assert _is_server_error("HTTP 500: the free tier has been exhausted") is False
+    assert _is_server_error("(HTTP 500): the free tier has been exhausted") is False
+    # REGRESSION (review finding 1): classify on the parenthesized status code, NOT a substring scan.
+    # A real 400 whose BODY mentions 'http 500' must NOT be retried as a server error.
+    assert _is_server_error("DashScope call failed (HTTP 400): error http 500 referenced in docs") is False
+    # No parseable (HTTP <code>) token (e.g. a JSON-parse error) -> not a server error.
+    assert _is_server_error("Model returned non-JSON for a JSON request") is False
 
 
 def test_governor_fails_loud_on_4xx_no_retry():

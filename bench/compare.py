@@ -269,16 +269,23 @@ def render_markdown(result: dict, out_path: Path) -> Path:
             continue
         system, dataset, category = label.split("|")
 
-        def _ids(flips):
-            return ", ".join(f["sample_id"] for f in flips) or "-"
+        # De-dupe to UNIQUE question ids: gained/regressed are keyed per (question, run), so across
+        # multiple runs the same question can appear more than once. The columns report distinct
+        # questions (a question that flipped in >1 run is one gained question, listed once).
+        def _uids(flips):
+            return sorted({f["sample_id"] for f in flips})
+        gained_ids = _uids(gained)
+        regressed_ids = _uids(regressed)
         flip_rows.append(
-            f"| {system} | {dataset} | {category} | {len(gained)} | {len(regressed)} | "
-            f"{_ids(gained)} | {_ids(regressed)} |"
+            f"| {system} | {dataset} | {category} | {len(gained_ids)} | {len(regressed_ids)} | "
+            f"{', '.join(gained_ids) or '-'} | {', '.join(regressed_ids) or '-'} |"
         )
     lines += ["", "## Per-question flips (attribution evidence)", ""]
     if flip_rows:
         lines += [
-            "| system | dataset | category | gains | regressions | gained question ids | regressed question ids |",
+            "_Distinct questions that flipped; a question flipping in multiple runs is counted once._",
+            "",
+            "| system | dataset | category | gained questions | regressed questions | gained question ids | regressed question ids |",
             "|---|---|---|---:|---:|---|---|",
             *flip_rows,
         ]
