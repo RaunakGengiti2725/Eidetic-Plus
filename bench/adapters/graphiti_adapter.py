@@ -1,6 +1,6 @@
-"""Graphiti baseline adapter (REAL — fails loud, never mocks).
+"""Graphiti baseline adapter (REAL -- fails loud, never mocks).
 
-Targets graphiti-core==0.29.2 + Neo4j (use AuraDB Free in the cloud — no Docker, no
+Targets graphiti-core==0.29.2 + Neo4j (use AuraDB Free in the cloud -- no Docker, no
 local server needed; a free AuraDB instance gives you NEO4J_URI/USER/PASSWORD). The
 LLM + embedder are pinned to the SAME DashScope (Qwen) models that back every other
 system in this harness, via Graphiti's OpenAI-compatible client, so the scoreboard
@@ -8,7 +8,7 @@ compares MEMORY quality, not model quality.
 
 Heavy-write note: Graphiti runs a per-episode LLM extraction pipeline on every
 `add_episode` (entity/edge extraction, dedup, temporal resolution). That is its real,
-unavoidable write cost — in the published literature this runs to >600k tokens for a
+unavoidable write cost -- in the published literature this runs to >600k tokens for a
 single multi-session conversation. The harness's cost table is designed to expose
 exactly this: tokens/write here are dominated by Graphiti's own extraction, not by the
 raw conversation text we feed it.
@@ -39,7 +39,7 @@ class GraphitiSystem(MemorySystem):
 
     def __init__(self) -> None:
         # ---- Fail-loud preconditions (ordered so the error message is the useful one).
-        # 1) Neo4j connection settings — checked first so a missing server config does not
+        # 1) Neo4j connection settings -- checked first so a missing server config does not
         #    later surface as an opaque driver traceback.
         uri = os.environ.get("NEO4J_URI", "").strip()
         user = os.environ.get("NEO4J_USER", "").strip()
@@ -50,13 +50,13 @@ class GraphitiSystem(MemorySystem):
             raise RuntimeError(
                 "GraphitiSystem requires Neo4j connection env vars; missing: "
                 f"{', '.join(missing)}. You do NOT need Docker or a local server: "
-                "a free Neo4j AuraDB cloud instance works — create one at "
+                "a free Neo4j AuraDB cloud instance works -- create one at "
                 "https://neo4j.com/cloud/aura-free/ and set NEO4J_URI (e.g. "
                 "neo4j+s://<id>.databases.neo4j.io), NEO4J_USER (usually 'neo4j'), and "
                 "NEO4J_PASSWORD."
             )
 
-        # 2) DashScope key — Graphiti's LLM + embedder run through the OpenAI-compatible
+        # 2) DashScope key -- Graphiti's LLM + embedder run through the OpenAI-compatible
         #    DashScope endpoint, so the same Qwen models back every system.
         s = get_settings()
         api_key = (s.api_key or "").strip()
@@ -193,7 +193,7 @@ class GraphitiSystem(MemorySystem):
             self._run(self.graphiti.build_indices_and_constraints())
         except Exception as e:
             raise RuntimeError(
-                "Graphiti.build_indices_and_constraints() failed — the Neo4j server is "
+                "Graphiti.build_indices_and_constraints() failed -- the Neo4j server is "
                 "not reachable or the credentials are wrong. A free AuraDB cloud instance "
                 "needs no Docker; verify NEO4J_URI/NEO4J_USER/NEO4J_PASSWORD. "
                 f"Underlying error: {e!r}."
@@ -236,7 +236,7 @@ class GraphitiSystem(MemorySystem):
         tokens = approx_tokens(body)
 
         t0 = time.perf_counter()
-        # This triggers Graphiti's per-episode LLM extraction — the real, heavy write cost.
+        # This triggers Graphiti's per-episode LLM extraction -- the real, heavy write cost.
         self._run(self.graphiti.add_episode(
             name=session_id,
             episode_body=body,

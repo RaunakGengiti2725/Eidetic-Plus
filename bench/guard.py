@@ -121,7 +121,7 @@ def main() -> int:
     res = run_guard(Path(args.champion), Path(args.challenger), system=args.system,
                     min_delta_pp=args.min_delta_pp, alpha=args.alpha)
     verdict = "ACCEPT challenger" if res["accept"] else "KEEP champion"
-    print(f"Guard: {verdict} — {res['reason']}")
+    print(f"Guard: {verdict} -- {res['reason']}")
     print(f"  champion dev acc={res['champion_acc']:.4f}  challenger dev acc={res['challenger_acc']:.4f}"
           f"  paired_n={res['paired_n']}  McNemar p={res['mcnemar_p']}")
     if res["accept"] and args.best_config:
