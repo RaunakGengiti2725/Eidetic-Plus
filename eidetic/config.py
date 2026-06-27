@@ -130,6 +130,12 @@ class Settings:
         default_factory=lambda: _get("MULTIMODAL_EMBED_MODEL", "tongyi-embedding-vision-plus")
     )
     embed_dim: int = field(default_factory=lambda: _get_int("EMBED_DIM", 1024))
+    # Safety cap applied ONLY when an embedding input trips the model's "input too long" 400
+    # (text-embedding-v4 rejects inputs over its ~33k-unit limit). On that error the offending batch
+    # is re-embedded with each input truncated to this many chars (guaranteed under the limit at any
+    # token density). Normal inputs never hit this path -- the full raw text always stays in the
+    # substrate; only the over-length input's VECTOR is computed from a prefix.
+    embed_truncate_chars: int = field(default_factory=lambda: _get_int("EMBED_TRUNCATE_CHARS", 30000))
     # S4 persistent embedding cache keyed by (model, dim, sha256(text)) -> repeats/re-embeds are
     # free across restarts (a full cache hit needs no key and no model call). On by default; the
     # (model, dim) key guarantees a rename/dim change misses rather than returns a stale vector.

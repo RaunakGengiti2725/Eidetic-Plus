@@ -1057,7 +1057,13 @@ class Engine:
         def _extract(rec: MemoryRecord) -> tuple[MemoryRecord, list[dict]]:
             triples: list[dict[str, str]] = []
             if rec.text.strip():
-                triples.extend(self.client.extract_edges(rec.text))   # real, concurrent
+                try:
+                    triples.extend(self.client.extract_edges(rec.text))   # real, concurrent
+                except Exception as e:   # one record's extraction must not abort the whole sweep
+                    # extract_edges already degrades moderation/truncation internally; this catches
+                    # the residual (e.g. a transient past its retry budget). The raw record stays in
+                    # the substrate -- it just contributes no graph facts this pass. Log, continue.
+                    self._degraded("extract-edges", e)
             if rec.modality in (Modality.IMAGE, Modality.VIDEO):
                 try:
                     triples.extend(self._visual_triples(

@@ -41,6 +41,29 @@ class _FakeClient:
         return []
 
 
+# ---- consolidation resilience (robustness audit finding 2) ------------------------------
+
+def test_consolidate_survives_one_record_whose_extraction_raises(fresh_settings):
+    """One record's extraction blowing up (e.g. a transient past its retry budget) must NOT abort
+    the whole sample's consolidation -- it degrades that record to no facts and continues."""
+    from eidetic.dashscope_client import ModelCallError
+
+    class _C(_FakeClient):
+        def extract_edges(self, text):
+            if "BOOM" in text:
+                raise ModelCallError("DashScope call failed (HTTP 500): transient past retries")
+            return [{"src": "Alice", "relation": "likes", "dst": "tea", "fact": "Alice likes tea"}]
+
+    eng = Engine(fresh_settings, client=_C(fresh_settings.embed_dim))
+    sc = Scope(namespace="t")
+    eng.ingest_text("Alice likes tea", scope=sc, consolidate_now=False)
+    eng.ingest_text("BOOM this record's extraction fails", scope=sc, consolidate_now=False)
+    res = eng.consolidate_pending(scope=sc, score_importance=False)   # must NOT raise
+    assert isinstance(res, dict)
+    # the GOOD record's fact still made it into the graph despite the bad record failing
+    assert len(eng.store.all_edges(sc)) >= 1
+
+
 # ---- chunk_text -------------------------------------------------------------------------
 
 def test_chunk_text_short_returns_single_window():

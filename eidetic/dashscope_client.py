@@ -157,6 +157,17 @@ def _is_content_moderation(msg: str) -> bool:
     return any(h in m for h in _MODERATION_HINTS)
 
 
+def _is_input_too_long(msg: str) -> bool:
+    """The embedding 'input too long' 400 (e.g. 'Range of input length should be [1, 33000]').
+    Deterministic: the fix is to shorten the input, not to retry it unchanged. Gated on a parsed 4xx
+    so a 5xx that merely mentions 'length' is not mistaken for it."""
+    code = _http_status(msg)
+    if code is None or not (400 <= code < 500):
+        return False
+    m = (msg or "").lower()
+    return ("input length" in m) or ("too long" in m) or ("range of input" in m)
+
+
 class RateGovernor:
     """One shared budget for every model call: a token-bucket RPM limiter + a concurrency
     semaphore, with exponential backoff (jitter, Retry-After) on 429. Acquire an RPM token FIRST
@@ -353,15 +364,30 @@ class DashScopeClient:
         return resp
 
     # ---- embeddings -------------------------------------------------------
+    def _embed_batch_call(self, batch: list[str]) -> list[list[float]]:
+        resp = self._governed(lambda b=batch: self._ok(self._ds.TextEmbedding.call(
+            model=self.settings.text_embed_model, input=b, dimension=self.settings.embed_dim)))
+        embs = sorted(resp.output["embeddings"], key=lambda e: e.get("text_index", 0))
+        return [e["embedding"] for e in embs]
+
     def _embed_raw(self, texts: list[str]) -> np.ndarray:
-        """The real text-embedding-v4 call (batches of <=10, governed). No cache."""
+        """The real text-embedding-v4 call (batches of <=10, governed). No cache.
+
+        If a batch trips the model's deterministic 'input too long' 400, the offending batch is
+        re-embedded once with each input truncated to embed_truncate_chars (guaranteed under the
+        limit at any token density). A short input's prefix is itself, so only the over-length input
+        is affected; its full raw text still lives losslessly in the substrate. Every other error
+        (incl. non-length 4xx) propagates."""
         out: list[list[float]] = []
         for i in range(0, len(texts), 10):
             batch = texts[i : i + 10]
-            resp = self._governed(lambda b=batch: self._ok(self._ds.TextEmbedding.call(
-                model=self.settings.text_embed_model, input=b, dimension=self.settings.embed_dim)))
-            embs = sorted(resp.output["embeddings"], key=lambda e: e.get("text_index", 0))
-            out.extend(e["embedding"] for e in embs)
+            try:
+                out.extend(self._embed_batch_call(batch))
+            except ModelCallError as e:
+                if not _is_input_too_long(str(e)):
+                    raise
+                cap = self.settings.embed_truncate_chars
+                out.extend(self._embed_batch_call([t[:cap] for t in batch]))
         return np.asarray(out, dtype=np.float32)
 
     def embed_texts(self, texts: list[str]) -> np.ndarray:
