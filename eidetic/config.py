@@ -17,6 +17,70 @@ from dotenv import load_dotenv
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 load_dotenv(_PROJECT_ROOT / ".env")
 
+# --- METABOLISM_MODE: one master switch that wires the whole forgetting-machine profile ----
+# The complete "memory with metabolism" configuration: graceful forgetting + consolidation +
+# dreaming surfaces + capture fidelity + the shared Tier-A reader + the prove-or-abstain gate.
+# Design: when METABOLISM_MODE is truthy, every flag below is FILLED IN as a default via
+# setdefault, so an explicit env var ALWAYS wins. That override-safety is load-bearing -- the
+# attribution-under-ablation proof program turns the mode on and ablates ONE component at a time
+# (e.g. METABOLISM_MODE=1 FULL_SLEEP=0 to drop consolidation+dreaming while keeping the rest).
+# When METABOLISM_MODE is unset/off the overlay mutates NOTHING, so the neutral baseline path
+# stays byte-identical (guarded by tests/test_metabolism_mode.py + the off-suite test gate).
+#
+# The overlay is applied to os.environ at IMPORT time (below) so module-level env reads -- most
+# importantly bench/reader.py's READER_* constants, which import eidetic.config first -- observe
+# the profile before they are evaluated.
+METABOLISM_PROFILE: dict[str, str] = {
+    # Layer 2 -- metabolism: consolidation + dreaming surfaces (the accuracy-driving moat).
+    "FULL_SLEEP": "1",            # adapter hook: consolidate_pending + dream every sleep
+    "GIST_CHANNEL": "1",          # RAPTOR gist centroids surfaced as retrieval candidates
+    "COACTIVATION_CHANNEL": "1",  # multi-hop co-confirmed memories (graph CO_ACTIVATED)
+    "STRUCT_CHANNEL": "1",        # cyclic structure-code channel (age-independent)
+    "EVENT_RANKING": "1",         # event-calendar overlap with the query's time constraint
+    "GRAPH_VOCAB_SEEDING": "1",   # seed retrieval vocabulary from graph entities
+    # Layer 2 -- capture fidelity (write path): nothing buried past the single-call cap is lost.
+    "EXTRACT_CHUNKING": "1",      # chunked fact extraction over long sessions
+    "MEMORY_TYPING": "1",         # MIRIX role typing + soft retrieval prior
+    "PREF_SENTENCE_SCAN": "1",    # every preference-bearing sentence becomes a profile line
+    # Layer 3 -- mind: the ONE shared reader's fairness fixes (applied to EVERY system equally).
+    "READER_TIER_A": "1",         # temporal/inference/list/recency scaffolds (question-text only)
+    "READER_MODE": "photographic",  # quote-verbatim-with-[S#] answer prompt
+    "READER_BLOCK_CHARS": "8000",   # per-source context width handed to the reader
+    "READER_COT": "1",            # chain-of-thought reader suffix
+    "CONFLICT_RESOLVER": "1",     # contradiction resolution at read time
+    "TEMPORAL_RERANK": "1",       # temporal re-ranking for order/sequence queries
+    "PERSISTENT_BM25": "1",       # lexical channel (already default on; pinned for the manifest)
+    # Layer 4 -- proof: prove-or-abstain integrity gate (calibrated, batched, short-circuited).
+    "ABSTENTION_V2": "1",         # 4-signal calibrated Chow reject
+    "BATCH_NLI": "1",             # one NLI request over all candidate sources (faster)
+    "FAST_VERIFY": "1",           # stop verifying once enough entailments are found
+}
+
+
+def metabolism_enabled(env: dict | None = None) -> bool:
+    """True iff METABOLISM_MODE is set to a truthy value (case-insensitive)."""
+    e = os.environ if env is None else env
+    return e.get("METABOLISM_MODE", "0").strip().lower() in ("1", "true", "yes", "on")
+
+
+def apply_metabolism_overlay(env: dict | None = None) -> list[str]:
+    """If METABOLISM_MODE is on, default every profile flag via setdefault (explicit values are
+    NEVER clobbered -> ablation-safe). Returns the keys actually set. A no-op when the mode is
+    off, so the baseline path is byte-identical. Idempotent: a second call sets nothing."""
+    e = os.environ if env is None else env
+    if not metabolism_enabled(e):
+        return []
+    set_keys: list[str] = []
+    for k, v in METABOLISM_PROFILE.items():
+        if k not in e:
+            e[k] = v
+            set_keys.append(k)
+    return set_keys
+
+
+# Apply at import so module-level env reads (e.g. bench/reader.py constants) see the profile.
+apply_metabolism_overlay()
+
 # DashScope endpoints per region. The dashscope SDK uses the /api/v1 base; the
 # OpenAI-compatible base (used for the Files API / qwen-long document reading) differs.
 _REGION_ENDPOINTS = {
@@ -52,6 +116,9 @@ def _get_int(name: str, default: int) -> int:
 class Settings:
     # Environment
     app_env: str = field(default_factory=lambda: _get("APP_ENV", "dev").lower())
+    # Master metabolism switch (introspection/manifest only; the actual wiring is the env
+    # overlay applied at import, so individual flags below already reflect the profile).
+    metabolism_mode: bool = field(default_factory=lambda: metabolism_enabled())
 
     # DashScope auth + region
     api_key: str = field(default_factory=lambda: _get("DASHSCOPE_API_KEY"))

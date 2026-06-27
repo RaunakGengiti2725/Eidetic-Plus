@@ -18,21 +18,50 @@ from .datasets import (beam, category_counts, filter_split, locomo, longmemeval,
                        memoryagentbench)
 from .harness import run_system
 from .judge import Judge
+from eidetic.config import METABOLISM_PROFILE
 
-_MANIFEST_ENV = [
-    "READER_MODEL", "JUDGE_MODEL", "READER_COT", "READER_ROUTER", "CONFLICT_RESOLVER",
-    "CONTEXT_COMPRESS", "EXTRACT_LIGHT", "TEMPORAL_RERANK", "HIPPO2_SEEDING", "PERSISTENT_BM25",
+# Every score-affecting env flag is recorded so a claim reproduces from its manifest alone.
+# The list is deliberately exhaustive; an unrecorded flag is a reproducibility hole the
+# attribution program cannot tolerate (see plan: "Unrecorded env flags in any claim").
+_MANIFEST_ENV = sorted(set([
+    # Master switch + the full metabolism profile (unioned from the single source of truth, so
+    # adding a profile flag automatically extends the manifest).
+    "METABOLISM_MODE", *METABOLISM_PROFILE.keys(),
+    # Shared reader / judge (the fairness pins).
+    "READER_MODEL", "JUDGE_MODEL", "JUDGE_BASE_URL", "READER_MODE", "READER_BLOCK_CHARS",
+    "READER_COT", "READER_ROUTER", "READER_TIER_A", "READER_TEMPORAL_SCAFFOLD",
+    "READER_GATED_INFERENCE", "READER_LIST_TWOPASS", "READER_RECENCY_NUDGE",
+    "READER_JSON_RESILIENT", "BENCH_BASELINE_LLM",
+    # Capture / write path.
+    "EXTRACT_CHUNKING", "EXTRACT_CHUNK_CHARS", "EXTRACT_CHUNK_OVERLAP", "EXTRACT_LIGHT",
+    "MEMORY_TYPING", "PREF_SENTENCE_SCAN", "MEMORY_MANAGER", "INGEST_GRANULARITY",
+    # Retrieval channels + fusion.
+    "CONFLICT_RESOLVER", "CONTEXT_COMPRESS", "TEMPORAL_RERANK", "HIPPO2_SEEDING",
+    "PERSISTENT_BM25", "GIST_CHANNEL", "STRUCT_CHANNEL", "EVENT_RANKING", "GRAPH_VOCAB_SEEDING",
+    "COACTIVATION_CHANNEL", "EVENT_CHAIN_CONTEXT", "SCRATCHPAD", "ACTIVE_RETRIEVAL",
+    "MARKOV_PREFETCH", "AFFECT_SALIENCE", "REFLEX_RECALL", "FLOW_ACTIVATION",
+    "FLOW_HYBRID_CHANNEL", "FALSE_PREMISE", "CACHE_VERSIONING",
     "SEMANTIC_CACHE", "SEMANTIC_CACHE_ADAPTIVE",
+    "RRF_W_GIST", "RRF_W_STRUCT", "RRF_W_EVENT", "RRF_W_COACT",
+    # Caches + reranking + context budget.
     "DREAM_AB", "RERANK_ENABLED", "RERANK_FAIL_OPEN", "RERANK_DEPTH", "CONTEXT_TOKEN_BUDGET",
     "COMPRESSION_RATIO", "ANN_TOPK", "FINAL_TOPK", "RRF_K", "RRF_W_DENSE", "RRF_W_BM25",
     "RRF_W_GRAPH", "RRF_W_RECENCY", "HNSW_M", "HNSW_EF_SEARCH", "HNSW_EF_CONSTRUCTION",
     "SALIENCE_PRUNE_THRESHOLD",
-    # Layer-2/3 optimizer flags (recorded so every run reproduces from its manifest).
+    # Proof / verification gate.
+    "ABSTENTION_V2", "ABSTENTION_THRESHOLD", "ABSTENTION_V2_TAU", "BATCH_NLI", "FAST_VERIFY",
+    "VERIFY_CITATION_CAP", "COVE", "SPAN_NLI", "DEFER_REEMBED",
+    # Consolidation / dreaming.
+    "FULL_SLEEP", "DREAM_REPAIR", "DREAM_REPAIR_APPLY", "DREAM_USE_LLM_NLI",
+    "DREAM_INFER_CONFIDENCE", "DREAM_PRUNE_PERCENTILE",
+    # Rate governor (affects concurrency, not scores, but reproducibility-relevant).
+    "DASHSCOPE_MAX_CONCURRENCY", "DASHSCOPE_RPM",
+    # Layer-2/3 optimizer flags.
     "FUSION_METHOD", "ADAPTIVE_K", "ADAPTIVE_K_MIN", "ADAPTIVE_EF", "HNSW_EF_SEARCH_HARD",
     "MMR_ENABLED", "MMR_LAMBDA", "RERANK_SKIP_MARGIN", "CONFORMAL_DEPTH", "CONFORMAL_ALPHA",
     "CONFORMAL_QHAT", "PARALLEL_CHANNELS", "VECTOR_QUANT", "QUANT_REFINE", "ROCCHIO",
     "FUSION_LEARNER", "FUSION_LEARNER_METHOD",
-]
+]))
 
 
 def make_system(name: str):
@@ -110,6 +139,8 @@ def write_manifest(out: Path, args, judge_desc: dict, samples: list | None = Non
         "sample_count": len(samples) if samples is not None else None,
         "category_counts": category_counts(samples) if samples is not None else None,
         "sample_rows": sample_rows,
+        "metabolism_mode": os.environ.get("METABOLISM_MODE", "0").strip().lower()
+        in ("1", "true", "yes", "on"),
         "env": {k: os.environ.get(k, "") for k in _MANIFEST_ENV},
     }
     path = out / "run_manifest.json"
