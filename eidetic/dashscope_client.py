@@ -124,6 +124,21 @@ def _is_server_error(msg: str) -> bool:
     return bool(_SERVER_ERROR_RE.search(m))
 
 
+# DashScope content-moderation rejection (HTTP 400 'inappropriate content' / data inspection). It is
+# deterministic and content-specific: retrying never helps. Distinct from other 400s (input too long,
+# invalid param) so ONLY true moderation is degraded gracefully, never every bad request. Real
+# benchmark corpora (LongMemEval/LoCoMo) contain passages the filter flags; one flagged window must
+# not abort a whole sample's consolidation -- the raw content still lives losslessly in the substrate,
+# we simply cannot extract a graph from content the model refuses to process.
+_MODERATION_HINTS = ("inappropriate content", "data_inspection", "data inspection",
+                     "content_filter", "content filter")
+
+
+def _is_content_moderation(msg: str) -> bool:
+    m = (msg or "").lower()
+    return any(h in m for h in _MODERATION_HINTS)
+
+
 class RateGovernor:
     """One shared budget for every model call: a token-bucket RPM limiter + a concurrency
     semaphore, with exponential backoff (jitter, Retry-After) on 429. Acquire an RPM token FIRST
@@ -452,14 +467,22 @@ class DashScopeClient:
         case and salvage complete triples from the rest, so an overflowing extraction degrades to
         "fewer facts this window" instead of aborting the whole consolidation/run. Never fabricated."""
         model = self.settings.salience_model if self.settings.extract_light_enabled else self.settings.extract_model
-        raw = self.chat(
-            model,
-            "Extract factual (subject, relation, object) triples from the text for a "
-            "knowledge graph. Reply ONLY as JSON: {\"triples\": [{\"src\":..,\"relation\":..,"
-            "\"dst\":..,\"fact\":..}]}. Keep entity names canonical and short. Empty list if none.",
-            f"Text:\n{window}",
-            json_mode=True, temperature=0.0, max_tokens=2048,
-        )
+        try:
+            raw = self.chat(
+                model,
+                "Extract factual (subject, relation, object) triples from the text for a "
+                "knowledge graph. Reply ONLY as JSON: {\"triples\": [{\"src\":..,\"relation\":..,"
+                "\"dst\":..,\"fact\":..}]}. Keep entity names canonical and short. Empty list if none.",
+                f"Text:\n{window}",
+                json_mode=True, temperature=0.0, max_tokens=2048,
+            )
+        except ModelCallError as e:
+            # Content the moderation filter rejects yields no triples (the raw text still lives in
+            # the substrate); skipping it keeps consolidation alive instead of aborting the sample.
+            # Every other error still fails loud.
+            if _is_content_moderation(str(e)):
+                return []
+            raise
         triples = _parse_triples(raw)
         out = []
         for t in triples:

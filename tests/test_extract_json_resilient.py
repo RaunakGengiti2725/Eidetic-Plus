@@ -6,7 +6,8 @@ _parse_triples recovers every COMPLETE triple the model actually emitted and dro
 trailing one -- it never fabricates. Pure functions, fully offline."""
 from __future__ import annotations
 
-from eidetic.dashscope_client import _parse_triples, _salvage_json_objects
+from eidetic.dashscope_client import (_is_content_moderation, _parse_triples,
+                                      _salvage_json_objects)
 
 
 def test_parse_triples_strict_valid():
@@ -52,3 +53,51 @@ def test_salvage_respects_braces_inside_strings():
     raw = '{"triples":[{"src":"A","relation":"says","dst":"use {curly} braces","fact":"x"}'
     objs = _salvage_json_objects(raw)
     assert any(o.get("dst") == "use {curly} braces" for o in objs)
+
+
+def test_is_content_moderation_detects_only_true_moderation():
+    assert _is_content_moderation(
+        "DashScope call failed (HTTP 400): Input data may contain inappropriate content.") is True
+    assert _is_content_moderation("HTTP 400: data_inspection_failed: blocked") is True
+    # NOT a moderation error -> must not be skipped (these are different failure classes).
+    assert _is_content_moderation(
+        "DashScope call failed (HTTP 400): InvalidParameter: Range of input length") is False
+    assert _is_content_moderation("DashScope call failed (HTTP 500): InternalError.Algo") is False
+
+
+def test_extract_edges_skips_moderated_window_gracefully(fresh_settings):
+    from dataclasses import replace
+
+    from eidetic.dashscope_client import DashScopeClient, ModelCallError
+
+    settings = replace(fresh_settings, extract_chunking_enabled=False)
+    client = DashScopeClient.__new__(DashScopeClient)
+    client.settings = settings
+
+    def moderated(*_a, **_k):
+        raise ModelCallError(
+            "DashScope call failed (HTTP 400): Input data may contain inappropriate content.")
+
+    client.chat = moderated
+    # Content the filter rejects yields NO triples but never aborts -- the raw stays in the
+    # substrate; we just cannot extract a graph from moderated content.
+    assert client.extract_edges("some flagged passage") == []
+
+
+def test_extract_edges_still_raises_on_a_real_error(fresh_settings):
+    from dataclasses import replace
+
+    from eidetic.dashscope_client import DashScopeClient, ModelCallError
+    import pytest
+
+    settings = replace(fresh_settings, extract_chunking_enabled=False)
+    client = DashScopeClient.__new__(DashScopeClient)
+    client.settings = settings
+
+    def boom(*_a, **_k):
+        raise ModelCallError("DashScope call failed (HTTP 400): InvalidParameter: bad request")
+
+    client.chat = boom
+    # A non-moderation error is NOT silently swallowed -> it still fails loud.
+    with pytest.raises(ModelCallError):
+        client.extract_edges("normal text")
