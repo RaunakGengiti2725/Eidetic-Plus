@@ -1,0 +1,47 @@
+{
+  "systems": [
+    "eidetic-product"
+  ],
+  "accuracy": {
+    "eidetic-product|locomo|temporal": {
+      "mean": 1.0,
+      "std": 0.0,
+      "ci95": [
+        0.20654931437723745,
+        1.0
+      ],
+      "successes": 1,
+      "n": 1
+    }
+  },
+  "head_to_head": {},
+  "survival": {},
+  "cost": {
+    "eidetic-product": {
+      "tokens_per_write": 15511,
+      "tokens_per_query": 3343
+    }
+  },
+  "latency": {
+    "eidetic-product": {
+      "search_p50": 4649.79250007309,
+      "search_p95": 4649.79250007309,
+      "e2e_p50": 32190.19083294552,
+      "e2e_p95": 32190.19083294552
+    }
+  },
+  "judge": {
+    "judge_model": "qwen3-max",
+    "judge_backend": "dashscope"
+  },
+  "integrity": {
+    "eidetic-product": {
+      "n": 1,
+      "verified_correct": 0,
+      "answered": 1,
+      "unverified_answered": 1,
+      "abstained": 0,
+      "has_verify": false
+    }
+  }
+}

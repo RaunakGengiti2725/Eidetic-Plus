@@ -1,0 +1,271 @@
+{
+  "systems": "eidetic-plus-full,rag-full,rag-vector,eidetic-product",
+  "dataset": "locomo",
+  "split": "all",
+  "subset": 40,
+  "sample_offset": 0,
+  "runs": 1,
+  "run_offset": 0,
+  "variant": "longmemeval_s",
+  "render_only": false,
+  "judge": {
+    "judge_model": "qwen3-max",
+    "judge_backend": "dashscope"
+  },
+  "sample_count": 40,
+  "category_counts": {
+    "multi-hop": 15,
+    "open-domain": 5,
+    "temporal": 20
+  },
+  "sample_rows": [
+    {
+      "dataset": "locomo",
+      "sample_id": "c0_q0",
+      "category": "temporal"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c0_q1",
+      "category": "temporal"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c0_q2",
+      "category": "open-domain"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c0_q3",
+      "category": "multi-hop"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c0_q4",
+      "category": "multi-hop"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c0_q5",
+      "category": "temporal"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c0_q6",
+      "category": "temporal"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c0_q7",
+      "category": "multi-hop"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c0_q8",
+      "category": "temporal"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c0_q9",
+      "category": "temporal"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c0_q10",
+      "category": "temporal"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c0_q11",
+      "category": "multi-hop"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c0_q12",
+      "category": "temporal"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c0_q13",
+      "category": "multi-hop"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c0_q14",
+      "category": "open-domain"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c0_q15",
+      "category": "multi-hop"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c0_q16",
+      "category": "temporal"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c0_q17",
+      "category": "temporal"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c0_q18",
+      "category": "multi-hop"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c0_q19",
+      "category": "multi-hop"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c0_q20",
+      "category": "temporal"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c0_q21",
+      "category": "temporal"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c0_q22",
+      "category": "open-domain"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c0_q23",
+      "category": "multi-hop"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c0_q24",
+      "category": "multi-hop"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c0_q25",
+      "category": "temporal"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c0_q26",
+      "category": "temporal"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c0_q27",
+      "category": "open-domain"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c0_q28",
+      "category": "temporal"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c0_q29",
+      "category": "temporal"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c0_q30",
+      "category": "open-domain"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c0_q31",
+      "category": "temporal"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c0_q32",
+      "category": "multi-hop"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c0_q33",
+      "category": "temporal"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c0_q34",
+      "category": "multi-hop"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c0_q35",
+      "category": "temporal"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c0_q36",
+      "category": "temporal"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c0_q37",
+      "category": "multi-hop"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c0_q38",
+      "category": "multi-hop"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c0_q39",
+      "category": "multi-hop"
+    }
+  ],
+  "env": {
+    "READER_MODEL": "qwen-plus",
+    "JUDGE_MODEL": "",
+    "READER_COT": "1",
+    "READER_ROUTER": "1",
+    "CONFLICT_RESOLVER": "1",
+    "CONTEXT_COMPRESS": "1",
+    "EXTRACT_LIGHT": "",
+    "TEMPORAL_RERANK": "1",
+    "HIPPO2_SEEDING": "1",
+    "PERSISTENT_BM25": "1",
+    "SEMANTIC_CACHE": "1",
+    "SEMANTIC_CACHE_ADAPTIVE": "1",
+    "DREAM_AB": "",
+    "RERANK_ENABLED": "1",
+    "RERANK_FAIL_OPEN": "1",
+    "RERANK_DEPTH": "",
+    "CONTEXT_TOKEN_BUDGET": "",
+    "COMPRESSION_RATIO": "",
+    "ANN_TOPK": "100",
+    "FINAL_TOPK": "10",
+    "RRF_K": "60",
+    "RRF_W_DENSE": "",
+    "RRF_W_BM25": "",
+    "RRF_W_GRAPH": "",
+    "RRF_W_RECENCY": "",
+    "HNSW_M": "",
+    "HNSW_EF_SEARCH": "",
+    "HNSW_EF_CONSTRUCTION": "",
+    "SALIENCE_PRUNE_THRESHOLD": "",
+    "FUSION_METHOD": "",
+    "ADAPTIVE_K": "1",
+    "ADAPTIVE_K_MIN": "",
+    "ADAPTIVE_EF": "1",
+    "HNSW_EF_SEARCH_HARD": "",
+    "MMR_ENABLED": "1",
+    "MMR_LAMBDA": "",
+    "RERANK_SKIP_MARGIN": "",
+    "CONFORMAL_DEPTH": "1",
+    "CONFORMAL_ALPHA": "",
+    "CONFORMAL_QHAT": "",
+    "PARALLEL_CHANNELS": "1",
+    "VECTOR_QUANT": "",
+    "QUANT_REFINE": "1",
+    "ROCCHIO": "1",
+    "FUSION_LEARNER": "1",
+    "FUSION_LEARNER_METHOD": ""
+  }
+}

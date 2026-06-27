@@ -1,0 +1,290 @@
+{
+  "systems": [
+    "eidetic-plus-full",
+    "rag-full",
+    "rag-vector"
+  ],
+  "accuracy": {
+    "eidetic-plus-full|locomo|temporal": {
+      "mean": 0.55,
+      "std": 0.0,
+      "ci95": [
+        0.3420853424503424,
+        0.7418021417443758
+      ],
+      "successes": 11,
+      "n": 20
+    },
+    "eidetic-plus-full|locomo|open-domain": {
+      "mean": 0.8,
+      "std": 0.0,
+      "ci95": [
+        0.37553462976252533,
+        0.9637758913675698
+      ],
+      "successes": 4,
+      "n": 5
+    },
+    "eidetic-plus-full|locomo|multi-hop": {
+      "mean": 0.6,
+      "std": 0.0,
+      "ci95": [
+        0.357468301206246,
+        0.8017550385865841
+      ],
+      "successes": 9,
+      "n": 15
+    },
+    "rag-full|locomo|temporal": {
+      "mean": 0.45,
+      "std": 0.0,
+      "ci95": [
+        0.2581978582556243,
+        0.6579146575496577
+      ],
+      "successes": 9,
+      "n": 20
+    },
+    "rag-full|locomo|open-domain": {
+      "mean": 0.8,
+      "std": 0.0,
+      "ci95": [
+        0.37553462976252533,
+        0.9637758913675698
+      ],
+      "successes": 4,
+      "n": 5
+    },
+    "rag-full|locomo|multi-hop": {
+      "mean": 0.6666666666666666,
+      "std": 0.0,
+      "ci95": [
+        0.41713547738519763,
+        0.8482367556028527
+      ],
+      "successes": 10,
+      "n": 15
+    },
+    "rag-vector|locomo|temporal": {
+      "mean": 0.2,
+      "std": 0.0,
+      "ci95": [
+        0.08065766257979806,
+        0.41601743225189364
+      ],
+      "successes": 4,
+      "n": 20
+    },
+    "rag-vector|locomo|open-domain": {
+      "mean": 1.0,
+      "std": 0.0,
+      "ci95": [
+        0.5655175352168251,
+        1.0
+      ],
+      "successes": 5,
+      "n": 5
+    },
+    "rag-vector|locomo|multi-hop": {
+      "mean": 0.4666666666666667,
+      "std": 0.0,
+      "ci95": [
+        0.24809535365737387,
+        0.698830199745016
+      ],
+      "successes": 7,
+      "n": 15
+    }
+  },
+  "head_to_head": {
+    "eidetic-plus-full|rag-full|locomo|multi-hop": {
+      "n": 15,
+      "a_only": 2,
+      "b_only": 3,
+      "both": 7,
+      "neither": 3,
+      "p_mcnemar": 1.0
+    },
+    "eidetic-plus-full|rag-vector|locomo|multi-hop": {
+      "n": 15,
+      "a_only": 4,
+      "b_only": 2,
+      "both": 5,
+      "neither": 4,
+      "p_mcnemar": 0.6875
+    },
+    "rag-full|rag-vector|locomo|multi-hop": {
+      "n": 15,
+      "a_only": 4,
+      "b_only": 1,
+      "both": 6,
+      "neither": 4,
+      "p_mcnemar": 0.375
+    },
+    "eidetic-plus-full|rag-full|locomo|open-domain": {
+      "n": 5,
+      "a_only": 0,
+      "b_only": 0,
+      "both": 4,
+      "neither": 1,
+      "p_mcnemar": 1.0
+    },
+    "eidetic-plus-full|rag-vector|locomo|open-domain": {
+      "n": 5,
+      "a_only": 0,
+      "b_only": 1,
+      "both": 4,
+      "neither": 0,
+      "p_mcnemar": 1.0
+    },
+    "rag-full|rag-vector|locomo|open-domain": {
+      "n": 5,
+      "a_only": 0,
+      "b_only": 1,
+      "both": 4,
+      "neither": 0,
+      "p_mcnemar": 1.0
+    },
+    "eidetic-plus-full|rag-full|locomo|temporal": {
+      "n": 20,
+      "a_only": 5,
+      "b_only": 3,
+      "both": 6,
+      "neither": 6,
+      "p_mcnemar": 0.7265625
+    },
+    "eidetic-plus-full|rag-vector|locomo|temporal": {
+      "n": 20,
+      "a_only": 9,
+      "b_only": 2,
+      "both": 2,
+      "neither": 7,
+      "p_mcnemar": 0.0654296875
+    },
+    "rag-full|rag-vector|locomo|temporal": {
+      "n": 20,
+      "a_only": 6,
+      "b_only": 1,
+      "both": 3,
+      "neither": 10,
+      "p_mcnemar": 0.125
+    }
+  },
+  "survival": {
+    "eidetic-plus-full|rag-full|locomo|multi-hop": {
+      "runs": [
+        0
+      ],
+      "status": "needs-2-runs"
+    },
+    "eidetic-plus-full|rag-vector|locomo|multi-hop": {
+      "runs": [
+        0
+      ],
+      "status": "needs-2-runs"
+    },
+    "rag-full|rag-vector|locomo|multi-hop": {
+      "runs": [
+        0
+      ],
+      "status": "needs-2-runs"
+    },
+    "eidetic-plus-full|rag-full|locomo|open-domain": {
+      "runs": [
+        0
+      ],
+      "status": "needs-2-runs"
+    },
+    "eidetic-plus-full|rag-vector|locomo|open-domain": {
+      "runs": [
+        0
+      ],
+      "status": "needs-2-runs"
+    },
+    "rag-full|rag-vector|locomo|open-domain": {
+      "runs": [
+        0
+      ],
+      "status": "needs-2-runs"
+    },
+    "eidetic-plus-full|rag-full|locomo|temporal": {
+      "runs": [
+        0
+      ],
+      "status": "needs-2-runs"
+    },
+    "eidetic-plus-full|rag-vector|locomo|temporal": {
+      "runs": [
+        0
+      ],
+      "status": "needs-2-runs"
+    },
+    "rag-full|rag-vector|locomo|temporal": {
+      "runs": [
+        0
+      ],
+      "status": "needs-2-runs"
+    }
+  },
+  "cost": {
+    "rag-full": {
+      "tokens_per_write": 15511,
+      "tokens_per_query": 15511
+    },
+    "rag-vector": {
+      "tokens_per_write": 15511,
+      "tokens_per_query": 1882.025
+    },
+    "eidetic-plus-full": {
+      "tokens_per_write": 15511,
+      "tokens_per_query": 7921.6
+    }
+  },
+  "latency": {
+    "rag-full": {
+      "search_p50": 0.01035444438457489,
+      "search_p95": 0.017756212037056684,
+      "e2e_p50": 3892.6259170402773,
+      "e2e_p95": 8828.50418779417
+    },
+    "rag-vector": {
+      "search_p50": 0.6523334886878729,
+      "search_p95": 2.0800847385544325,
+      "e2e_p50": 2640.1360409799963,
+      "e2e_p95": 4921.411023545075
+    },
+    "eidetic-plus-full": {
+      "search_p50": 1890.6980835017748,
+      "search_p95": 3000.828125030965,
+      "e2e_p50": 10714.142353506759,
+      "e2e_p95": 14192.565546167305
+    }
+  },
+  "judge": null,
+  "integrity": {
+    "eidetic-plus-full": {
+      "n": 40,
+      "verified_correct": 19,
+      "answered": 40,
+      "unverified_answered": 18,
+      "abstained": 0,
+      "has_verify": true
+    },
+    "rag-full": {
+      "n": 40,
+      "verified_correct": 0,
+      "answered": 40,
+      "unverified_answered": 40,
+      "abstained": 0,
+      "has_verify": false
+    },
+    "rag-vector": {
+      "n": 40,
+      "verified_correct": 0,
+      "answered": 40,
+      "unverified_answered": 40,
+      "abstained": 0,
+      "has_verify": false
+    }
+  }
+}

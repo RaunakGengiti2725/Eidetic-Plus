@@ -1,0 +1,92 @@
+{
+  "systems": [
+    "rag-full",
+    "rag-vector"
+  ],
+  "accuracy": {
+    "rag-full|longmemeval|single-session-user": {
+      "mean": 0.0,
+      "std": 0.0,
+      "ci95": [
+        0.0,
+        0.7934506856227626
+      ],
+      "successes": 0,
+      "n": 1
+    },
+    "rag-vector|longmemeval|single-session-user": {
+      "mean": 1.0,
+      "std": 0.0,
+      "ci95": [
+        0.20654931437723745,
+        1.0
+      ],
+      "successes": 1,
+      "n": 1
+    }
+  },
+  "head_to_head": {
+    "rag-full|rag-vector|longmemeval|single-session-user": {
+      "n": 1,
+      "a_only": 0,
+      "b_only": 1,
+      "both": 0,
+      "neither": 0,
+      "p_mcnemar": 1.0
+    }
+  },
+  "survival": {
+    "rag-full|rag-vector|longmemeval|single-session-user": {
+      "runs": [
+        0
+      ],
+      "status": "needs-2-runs"
+    }
+  },
+  "cost": {
+    "rag-vector": {
+      "tokens_per_write": 122650,
+      "tokens_per_query": 1350
+    },
+    "rag-full": {
+      "tokens_per_write": 122650,
+      "tokens_per_query": 122650
+    }
+  },
+  "latency": {
+    "rag-vector": {
+      "search_p50": 1063.5588750010356,
+      "search_p95": 1063.5588750010356,
+      "e2e_p50": 2478.1278329901397,
+      "e2e_p95": 2478.1278329901397
+    },
+    "rag-full": {
+      "search_p50": 0.0040839659050107,
+      "search_p95": 0.0040839659050107,
+      "e2e_p50": 4713.439875049517,
+      "e2e_p95": 4713.439875049517
+    }
+  },
+  "judge": {
+    "judge_model": "qwen3-max",
+    "judge_backend": "dashscope"
+  },
+  "integrity": {
+    "rag-full": {
+      "n": 1,
+      "verified_correct": 0,
+      "answered": 1,
+      "unverified_answered": 1,
+      "abstained": 0,
+      "has_verify": false
+    },
+    "rag-vector": {
+      "n": 1,
+      "verified_correct": 0,
+      "answered": 1,
+      "unverified_answered": 1,
+      "abstained": 0,
+      "has_verify": false
+    }
+  }
+}

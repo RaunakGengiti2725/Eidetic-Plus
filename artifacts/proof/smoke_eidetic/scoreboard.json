@@ -1,0 +1,47 @@
+{
+  "systems": [
+    "eidetic-plus-full"
+  ],
+  "accuracy": {
+    "eidetic-plus-full|longmemeval|single-session-user": {
+      "mean": 1.0,
+      "std": 0.0,
+      "ci95": [
+        0.20654931437723745,
+        1.0
+      ],
+      "successes": 1,
+      "n": 1
+    }
+  },
+  "head_to_head": {},
+  "survival": {},
+  "cost": {
+    "eidetic-plus-full": {
+      "tokens_per_write": 122650,
+      "tokens_per_query": 7994
+    }
+  },
+  "latency": {
+    "eidetic-plus-full": {
+      "search_p50": 3074.5254169451073,
+      "search_p95": 3074.5254169451073,
+      "e2e_p50": 8868.789833039045,
+      "e2e_p95": 8868.789833039045
+    }
+  },
+  "judge": {
+    "judge_model": "qwen3-max",
+    "judge_backend": "dashscope"
+  },
+  "integrity": {
+    "eidetic-plus-full": {
+      "n": 1,
+      "verified_correct": 0,
+      "answered": 0,
+      "unverified_answered": 0,
+      "abstained": 1,
+      "has_verify": true
+    }
+  }
+}
