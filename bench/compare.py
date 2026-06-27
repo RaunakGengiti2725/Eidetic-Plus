@@ -126,14 +126,18 @@ def _paired(control: list[dict], experiment: list[dict], key: tuple[str, str, st
     }
     common = sorted(set(c) & set(e))
     control_only = experiment_only = both = neither = 0
+    gained: list[dict] = []     # wrong in control -> right in experiment (the experiment fixed it)
+    regressed: list[dict] = []  # right in control -> wrong in experiment (the experiment broke it)
     for k in common:
         cv, ev = c[k], e[k]
         if cv and ev:
             both += 1
         elif cv and not ev:
             control_only += 1
+            regressed.append({"sample_id": k[0], "run_idx": k[1]})
         elif ev and not cv:
             experiment_only += 1
+            gained.append({"sample_id": k[0], "run_idx": k[1]})
         else:
             neither += 1
     return {
@@ -142,6 +146,11 @@ def _paired(control: list[dict], experiment: list[dict], key: tuple[str, str, st
         "experiment_only": experiment_only,
         "both": both,
         "neither": neither,
+        # Per-question flip attribution: the actual question ids that moved, so a judge can confirm
+        # WHICH questions the ablated/added mechanism is responsible for (the experiment dir name
+        # carries the mechanism; these lists carry the evidence).
+        "gained": gained,
+        "regressed": regressed,
         "unpaired_control_rows": len(set(c) - set(e)),
         "unpaired_experiment_rows": len(set(e) - set(c)),
         "p_mcnemar": _mcnemar_pvalue(control_only, experiment_only) if common else None,
@@ -245,6 +254,37 @@ def render_markdown(result: dict, out_path: Path) -> Path:
             f"{paired['unpaired_control_rows']} | {paired['unpaired_experiment_rows']} | "
             f"{p_text} | {item['status']} |"
         )
+
+    # Per-question flip table -- the attribution evidence. For an ablation the experiment dir is the
+    # ablated config, so a GAIN (wrong->right) names a question the mechanism is responsible for and a
+    # REGRESSION (right->wrong) names one it costs. Only keys with a flip are listed.
+    flip_rows = []
+    for label, item in sorted(result["comparisons"].items()):
+        if item.get("status") not in ("compared", "unpaired"):
+            continue
+        paired = item["paired"]
+        gained = paired.get("gained", [])
+        regressed = paired.get("regressed", [])
+        if not gained and not regressed:
+            continue
+        system, dataset, category = label.split("|")
+
+        def _ids(flips):
+            return ", ".join(f["sample_id"] for f in flips) or "-"
+        flip_rows.append(
+            f"| {system} | {dataset} | {category} | {len(gained)} | {len(regressed)} | "
+            f"{_ids(gained)} | {_ids(regressed)} |"
+        )
+    lines += ["", "## Per-question flips (attribution evidence)", ""]
+    if flip_rows:
+        lines += [
+            "| system | dataset | category | gains | regressions | gained question ids | regressed question ids |",
+            "|---|---|---|---:|---:|---|---|",
+            *flip_rows,
+        ]
+    else:
+        lines.append("_No per-question flips (identical correctness on every paired question)._")
+
     out_path.write_text("\n".join(lines) + "\n")
     out_path.with_suffix(".json").write_text(json.dumps(result, indent=2))
     return out_path

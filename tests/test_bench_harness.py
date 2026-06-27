@@ -359,9 +359,42 @@ def test_compare_dirs_reports_flag_deltas(tmp_path):
     assert item["delta_tokens_per_query"] == pytest.approx(-20.0)
     assert item["delta_write_tokens_per_conversation"] is None
     assert item["paired"]["experiment_only"] == 1
+    # Per-question flip attribution: s1 went wrong->right (a gain); nothing regressed.
+    assert item["paired"]["gained"] == [{"sample_id": "s1", "run_idx": 0}]
+    assert item["paired"]["regressed"] == []
     md = render_markdown(res, tmp_path / "compare.md")
     assert md.exists()
     assert (tmp_path / "compare.json").exists()
+    # The flip table names the actual questions so a judge can check the attribution.
+    text = md.read_text()
+    assert "Per-question flips" in text
+    assert "s1" in text
+
+
+def test_compare_flip_table_lists_gains_and_regressions(tmp_path):
+    from bench.compare import compare_dirs, render_markdown
+
+    control = tmp_path / "control"
+    experiment = tmp_path / "experiment"
+    control.mkdir()
+    experiment.mkdir()
+
+    def row(sid, ok):
+        return {"system": "eidetic-plus", "dataset": "locomo", "category": "temporal",
+                "sample_id": sid, "correct": ok, "run_idx": 0,
+                "query_tokens": 100, "search_ms": 20, "e2e_ms": 120}
+
+    # control: q0 right, q1 wrong, q2 right. experiment: q0 wrong (regress), q1 right (gain), q2 right.
+    (control / "eidetic-plus__run0.jsonl").write_text(
+        "\n".join(json.dumps(r) for r in (row("q0", True), row("q1", False), row("q2", True))))
+    (experiment / "eidetic-plus__run0.jsonl").write_text(
+        "\n".join(json.dumps(r) for r in (row("q0", False), row("q1", True), row("q2", True))))
+    res = compare_dirs(control, experiment, system="eidetic-plus")
+    paired = res["comparisons"]["eidetic-plus|locomo|temporal"]["paired"]
+    assert [g["sample_id"] for g in paired["gained"]] == ["q1"]
+    assert [r["sample_id"] for r in paired["regressed"]] == ["q0"]
+    md = render_markdown(res, tmp_path / "compare.md").read_text()
+    assert "Per-question flips" in md
 
 
 def test_compare_dirs_fails_on_duplicate_rows(tmp_path):
