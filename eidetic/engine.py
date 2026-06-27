@@ -1336,6 +1336,38 @@ class Engine:
     def get_raw(self, content_hash: str) -> bytes:
         return self.substrate.get(content_hash)
 
+    def snap_back_audit(self, scope: Optional[Scope] = None) -> dict:
+        """Snap-back fidelity as a falsifiable NUMBER (not a UI demo): for EVERY memory in scope
+        that was content-addressed, confirm the immutable substrate still returns the byte-identical
+        original (sha256(get_raw(content_hash)) == content_hash, via substrate.verify). Forgetting
+        and fading lower ONLY the FSRS index-priority weight; the raw record is never mutated or
+        deleted (the substrate refuses delete by design), so a faded memory snaps back losslessly.
+        A missing blob or a hash mismatch is corruption -> surfaced in ``failures`` and counted
+        against the rate, never hidden. ``rate == 1.0`` over the corpus is the guarantee the
+        content-addressed store is meant to make; the bench reports this number directly."""
+        records = self.store.all_records(scope)
+        total = 0
+        lossless = 0
+        failures: list[dict] = []
+        for rec in records:
+            h = (rec.content_hash or "").strip()
+            if not h:
+                continue  # derived/profile records carry no raw blob -- nothing to snap back
+            total += 1
+            try:
+                ok = self.substrate.verify(h)
+            except Exception as e:  # missing object / read error == a real fidelity failure
+                failures.append({"memory_id": rec.memory_id, "content_hash": h,
+                                 "error": type(e).__name__})
+                continue
+            if ok:
+                lossless += 1
+            else:
+                failures.append({"memory_id": rec.memory_id, "content_hash": h,
+                                 "error": "hash_mismatch"})
+        return {"total": total, "lossless": lossless,
+                "rate": (lossless / total) if total else 1.0, "failures": failures}
+
     def stats(self, scope: Optional[Scope] = None) -> dict:
         return {
             "app_env": self.settings.app_env,
