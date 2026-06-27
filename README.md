@@ -1,6 +1,7 @@
 # Eidetic-Plus
 
-**A lossless, verifiable, recency-independent memory engine for AI agents.**
+**Memory with metabolism: a memory agent that forgets to stay cheap, consolidates and
+dreams to stay accurate across many sessions, and proves or abstains on every answer.**
 
 Photographic memory is a human myth. No brain stores experience losslessly, recalls
 a decade-old moment as crisply as yesterday's, or refuses to confabulate. Eidetic-Plus
@@ -8,6 +9,19 @@ builds the thing the brain only approximates: lossless capture decoupled from
 forgetting, recall that does not decay with a memory's age, and verified reconstruction
 with full provenance, so an agent's answers point back to immutable source records
 instead of inventing them.
+
+The model is four layers with one hard rule: **the bottom never lies, and everything
+mind-like happens above it.** An immutable content-addressed substrate (layer 1) is the
+ground truth. Above it, metabolism (layer 2) forgets access the way a mind softens
+detail (FSRS + fademem, index-priority only) and consolidates/dreams while idle to
+surface gist and infer new connections (labeled, never observed). The mind (layer 3)
+retrieves and answers; the proof layer (layer 4) verifies against the substrate and
+abstains rather than guess. One switch, `METABOLISM_MODE=1`, wires the whole profile.
+The synthesis that is new is **graceful forgetting paired with lossless provability**:
+a mind that lets go like a person and can never be caught fabricating. The contribution
+is proven, not asserted: see [docs/claims.md](docs/claims.md) for the claims we make and
+refuse to make, and the attribution-under-ablation program in
+[`scripts/proof_slice.sh`](scripts/proof_slice.sh).
 
 ---
 
