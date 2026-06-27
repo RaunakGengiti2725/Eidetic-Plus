@@ -1,0 +1,65 @@
+==================================================================
+ PROOF SLICE  tag=ms20  offset=70  n=20  04:13:21
+==================================================================
+>>> [1/3] head-to-head (METABOLISM_MODE=1 for all; shared Tier-A reader)
+[PostHog] Multiple active PostHog clients detected for the same project API key and host. Reuse one Posthog instance per app or process when possible to avoid competing background queues and missed shutdown flushes. Multiple clients are supported when intentional.
+Failed to load spaCy lemma model: spaCy is not installed. Install it with: pip install mem0ai[nlp]
+fastembed not installed — BM25 keyword search disabled. Install with: pip install fastembed
+Failed to load spaCy full model: spaCy is not installed. Install it with: pip install mem0ai[nlp]
+LLM extraction failed: Error code: 400 - {'error': {'message': 'Input data may contain inappropriate content. For details, see: https://www.alibabacloud.com/help/en/model-studio/error-code#inappropriate-content', 'type': 'data_inspection_failed', 'param': None, 'code': 'data_inspection_failed'}, 'id': 'chatcmpl-7ed8c1fa-0c40-9c84-b789-2e0bc2b705bf', 'request_id': '7ed8c1fa-0c40-9c84-b789-2e0bc2b705bf'}
+This looks like a time-aware memory workflow. Mem0 Platform has temporal reasoning built in. Use `timestamp` when adding memories and `reference_date` when searching.
+This looks like a time-aware memory workflow. Mem0 Platform has temporal reasoning built in. Use `timestamp` when adding memories and `reference_date` when searching.
+You now have 2061+ memories. Mem0 Platform has been benchmarked on BEAM 1M and 10M-token memory workloads and kept retrieval context around 6.7k-6.9k tokens per query; get a free API key at: https://app.mem0.ai
+LLM extraction failed: Error code: 400 - {'error': {'message': 'Output data may contain inappropriate content. For details, see: https://www.alibabacloud.com/help/en/model-studio/error-code#inappropriate-content', 'type': 'data_inspection_failed', 'param': None, 'code': 'data_inspection_failed'}, 'id': 'chatcmpl-46b0a938-03e4-9b73-b048-77c866ee5127', 'request_id': '46b0a938-03e4-9b73-b048-77c866ee5127'}
+Error parsing extraction response: Expecting ',' delimiter: line 142 column 6 (char 7944)
+This looks like a time-aware memory workflow. Mem0 Platform has temporal reasoning built in. Use `timestamp` when adding memories and `reference_date` when searching.
+Judge: {'judge_model': 'qwen3-max', 'judge_backend': 'dashscope'}
+Loaded 20 samples (longmemeval, split=all); categories: {'multi-session': 20}
+Running eidetic-plus-full: 20 samples x 1 run(s)...
+Running rag-full: 20 samples x 1 run(s)...
+Running rag-vector: 20 samples x 1 run(s)...
+Running mem0: 20 samples x 1 run(s)...
+  [mem0] skipped a session (mem0-longmemeval-g0-r0): RuntimeError: Mem0 add() failed at runtime (real error, no mock fallback). Check that DashScope is reachable and mem0ai==2.0.7 is inst
+  [mem0] skipped a session (mem0-longmemeval-g0-r0): RuntimeError: Mem0 add() failed at runtime (real error, no mock fallback). Check that DashScope is reachable and mem0ai==2.0.7 is inst
+  [mem0] skipped a session (mem0-longmemeval-g4-r0): RuntimeError: Mem0 add() failed at runtime (real error, no mock fallback). Check that DashScope is reachable and mem0ai==2.0.7 is inst
+  [mem0] skipped a session (mem0-longmemeval-g4-r0): RuntimeError: Mem0 add() failed at runtime (real error, no mock fallback). Check that DashScope is reachable and mem0ai==2.0.7 is inst
+  [mem0] skipped a session (mem0-longmemeval-g5-r0): RuntimeError: Mem0 add() failed at runtime (real error, no mock fallback). Check that DashScope is reachable and mem0ai==2.0.7 is inst
+  [mem0] skipped a session (mem0-longmemeval-g7-r0): RuntimeError: Mem0 add() failed at runtime (real error, no mock fallback). Check that DashScope is reachable and mem0ai==2.0.7 is inst
+  [mem0] skipped a session (mem0-longmemeval-g8-r0): RuntimeError: Mem0 add() failed at runtime (real error, no mock fallback). Check that DashScope is reachable and mem0ai==2.0.7 is inst
+  [mem0] skipped a session (mem0-longmemeval-g8-r0): RuntimeError: Mem0 add() failed at runtime (real error, no mock fallback). Check that DashScope is reachable and mem0ai==2.0.7 is inst
+  [mem0] skipped a session (mem0-longmemeval-g8-r0): RuntimeError: Mem0 add() failed at runtime (real error, no mock fallback). Check that DashScope is reachable and mem0ai==2.0.7 is inst
+  [mem0] skipped a session (mem0-longmemeval-g9-r0): RuntimeError: Mem0 add() failed at runtime (real error, no mock fallback). Check that DashScope is reachable and mem0ai==2.0.7 is inst
+  [mem0] skipped a session (mem0-longmemeval-g10-r0): RuntimeError: Mem0 add() failed at runtime (real error, no mock fallback). Check that DashScope is reachable and mem0ai==2.0.7 is inst
+  [mem0] skipped a session (mem0-longmemeval-g10-r0): RuntimeError: Mem0 add() failed at runtime (real error, no mock fallback). Check that DashScope is reachable and mem0ai==2.0.7 is inst
+  [mem0] skipped a session (mem0-longmemeval-g12-r0): RuntimeError: Mem0 add() failed at runtime (real error, no mock fallback). Check that DashScope is reachable and mem0ai==2.0.7 is inst
+  [mem0] skipped a session (mem0-longmemeval-g13-r0): RuntimeError: Mem0 add() failed at runtime (real error, no mock fallback). Check that DashScope is reachable and mem0ai==2.0.7 is inst
+  [mem0] skipped a session (mem0-longmemeval-g13-r0): RuntimeError: Mem0 add() failed at runtime (real error, no mock fallback). Check that DashScope is reachable and mem0ai==2.0.7 is inst
+  [mem0] skipped a session (mem0-longmemeval-g13-r0): RuntimeError: Mem0 add() failed at runtime (real error, no mock fallback). Check that DashScope is reachable and mem0ai==2.0.7 is inst
+  [mem0] skipped a session (mem0-longmemeval-g14-r0): RuntimeError: Mem0 add() failed at runtime (real error, no mock fallback). Check that DashScope is reachable and mem0ai==2.0.7 is inst
+  [mem0] skipped a session (mem0-longmemeval-g15-r0): RuntimeError: Mem0 add() failed at runtime (real error, no mock fallback). Check that DashScope is reachable and mem0ai==2.0.7 is inst
+  [mem0] skipped a session (mem0-longmemeval-g15-r0): RuntimeError: Mem0 add() failed at runtime (real error, no mock fallback). Check that DashScope is reachable and mem0ai==2.0.7 is inst
+  [mem0] skipped a session (mem0-longmemeval-g16-r0): RuntimeError: Mem0 add() failed at runtime (real error, no mock fallback). Check that DashScope is reachable and mem0ai==2.0.7 is inst
+  [mem0] skipped a session (mem0-longmemeval-g16-r0): RuntimeError: Mem0 add() failed at runtime (real error, no mock fallback). Check that DashScope is reachable and mem0ai==2.0.7 is inst
+  [mem0] skipped a session (mem0-longmemeval-g17-r0): RuntimeError: Mem0 add() failed at runtime (real error, no mock fallback). Check that DashScope is reachable and mem0ai==2.0.7 is inst
+  [mem0] skipped a session (mem0-longmemeval-g19-r0): RuntimeError: Mem0 add() failed at runtime (real error, no mock fallback). Check that DashScope is reachable and mem0ai==2.0.7 is inst
+  [mem0] skipped a session (mem0-longmemeval-g19-r0): RuntimeError: Mem0 add() failed at runtime (real error, no mock fallback). Check that DashScope is reachable and mem0ai==2.0.7 is inst
+
+Scoreboard -> artifacts/proof/ms20/headtohead/scoreboard.md
+Curves     -> {'ok': True, 'recall_png': 'artifacts/proof/ms20/headtohead/recall_vs_age.png', 'latency_png': 'artifacts/proof/ms20/headtohead/latency_vs_age.png', 'slopes': {'eidetic-plus-full': {'recall_slope_per_year': -11.875399984119847, 'latency_slope_ms_per_year': 109249.84848509978}, 'mem0': {'recall_slope_per_year': 1.979233330686639, 'latency_slope_ms_per_year': 172438.3517413863}, 'rag-full': {'recall_slope_per_year': 5.937699992059922, 'latency_slope_ms_per_year': 185174.1264143087}, 'rag-vector': {'recall_slope_per_year': -10.885783318776527, 'latency_slope_ms_per_year': 134737.19309374725}}}
+Manifest   -> artifacts/proof/ms20/headtohead/run_manifest.json
+Reproduce (full, >=10 runs): bash bench/reproduce.sh
+>>> [2/3] ablation: metabolism memory OFF, reader+proof fixed
+Judge: {'judge_model': 'qwen3-max', 'judge_backend': 'dashscope'}
+Loaded 20 samples (longmemeval, split=all); categories: {'multi-session': 20}
+Running eidetic-plus-full: 20 samples x 1 run(s)...
+
+Scoreboard -> artifacts/proof/ms20/ablation_memory_off/scoreboard.md
+Curves     -> {'ok': True, 'recall_png': 'artifacts/proof/ms20/ablation_memory_off/recall_vs_age.png', 'latency_png': 'artifacts/proof/ms20/ablation_memory_off/latency_vs_age.png', 'slopes': {'eidetic-plus-full': {'recall_slope_per_year': 1.979233330686639, 'latency_slope_ms_per_year': 91554.93691081858}}}
+Manifest   -> artifacts/proof/ms20/ablation_memory_off/run_manifest.json
+Reproduce (full, >=10 runs): bash bench/reproduce.sh
+>>> [3/3] attribution flip table (control = memory OFF, experiment = memory ON)
+Comparison -> artifacts/proof/ms20/attribution_compare.md
+==================================================================
+ DONE  10:11:34   scoreboard: artifacts/proof/ms20/headtohead/scoreboard.md
+                     attribution: artifacts/proof/ms20/attribution_compare.md
+==================================================================

@@ -1,0 +1,96 @@
+{
+  "status": "ok",
+  "control_dir": "artifacts/proof/ms20/ablation_memory_off",
+  "experiment_dir": "artifacts/proof/ms20/headtohead",
+  "control_files": [
+    "artifacts/proof/ms20/ablation_memory_off/eidetic-plus-full__run0.jsonl"
+  ],
+  "experiment_files": [
+    "artifacts/proof/ms20/headtohead/eidetic-plus-full__run0.jsonl",
+    "artifacts/proof/ms20/headtohead/mem0__run0.jsonl",
+    "artifacts/proof/ms20/headtohead/rag-full__run0.jsonl",
+    "artifacts/proof/ms20/headtohead/rag-vector__run0.jsonl"
+  ],
+  "control_rows": 20,
+  "experiment_rows": 80,
+  "warnings": [],
+  "system_filter": "eidetic-plus-full",
+  "comparisons": {
+    "eidetic-plus-full|longmemeval|multi-session": {
+      "status": "compared",
+      "control": {
+        "correct": 4,
+        "n": 20,
+        "runs": [
+          0
+        ],
+        "accuracy": 0.2,
+        "ci95": [
+          0.08065766257979806,
+          0.41601743225189364
+        ],
+        "tokens_per_query": 7995.3,
+        "write_tokens_per_conversation": 123200.65,
+        "search_p50": 2927.896937530022,
+        "search_p95": 3203.8077589764725,
+        "e2e_p50": 11778.210249962285,
+        "e2e_p95": 14347.908427118091
+      },
+      "experiment": {
+        "correct": 6,
+        "n": 20,
+        "runs": [
+          0
+        ],
+        "accuracy": 0.3,
+        "ci95": [
+          0.1454772448676043,
+          0.5189728183535235
+        ],
+        "tokens_per_query": 7994.95,
+        "write_tokens_per_conversation": 123200.65,
+        "search_p50": 2739.967396017164,
+        "search_p95": 3343.4180982469115,
+        "e2e_p50": 11428.178103989922,
+        "e2e_p95": 13369.017566723056
+      },
+      "delta_accuracy_points": 9.999999999999998,
+      "delta_tokens_per_query": -0.3500000000003638,
+      "delta_write_tokens_per_conversation": 0.0,
+      "delta_search_p50_ms": -187.92954151285812,
+      "delta_search_p95_ms": 139.610339270439,
+      "delta_e2e_p50_ms": -350.03214597236365,
+      "delta_e2e_p95_ms": -978.8908603950349,
+      "paired": {
+        "paired_n": 20,
+        "control_only": 1,
+        "experiment_only": 3,
+        "both": 3,
+        "neither": 13,
+        "gained": [
+          {
+            "sample_id": "b5ef892d",
+            "run_idx": 0
+          },
+          {
+            "sample_id": "gpt4_2f8be40d",
+            "run_idx": 0
+          },
+          {
+            "sample_id": "gpt4_f2262a51",
+            "run_idx": 0
+          }
+        ],
+        "regressed": [
+          {
+            "sample_id": "dd2973ad",
+            "run_idx": 0
+          }
+        ],
+        "unpaired_control_rows": 0,
+        "unpaired_experiment_rows": 0,
+        "p_mcnemar": 0.625
+      }
+    }
+  }
+}

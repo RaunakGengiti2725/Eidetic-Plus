@@ -1,0 +1,83 @@
+{
+  "status": "ok",
+  "control_dir": "artifacts/proof/multisession/ablation_memory_off",
+  "experiment_dir": "artifacts/proof/multisession/headtohead",
+  "control_files": [
+    "artifacts/proof/multisession/ablation_memory_off/eidetic-plus-full__run0.jsonl"
+  ],
+  "experiment_files": [
+    "artifacts/proof/multisession/headtohead/eidetic-plus-full__run0.jsonl",
+    "artifacts/proof/multisession/headtohead/mem0__run0.jsonl",
+    "artifacts/proof/multisession/headtohead/rag-full__run0.jsonl",
+    "artifacts/proof/multisession/headtohead/rag-vector__run0.jsonl"
+  ],
+  "control_rows": 6,
+  "experiment_rows": 18,
+  "warnings": [],
+  "system_filter": "eidetic-plus-full",
+  "comparisons": {
+    "eidetic-plus-full|longmemeval|multi-session": {
+      "status": "compared",
+      "control": {
+        "correct": 1,
+        "n": 6,
+        "runs": [
+          0
+        ],
+        "accuracy": 0.16666666666666666,
+        "ci95": [
+          0.030053369748306635,
+          0.5635028221864702
+        ],
+        "tokens_per_query": 7996.166666666667,
+        "write_tokens_per_conversation": 122752.33333333333,
+        "search_p50": 2578.7833540234715,
+        "search_p95": 3028.7394579791,
+        "e2e_p50": 10747.298874543048,
+        "e2e_p95": 14155.540864303475
+      },
+      "experiment": {
+        "correct": 2,
+        "n": 6,
+        "runs": [
+          0
+        ],
+        "accuracy": 0.3333333333333333,
+        "ci95": [
+          0.09677141110578041,
+          0.700006684861608
+        ],
+        "tokens_per_query": 7996.0,
+        "write_tokens_per_conversation": 122752.33333333333,
+        "search_p50": 2955.6210414739326,
+        "search_p95": 3289.891156280646,
+        "e2e_p50": 11963.89354148414,
+        "e2e_p95": 13872.409958741628
+      },
+      "delta_accuracy_points": 16.666666666666664,
+      "delta_tokens_per_query": -0.16666666666696983,
+      "delta_write_tokens_per_conversation": 0.0,
+      "delta_search_p50_ms": 376.8376874504611,
+      "delta_search_p95_ms": 261.1516983015463,
+      "delta_e2e_p50_ms": 1216.5946669410914,
+      "delta_e2e_p95_ms": -283.1309055618476,
+      "paired": {
+        "paired_n": 6,
+        "control_only": 0,
+        "experiment_only": 1,
+        "both": 1,
+        "neither": 4,
+        "gained": [
+          {
+            "sample_id": "b5ef892d",
+            "run_idx": 0
+          }
+        ],
+        "regressed": [],
+        "unpaired_control_rows": 0,
+        "unpaired_experiment_rows": 0,
+        "p_mcnemar": 1.0
+      }
+    }
+  }
+}
