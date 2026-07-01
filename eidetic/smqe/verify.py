@@ -6,6 +6,14 @@ import re
 from eidetic.models import Answer, Citation, NLILabel, StructuredAnswerResult
 
 
+def _query_answer_hypothesis(query: str, answer: str) -> str:
+    query = re.sub(r"\s+", " ", (query or "").strip())
+    answer = re.sub(r"\s+", " ", (answer or "").strip())
+    if not query:
+        return answer
+    return f"Question: {query}\nAnswer: {answer}"
+
+
 def answer_from_result(retriever, query: str, result: StructuredAnswerResult,
                        *, verify: bool = True) -> Answer | None:
     if result is None or not result.answer or not result.supports:
@@ -26,7 +34,19 @@ def answer_from_result(retriever, query: str, result: StructuredAnswerResult,
                 premise = retriever._ground_truth(rec)
             except Exception:
                 pass
-            if re.sub(r"\s+", " ", atom.lower()).strip() in re.sub(r"\s+", " ", premise.lower()).strip():
+            strict_hypothesis = (
+                result.backend == "claim"
+                and callable(getattr(retriever, "verify", None))
+            )
+            if strict_hypothesis:
+                hypothesis = _query_answer_hypothesis(query, result.answer)
+                if len(result.supports) > 1 and re.search(r"[,;]|\band\b", result.answer):
+                    hypothesis = atom
+                label, conf = retriever.verify_citation(
+                    rec,
+                    hypothesis,
+                )
+            elif re.sub(r"\s+", " ", atom.lower()).strip() in re.sub(r"\s+", " ", premise.lower()).strip():
                 label, conf = NLILabel.ENTAILMENT, 1.0
             else:
                 label, conf = retriever.verify_citation(rec, atom)

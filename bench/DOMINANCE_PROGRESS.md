@@ -1,5 +1,113 @@
 # Benchmark-Dominance Plan -- Implementation Progress
 
+## UPDATE 2026-07-01 (Dominance proof attempt): honest failure taxonomy
+
+Result: **FAIL closed**. No dominance, SOTA, or "best memory agent" wording is supported by this
+run. The evidence bundle is `artifacts/holdout_dominance_20260701_codex/`.
+
+Completed evidence:
+
+- `data/bench/holdout/leaked_sample_ids.json` is now populated from old tuned/source-scan evidence
+  with sample IDs plus banned strings only. Strict leakage audit passes with **1,639 holdout
+  needles checked** and zero findings.
+- `bench.release_gate` now sees a valid `holdout_audit.json`, `claim_scope.json`,
+  `scoreboard.json`, `slice_invariant.json`, and dev `ablation_report.json`, then fails closed:
+  **523 failed checks** in `artifacts/holdout_dominance_20260701_codex/release_gate.md`.
+- SMQE sidecars that were run passed locally where applicable:
+  `smqe_planner_invariant.json` has **162/162 planner checks**, `smqe_claim_coverage.json` has
+  **24/24 claim-backed correct**, and `smqe_synthetic_invariant.json` has **24/24 correct**.
+- No `record_ops.py` category heuristics were added; the file remains unchanged for this attempt.
+
+Dev ablation blocker:
+
+| evidence | result |
+|---|---:|
+| full verified accuracy | 55.0% |
+| metabolism delta | +0.0 pp |
+| region delta | -10.0 pp |
+| affect delta | +15.0 pp |
+| forgetting cost ratio | 1.000063 |
+| forgetting accuracy regression | +10.0 pp |
+
+This fails the dominance gate: affect salience helps on this dev slice, but consolidation/metabolism
+does not buy verified accuracy, regions regress, and forgetting does not reduce cost without
+accuracy loss. Because the dev ablation failed, the slice-invariant eval and frozen holdout
+head-to-head were intentionally **not run**.
+
+Failure taxonomy:
+
+- `verify_fail`: The first LoCoMO dev ablation exposed false verified SMQE claim answers. A generic
+  query-aware verifier fix in `eidetic/smqe/verify.py` reduced this in a diagnostic dev probe:
+  verified correct improved from **3/20** to **13/20**, and false verified rows dropped from
+  **14/20** to **5/20**. This is useful, but still not release-grade.
+- `extraction_miss`: Strict SMQE claim coverage is strong on synthetic rows, but the real dev slice
+  still leaves too many unsupported or under-specified answers after verification.
+- `plan_miss`: The planner/region/metabolism path is not yet selecting a better proof surface than
+  the ablated variants. `regions_off` and `forgetting_off` both beat the full row on verified
+  accuracy in the measured dev ablation.
+- `fallback_miss`: Retrieve/reader fallback remains expensive and does not recover enough misses to
+  justify a holdout burn; median query tokens for the full ablation row were about **7,987**.
+
+Allowed next work is claim extraction, region-bounded retrieval, planner ops, consolidation, and
+forgetting mechanics on dev/synthetic evidence only. Holdout failures must not be fixed by leaked-ID
+tuning, and comparator evidence for Chronos, Mastra, ByteRover, and Hindsight is still required
+before any public SOTA-style wording.
+
+### 2026-07-01 continuation: generic region guard + concise relation-object claims
+
+Follow-up dev/synthetic work moved two failure classes without spending holdout:
+
+- `plan_miss` / region noise: region hints now require overlap with a discriminative query term
+  rather than only a person/session term. The rotating region-routing invariant still passes
+  (**48/48 checks** on seed `12345`), and a new regression test blocks same-speaker/wrong-topic
+  region hints.
+- `extraction_miss`: claim extraction now emits concise source-backed relation-object claims for
+  gift/present/souvenir/keepsake-style relations and carries speaker labels into demonstrative
+  sentences such as "This necklace...". The claim executor uses claim metadata for generic
+  entity/target matching, so the concise claim can beat a broader sentence claim.
+- `record_ops.py` did not grow: it is now **4,396 lines**, below the prior **4,399** count.
+- Synthetic claim coverage still passes: `smqe_claim_coverage_after_speaker_claim.json` is
+  **46/46 claim-backed correct** with all operators represented at least twice.
+- Dev micro-probe evidence: `probe_relation_object_after_speaker_claim` changes the prior
+  overlong claim answer for the relation-object row to the concise verified claim answer
+  (`smqe:latest_value:claim`, 2 query tokens).
+
+This is incremental repair, not a dominance proof. The full dev ablation, slice-invariant eval,
+frozen holdout head-to-head, snap-back, and release-gate PASS remain outstanding.
+
+### 2026-07-01 continuation: dev ablation improved, forgetting-cost proof still blocked
+
+The five-role dev ablation after the region guard and relation-object claim work improved materially
+but still failed closed:
+
+| evidence | result |
+|---|---:|
+| full accuracy | 85.0% |
+| full verified accuracy | 80.0% |
+| metabolism delta | +15.0 pp |
+| region delta | +15.0 pp |
+| affect delta | +20.0 pp |
+| forgetting accuracy regression | +0.0 pp |
+| forgetting cost ratio | 1.000063 |
+
+Artifact: `artifacts/holdout_dominance_20260701_codex/ablation_report_after_claim_region.json`.
+The only remaining ablation failure in that report is
+`forgetting_cost_ratio:1.000<required:1.050`; slice-invariant and frozen holdout evals remain
+intentionally unrun.
+
+Two generic cost hypotheses were tried and rejected on dev evidence before completing a full
+five-role rerun:
+
+- `fallback_miss`: salience-tied context-budget reduction cut tokens to about **6,786** on early
+  LoCoMO rows, but flipped previously correct rows wrong. The patch was removed.
+- `fallback_miss`: extractive raw compression at `COMPRESSION_RATIO=0.8` preserved the source count
+  but lost answer completeness on early temporal and multi-hop rows. This was left as negative
+  probe evidence only, not promoted.
+
+The next valid path is still to raise verified tier-1 claim/planner coverage or improve
+region-bounded retrieval/consolidation so cost falls without starving fallback evidence. Do not
+force the cost gate with context truncation or leaked holdout tuning.
+
 ## UPDATE 2026-06-30 (SMQE integrity reset): old source-scan wins are historical
 
 The active path is moving from benchmark rescue/source-scan wins to SMQE: `structured_answer()`
@@ -611,3 +719,37 @@ bash bench/reproduce.sh
 **Promotion rule:** a flag becomes a default ONLY after `GUARD_ENABLED=1 GUARD_MIN_DELTA_PP=1.0
 GUARD_ALPHA=0.05` shows a significant dev win. Public claims ONLY from `--split test` with
 McNemar p<0.05. Update this file with CIs when runs land; do not edit target numbers in as if real.
+
+---
+
+## Dominance Proof Status - 2026-07-01 Guarded Dev Ablation
+
+Latest governed-memory dev ablation:
+`artifacts/holdout_dominance_20260701_codex/ablation_report_temporal_duration_guarded.json`
+and copied to the bundle's `ablation_report.json`.
+
+Result: **FAIL**, honestly. The run preserved the exact SMQE temporal/duration wins and lifted the
+full profile to **17/20 accuracy, 17/20 verified**, with median query tokens down to **4004** from
+the old fixed-reader ceiling. It did **not** prove dominance:
+
+- `metabolism_delta_pp` displayed at the threshold but failed the strict comparator.
+- `affect_delta_pp` was **0.0** on verified accuracy.
+- `forgetting_cost_ratio` was **0.999875**, below the required **1.05**.
+
+Failure taxonomy:
+
+- `extraction_miss`: remaining multi-item/list rows need claim-level extraction or a generic
+  action-object list operator, not source scans.
+- `verify_fail`: some reader-correct rows remain unverified, so they do not help release gates.
+- `fallback_miss`: the open-domain abstention still requires retrieval/proof improvement.
+- `cost_fail`: current salience/dream pruning profile does not reduce median query tokens versus
+  forgetting-off.
+
+Guardrails preserved: no holdout-ID tuning, no source-scan rescue, no entity-literal fixes,
+and `eidetic/smqe/record_ops.py` remains below the original line count.
+
+Follow-up hardening in the same bundle added source-backed generic action-object claims and a
+guarded action-list SMQE path. It passes focused synthetic coverage and leakage audit, but the
+dev replay remains at **9/20 structured rows** because the live dev action-list evidence is sparse;
+the path correctly fails closed instead of emitting incomplete single-item lists. The ablation
+failure above is therefore still current.

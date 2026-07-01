@@ -8,6 +8,7 @@ from eidetic.models import ClaimRecord, MemoryRecord, NLILabel, Scope, Structure
 from eidetic.smqe import structured_answer
 from eidetic.smqe.engine import structured_answer as engine_structured_answer
 from eidetic.smqe.claim_extraction import claims_for_record, validate_extracted_claims
+from eidetic.smqe.executor import execute_plan
 from eidetic.smqe.planner import plan_query
 from eidetic.smqe.verify import answer_from_result
 from eidetic.store import RecordStore
@@ -217,6 +218,237 @@ def test_claims_expire_when_source_record_expires(tmp_path):
     claims = store.claims_by_source(rec.memory_id)
     assert claims
     assert all(claim.invalid_at == 20.0 for claim in claims)
+
+
+def test_relation_object_claim_answers_concisely(tmp_path):
+    store = RecordStore(tmp_path / "relation-object.sqlite")
+    scope = Scope(namespace="relation-object")
+    rec = _record(
+        "Riley: I wore my old jacket today. This silver compass is special to me - a gift from my aunt.",
+        scope=scope,
+        valid_at=10.0,
+    )
+    store.upsert_record(rec)
+    store.add_claims(claims_for_record(rec))
+    store.add_claim(ClaimRecord(
+        claim_type="state",
+        scope=scope,
+        subject="Riley",
+        predicate="gift from my aunt",
+        object="silver compass",
+        source_memory_id=rec.memory_id,
+        proof_atom="This silver compass is special to me - a gift from my aunt.",
+        valid_at=10.0,
+    ))
+
+    ans = structured_answer(
+        _Retriever(store),
+        "What was the gift from Riley's aunt?",
+        at=11.0,
+        scope=scope,
+    )
+
+    assert ans is not None
+    assert ans.answer == "silver compass"
+    assert ans.note == "smqe:latest_value:claim"
+
+
+def test_temporal_claim_uses_speaker_acquisition_metadata(tmp_path):
+    scope = Scope(namespace="temporal-acquisition")
+    rec = _record(
+        "Melanie: These ceramic figurines I bought yesterday remind me of family love.",
+        scope=scope,
+        valid_at=datetime(2023, 10, 22, 12, 0).timestamp(),
+    )
+    claims = claims_for_record(rec)
+    acquisition = [c for c in claims if c.predicate == "buy" and c.object == "ceramic figurines"]
+
+    assert acquisition
+    assert acquisition[0].subject == "Melanie"
+
+    plan = plan_query("When did Melanie buy the ceramic figurines?")
+    result = execute_plan(plan, "When did Melanie buy the ceramic figurines?", records=[rec], claims=claims)
+
+    assert result is not None
+    assert result.answer == "2023-10-21"
+    assert result.backend == "claim"
+
+
+def test_temporal_claim_prefers_query_month_and_rejects_non_dates(tmp_path):
+    scope = Scope(namespace="temporal-month")
+    july = _record(
+        "Caroline: Last weekend our city held a pride parade!",
+        scope=scope,
+        valid_at=datetime(2023, 7, 21, 12, 0).timestamp(),
+    )
+    august = _record(
+        "Caroline: I went to a pride parade last Friday and it was awesome.",
+        scope=scope,
+        valid_at=datetime(2023, 8, 14, 12, 0).timestamp(),
+    )
+    filler = _record("Caroline: Absolutely!", scope=scope, valid_at=datetime(2023, 8, 14, 12, 0).timestamp())
+    claims = claims_for_record(july) + claims_for_record(august) + claims_for_record(filler)
+
+    plan = plan_query("When did Caroline attend a pride parade in August?")
+    result = execute_plan(plan, "When did Caroline attend a pride parade in August?", records=[july, august, filler], claims=claims)
+
+    assert result is not None
+    assert result.answer == "2023-08-11"
+    assert "Absolutely" not in result.answer
+
+
+def test_duration_claim_uses_speaker_metadata_for_first_person_sentence(tmp_path):
+    scope = Scope(namespace="duration-speaker")
+    rec = _record(
+        "Ari: They've been there through everything, I've known these friends for 4 years.",
+        scope=scope,
+        valid_at=10.0,
+    )
+    claims = claims_for_record(rec)
+    duration = [c for c in claims if "known these friends for 4 years" in c.proof_atom]
+
+    assert duration
+    assert duration[0].subject == "Ari"
+
+    plan = plan_query("How long has Ari had her current group of friends for?")
+    result = execute_plan(plan, "How long has Ari had her current group of friends for?", records=[rec], claims=claims)
+
+    assert result is not None
+    assert result.answer == "4 years"
+    assert result.backend == "claim"
+
+
+def test_conversation_duration_answer_carries_prior_question_metadata(tmp_path):
+    scope = Scope(namespace="duration-qa")
+    rec = _record(
+        "Ari: How long have you been married?\nBlair: 5 years already!",
+        scope=scope,
+        valid_at=10.0,
+    )
+    claims = claims_for_record(rec)
+    duration = [c for c in claims if c.predicate == "duration answer"]
+
+    assert duration
+    assert duration[0].subject == "Blair"
+    assert duration[0].object == "5 years"
+    assert "married" in duration[0].filters["question"]
+
+    plan = plan_query("How long have Blair and her husband been married?")
+    result = execute_plan(plan, "How long have Blair and her husband been married?", records=[rec], claims=claims)
+
+    assert plan.op == "latest_value"
+    assert result is not None
+    assert result.answer == "5 years"
+    assert result.backend == "claim"
+
+
+def test_smqe_fails_closed_for_priority_synthesis_query(tmp_path):
+    scope = Scope(namespace="synthesis-priority")
+    rec = _record(
+        "Blair: I'm starting to realize self-care matters. Blair: Great.",
+        scope=scope,
+        valid_at=10.0,
+    )
+    claims = claims_for_record(rec)
+    plan = plan_query("How does Blair prioritize self-care?")
+    result = execute_plan(plan, "How does Blair prioritize self-care?", records=[rec], claims=claims)
+
+    assert result is None
+
+
+def test_smqe_fails_closed_for_plan_query_without_direct_structured_answer(tmp_path):
+    scope = Scope(namespace="synthesis-plans")
+    rec = _record(
+        "Ari: We could do a family outing, or wanna plan something special for the weekend.",
+        scope=scope,
+        valid_at=10.0,
+    )
+    claims = claims_for_record(rec)
+    plan = plan_query("What are Ari's plans for the summer?")
+    result = execute_plan(plan, "What are Ari's plans for the summer?", records=[rec], claims=claims)
+
+    assert result is None
+
+
+def test_smqe_fails_closed_for_open_inference_list_query(tmp_path):
+    scope = Scope(namespace="open-list")
+    rec = _record(
+        "Blair: I painted it yesterday. Blair: I've done an abstract painting too, take a look.",
+        scope=scope,
+        valid_at=10.0,
+    )
+    claims = claims_for_record(rec)
+    plan = plan_query("What has Blair painted?")
+    result = execute_plan(plan, "What has Blair painted?", records=[rec], claims=claims)
+
+    assert plan.op == "open_inference"
+    assert result is None
+
+
+def test_action_object_list_claims_answer_from_multiple_sources(tmp_path):
+    store = RecordStore(tmp_path / "action-list.sqlite")
+    scope = Scope(namespace="action-list")
+    first = _record("Blair: I painted a horse recently.", scope=scope, valid_at=10.0)
+    second = _record("Blair: I painted a lake sunrise last year.", scope=scope, valid_at=11.0)
+    for rec in (first, second):
+        store.upsert_record(rec)
+        store.add_claims(claims_for_record(rec))
+
+    ans = structured_answer(_Retriever(store), "What has Blair painted?", at=12.0, scope=scope)
+
+    assert ans is not None
+    assert ans.note == "smqe:open_inference:claim"
+    assert ans.verified is True
+    assert "horse" in ans.answer
+    assert "lake sunrise" in ans.answer
+
+
+def test_action_location_list_claims_answer_from_multiple_sources(tmp_path):
+    store = RecordStore(tmp_path / "action-location-list.sqlite")
+    scope = Scope(namespace="action-location-list")
+    first = _record("Blair: I camped at the beach last week.", scope=scope, valid_at=10.0)
+    second = _record("Blair: I went camping in the forest last month.", scope=scope, valid_at=11.0)
+    for rec in (first, second):
+        store.upsert_record(rec)
+        store.add_claims(claims_for_record(rec))
+
+    ans = structured_answer(_Retriever(store), "Where has Blair camped?", at=12.0, scope=scope)
+
+    assert ans is not None
+    assert ans.note == "smqe:latest_value:claim"
+    assert ans.verified is True
+    assert "beach" in ans.answer
+    assert "forest" in ans.answer
+
+
+def test_action_location_claims_scan_late_session_sentences():
+    scope = Scope(namespace="action-location-late")
+    filler = " ".join(f"Filler sentence {idx}." for idx in range(100))
+    rec = _record(
+        f"Blair: {filler} Blair: We even went on another camping trip in the forest.",
+        scope=scope,
+    )
+
+    claims = claims_for_record(rec)
+
+    assert any(
+        claim.filters.get("action") == "location"
+        and claim.predicate == "camping"
+        and claim.object == "forest"
+        for claim in claims
+    )
+
+
+def test_action_location_claims_reject_infinitive_purpose_phrases():
+    scope = Scope(namespace="action-location-purpose")
+    rec = _record(
+        "Blair: I want to help people who need it. Blair: I am looking forward to reading.",
+        scope=scope,
+    )
+
+    claims = claims_for_record(rec)
+
+    assert not [claim for claim in claims if claim.filters.get("action") == "location"]
 
 
 def test_smqe_package_reexports_engine_entrypoint():

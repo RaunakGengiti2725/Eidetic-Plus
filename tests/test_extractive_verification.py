@@ -55,6 +55,42 @@ def test_extractive_entailment_proves_session_relative_yesterday_date():
     )
 
 
+def test_extractive_entailment_proves_strict_qa_temporal_answer_only_when_topic_supported():
+    premise = "Melanie: I just signed up for a pottery class yesterday."
+    valid_at = datetime(2023, 7, 3, 12, 0, 0).timestamp()
+    assert _extractive_entailment(
+        premise,
+        "Question: When did Melanie sign up for a pottery class?\nAnswer: 2023-07-02",
+        valid_at,
+    )
+    assert not _extractive_entailment(
+        premise,
+        "Question: When did Melanie adopt a cat?\nAnswer: 2023-07-02",
+        valid_at,
+    )
+    assert not _extractive_entailment(
+        "Melanie: Absolutely!",
+        "Question: When did Melanie buy the figurines?\nAnswer: Absolutely",
+        valid_at,
+    )
+
+
+def test_extractive_entailment_proves_strict_qa_duration_answer_only_when_topic_supported():
+    premise = "Ari: How long have you been married?\nBlair: 5 years already!"
+    assert _extractive_entailment(
+        premise,
+        "Question: How long has Blair been married?\nAnswer: 5 years",
+    )
+    assert _extractive_entailment(
+        "Caroline: They've been there through everything, I've known these friends for 4 years.",
+        "Question: How long has Caroline had her current group of friends for?\nAnswer: 4 years",
+    )
+    assert not _extractive_entailment(
+        premise,
+        "Question: How long has Blair lived in Lisbon?\nAnswer: 5 years",
+    )
+
+
 def test_extractive_entailment_proves_last_weekday_from_session_date():
     premise = "Caroline: I went to a pride parade last Friday."
     valid_at = datetime(2023, 8, 14, 12, 0, 0).timestamp()

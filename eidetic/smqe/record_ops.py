@@ -8,7 +8,6 @@ from typing import Iterable, Optional
 
 from eidetic.models import ClaimRecord, ExecutionPlan, MemoryRecord, StructuredAnswerResult, StructuredSupport
 
-
 _STOP = {
     "a", "about", "after", "all", "an", "and", "any", "are", "as", "at", "be", "before",
     "been", "between", "by", "can", "did", "do", "does", "for", "from", "had", "has", "have", "how", "i",
@@ -48,7 +47,6 @@ _AFFILIATION_TITLE_RE = (
     r"(?:[Tt]he\s+)?[A-Z][A-Za-z0-9&'/-]*"
     r"(?:\s+(?:of|the|and|for|at|in|on|[A-Z][A-Za-z0-9&'/-]+)){1,7}"
 )
-
 
 def _terms(text: str) -> set[str]:
     out = set()
@@ -401,7 +399,7 @@ def _claim_atoms(query: str, claims: Iterable[ClaimRecord]) -> list[tuple[float,
             # visible without admitting unrelated namespace-wide evidence.
             score = 0.25 + min(0.25, max(0.0, float(claim.confidence or 0.0)) / 4.0) + float(claim.valid_at or 0.0) / 10_000_000_000.0
             scored.append((score, claim, atom))
-    scored.sort(key=lambda item: (-item[0], -(item[1].valid_at or 0.0), item[1].claim_id))
+    scored.sort(key=lambda item: (-item[0], len(item[2]), -(item[1].valid_at or 0.0), item[1].claim_id))
     return scored
 
 
@@ -679,6 +677,14 @@ def _relative_date_from_atom(rec: object, atom: str, query: str = "") -> str:
         return (ref - timedelta(days=1)).isoformat()
     if "tomorrow" in low:
         return (ref + timedelta(days=1)).isoformat()
+    m = re.search(r"\blast\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b", low)
+    if m:
+        weekday = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"].index(m.group(1))
+        delta = (ref.weekday() - weekday) % 7 or 7
+        return (ref - timedelta(days=delta)).isoformat()
+    if re.search(r"\b(?:last|this\s+past|past)\s+weekend\b", low):
+        saturday = ref - timedelta(days=(ref.weekday() - 5) % 7 or 7)
+        return f"the weekend of {saturday.isoformat()} to {(saturday + timedelta(days=1)).isoformat()}"
     if "next week" in low:
         start = ref + timedelta(days=7)
         end = ref + timedelta(days=13)
@@ -1072,10 +1078,9 @@ def _verb_variants(verb: str) -> set[str]:
             variants.add(verb + verb[-1] + "ing")
     return {v for v in variants if len(v) > 2}
 
-
 def _count_dynamic_action_terms(query: str) -> set[str]:
     q = query or ""
-    if not re.search(r"\b(?:how\s+many|number\s+of|count\s+of)\b", q, re.I):
+    if not re.search(r"\b(?:how\s+many|number\s+of|count\s+of|what|which|where)\b", q, re.I):
         return set()
     verbs: set[str] = set()
     for pat in (
@@ -1106,7 +1111,6 @@ def _count_profile(query: str) -> tuple[set[str], set[str]]:
         if not term.isdigit()
     }
     return action_terms, target_terms
-
 
 _ATTRIBUTION_ACTION_FAMILIES = {
     "give": {"give", "gave", "given", "giving", "hand", "handed", "lend", "lent", "send", "sent"},
@@ -1242,6 +1246,8 @@ def _action_object_phrase(query: str, atom: str) -> str:
 
 def _is_temporal_window_list_query(query: str) -> bool:
     q = (query or "").lower()
+    if re.search(r"\b(?:what|which|where)\s+(?:did|do|does|have|has|had)\b", q) and _count_dynamic_action_terms(q):
+        return True
     if re.search(r"\b(?:how\s+many|count|number\s+of|total|sum|combined|altogether)\b", q):
         return False
     if re.search(r"\b(?:most\s+recent(?:ly)?|latest|current|currently|now)\b", q):
@@ -1262,9 +1268,9 @@ def _temporal_window_list_answer(
     query: str,
     atoms: list[tuple[float, object, str]],
 ) -> tuple[str, list[tuple[float, object, str]]]:
-    if not _query_temporal_windows(plan) or not _is_temporal_window_list_query(query):
+    if not _is_temporal_window_list_query(query):
         return "", []
-    atoms = _filter_atoms_to_query_windows(plan, atoms)
+    atoms = _filter_atoms_to_query_windows(plan, atoms) if _query_temporal_windows(plan) else atoms
     if not atoms:
         return "", []
     action_terms, target_terms = _count_profile(query)
@@ -1273,14 +1279,15 @@ def _temporal_window_list_answer(
     selected: list[tuple[float, object, str]] = []
     seen = set()
     for score, item, atom in atoms[:20]:
-        terms = _expanded_terms(atom)
+        match_text = _item_match_text(item, atom)
+        terms = _expanded_terms(match_text)
         if threshold and _target_hit_count(terms, target_terms) < threshold:
             continue
         if action_terms and not (terms & action_terms):
             continue
         if _count_action_negated(atom, action_terms):
             continue
-        value = _action_object_phrase(query, atom)
+        value = _clean(item.object) if isinstance(item, ClaimRecord) and ((item.filters.get("action") == "object" and not re.search(r"\bwhere\b", query, re.I) and (_expanded_terms(item.predicate) & action_terms)) or (item.filters.get("action") == "location" and re.search(r"\bwhere\b", query, re.I))) else _action_object_phrase(query, atom)
         if not value:
             continue
         key = re.sub(r"\W+", " ", value.lower()).strip()
@@ -1290,6 +1297,8 @@ def _temporal_window_list_answer(
         values.append(value)
         selected.append((score, item, atom))
     if not values or not selected:
+        return "", []
+    if not _query_temporal_windows(plan) and len(values) < 2:
         return "", []
     if len(values) == 1:
         return values[0], selected
@@ -2458,22 +2467,13 @@ def _travel_duration_sum_answer(query: str, total: float, support_count: int) ->
     return f"{total:g} hours for getting to {label} (or {total * 2:g} hours for the round trip)"
 
 
-_CONSECUTIVE_TOPIC_STOP = {
-    "ago", "attend", "attended", "consecutive", "day", "days", "did", "do", "does",
-    "done", "event", "events", "have", "has", "had", "how", "in", "many", "month",
-    "months", "on", "participate", "participated", "passed", "row", "since", "two",
-    "week", "weeks", "year", "years",
-}
+_CONSECUTIVE_TOPIC_STOP = {"ago", "attend", "attended", "consecutive", "day", "days", "did", "do", "does", "done", "event", "events", "have", "has", "had", "how", "in", "many", "month", "months", "on", "participate", "participated", "passed", "row", "since", "two", "week", "weeks", "year", "years"}
 
 
 def _consecutive_topic_terms(query: str) -> set[str]:
     stop = set(_CONSECUTIVE_TOPIC_STOP)
     stop.update(_expanded_terms(" ".join(stop)))
-    return {
-        _count_term_key(term)
-        for term in (_expanded_terms(query) - stop)
-        if len(term) > 2 and not term.isdigit()
-    }
+    return {_count_term_key(term) for term in (_expanded_terms(query) - stop) if len(term) > 2 and not term.isdigit()}
 
 
 def _matches_consecutive_topic(atom: str, topic_terms: set[str]) -> bool:
@@ -2486,11 +2486,14 @@ def _group_key(item: object) -> str:
     return getattr(item, "source_memory_id", "") or getattr(item, "memory_id", "") or str(id(item))
 
 
+def _item_match_text(item: object, atom: str) -> str:
+    return " ".join([atom, item.subject, item.predicate, item.object, " ".join(str(v) for v in item.filters.values())]) if isinstance(item, ClaimRecord) else atom
+
+
 def _subject_entity_terms(query: str) -> set[str]:
     values: list[str] = []
     for pat in (
-        r"\b(?:does|did|is|was|were|has|had|will|would|could|should)\s+([A-Z][A-Za-z0-9'_-]+(?:\s+[A-Z][A-Za-z0-9'_-]+){0,3})\b",
-        r"\b([A-Z][A-Za-z0-9'_-]+(?:\s+[A-Z][A-Za-z0-9'_-]+){0,3})'s\b",
+        r"\b(?:does|did|is|was|were|has|had|will|would|could|should)\s+([A-Z][A-Za-z0-9'_-]+(?:\s+[A-Z][A-Za-z0-9'_-]+){0,3})\b", r"\b([A-Z][A-Za-z0-9'_-]+(?:\s+[A-Z][A-Za-z0-9'_-]+){0,3})'s\b",
     ):
         for m in re.finditer(pat, query or ""):
             values.append(m.group(1))
@@ -2506,18 +2509,7 @@ def _entity_hit_count(entity_terms: set[str], atom: str) -> int:
     return len(entity_terms & _terms(atom or ""))
 
 
-_LATEST_TARGET_STOP = _STOP | {
-    "about", "amount", "attend", "attended", "attends", "called", "career", "class",
-    "classes", "color", "colour", "current", "currently",
-    "degree", "does", "favorite", "favourite", "field", "from", "get", "gets", "got",
-    "graduated", "graduat", "had", "has", "her", "hers", "his", "identity", "into",
-    "keep", "keeps", "kept",
-    "hour", "hours", "latest", "located", "location", "marital", "money", "move",
-    "moved", "name", "now", "put", "recent", "recently", "relocate", "relocated",
-    "relocation", "relationship", "spend",
-    "spending", "spent", "status", "store", "stored", "team", "take", "takes",
-    "time", "went", "work", "worked", "working",
-}
+_LATEST_TARGET_STOP = _STOP | {"about", "amount", "attend", "attended", "attends", "called", "career", "class", "classes", "color", "colour", "current", "currently", "degree", "does", "favorite", "favourite", "field", "from", "get", "gets", "got", "graduated", "graduat", "had", "has", "her", "hers", "his", "hour", "hours", "identity", "into", "keep", "keeps", "kept", "latest", "located", "location", "marital", "money", "move", "moved", "name", "now", "put", "recent", "recently", "relocate", "relocated", "relocation", "relationship", "spend", "spending", "spent", "status", "store", "stored", "team", "take", "takes", "time", "went", "work", "worked", "working"}
 
 
 def _latest_target_terms(query: str, plan: ExecutionPlan) -> set[str]:
@@ -2555,14 +2547,7 @@ def _latest_atom_target_hit(target_terms: set[str], atom: str, group_terms: Opti
     return 0
 
 
-_RELATIVE_TARGET_STOP = _STOP | {
-    "achieve", "achieved", "after", "ago", "before", "career", "date", "day", "days",
-    "did", "do", "ever", "file", "filed", "from", "game", "high", "highest", "in",
-    "inspect", "inspected", "last", "mail", "mailed", "month", "months", "next", "pick",
-    "picked", "point", "points", "review", "reviewed", "schedule", "scheduled", "score",
-    "scored", "since", "time", "today", "tomorrow", "up", "week", "weeks", "when",
-    "will", "year", "years", "yesterday",
-}
+_RELATIVE_TARGET_STOP = _STOP | {"achieve", "achieved", "after", "ago", "before", "career", "child", "children", "date", "day", "days", "did", "do", "ever", "family", "friend", "friends", "file", "filed", "from", "game", "high", "highest", "in", "inspect", "inspected", "last", "mail", "mailed", "month", "months", "next", "pick", "picked", "point", "points", "review", "reviewed", "schedule", "scheduled", "score", "scored", "since", "time", "today", "tomorrow", "up", "week", "weeks", "when", "will", "year", "years", "yesterday"}
 
 
 def _relative_temporal_target_terms(query: str) -> set[str]:
@@ -3473,7 +3458,7 @@ def _requires_verified_synthesis(query: str) -> bool:
     q = (query or "").lower()
     return bool(
         re.search(r"\b(?:might|could|would|should|likely|probably|infer|imply)\b", q)
-        or re.search(r"\b(?:financial\s+status|discomfort|safe\s+for|allerg(?:y|ic)|make\s+[^?]{0,60}\bhappy)\b", q)
+        or re.search(r"\b(?:financial\s+status|discomfort|safe\s+for|allerg(?:y|ic)|make\s+[^?]{0,60}\bhappy|plans?|prioriti[sz]e|reali[sz]e|thinks?|excited\s+about)\b", q)
     )
 
 
@@ -3997,7 +3982,6 @@ def _source_suggestion_answer(query: str, atoms: list[tuple[float, object, str]]
         return items[0], selected[:3]
     return ", ".join(items[:-1]) + f", and {items[-1]}", selected[:5]
 
-
 def _is_suggestion_query(query: str) -> bool:
     q = query or ""
     if (
@@ -4039,7 +4023,6 @@ def _process_list_answer(query: str, atoms: list[tuple[float, object, str]]) -> 
         return "", []
     return ", ".join(values), selected[:6]
 
-
 def _needs_explicit_synthesis(query: str) -> bool:
     q = (query or "").lower()
     return bool(
@@ -4067,7 +4050,6 @@ def _open_or_preference_answer(query: str, atoms: list[tuple[float, object, str]
     if answer and selected:
         return answer, selected
     return "", []
-
 
 def _execute_atoms(plan: ExecutionPlan, query: str,
                    atoms: list[tuple[float, object, str]], backend: str) -> Optional[StructuredAnswerResult]:
@@ -4204,16 +4186,26 @@ def _execute_atoms(plan: ExecutionPlan, query: str,
             entity_terms = _subject_entity_terms(query)
             target_terms = _relative_temporal_target_terms(query)
             threshold = _target_threshold(target_terms)
+            month_names = {name.lower(): i for i, name in enumerate(calendar.month_name) if i}
+            month_names.update({name.lower(): i for i, name in enumerate(calendar.month_abbr) if i})
+            query_months = {num for name, num in month_names.items() if re.search(rf"\b{re.escape(name)}\b", query or "", re.I)}
             candidates: list[tuple[int, int, float, object, str, str]] = []
             for score, item, atom in atoms:
-                target_hits = _target_hit_count(_expanded_terms(atom), target_terms)
+                match_text = _item_match_text(item, atom)
+                target_hits = _target_hit_count(_expanded_terms(match_text), target_terms)
                 if threshold and target_hits < threshold:
                     continue
                 answer = _relative_date_from_atom(item, atom, query)
                 if not answer:
-                    answer = _answer_value(query, atom, item)
+                    answer = _answer_value_specific(query, atom, item)
+                if not answer or not re.search(r"\b(?:20\d{2}|week|month|year|today|yesterday|tomorrow|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)", answer, re.I):
+                    continue
+                answer_months = {int(m) for m in re.findall(r"\b20\d{2}-(\d{2})-\d{2}\b", answer)}
+                answer_months.update(num for name, num in month_names.items() if re.search(rf"\b{re.escape(name)}\b", answer, re.I))
+                if query_months and (not answer_months or not (query_months & answer_months)):
+                    continue
                 if answer:
-                    candidates.append((target_hits, _entity_hit_count(entity_terms, atom), score, item, atom, answer))
+                    candidates.append((target_hits, _entity_hit_count(entity_terms, match_text), score, item, atom, answer))
             if candidates:
                 if entity_terms:
                     candidates = [row for row in candidates if row[1]]
@@ -4296,6 +4288,7 @@ def _execute_atoms(plan: ExecutionPlan, query: str,
         answer, selected = _open_or_preference_answer(query, atoms)
         if answer and selected:
             return result_from(answer, selected, confidence=0.85)
+        if op == "open_inference" and not _is_suggestion_query(query): return None
         for score, item, atom in atoms:
             answer = _answer_value_specific(query, atom, item)
             if answer:
@@ -4329,9 +4322,12 @@ def _execute_atoms(plan: ExecutionPlan, query: str,
     group_terms_by_key: dict[str, set[str]] = {}
     if target_terms or specific_target_terms:
         for _score, item, atom in atoms:
-            group_terms_by_key.setdefault(_group_key(item), set()).update(_expanded_terms(atom))
+            group_terms_by_key.setdefault(_group_key(item), set()).update(_expanded_terms(_item_match_text(item, atom)))
     scalar_amount_query = bool(re.search(r"\bhow\s+much|\bamount\b|\bmoney\b|\bcost\b|\bspent\b|\bpre[-\s]?approved\b", query or "", re.I))
     media_example_query = bool(re.search(r"\bshow\b|\bseasons?\b|\bstream(?:ing|box|service)?\b|\ball\s+seasons\b", query or "", re.I))
+    duration_value_query = bool(re.search(r"\bhow\s+(?:long|often)\b", query or "", re.I))
+    if _requires_verified_synthesis(query) and not (scalar_amount_query or media_example_query or duration_value_query):
+        return None
     specific_hits = []
     for score, item, atom in atoms:
         if current_value_query and _is_future_intent_atom(atom):
@@ -4343,11 +4339,13 @@ def _execute_atoms(plan: ExecutionPlan, query: str,
         else:
             answer = _action_object_phrase(query, atom) or _answer_value_specific(query, atom, item)
         if answer:
-            target_hits = _latest_atom_target_hit(specific_target_terms, atom, group_terms_by_key.get(_group_key(item)))
+            if duration_value_query and (not (_DURATION_RE.search(answer) or re.search(r"\btimes?\s+a\s+(?:day|week|month|year)\b", answer, re.I)) or (not re.search(r"\bago\b", query or "", re.I) and re.search(rf"\b{re.escape(answer)}\s+ago\b", atom, re.I))):
+                continue
+            target_hits = _latest_atom_target_hit(specific_target_terms, _item_match_text(item, atom), group_terms_by_key.get(_group_key(item)))
             if specific_target_terms and target_hits == 0:
                 continue
             specific_hits.append((
-                _entity_hit_count(entity_terms, atom),
+                _entity_hit_count(entity_terms, _item_match_text(item, atom)),
                 target_hits,
                 getattr(item, "valid_at", 0.0) or 0.0,
                 score,
@@ -4371,9 +4369,10 @@ def _execute_atoms(plan: ExecutionPlan, query: str,
     for score, item, atom in atoms:
         if current_value_query and _is_future_intent_atom(atom):
             continue
-        if entity_terms and _entity_hit_count(entity_terms, atom) == 0:
+        if entity_terms and _entity_hit_count(entity_terms, _item_match_text(item, atom)) == 0:
             continue
-        if target_terms and not _latest_atom_target_hit(target_terms, atom, group_terms_by_key.get(_group_key(item))):
+        target_hit = _latest_atom_target_hit(target_terms, atom, group_terms_by_key.get(_group_key(item)))
+        if target_terms and not (target_hit or (isinstance(item, ClaimRecord) and _target_hit_count(group_terms_by_key.get(_group_key(item), set()), target_terms) >= _target_threshold(target_terms))):
             continue
         if re.search(r"\bwhere\b", query or "", re.I):
             continue

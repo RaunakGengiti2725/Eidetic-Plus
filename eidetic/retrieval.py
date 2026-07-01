@@ -651,6 +651,11 @@ _REGION_HINT_STOP_TERMS = _LIST_STOP_TERMS | {
     "region", "remember", "source", "tell", "user", "what", "when", "where", "which", "who",
     "why",
 }
+_REGION_HINT_BROAD_TERMS = {
+    "aunt", "brother", "child", "children", "dad", "daughter", "family", "families",
+    "father", "friend", "friends", "grandfather", "grandma", "grandmother", "grandpa",
+    "husband", "mom", "mother", "parent", "parents", "partner", "sister", "son", "wife",
+}
 
 
 def _region_query_terms(query: str) -> set[str]:
@@ -658,6 +663,17 @@ def _region_query_terms(query: str) -> set[str]:
         t for t in _simple_terms(query or "")
         if len(t) > 2 and t not in _REGION_HINT_STOP_TERMS
     }
+
+
+def _region_discriminative_terms(query: str) -> set[str]:
+    terms = _region_query_terms(query)
+    proper = {
+        re.sub(r"(?:'s|s')$", "", token.lower())
+        for token in re.findall(r"\b[A-Z][A-Za-z'_-]{2,}\b", query or "")
+        if token.lower() not in _REGION_HINT_STOP_TERMS
+    }
+    narrowed = terms - proper - _REGION_HINT_BROAD_TERMS
+    return narrowed or terms
 
 
 def _raw_member_ids_for_gist(gist: DerivedRecord, derived_by_cid: dict[str, DerivedRecord], *,
@@ -709,6 +725,7 @@ def _memory_region_hints(
         return []
     derived_by_cid = {g.cid: g for g in gists if getattr(g, "cid", "")}
     qterms = _region_query_terms(query)
+    required_terms = _region_discriminative_terms(query)
     read_at = at if at is not None else now()
     candidate_ids = {
         c.record.memory_id for c in candidates
@@ -737,7 +754,10 @@ def _memory_region_hints(
         )
         if all_members_visible:
             term_source += " " + (getattr(gist, "text", "") or "")
-        term_hits = len(qterms & _simple_terms(term_source))
+        route_terms = _simple_terms(term_source + " " + (getattr(gist, "text", "") or ""))
+        if required_terms and not (required_terms & route_terms):
+            continue
+        term_hits = len(qterms & route_terms)
         provenance_hit = 1 if gist.cid in selected_gist_ids else 0
         score = provenance_hit * 30.0 + candidate_hits * 8.0 + term_hits * 4.0
         if score <= 0.0:
@@ -2560,6 +2580,40 @@ def _date_residual_supported_by_premise(residual: str, premise: str) -> bool:
     return terms <= premise_terms
 
 
+def _qa_parts(text: str) -> tuple[str, str] | None:
+    m = re.match(r"\s*Question:\s*(.*?)\s*\n\s*Answer:\s*(.*?)\s*$", text or "", re.I | re.S)
+    return (m.group(1), m.group(2)) if m else None
+
+
+def _qa_question_supported_by_premise(question: str, answer: str, premise: str) -> bool:
+    stop = _DATE_RESIDUAL_STOP_TERMS | {"question", "answer", "when", "what", "which", "how", "long", "often", "have", "has", "had", "been", "for", "current", "group", "groups", "did", "do", "does", "was", "were", "is", "are", "go", "went", "attend", "attended", "family", "friend", "child", "children", *list(_MONTH_NUM)}
+    terms = {t for t in _support_norm(question).split() if len(t) > 2 and t not in stop}
+    if not terms:
+        return True
+    support_terms = set(_support_norm(f"{premise} {answer}").split())
+    return all(_term_variants(t) & support_terms for t in terms)
+
+
+def _qa_temporal_entailment(premise: str, hypothesis: str, valid_at: Optional[float]) -> bool:
+    parts = _qa_parts(hypothesis)
+    if not parts:
+        return False
+    question, answer = parts
+    if not (_answer_date_isos(answer) or _answer_year_months(answer) or (_answer_years(answer) and re.search(r"\b(?:when|year)\b", question, re.I)) or re.search(r"\bweek(?:end)?\b", answer, re.I)):
+        return False
+    if not _qa_question_supported_by_premise(question, answer, premise):
+        return False
+    return (_relative_year_entailment(premise, answer, valid_at) or _relative_month_entailment(premise, answer, valid_at) or _relative_week_month_entailment(premise, answer, valid_at) or _relative_week_entailment(premise, answer, valid_at) or _relative_weekend_entailment(premise, answer, valid_at) or _relative_date_entailment(premise, answer, valid_at))
+
+
+def _qa_duration_entailment(premise: str, hypothesis: str) -> bool:
+    parts = _qa_parts(hypothesis)
+    if not parts:
+        return False
+    question, answer = parts
+    return bool(re.search(r"\bhow\s+(?:long|often)\b", question, re.I) and _duration_entailment(premise, answer) and _qa_question_supported_by_premise(question, answer, premise))
+
+
 def _term_variants(term: str) -> set[str]:
     term = (term or "").lower()
     out = {term} if term else set()
@@ -2584,6 +2638,8 @@ def _term_variants(term: str) -> set[str]:
         out.add("go")
     if term in {"plan", "plans", "planned", "planning"}:
         out.update({"think", "thinking", "consider", "considering"})
+    if len(term) > 3:
+        out.update({term + "s", term + ("d" if term.endswith("e") else "ed"), term[:-1] + "ing" if term.endswith("e") else term + "ing"})
     return {t for t in out if t}
 
 
@@ -2779,6 +2835,20 @@ def _relative_week_entailment(premise: str, hypothesis: str,
     return _residual_terms_supported_fuzzy(residual, premise)
 
 
+def _relative_weekend_entailment(premise: str, hypothesis: str, valid_at: Optional[float] = None) -> bool:
+    if valid_at is None or not re.search(r"\b(?:last|past|this\s+past)\s+weekend\b", premise or "", re.I):
+        return False
+    dates = _answer_date_isos(hypothesis)
+    if not dates:
+        return False
+    try:
+        ref = datetime.fromtimestamp(valid_at).date()
+    except (OSError, OverflowError, ValueError):
+        return False
+    saturday = ref - timedelta(days=(ref.weekday() - 5) % 7 or 7)
+    return bool(dates & {saturday.isoformat(), (saturday + timedelta(days=1)).isoformat()})
+
+
 def _relative_date_entailment(premise: str, hypothesis: str,
                               valid_at: Optional[float] = None) -> bool:
     answer_dates = _answer_date_isos(hypothesis)
@@ -2893,7 +2963,9 @@ def _extractive_entailment(premise: str, hypothesis: str,
     if len(hn.split()) <= 12 and hn in pn:
         return True
     return (
-        _duration_entailment(premise, hypothesis)
+        _qa_temporal_entailment(premise, hypothesis, valid_at)
+        or _qa_duration_entailment(premise, hypothesis)
+        or _duration_entailment(premise, hypothesis)
         or _preference_entailment(premise, hypothesis)
         or _identity_entailment(premise, hypothesis)
         or _relative_year_entailment(premise, hypothesis, valid_at)
@@ -2901,6 +2973,7 @@ def _extractive_entailment(premise: str, hypothesis: str,
         or _relative_month_entailment(premise, hypothesis, valid_at)
         or _relative_week_month_entailment(premise, hypothesis, valid_at)
         or _relative_week_entailment(premise, hypothesis, valid_at)
+        or _relative_weekend_entailment(premise, hypothesis, valid_at)
         or _relative_date_entailment(premise, hypothesis, valid_at)
         or _schedule_table_entailment(premise, hypothesis)
     )

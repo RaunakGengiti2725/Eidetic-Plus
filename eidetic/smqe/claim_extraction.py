@@ -15,6 +15,10 @@ _MONEY_AMOUNT_RE = re.compile(
     rf"\b(?:\d+(?:,\d{{3}})*(?:\.\d+)?|{_NUM_WORD_PATTERN})\s*(?:dollars?|usd|bucks|€|£)\b)",
     re.I,
 )
+_DURATION_AMOUNT_RE = re.compile(
+    rf"\b(?:\d+(?:\.\d+)?|{_NUM_WORD_PATTERN})[-\s]*(?:hours?|hrs?|minutes?|mins?|days?|weeks?|months?|years?)\b",
+    re.I,
+)
 
 
 def _norm(text: str) -> str:
@@ -69,13 +73,34 @@ def _claim_type_for(atom: str) -> str:
 
 
 def _subject_for(atom: str, rec: MemoryRecord) -> str:
+    speaker = _speaker_for_atom(rec, atom)
+    if speaker and re.search(r"\b(?:i|we|my|our|i've|i'm|i'd|i'll|we've|we're|we'd|we'll)\b", atom or "", re.I):
+        return speaker
     m = re.match(r"\s*(user|assistant|system|human|ai)\s*:\s*", atom, re.I)
     if m:
         return m.group(1).lower()
     m = re.match(r"\s*([A-Z][A-Za-z0-9'_-]+(?:\s+[A-Z][A-Za-z0-9'_-]+){0,2})\b", atom)
     if m:
-        return m.group(1)
+        subject = m.group(1)
+        if speaker and subject.lower() in {"this", "that", "these", "those", "my", "our"}:
+            return speaker
+        return subject
     return rec.source or "memory"
+
+
+def _record_speaker_hint(rec: MemoryRecord) -> str:
+    m = re.search(r"\b([A-Z][A-Za-z'_-]{1,32})\s*:", rec.text or "")
+    return m.group(1) if m else ""
+
+
+def _speaker_for_atom(rec: MemoryRecord, atom: str) -> str:
+    needle = _norm(atom)
+    body_needle = _norm(re.sub(r"^[A-Z][A-Za-z'_-]{1,32}:\s*", "", atom or ""))
+    for m in re.finditer(r"\b([A-Z][A-Za-z'_-]{1,32})\s*:\s*([^\n]+)", rec.text or ""):
+        body = _norm(m.group(2))
+        if needle and (needle in body or needle in _norm(m.group(0)) or body_needle in body):
+            return m.group(1)
+    return _record_speaker_hint(rec)
 
 
 def _predicate_for(atom: str) -> str:
@@ -169,9 +194,187 @@ def validate_extracted_claims(rec: MemoryRecord, raw_claims: Iterable[dict[str, 
     return out
 
 
+def _acquisition_claims_from_atom(rec: MemoryRecord, atom: str) -> list[ClaimRecord]:
+    text = re.sub(r"\s+", " ", atom or "").strip()
+    speaker = _speaker_for_atom(rec, text)
+    if not text or not speaker:
+        return []
+    patterns = (
+        r"\b(?:i|we)\s+(?P<verb>bought|purchased|got|received|picked\s+up)\s+(?P<object>[^.;!?]{2,90}?)(?=\s+(?:yesterday|today|last|this|recently|for|from|at|because|remind|reminds)\b|[.;!?]|$)",
+        r"\b(?P<object>[^.;!?]{2,90}?)\s+(?:i|we)\s+(?P<verb>bought|purchased|got|received|picked\s+up)\b",
+    )
+    out: list[ClaimRecord] = []
+    for pat in patterns:
+        for m in re.finditer(pat, text, re.I):
+            obj = _clean_relation_object(m.group("object"))
+            if not obj:
+                continue
+            verb = "buy" if re.search(r"\b(?:bought|purchased|picked)\b", m.group("verb"), re.I) else "receive"
+            claim = _claim_from_atom(rec, text, "event", predicate=verb, value=text)
+            if claim is None:
+                continue
+            claim.subject = speaker
+            claim.object = obj
+            claim.filters = {"action": "acquire"}
+            out.append(claim)
+    return out
+
+
+def _duration_answer_claims_from_text(rec: MemoryRecord) -> list[ClaimRecord]:
+    atoms = _sentences(rec.text or "")
+    out: list[ClaimRecord] = []
+    for idx, question in enumerate(atoms[:-1]):
+        if not re.search(r"\bhow\s+long\b", question, re.I):
+            continue
+        answer = atoms[idx + 1]
+        m = _DURATION_AMOUNT_RE.search(answer)
+        if not m:
+            continue
+        claim = _claim_from_atom(rec, answer, "quantity", predicate="duration answer", value=answer)
+        if claim is None:
+            continue
+        claim.subject = _speaker_for_atom(rec, answer) or claim.subject
+        claim.object = m.group(0).strip()
+        claim.unit = re.sub(r"^.*\s+", "", claim.object).lower()
+        claim.filters = {
+            "question": re.sub(r"^[A-Z][A-Za-z'_-]{1,32}:\s*", "", question).strip(),
+            "answer_type": "duration",
+        }
+        out.append(claim)
+    return out
+
+
+def _action_object_claims_from_atom(rec: MemoryRecord, atom: str) -> list[ClaimRecord]:
+    text = re.sub(r"\s+", " ", atom or "").strip()
+    speaker = _speaker_for_atom(rec, text)
+    if not text or not speaker:
+        return []
+    out: list[ClaimRecord] = []
+    patterns = (
+        r"\b(?:i|we)\s+(?P<verb>[a-z][a-z'-]{2,}(?:ed|t))\s+(?P<object>[^.;!?]{3,90}?)(?=\s+(?:last|this|recently|because|while|when|where|which|that|so)\b|[.;!?]|$)",
+        r"\b(?:i|we)\s+(?P<verb>[a-z][a-z'-]{2,}(?:ed|t))\s+(?:at|in|to|from)\s+(?P<object>[^.;!?]{3,90}?)(?=\s+(?:last|this|recently|because|while|when|where|which|that|so)\b|[.;!?]|$)",
+    )
+    for pat in patterns:
+        for m in re.finditer(pat, text, re.I):
+            obj = _clean_relation_object(m.group("object"))
+            verb = m.group("verb").lower().replace("'", "")
+            if not obj or verb in {"asked", "answered", "said", "told", "wanted"}:
+                continue
+            claim = _claim_from_atom(rec, text, "event", predicate=verb, value=text)
+            if claim is None:
+                continue
+            claim.subject = speaker
+            claim.object = obj
+            claim.filters = {"action": "object"}
+            out.append(claim)
+    return out
+
+
+def _action_location_claims_from_atom(rec: MemoryRecord, atom: str) -> list[ClaimRecord]:
+    text = re.sub(r"\s+", " ", atom or "").strip()
+    speaker = _speaker_for_atom(rec, text)
+    if not text or not speaker:
+        return []
+    out: list[ClaimRecord] = []
+    patterns = (
+        r"\b(?:i|we)\s+(?:(?:just|also|even|then|recently|finally|actually)\s+){0,4}(?P<activity>[a-z][a-z'-]{2,}(?:ed|t|ing))\s+(?:at|in|from)\s+(?P<object>[^.;!?]{3,90}?)(?=\s+(?:last|this|recently|because|while|when|where|which|that|so|with|and)\b|[.;!?]|$)",
+        r"\b(?:i|we)\s+(?:(?:just|also|even|then|recently|finally|actually)\s+){0,4}(?P<activity>went|go|gone|traveled|travelled|drove|drive|walked|hiked|visited|moved)\s+to\s+(?P<object>[^.;!?]{3,90}?)(?=\s+(?:last|this|recently|because|while|when|where|which|that|so|with|and)\b|[.;!?]|$)",
+        r"\b(?:i|we)\s+(?:(?:just|also|even|then|recently|finally|actually)\s+){0,4}(?:went|go|gone|took|take|had|have)\b[^.;!?]{0,70}?\b(?P<activity>[a-z][a-z'-]{2,}ing)(?:\s+(?:trip|outing|session|visit|hike|walk|run|ride|day|weekend|vacation)){0,2}\s+(?:at|in|from)\s+(?P<object>[^.;!?]{3,90}?)(?=\s+(?:last|this|recently|because|while|when|where|which|that|so|with|and)\b|[.;!?]|$)",
+        r"\b(?:my|our|his|her|their|the|this|that)\s+(?:[a-z][a-z'-]{2,}\s+){0,4}?(?P<activity>[a-z][a-z'-]{2,}ing)(?:\s+(?:trip|outing|session|visit|hike|walk|run|ride|day|weekend|vacation)){0,2}\s+(?:at|in|from)\s+(?P<object>[^.;!?]{3,90}?)(?=\s+(?:last|this|recently|because|while|when|where|which|that|so|with|and)\b|[.;!?]|$)",
+    )
+    for pat in patterns:
+        for m in re.finditer(pat, text, re.I):
+            loc = _clean_relation_object(m.group("object"))
+            activity = m.group("activity").lower().replace("'", "")
+            if not loc or activity in {"being", "doing", "going", "having", "taking"}:
+                continue
+            claim = _claim_from_atom(rec, text, "event", predicate=activity, value=text)
+            if claim is None:
+                continue
+            claim.subject = speaker
+            claim.object = loc
+            claim.filters = {"action": "location"}
+            out.append(claim)
+    return out
+
+
+def _relation_object_claims_from_atom(rec: MemoryRecord, atom: str) -> list[ClaimRecord]:
+    text = re.sub(r"\s+", " ", atom or "").strip()
+    if not text:
+        return []
+    out: list[ClaimRecord] = []
+    relation_patterns = (
+        (
+            r"\b(?:this|that|the|my|his|her|their|our)\s+"
+            r"(?P<object>[A-Za-z][A-Za-z0-9'/-]*(?:\s+[A-Za-z][A-Za-z0-9'/-]*){0,4})"
+            r"\s+(?:is|was|'s)\b"
+            r"(?P<context>[^.!?]{0,140}?\b(?:gift|present|souvenir|keepsake)\s+from\s+"
+            r"(?P<source>[^.;!?]+))",
+            "gift from {source}",
+        ),
+        (
+            r"\b(?:have|has|got|received|own|owns|wear|wears|keep|keeps)\s+"
+            r"(?:a|an|the|my|his|her|their|our|this|that)?\s*"
+            r"(?P<object>[A-Za-z][A-Za-z0-9'/-]*(?:\s+[A-Za-z][A-Za-z0-9'/-]*){0,4})"
+            r"\s+(?=(?:that|which|,|-|is|was|'s)\b)"
+            r"(?P<context>[^.!?]{0,140}?\b(?:gift|present|souvenir|keepsake)\s+from\s+"
+            r"(?P<source>[^.;!?]+))",
+            "gift from {source}",
+        ),
+        (
+            r"\b(?P<source>[A-Za-z][A-Za-z0-9'/-]*(?:\s+[A-Za-z][A-Za-z0-9'/-]*){0,4})"
+            r"\s+(?:gave|gifted|sent)\s+(?:me|us|him|her|them)?\s*"
+            r"(?:a|an|the|my|his|her|their|our|this|that)?\s*"
+            r"(?P<object>[A-Za-z][A-Za-z0-9'/-]*(?:\s+[A-Za-z][A-Za-z0-9'/-]*){0,4})",
+            "gift from {source}",
+        ),
+    )
+    for pattern, predicate_template in relation_patterns:
+        for m in re.finditer(pattern, text, re.I):
+            obj = _clean_relation_object(m.group("object"))
+            if not obj:
+                continue
+            source = re.sub(r"\s+", " ", (m.groupdict().get("source") or "").strip(" .,:;!?"))
+            predicate = predicate_template.format(source=source).strip()
+            claim = _claim_from_atom(rec, obj, "state", predicate=predicate, value=obj)
+            if claim is None:
+                continue
+            subject = _subject_for(text, rec)
+            if subject.lower() in {"this", "that", "the", "my"}:
+                subject = _record_speaker_hint(rec) or subject
+            claim.subject = subject
+            claim.object = obj
+            filters = {"relation": "gift"}
+            if source:
+                filters["source"] = source
+            claim.filters = filters
+            out.append(claim)
+    return out
+
+
+def _clean_relation_object(value: str) -> str:
+    value = re.sub(r"\s+", " ", (value or "").strip(" .,:;!?"))
+    value = re.sub(r"^[A-Z][A-Za-z'_-]{1,32}:\s*", "", value)
+    value = re.sub(r"^(?:a|an|the|my|his|her|their|our|this|that|these|those)\s+", "", value, flags=re.I)
+    value = re.split(r"\s+\b(?:i|we|that|which|is|was|from|for|with|because|but|after|before|today|yesterday|tomorrow|last|next|recently)\b", value, maxsplit=1, flags=re.I)[0]
+    value = value.strip(" -")
+    if len(value) < 3:
+        return ""
+    if re.fullmatch(r"(?:thing|things|item|items|one|ones|it|them|me|us|him|her|today|yesterday|tomorrow)", value, re.I):
+        return ""
+    return value[:120]
+
+
 def heuristic_claims_from_text(rec: MemoryRecord) -> list[ClaimRecord]:
-    claims = []
-    for atom in _sentences(rec.text or ""):
+    claims = _duration_answer_claims_from_text(rec)
+    for atom in _sentences(rec.text or "", limit=200):
+        claims.extend(_acquisition_claims_from_atom(rec, atom))
+        claims.extend(_action_location_claims_from_atom(rec, atom))
+        claims.extend(_action_object_claims_from_atom(rec, atom))
+        relation_claims = _relation_object_claims_from_atom(rec, atom)
+        if relation_claims:
+            claims.extend(relation_claims)
+            continue
         claim = _claim_from_atom(rec, atom)
         if claim is not None:
             claims.append(claim)

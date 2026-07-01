@@ -107,6 +107,8 @@ def plan_query(query: str, at: Optional[float] = None) -> ExecutionPlan:
         op, reason = "multi_session_sum", "aggregate scalar question"
     elif re.search(r"\b(?:how\s+much|amount|money|cost|spent|pre[-\s]?approved)\b", low):
         op, reason = "latest_value", "scalar amount lookup"
+    elif re.search(r"\bhow\s+long\b", low):
+        op, reason = "latest_value", "duration lookup"
     elif re.search(r"\b(?:when|what\s+(?:date|day|month|year)|which\s+(?:date|day|month|year))\b", low):
         op, reason = "relative_temporal", "date/time lookup"
     elif re.search(r"\bhow\s+many\s+hours?\b", low) and re.search(r"\b(?:spent|worked|put\s+in)\b", low) and not re.search(r"\b(?:total|sum|combined|altogether)\b", low):
