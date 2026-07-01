@@ -367,6 +367,20 @@ def _clean_relation_object(value: str) -> str:
     return value[:120]
 
 
+_INFO_SEEKING_QUESTION_RE = re.compile(
+    r"^\s*(?:[A-Z][A-Za-z'_-]{1,32}:\s*)?"
+    r"(?:what|when|where|which|who|whom|whose|why|how|do|does|did|is|are|was|were|have|has|had|"
+    r"can|could|would|should|will|shall|any|anything)\b",
+    re.I,
+)
+
+
+def _is_info_seeking_question(atom: str) -> bool:
+    """True interrogatives carry no facts; rhetorical frames ("Remember when I got pre-approved
+    for $400,000?") do and must still crystallize."""
+    return bool(atom.rstrip().endswith("?") and _INFO_SEEKING_QUESTION_RE.match(atom or ""))
+
+
 def _dialogue_answer_claims_from_text(rec: MemoryRecord) -> list[ClaimRecord]:
     """Q->A adjacency crystals: the sentence answering an in-conversation question carries the
     question's terms as filters, so paraphrased slot queries ("plans for the summer") match the
@@ -403,7 +417,7 @@ def heuristic_claims_from_text(rec: MemoryRecord) -> list[ClaimRecord]:
             # Keep the full-sentence claim TOO: the concise relation claim wins on precision,
             # but the sentence keeps the verb visible for attribution ("who gave ...").
             claims.extend(relation_claims)
-        if atom.rstrip().endswith("?"):
+        if _is_info_seeking_question(atom):
             continue  # questions are dialogue context, not facts; Q->A adjacency covers them
         claim = _claim_from_atom(rec, atom)
         if claim is not None:

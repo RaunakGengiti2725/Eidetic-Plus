@@ -1302,7 +1302,14 @@ def test_eidetic_full_uses_structured_recall_for_romantic_rome_restaurant(tmp_pa
     e = _engine_with_client(tmp_path, monkeypatch, client)
     sys = EideticFullSystem(engine=e)
     sys.reset("ns")
+    # The user turn establishes the Rome/Italian context exactly as the live conversation does;
+    # without it the source genuinely does not entail "Italian restaurant in Rome" and the
+    # fail-closed verifier must refuse, so a single-turn fixture would test the wrong contract.
     sys.ingest_session("ns", "rome", [
+        {"role": "user", "content": (
+            "We're planning a special dinner during our trip to Rome next week. "
+            "Can you suggest an Italian restaurant there?"
+        )},
         {"role": "assistant", "content": (
             "For a romantic dinner, I would recommend Roscioli. It has a cozy and "
             "intimate atmosphere with soft lighting and excellent service."

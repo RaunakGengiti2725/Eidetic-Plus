@@ -438,6 +438,17 @@ def _record_atoms(query: str, records: Iterable[MemoryRecord]) -> list[tuple[flo
 def _answer_value_specific(query: str, atom: str, item: object | None = None) -> str:
     q = (query or "").lower()
     text = _strip_role(atom)
+    if re.search(r"\b(?:before|previous(?:ly)?|old|formerly|originally|used\s+to)\b", q):
+        # Prior-value question: return the SUPERSEDED value, not the current one.
+        for pat in (
+            r"\b(?:old|previous|former|maiden)\s+\w*\s*(?:name\s+)?(?:was|were)\s+([A-Z][\w'-]+(?:\s+[A-Z][\w'-]+){0,3})",
+            r"\bused\s+to\s+be\s+(?:called\s+)?([A-Z][\w'-]+(?:\s+[A-Z][\w'-]+){0,3})",
+            r"\bwas\s+([A-Z][\w'-]+(?:\s+[A-Z][\w'-]+){0,3})\s*(?:,?\s*but\s+now|\s+before|\s+until)\b",
+            r"\bformerly\s+(?:known\s+as\s+)?([A-Z][\w'-]+(?:\s+[A-Z][\w'-]+){0,3})",
+        ):
+            m = re.search(pat, text)
+            if m:
+                return _clean(m.group(1))
     if re.search(r"\brelationship status|marital status|single|married|dating|partner\b", q):
         m = re.search(r"\b(single|married|divorced|separated|widowed|dating|engaged)\b", text, re.I)
         if m:
@@ -4391,7 +4402,11 @@ def _execute_atoms(plan: ExecutionPlan, query: str,
     scalar_amount_query = bool(re.search(r"\bhow\s+much|\bamount\b|\bmoney\b|\bcost\b|\bspent\b|\bpre[-\s]?approved\b", query or "", re.I))
     media_example_query = bool(re.search(r"\bshow\b|\bseasons?\b|\bstream(?:ing|box|service)?\b|\ball\s+seasons\b", query or "", re.I))
     duration_value_query = bool(re.search(r"\bhow\s+(?:long|often)\b", query or "", re.I))
-    if _requires_verified_synthesis(query) and not (scalar_amount_query or media_example_query or duration_value_query):
+    # A wh-shaped likelihood question ("What fields would X likely pursue?") asks for a stated
+    # VALUE, not a yes/no synthesis; the target-gated specific extractor below may answer it.
+    likely_value_query = bool(re.search(r"^\s*(?:what|which)\b", query or "", re.I)
+                              and re.search(r"\blikely\b", query or "", re.I))
+    if _requires_verified_synthesis(query) and not (scalar_amount_query or media_example_query or duration_value_query or likely_value_query):
         return None
     specific_hits = []
     for score, item, atom in atoms:

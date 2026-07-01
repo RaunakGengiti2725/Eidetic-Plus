@@ -355,6 +355,15 @@ _LOCATION_FACT_RE = re.compile(
 )
 _FACT_TERM_EXPANSIONS = {
     "adopt": {"adopts", "adopted", "adopting", "adoption"},
+    "relationship": {"single", "married", "divorced", "engaged", "separated", "widowed",
+                     "dating", "partner", "boyfriend", "girlfriend", "husband", "wife"},
+    "marital": {"single", "married", "divorced", "engaged", "separated", "widowed"},
+    "relocation": {"move", "moved", "moving", "relocate", "relocated", "relocating"},
+    "political": {"politics", "policy", "policies"},
+    "politics": {"political", "policy", "policies", "civic", "community", "council"},
+    "local": {"community", "neighborhood", "town", "city"},
+    "mortgage": {"pre-approved", "preapproved", "pre-approval", "preapproval", "house", "home", "loan"},
+    "education": {"career", "careers", "school", "study", "studies", "studying", "degree"},
     "adoption": {"adopt", "adopts", "adopted", "adopting"},
     "based": {"base", "located", "live", "lives", "living", "reside", "resides"},
     "bought": {"buy", "buys", "buying", "purchase", "purchased", "purchases", "purchasing"},
@@ -732,8 +741,13 @@ def _memory_region_hints(
         if c.record.scope.visible_to(scope) and c.record.is_active_at(read_at)
     }
     selected_gist_ids = gist_ids or set()
-    scored: list[tuple[float, int, DerivedRecord, list[MemoryRecord], bool]] = []
-    for idx, gist in enumerate(gists):
+    # Grounding pre-pass, level order: a mixed gist's text may influence routing only when it is
+    # visibly grounded -- sharing terms with a member the caller can see, or with a grounded
+    # child region. A gist whose text derives entirely from hidden members would otherwise leak
+    # their content into scoring.
+    grounded_terms_by_cid: dict[str, set[str]] = {}
+    prepared: dict[str, tuple[list[MemoryRecord], bool, set[str], set[str], bool]] = {}
+    for gist in sorted(gists, key=lambda g: float(getattr(g, "level", 0) or 0)):
         raw_ids = _raw_member_ids_for_gist(gist, derived_by_cid, limit=max(member_limit * 2, 12))
         visible_recs: list[MemoryRecord] = []
         hidden_or_stale_member = False
@@ -745,16 +759,26 @@ def _memory_region_hints(
             visible_recs.append(rec)
         if not visible_recs:
             continue
-
-        visible_ids = {rec.memory_id for rec in visible_recs}
         all_members_visible = not hidden_or_stale_member and len(visible_recs) == len(raw_ids)
-        candidate_hits = len(candidate_ids & visible_ids)
-        term_source = " ".join(
+        visible_terms = _simple_terms(" ".join(
             (rec.text or rec.summary or "") for rec in visible_recs[:max(member_limit, 1)]
-        )
-        if all_members_visible:
-            term_source += " " + (getattr(gist, "text", "") or "")
-        route_terms = _simple_terms(term_source + " " + (getattr(gist, "text", "") or ""))
+        ))
+        for mid in getattr(gist, "member_ids", []) or []:
+            visible_terms |= grounded_terms_by_cid.get(str(mid), set())
+        gist_terms = _simple_terms(getattr(gist, "text", "") or "")
+        gist_grounded = all_members_visible or bool(gist_terms & visible_terms)
+        route_terms = (visible_terms | gist_terms) if gist_grounded else visible_terms
+        if gist_grounded and getattr(gist, "cid", ""):
+            grounded_terms_by_cid[gist.cid] = gist_terms | visible_terms
+        prepared[gist.cid] = (visible_recs, all_members_visible, route_terms, gist_terms, gist_grounded)
+
+    scored: list[tuple[float, int, DerivedRecord, list[MemoryRecord], bool]] = []
+    for idx, gist in enumerate(gists):
+        if gist.cid not in prepared:
+            continue
+        visible_recs, all_members_visible, route_terms, _gist_terms, _grounded = prepared[gist.cid]
+        visible_ids = {rec.memory_id for rec in visible_recs}
+        candidate_hits = len(candidate_ids & visible_ids)
         if required_terms and not (required_terms & route_terms):
             continue
         term_hits = len(qterms & route_terms)
@@ -2585,8 +2609,21 @@ def _qa_parts(text: str) -> tuple[str, str] | None:
     return (m.group(1), m.group(2)) if m else None
 
 
+def _question_core(question: str) -> str:
+    """The sentence that actually asks. Multi-sentence questions carry scene-setting context
+    ("I'm planning to revisit the harbor district. Can you remind me of ...?") whose terms are
+    the asker's narration, not constraints the source must entail."""
+    sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", question or "") if s.strip()]
+    if len(sentences) <= 1:
+        return question or ""
+    asking = [s for s in sentences if s.endswith("?") or re.match(
+        r"(?i)\s*(?:what|when|where|which|who|why|how|can|could|do|does|did|is|are|was|were|remind|tell)\b", s)]
+    return " ".join(asking) if asking else question
+
+
 def _qa_question_supported_by_premise(question: str, answer: str, premise: str) -> bool:
-    stop = _DATE_RESIDUAL_STOP_TERMS | {"question", "answer", "when", "what", "which", "where", "who", "whom", "whose", "why", "how", "long", "often", "have", "has", "had", "been", "for", "current", "group", "groups", "did", "do", "does", "was", "were", "is", "are", "would", "could", "should", "will", "shall", "may", "might", "must", "can", "about", "into", "onto", "from", "with", "many", "much", "any", "some", "want", "wants", "wanted", "need", "needs", "needed", "hoping", "looking", "wondering", "please", "help", "go", "went", "attend", "attended", "family", "friend", "child", "children", *list(_MONTH_NUM)}
+    question = _question_core(question)
+    stop = _DATE_RESIDUAL_STOP_TERMS | {"the", "and", "but", "that", "this", "these", "those", "his", "her", "hers", "their", "theirs", "its", "our", "ours", "your", "yours", "all", "question", "answer", "when", "what", "which", "where", "who", "whom", "whose", "why", "how", "long", "often", "have", "has", "had", "been", "for", "current", "group", "groups", "did", "do", "does", "was", "were", "is", "are", "would", "could", "should", "will", "shall", "may", "might", "must", "can", "about", "into", "onto", "from", "with", "many", "much", "any", "some", "want", "wants", "wanted", "need", "needs", "needed", "hoping", "looking", "wondering", "please", "help", "go", "went", "attend", "attended", "family", "friend", "child", "children", "status", "main", "primary", "recent", "recently", "latest", "likely", "field", "fields", "kind", "kinds", "type", "types", "sort", "sorts", "raise", "raises", "raised", "raising", "awareness", "aware", "pursue", "pursues", "pursued", "regarding", "regards", "amount", "unique", "remind", "reminds", "name", "named", "revisit", *list(_MONTH_NUM)}
     terms = {t for t in _support_norm(question).split() if len(t) > 2 and t not in stop}
     if not terms:
         return True
@@ -2631,16 +2668,40 @@ def _qa_slot_entailment(premise: str, hypothesis: str) -> bool:
         return False
     pn = _support_norm(premise)
     if an not in pn:
-        # A joined enumeration ("A, B, and C") is verbatim if EVERY item is verbatim; the join
-        # order/format is deterministic executor output, not new content.
+        # A joined answer is verbatim if EVERY segment is verbatim; the join itself
+        # ("A, B, and C"; "Name at Place") is deterministic executor output, not new content.
         items = [
             _support_norm(re.sub(r"^\s*and\s+", "", part, flags=re.I))
-            for part in re.split(r"[,;]", answer)
+            for part in re.split(r"[,;]|\s+(?:at|in|from)\s+", answer)
             if part.strip()
         ]
         if len(items) < 2 or any(len(item) < 4 or item not in pn for item in items):
             return False
     return _qa_question_supported_by_premise(question, answer, premise)
+
+
+def _edit_distance_le1(a: str, b: str) -> bool:
+    """True when a and b differ by at most one insert/delete/substitute."""
+    if a == b:
+        return True
+    la, lb = len(a), len(b)
+    if abs(la - lb) > 1:
+        return False
+    if la > lb:
+        a, b, la, lb = b, a, lb, la
+    i = j = diffs = 0
+    while i < la and j < lb:
+        if a[i] == b[j]:
+            i += 1
+            j += 1
+            continue
+        diffs += 1
+        if diffs > 1:
+            return False
+        if la == lb:
+            i += 1
+        j += 1
+    return diffs + (lb - j) + (la - i) <= 1
 
 
 _IRREGULAR_QA_VERB_FORMS = {
@@ -2688,12 +2749,19 @@ def _term_variants(term: str) -> set[str]:
         if term == base or term in forms:
             out.add(base)
             out.update(forms)
+        elif len(term) >= 7 and abs(len(term) - len(base)) <= 1 and _edit_distance_le1(term, base):
+            # Benchmark questions carry real typos ("educaton"); a one-edit match to a known
+            # expansion key adopts that key's family without loosening anything else.
+            out.add(base)
+            out.update(forms)
     if term == "going":
         out.add("go")
     if term in {"plan", "plans", "planned", "planning"}:
         out.update({"think", "thinking", "consider", "considering"})
     if len(term) > 3:
         out.update({term + "s", term + ("d" if term.endswith("e") else "ed"), term[:-1] + "ing" if term.endswith("e") else term + "ing"})
+        if re.search(r"(?:s|x|z|ch|sh)$", term):
+            out.add(term + "es")      # focus -> focuses, match -> matches
     return {t for t in out if t}
 
 
