@@ -334,6 +334,18 @@ class Settings:
     compression_ratio: float = field(default_factory=lambda: float(_get("COMPRESSION_RATIO", "1.0")))
     # Index pruning by STATIC salience (surprise+importance, age-independent); 0.0 = off. Never WORM.
     salience_prune_threshold: float = field(default_factory=lambda: float(_get("SALIENCE_PRUNE_THRESHOLD", "0.0")))
+    # Claim crystallization at consolidation (tier-1 typed structure). Part of the metabolism
+    # profile: the metabolism-off ablation sets CLAIM_EXTRACTION=0 so the delta measures what
+    # consolidation-written structure actually earns.
+    claim_extraction_enabled: bool = field(default_factory=lambda: _get_bool("CLAIM_EXTRACTION", "1"))
+    # Crystallized-record span demotion (claim-crystal phase states): once a raw record's facts
+    # are crystallized into claims, its full text stops paying context cost on the fallback path;
+    # it contributes a bounded query-centered span instead, UNLESS its affect salience marks it
+    # vivid. Effective only when the priority-forgetting knobs are on, so forgetting-off ablations
+    # measure the true cost of keeping everything hot. Default OFF (neutral path byte-identical).
+    crystal_span_demotion_enabled: bool = field(default_factory=lambda: _get_bool("CRYSTAL_SPAN_DEMOTION", "0"))
+    crystal_span_chars: int = field(default_factory=lambda: _get_int("CRYSTAL_SPAN_CHARS", 600))
+    salience_vivid_threshold: float = field(default_factory=lambda: float(_get("SALIENCE_VIVID_THRESHOLD", "0.55")))
 
     # --- Layer 2: per-query hot-path optimizers (all default OFF / current behavior) -----
     # 2a Adaptive-k: cut the final candidate list at the largest score gap (token savings).

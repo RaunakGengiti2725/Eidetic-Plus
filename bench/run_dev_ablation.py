@@ -33,6 +33,9 @@ METABOLISM_OFF_ENV = {
     "PREF_SENTENCE_SCAN": "0",
     "TEMPORAL_RERANK": "0",
     "CONFLICT_RESOLVER": "0",
+    # Claims are consolidation-written tier-1 structure; metabolism-off must lose them or the
+    # ablation understates what consolidation earns.
+    "CLAIM_EXTRACTION": "0",
 }
 FORGETTING_OFF_ENV = {
     # These are reversible index/context cost controls, not raw-record deletion. If a release run
@@ -216,6 +219,10 @@ def build_run_specs(*, out_root: Path, samples_file: Path, systems: str, dataset
         "METABOLISM_MODE": "1",
         "AFFECT_SALIENCE": "1",
         "GIST_CHANNEL": "1",
+        # Claim-crystal span demotion is the forgetting profile under test: every role carries
+        # the flag, and only the roles whose pruning knobs are non-zero actually demote, so the
+        # forgetting-off row pays the true keep-everything-hot cost.
+        "CRYSTAL_SPAN_DEMOTION": "1",
         **(common_env or {}),
     }
     role_envs = {

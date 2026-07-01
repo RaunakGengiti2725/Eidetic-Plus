@@ -4247,16 +4247,33 @@ class Retriever:
         ordered_candidates = self._hopfield_order(candidates)
         if self.settings.temporal_rerank_enabled:
             ordered_candidates = _temporal_context_order(query, parsed, ordered_candidates)
+        # Claim-crystal phase demotion: once a record's facts are crystallized into claims, the
+        # priority-forgetting profile stops paying full-text context cost for it -- it contributes
+        # a bounded query-centered span instead. Records the affect layer marked VIVID (high
+        # static salience) keep their full text: affect decides what stays hot, which is exactly
+        # what the affect-off ablation measures. Inactive unless the demotion flag AND at least
+        # one forgetting knob are on, so forgetting-off runs pay the true keep-everything cost.
+        s = self.settings
+        demotion_active = (
+            s.crystal_span_demotion_enabled
+            and (s.dream_prune_percentile > 0.0 or s.salience_prune_threshold > 0.0)
+        )
         for c in ordered_candidates:
             txt = c.record.text or c.record.summary or ""
+            demote = (
+                demotion_active
+                and int(c.record.metadata.get("claims_extracted", 0) or 0) > 0
+                and float(c.record.salience or 0.0) < s.salience_vivid_threshold
+            )
             txt = _raw_query_centered_span(
                 txt,
                 query,
-                long_threshold_chars=self.settings.raw_span_min_chars,
-                span_count=max(1, int(self.settings.raw_span_per_record)),
+                long_threshold_chars=(s.crystal_span_chars if demote else s.raw_span_min_chars),
+                max_chars=(s.crystal_span_chars if demote else 3_200),
+                span_count=1 if demote else max(1, int(s.raw_span_per_record)),
             )
-            if self.settings.context_compress_enabled and self.settings.compression_ratio < 1.0:
-                txt = compress_chunk(txt, query, self.settings.compression_ratio)
+            if s.context_compress_enabled and s.compression_ratio < 1.0:
+                txt = compress_chunk(txt, query, s.compression_ratio)
             if c.record.valid_at:
                 txt = f"[Session date {_dt.date.fromtimestamp(c.record.valid_at).isoformat()}] {txt}"
             raw_blocks.append(txt)

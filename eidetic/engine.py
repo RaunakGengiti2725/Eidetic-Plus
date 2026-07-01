@@ -1617,10 +1617,36 @@ class Engine:
             rec.metadata["pending_consolidation"] = False
             rec.metadata["dates"] = [r["start"] for r in date_ranges]
             rel_by_id[rec.memory_id] = [t["relation"] for t in triples]
-            claims = claims_for_record(rec, triples=triples, extracted_claims=extracted_claims)
-            if claims:
-                claims_total += self.store.add_claims(claims)
-                rec.metadata["claims_extracted"] = len(claims)
+            if self.settings.claim_extraction_enabled:
+                claims = claims_for_record(rec, triples=triples, extracted_claims=extracted_claims)
+                if claims:
+                    claims_total += self.store.add_claims(claims)
+                    rec.metadata["claims_extracted"] = len(claims)
+            # Affect-modulated salience for the async write path (the fast LLM-free ingest defers
+            # it): one bounded qwen-flash affect call per record during sleep, so replay/retrieve
+            # policy sees what mattered emotionally even for bulk-ingested sessions. Age-free.
+            if self.settings.affect_salience_enabled and "arousal" not in rec.metadata:
+                scorer = getattr(self.client, "score_affect", None)
+                if callable(scorer):
+                    try:
+                        aff = scorer(rec.text)
+                        emph = salience_mod.emphasis_score(rec.text)
+                        s = self.settings
+                        rec.importance = float(aff.get("importance", rec.importance))
+                        rec.salience = salience_mod.affect_salience(
+                            float(aff.get("arousal", 0.3)), rec.importance, rec.surprise, emph, 0.0,
+                            w_arousal=s.affect_w_arousal, w_importance=s.affect_w_importance,
+                            w_surprise=s.affect_w_surprise, w_emphasis=s.affect_w_emphasis,
+                            w_helpful=s.affect_w_helpful)
+                        rec.metadata.update({
+                            "arousal": float(aff.get("arousal", 0.3)),
+                            "valence": float(aff.get("valence", 0.0)),
+                            "emphasis": emph,
+                        })
+                    except Exception:
+                        # Consolidation must not die on one affect-scoring failure; the record
+                        # keeps its surprise-derived salience.
+                        pass
             self.store.upsert_record(rec)
             self.retriever.index_lexical(rec, save=False)
 

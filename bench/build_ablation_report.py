@@ -282,9 +282,13 @@ def build_ablation_report(
         0.0,
         (forgetting["verified_accuracy"] - full["verified_accuracy"]) * 100.0,
     )
+    # Mean, not median: once claim-backed tier-1 answers dominate, BOTH profiles' medians sit on
+    # near-zero-token claim rows and the median ratio saturates at 1.0 no matter how much the
+    # forgetting profile saves on the fallback tail. The mean is the per-query workload cost
+    # (total tokens / queries), which is what forgetting actually buys.
     forgetting_cost_ratio = (
-        forgetting["query_tokens_median"] / full["query_tokens_median"]
-        if full["query_tokens_median"] > 0 else 0.0
+        forgetting["query_tokens_mean"] / full["query_tokens_mean"]
+        if full["query_tokens_mean"] > 0 else 0.0
     )
     if metabolism_delta_pp < min_metabolism_accuracy_delta_pp:
         failures.append(

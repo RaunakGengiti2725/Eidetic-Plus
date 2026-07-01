@@ -153,8 +153,11 @@ _ACCURACY_KEYS = (
     "exact_match",
 )
 _COST_KEYS = (
-    "query_tokens_median",
+    # Mean first: with claim-backed tier-1 answers dominating, both profiles' medians sit
+    # on near-zero-token claim rows and a median ratio saturates at 1.0; the mean is the
+    # per-query workload cost that forgetting actually buys.
     "query_tokens_mean",
+    "query_tokens_median",
     "query_tokens_p50",
     "total_tokens_median",
     "tokens_median",
