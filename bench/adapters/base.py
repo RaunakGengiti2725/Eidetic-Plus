@@ -1,5 +1,5 @@
-"""The system-under-test interface. Every system (Eidetic-Plus, Mem0, Graphiti) conforms
-to this so the harness drives all three IDENTICALLY -- same ingest loop, same answerer
+"""The system-under-test interface. Every system conforms
+to this so the harness drives every row IDENTICALLY -- same ingest loop, same answerer
 call, same judge. That "by construction" identity is what makes the comparison neutral.
 """
 from __future__ import annotations
@@ -10,7 +10,7 @@ from typing import Optional
 
 
 def approx_tokens(text: str) -> int:
-    """Uniform token estimate (~4 chars/token) applied IDENTICALLY to all three systems,
+    """Uniform token estimate (~4 chars/token) applied IDENTICALLY to every system,
     so tokens/write and tokens/query are an apples-to-apples comparison of how much text
     each system feeds the models -- not a vendor-reported figure."""
     return max(0, len(text or "") // 4)
@@ -47,14 +47,20 @@ class MemorySystem(ABC):
                        session_time: Optional[float] = None) -> WriteResult:
         """Ingest one session's turns. turns = [{'role','content','timestamp'?}]."""
 
-    def consolidate(self, namespace: str) -> None:
+    def consolidate(self, namespace: str) -> dict:
         """Optional async/offline build step (graph, facts). Default no-op."""
-        return None
+        return {}
 
     @abstractmethod
     def answer(self, namespace: str, question: str,
                as_of: Optional[float] = None) -> AnswerResult:
         """Answer using only the memory in `namespace` (the one fixed reader path)."""
+
+    def after_answer(self, namespace: str, question: str, result: AnswerResult, *,
+                     correct: Optional[bool] = None, as_of: Optional[float] = None) -> dict:
+        """Optional post-answer hook for systems with read-time learning/reinforcement.
+        The default keeps baselines byte-identical."""
+        return {}
 
     def teardown(self) -> None:
         return None

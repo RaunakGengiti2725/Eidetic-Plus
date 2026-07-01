@@ -91,7 +91,7 @@ flag-gated machinery**. Realizing measurable gains requires the runbook below.
 # 0. Restore paid quota: disable "use free tier only" in the DashScope console (or add billing).
 
 # 1. Baseline on the held-out TEST split (the reported number).
-python -m bench.run --systems eidetic,mem0,graphiti --dataset both --runs 10 --split test
+python -m bench.run --systems eidetic,eidetic-full,eidetic-product,rag-full,rag-vector,mem0,graphiti --dataset both --runs 10 --split test
 
 # 2. Tune on the private DEV split only (numpy TPE, multi-objective Pareto). Never touches test.
 python -m bench.sweep --sampler tpe --dataset locomo --subset 50 --trials 24 --split dev
@@ -101,8 +101,9 @@ python -m bench.sweep --sampler tpe --dataset locomo --subset 50 --trials 24 --s
 python -m bench.calibrate --method conformal --split dev   # -> CONFORMAL_QHAT
 python -m bench.calibrate --method precision --split dev   # -> ABSTENTION_THRESHOLD
 
-# 4. Apply the winning flags (from best_config.json) to .env, then RE-MEASURE on test.
-python -m bench.run --systems eidetic --dataset both --runs 10 --split test
+# 4. Apply the winning flags (from best_config.json) to .env, then RE-MEASURE on test and gate.
+python -m bench.run --systems eidetic,eidetic-full,rag-full,rag-vector,mem0,graphiti --dataset both --runs 10 --split test
+python -m bench.release_gate --out artifacts/bench --report-out artifacts/guard/release_gate.md
 
 # Promote a config only if DEV accuracy holds and the chosen objective improves. Report every
 # number with its token cost + latency + variance, and treat published targets as DIRECTION.

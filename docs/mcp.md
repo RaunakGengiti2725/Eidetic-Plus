@@ -75,7 +75,8 @@ optional defaults; an explicit tool argument always wins over them.
 
 Point the client at the command `uvx` with argument `eidetic-plus` (or `python -m
 eidetic.mcp_server`) over stdio. For remote or shared use, run
-`eidetic-plus --transport http --http-port 8765`.
+`eidetic-plus --http --http-port 8765` (or the explicit form
+`eidetic-plus --transport http --http-port 8765`).
 
 ## Verify it works
 

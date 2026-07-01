@@ -27,6 +27,9 @@ from __future__ import annotations
 
 import os
 import time
+import importlib.util
+import threading
+import queue
 from typing import Any, Optional
 
 from eidetic.config import get_settings
@@ -36,6 +39,43 @@ from .base import AnswerResult, MemorySystem, WriteResult, approx_tokens
 
 _LLM_MODEL = os.environ.get("BENCH_BASELINE_LLM", "qwen-flash")  # baseline extraction LLM (funded)
 _EMBED_MODEL = "text-embedding-v4"
+
+
+class _Mem0CallTimeout(TimeoutError):
+    pass
+
+
+def _call_with_hard_deadline(call, timeout_s: float, op: str) -> Any:
+    """Run a third-party Mem0/OpenAI call behind a process-survivable wall clock.
+
+    OpenAI/httpx socket timeouts are per I/O phase, not a guaranteed total deadline, and
+    SIGALRM can be deferred while CPython is blocked in SSL reads on macOS. A daemon worker
+    lets the benchmark fail loud and render the completed rows even if a vendor call wedges.
+    """
+    if timeout_s <= 0.0:
+        return call()
+
+    out: queue.Queue[tuple[bool, Any]] = queue.Queue(maxsize=1)
+
+    def _runner() -> None:
+        try:
+            out.put((True, call()))
+        except BaseException as exc:  # noqa: BLE001 - re-raised in the caller thread
+            out.put((False, exc))
+
+    worker = threading.Thread(target=_runner, name=f"mem0-{op}-deadline", daemon=True)
+    worker.start()
+    worker.join(timeout_s)
+    if worker.is_alive():
+        raise _Mem0CallTimeout(f"Mem0 {op} exceeded wall-clock timeout of {timeout_s:.3f}s")
+
+    try:
+        ok, payload = out.get_nowait()
+    except queue.Empty as exc:  # defensive: the thread ended without surfacing a result.
+        raise _Mem0CallTimeout(f"Mem0 {op} ended without returning within {timeout_s:.3f}s") from exc
+    if ok:
+        return payload
+    raise payload
 
 
 def _is_skippable_add_error(exc: Exception) -> bool:
@@ -49,6 +89,43 @@ def _is_skippable_add_error(exc: Exception) -> bool:
                             "content_filter", "content filter")):
         return True
     return ("400" in m) or ("bad request" in m) or ("badrequest" in m)
+
+
+def _optional_health() -> dict:
+    """Report optional Mem0 capabilities that materially affect baseline strength.
+
+    Mem0 can still run without spaCy/fastembed, but those missing packages disable useful
+    keyword/local paths in current releases. A public benchmark should surface that as a
+    degraded competitor, not quietly count it as a fully healthy baseline.
+    """
+    probes = {
+        "spacy": importlib.util.find_spec("spacy") is not None,
+        "fastembed": importlib.util.find_spec("fastembed") is not None,
+    }
+    missing = [name for name, ok in probes.items() if not ok]
+    return {
+        "status": "ok" if not missing else "degraded",
+        "system": "mem0",
+        "optional_capabilities": probes,
+        "missing_optional": missing,
+        "strict": os.environ.get("STRICT_BASELINE_HEALTH", "").strip().lower()
+        in ("1", "true", "yes", "on"),
+    }
+
+
+def _bound_openai_compatible_clients(memory: Any, timeout_s: float, max_retries: int) -> None:
+    """Apply benchmark timeouts to Mem0's underlying OpenAI-compatible clients.
+
+    Mem0 constructs its own OpenAI clients internally and its public config does not expose a
+    timeout knob in the installed version. `with_options` preserves the same base URL/key/model
+    while bounding liveness; it does not change Mem0 retrieval or scoring logic.
+    """
+    for owner_name in ("llm", "embedding_model"):
+        owner = getattr(memory, owner_name, None)
+        client = getattr(owner, "client", None)
+        with_options = getattr(client, "with_options", None)
+        if callable(with_options):
+            owner.client = with_options(timeout=timeout_s, max_retries=max(0, int(max_retries)))
 
 
 class Mem0System(MemorySystem):
@@ -84,6 +161,14 @@ class Mem0System(MemorySystem):
         # any code path that bypasses the explicit config dict.
         os.environ["OPENAI_API_KEY"] = api_key
         os.environ["OPENAI_BASE_URL"] = base_url
+        self._health = _optional_health()
+        if self._health["strict"] and self._health["status"] != "ok":
+            missing = ", ".join(self._health["missing_optional"])
+            raise RuntimeError(
+                "Mem0 baseline is degraded because optional capability packages are missing: "
+                f"{missing}. Install the benchmark baselines fully or unset "
+                "STRICT_BASELINE_HEALTH for exploratory runs."
+            )
 
         # Mem0's qdrant store defaults to a PERSISTENT path (/tmp/qdrant). If a collection
         # already exists there at the wrong dim (1536, OpenAI's), our 1024 is ignored and
@@ -92,6 +177,7 @@ class Mem0System(MemorySystem):
         import uuid
 
         self._qdrant_path = str(s.data_dir / "mem0_qdrant" / uuid.uuid4().hex)
+        self._call_timeout_s = float(s.dashscope_request_timeout_sec)
         shutil.rmtree(self._qdrant_path, ignore_errors=True)
 
         # Mem0 config dict: both LLM and embedder are OpenAI-compatible, pointed at
@@ -133,6 +219,11 @@ class Mem0System(MemorySystem):
         # mem0ai version, raise a clear ModelCallError-style message -- never a silent mock.
         try:
             self._memory = Memory.from_config(config)
+            _bound_openai_compatible_clients(
+                self._memory,
+                float(s.dashscope_request_timeout_sec),
+                min(2, int(s.dashscope_max_retries)),
+            )
         except Exception as e:  # noqa: BLE001 - re-raised loudly below
             raise RuntimeError(
                 "Mem0 Memory.from_config(...) failed to build a real store. This usually "
@@ -216,7 +307,7 @@ class Mem0System(MemorySystem):
             search_ms=search_ms,
             e2e_ms=e2e_ms,
             abstained=False,
-            extra={"hits": len(context_blocks)},
+            extra={"hits": len(context_blocks), "baseline_health": self._health},
         )
 
     def _search(self, question: str, namespace: str, limit: int) -> Any:
@@ -270,8 +361,7 @@ class Mem0System(MemorySystem):
         "takes from",
     )
 
-    @classmethod
-    def _try_calls(cls, attempts, op: str) -> Any:
+    def _try_calls(self, attempts, op: str) -> Any:
         """Try each call FORM in order, falling back ONLY on an argument-binding TypeError
         (the signature didn't match this mem0 version). Every other exception -- including a
         ValueError (mem0 2.0.7 raises ValueError for empty/invalid queries, bad
@@ -281,12 +371,13 @@ class Mem0System(MemorySystem):
         The primary (2.0.7) form is always attempt #0, so in normal operation the fallback
         never fires and a real failure surfaces immediately with its true cause."""
         sig_errors: list[str] = []
+        timeout_s = float(getattr(self, "_call_timeout_s", get_settings().dashscope_request_timeout_sec))
         for call in attempts:
             try:
-                return call()
+                return _call_with_hard_deadline(call, timeout_s, op)
             except TypeError as e:
                 msg = str(e).lower()
-                if any(h in msg for h in cls._BINDING_HINTS):
+                if any(h in msg for h in self._BINDING_HINTS):
                     # Signature mismatch for this mem0 version: record and try the next form.
                     sig_errors.append(repr(e))
                     continue

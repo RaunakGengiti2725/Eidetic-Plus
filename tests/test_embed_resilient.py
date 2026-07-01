@@ -7,8 +7,10 @@ The full raw text always stays in the substrate; only the over-length input's ve
 Fully offline (fake SDK)."""
 from __future__ import annotations
 
+import time
 from dataclasses import replace
 
+import numpy as np
 import pytest
 
 from eidetic.dashscope_client import (DashScopeClient, ModelCallError,
@@ -36,7 +38,7 @@ class _FakeTE:
     def __init__(self):
         self.calls = []
 
-    def call(self, model, input, dimension):
+    def call(self, model, input, dimension, **_kwargs):
         self.calls.append(list(input))
         if any(len(t) > 100 for t in input):
             return _Resp(400, message="InvalidParameter: Range of input length should be [1, 33000]")
@@ -46,7 +48,7 @@ class _FakeTE:
 
 class _FakeBadRequestTE(_FakeTE):
     """A non-length 400 (must NOT be truncate-retried)."""
-    def call(self, model, input, dimension):
+    def call(self, model, input, dimension, **_kwargs):
         self.calls.append(list(input))
         return _Resp(400, message="InvalidParameter: some other bad request")
 
@@ -76,3 +78,22 @@ def test_embed_raw_propagates_non_length_400(fresh_settings):
     c = _client(fresh_settings, _FakeBadRequestTE())
     with pytest.raises(ModelCallError):
         c._embed_raw(["x" * 500])                      # a non-length 400 still fails loud
+
+
+def test_embed_raw_parallel_batches_preserve_input_order(fresh_settings):
+    c = _client(fresh_settings, _FakeTE())
+    c.settings = replace(c.settings, embed_batch_parallelism=3)
+    seen_batches = []
+
+    def fake_batch(batch):
+        seen_batches.append(list(batch))
+        # Complete later batches first; _embed_raw must still return vectors in input order.
+        delay = 0.03 if batch[0] == "0" else 0.005
+        time.sleep(delay)
+        return [[float(text)] * fresh_settings.embed_dim for text in batch]
+
+    c._embed_batch_call = fake_batch
+    vecs = c._embed_raw([str(i) for i in range(25)])
+    assert vecs.shape == (25, fresh_settings.embed_dim)
+    assert np.array_equal(vecs[:, 0], np.arange(25, dtype=np.float32))
+    assert sorted(len(batch) for batch in seen_batches) == [5, 10, 10]

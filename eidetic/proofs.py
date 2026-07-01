@@ -61,6 +61,7 @@ def prove_answer(answer: Answer, trace: Optional[RecallTrace] = None) -> dict:
         out["recall_trace"] = {
             "enabled_channels": list(trace.enabled_channels),
             "selected": list(trace.selected_candidates),
+            "region_hints": list(trace.region_hints),
             "latency_by_stage": dict(trace.latency_by_stage),
         }
     return out

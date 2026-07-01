@@ -1,7 +1,57 @@
 """Offline tests for MIRIX role typing + Markov prefetch wiring (no key)."""
 from __future__ import annotations
 
+import hashlib
+import re
+from dataclasses import replace
+
+import numpy as np
+
 from eidetic.memory_types import MemoryType, classify_memory_type, type_priority
+from eidetic.models import BrainEventType, MemoryRecord, Scope
+
+
+class _VectorClient:
+    def __init__(self, dim: int):
+        self.dim = dim
+
+    def _e(self, text: str):
+        v = np.zeros(self.dim, np.float32)
+        for tok in re.findall(r"[a-z0-9]+", (text or "").lower()):
+            v[int(hashlib.md5(tok.encode()).hexdigest(), 16) % self.dim] += 1.0
+        n = np.linalg.norm(v)
+        return v / n if n > 0 else v
+
+    def embed_text(self, text: str):
+        return self._e(text)
+
+    def embed_texts(self, texts: list[str]):
+        return np.stack([self._e(t) for t in texts]) if texts else np.zeros((0, self.dim), np.float32)
+
+    def rerank(self, *_args, **_kwargs):
+        raise AssertionError("Markov warm-up should not call the cross-encoder reranker")
+
+
+def _warmup_engine(fresh_settings, *, rerank_enabled: bool = False, **overrides):
+    from eidetic.engine import Engine
+
+    settings = replace(
+        fresh_settings,
+        markov_prefetch_enabled=True,
+        flow_warmup_enabled=True,
+        flow_warmup_topk=1,
+        brain_events_enabled=True,
+        rerank_enabled=rerank_enabled,
+        **overrides,
+    )
+    engine = Engine(settings, client=_VectorClient(fresh_settings.embed_dim))
+    scope = Scope(namespace="markov-warmup")
+    rec = MemoryRecord(
+        memory_id="bob", content_hash="bob", text="Bob works at Acme",
+        scope=scope, valid_at=1.0, entities=["Bob", "Acme"])
+    engine.store.upsert_record(rec)
+    engine.index.add(rec.memory_id, engine.client.embed_text(rec.text))
+    return engine, scope
 
 
 def test_resource_by_modality():
@@ -51,3 +101,63 @@ def test_engine_observes_query_transitions(engine):
     sig_a = engine._query_signature("zzaa one")
     pred = engine.markov.predict(sig_a, top_k=2)
     assert pred and pred[0][0] == engine._query_signature("zzbb two")   # A -> B is most likely
+
+
+def test_markov_warmup_prefetches_predicted_signature(fresh_settings):
+    engine, scope = _warmup_engine(fresh_settings)
+    for q in ["alice question", "bob question", "alice question"]:
+        engine._observe_query(q)
+
+    report = engine.warmup_predicted_prefetch("alice question", scope=scope, at=2.0)
+
+    assert report["warmed"] == 1
+    assert report["signatures"] == ["bob"]
+    blocks = engine.prefetch_context(engine.client.embed_text("bob"))
+    assert blocks and "Bob works at Acme" in "\n".join(blocks)
+    assert engine.brain_log.by_type(BrainEventType.FLOW_WARMED)
+
+
+def test_idle_tick_runs_markov_prefetch_warmup(fresh_settings):
+    engine, scope = _warmup_engine(fresh_settings)
+    for q in ["alice question", "bob question", "alice question"]:
+        engine._observe_query(q)
+
+    report = engine.idle_tick(scope=scope)
+
+    assert report["prefetch_warmup"]["warmed"] == 1
+    assert "Bob works at Acme" in "\n".join(engine.prefetch_context(engine.client.embed_text("bob")))
+
+
+def test_markov_warmup_skips_cross_encoder_rerank(fresh_settings):
+    engine, scope = _warmup_engine(fresh_settings, rerank_enabled=True)
+    for q in ["alice question", "bob question", "alice question"]:
+        engine._observe_query(q)
+
+    report = engine.warmup_predicted_prefetch("alice question", scope=scope, at=2.0)
+
+    assert report["warmed"] == 1
+
+
+def test_markov_warmup_uses_flow_activation_when_enabled(fresh_settings):
+    engine, scope = _warmup_engine(
+        fresh_settings,
+        flow_activation_enabled=True,
+        flow_hybrid_channel_enabled=True,
+        flow_hybrid_weight=0.5,
+    )
+    quiet = MemoryRecord(
+        memory_id="quiet", content_hash="quiet", text="Quiet field-warm memory",
+        scope=scope, valid_at=1.0, entities=["Quiet"])
+    engine.store.upsert_record(quiet)
+    engine.index.add(quiet.memory_id, engine.client.embed_text(quiet.text))
+    engine.activation.inject(scope.namespace, ["quiet"], 1.0)
+    for q in ["alice question", "bob question", "alice question"]:
+        engine._observe_query(q)
+
+    report = engine.warmup_predicted_prefetch("alice question", scope=scope, at=2.0)
+
+    assert report["warmed"] == 1
+    blocks = engine.prefetch_context(engine.client.embed_text("bob"))
+    joined = "\n".join(blocks or [])
+    assert "Bob works at Acme" in joined
+    assert "Quiet field-warm memory" in joined

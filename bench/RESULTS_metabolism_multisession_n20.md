@@ -41,9 +41,10 @@ graph-temporal) with the shared reader AND proof gate HELD FIXED, so the delta i
 | metabolism ON | 30.0% (6/20) | -- |
 | metabolism memory OFF (reader+proof fixed) | 20.0% (4/20) | **-10pp** |
 
-Per-question flips (`artifacts/proof/ms20/attribution_compare.md`): **3 gained** (b5ef892d,
-gpt4_2f8be40d, gpt4_f2262a51), **1 regressed** (dd2973ad) -- net +2 questions from the memory layer,
-in the predicted direction. McNemar p=0.6250 (directional, not significant).
+Per-question flips (`artifacts/proof/ms20/attribution_compare.md`): **3 gained**, **1 regressed**.
+Sample identifiers are intentionally omitted from source docs so holdout leakage audits can guard the
+real test split. Net +2 questions came from the memory layer, in the predicted direction. McNemar
+p=0.6250 (directional, not significant).
 
 ## Deterministic wins (real at any n)
 - **Cost:** eidetic answers from 7,995 tokens vs rag-full's 123,085 (~15.4x cheaper) while scoring higher.

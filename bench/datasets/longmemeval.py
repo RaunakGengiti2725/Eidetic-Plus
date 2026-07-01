@@ -76,12 +76,14 @@ def load(variant: str = "longmemeval_s", data_dir: Path = _DEFAULT_DIR,
         category = str(item.get("question_type") or item.get("category") or "unknown")
         sessions: list[Session] = []
         haystack = item.get("haystack_sessions") or item.get("sessions") or []
+        session_ids = item.get("haystack_session_ids") or []
         dates = item.get("haystack_dates") or []
         for i, sess in enumerate(haystack):
             turns = [Turn(role=t.get("role", "user"), content=t.get("content", t.get("text", "")))
                      for t in sess]
             st = _parse_time(dates[i]) if i < len(dates) else None
-            sessions.append(Session(session_id=f"{qid}_s{i}", turns=turns, session_time=st))
+            sid = str(session_ids[i]) if i < len(session_ids) and session_ids[i] else f"{qid}_s{i}"
+            sessions.append(Session(session_id=sid, turns=turns, session_time=st))
         samples.append(Sample(
             sample_id=qid, sessions=sessions,
             question=item.get("question", ""), gold=str(item.get("answer", "")),

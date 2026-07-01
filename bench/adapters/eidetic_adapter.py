@@ -5,11 +5,13 @@ graph/facts are built by consolidate_pending() between ingest and query, off the
 from __future__ import annotations
 
 import os
+import re
 import time
 from typing import Optional
 
 from eidetic.engine import Engine
-from eidetic.models import Scope, now
+from eidetic.models import NLILabel, Scope, now
+from eidetic.smqe import structured_answer
 
 from ..reader import answer_with_fixed_reader
 from .base import AnswerResult, MemorySystem, WriteResult, approx_tokens
@@ -19,6 +21,79 @@ def _truthy(name: str) -> bool:
     return os.environ.get(name, "0").strip().lower() in ("1", "true", "yes")
 
 
+_DECLINE_RE = re.compile(
+    r"\b(?:do not|don't) have (?:that|enough|the)|cannot answer|insufficient evidence|not have that in memory",
+    re.I,
+)
+
+
+def _is_entailment(citation) -> bool:
+    label = getattr(citation, "nli_label", "")
+    return getattr(label, "value", label) == "entailment"
+
+
+def _entailed_memory_ids(citations) -> list[str]:
+    return [
+        str(c.memory_id)
+        for c in citations
+        if _is_entailment(c) and getattr(c, "memory_id", "")
+    ]
+
+
+def _entailed_content_hashes(citations) -> list[str]:
+    return list(dict.fromkeys(
+        str(c.content_hash)
+        for c in citations
+        if _is_entailment(c) and getattr(c, "content_hash", "")
+    ))
+
+
+def _entailed_raw_uris(citations) -> list[str]:
+    return list(dict.fromkeys(
+        str(c.raw_uri)
+        for c in citations
+        if _is_entailment(c) and getattr(c, "raw_uri", "")
+    ))
+
+
+def _proof_surface_tokens(citations) -> int:
+    return sum(
+        approx_tokens(getattr(c, "snippet", "") or "")
+        for c in citations
+        if _is_entailment(c)
+    )
+
+
+def _smqe_extra(note: str) -> dict:
+    parts = (note or "").split(":")
+    if len(parts) >= 3 and parts[0] == "smqe":
+        return {
+            "structured_recall": True,
+            "smqe_operator": parts[1],
+            "smqe_backend": parts[2],
+            "smqe_policy": note,
+        }
+    return {"structured_recall": False}
+
+
+def _region_context_extra(retriever, question: str) -> dict:
+    telemetry = getattr(retriever, "last_context_telemetry", {}) or {}
+    if not isinstance(telemetry, dict) or telemetry.get("query") != question:
+        return {"region_hint_count": 0, "region_ids": [], "region_member_ids": []}
+    hints = telemetry.get("region_hints")
+    if not isinstance(hints, list):
+        hints = []
+    member_ids: list[str] = []
+    for hint in hints:
+        if isinstance(hint, dict):
+            member_ids.extend(str(mid) for mid in hint.get("members", []) if mid)
+    return {
+        "region_hint_count": int(telemetry.get("region_hint_count", 0) or 0),
+        "region_ids": list(telemetry.get("region_ids", []) or []),
+        "region_member_ids": list(dict.fromkeys(member_ids)),
+    }
+
+
 class EideticSystem(MemorySystem):
     name = "eidetic-plus"
 
@@ -26,7 +101,11 @@ class EideticSystem(MemorySystem):
         self.engine = engine or Engine()
 
     def reset(self, namespace: str) -> None:
-        # Scope isolates conversations, so no global clear is needed; just drop the cache.
+        clear = getattr(self.engine, "clear_namespace", None)
+        if callable(clear):
+            clear(namespace)
+            return
+        # Lightweight fake engines in tests may expose only the answer cache.
         self.engine.cache.clear()
 
     def ingest_session(self, namespace: str, session_id: str, turns: list[dict],
@@ -70,7 +149,7 @@ class EideticSystem(MemorySystem):
                                     scope=scope, consolidate_now=False)  # LLM-free write
         return WriteResult(tokens=approx_tokens(text), ms=(time.perf_counter() - t0) * 1000.0)
 
-    def consolidate(self, namespace: str) -> None:
+    def consolidate(self, namespace: str) -> dict:
         # Async build: parallel fact extraction, bi-temporal graph, events, date normalization,
         # typed preferences. score_importance=False (importance isn't in the ranking path).
         scope = Scope(namespace=namespace)
@@ -80,15 +159,17 @@ class EideticSystem(MemorySystem):
         # the per-record qwen-flash importance call off, matching the default path). Default path
         # stays consolidate_pending-only + the optional DREAM_AB hook, byte-identical to before.
         if _truthy("FULL_SLEEP"):
-            self.engine.consolidate_pending(scope=scope, score_importance=False)
-            self.engine.dream(scope=scope)
-            return
-        self.engine.consolidate_pending(scope=scope, score_importance=False)
+            pending = self.engine.consolidate_pending(scope=scope, score_importance=False)
+            dream = self.engine.dream(scope=scope)
+            return {"consolidate_pending": pending, "dream": dream}
+        pending = self.engine.consolidate_pending(scope=scope, score_importance=False)
+        out = {"consolidate_pending": pending}
         # Dreaming-engine A/B hook (token-free): set DREAM_AB=1 to run one idle consolidation
         # pass (replay + inferred link prediction + multi-resolution gist) so the dreaming
         # layer can be measured dream-on vs dream-off against the scoreboard. Off by default.
         if _truthy("DREAM_AB"):
-            self.engine.dream(scope=scope)
+            out["dream"] = self.engine.dream(scope=scope)
+        return out
 
     def answer(self, namespace: str, question: str,
                as_of: Optional[float] = None) -> AnswerResult:
@@ -111,8 +192,21 @@ class EideticSystem(MemorySystem):
         return AnswerResult(
             answer=text, context_tokens=ctx_tokens,
             search_ms=search_ms, e2e_ms=e2e_ms, abstained=False,
-            extra={"citations": len(cands), "coverage": coverage},
+            extra={"citations": len(cands), "coverage": coverage,
+                   "candidate_memory_ids": [c.record.memory_id for c in cands],
+                   **_region_context_extra(self.engine.retriever, question)},
         )
+
+    def after_answer(self, namespace: str, question: str, result: AnswerResult, *,
+                     correct: Optional[bool] = None,
+                     as_of: Optional[float] = None) -> dict:
+        # BENCH_COACTIVATION gives the neutral benchmark the same pure graph write that ask()
+        # gets through verified reconsolidation. It never reads the judge label; `correct` is
+        # accepted only because the generic harness passes it to every system hook.
+        if not self.engine.settings.bench_coactivation_enabled or result.abstained:
+            return {}
+        ids = (result.extra or {}).get("candidate_memory_ids") or []
+        return self.engine.link_coactivated(ids[:5], scope=Scope(namespace=namespace), valid_at=as_of)
 
 
 class EideticFullSystem(EideticSystem):
@@ -137,6 +231,34 @@ class EideticFullSystem(EideticSystem):
         r = self.engine.retriever
         s = self.engine.settings
         t0 = time.perf_counter()
+        active_records = self.engine.store.active_records_at(as_of if as_of is not None else now(), scope)
+        smqe_ans = structured_answer(r, question, active_records, as_of, verify=True, scope=scope)
+        if smqe_ans is not None:
+            search_ms = (time.perf_counter() - t0) * 1000.0
+            policy = smqe_ans.note or "smqe"
+            return AnswerResult(
+                answer=smqe_ans.answer,
+                context_tokens=sum(approx_tokens(c.snippet) for c in smqe_ans.citations),
+                search_ms=search_ms, e2e_ms=search_ms, abstained=False,
+                extra={"verified": bool(smqe_ans.verified), "coverage": 1.0,
+                       "confidence": smqe_ans.confidence, "abstention_signals": {
+                           "entail": 1.0 if smqe_ans.verified else 0.0,
+                           "coverage": 1.0,
+                           "agreement": 1.0,
+                           "proof": 1.0 if smqe_ans.verified else 0.0,
+                       },
+                       "citations": len(smqe_ans.citations),
+                       "candidate_memory_ids": [c.memory_id for c in smqe_ans.citations],
+                       "entailed_memory_ids": _entailed_memory_ids(smqe_ans.citations),
+                       "entailed_content_hashes": _entailed_content_hashes(smqe_ans.citations),
+                       "entailed_raw_uris": _entailed_raw_uris(smqe_ans.citations),
+                       "proof_surface_tokens": sum(approx_tokens(c.snippet) for c in smqe_ans.citations),
+                       "policy": policy,
+                       "region_hint_count": 0,
+                       "region_ids": [],
+                       "region_member_ids": [],
+                       **_smqe_extra(policy)},
+            )
         cands = r.retrieve(question, at=as_of, scope=scope)
         search_ms = (time.perf_counter() - t0) * 1000.0
         blocks = r.assemble_context(question, cands, at=as_of, scope=scope)
@@ -146,21 +268,33 @@ class EideticFullSystem(EideticSystem):
         # a stronger private reader. (engine.ask()'s own reader/cascade is a separate latency/quality
         # feature, deliberately kept OUT of the neutral accuracy comparison.)
         text = answer_with_fixed_reader(question, blocks)
-        citations, entailed = r._verify_candidates(cands, text, True)
-        verified = entailed > 0
+        declined = bool(_DECLINE_RE.search(text or ""))
+        citations, entailed = r._verify_candidates(cands, text, True, query=question, at=as_of)
+        verified = entailed > 0 and not declined
         coverage = max((c.dense_score for c in cands), default=0.0)
+        conf = None
+        sig = None
         if s.abstention_v2_enabled:
             conf, _sig = r._abstention_confidence(cands, citations)
-            abstained = conf < s.abstention_v2_tau
+            sig = _sig
+            abstained = declined or conf < s.abstention_v2_tau
         else:
-            abstained = (not verified) and coverage < s.abstention_threshold
+            abstained = declined or ((not verified) and coverage < s.abstention_threshold)
         e2e_ms = (time.perf_counter() - t0) * 1000.0
         return AnswerResult(
             answer=(self._ABSTAIN_TEXT if abstained else text),
             context_tokens=sum(approx_tokens(b) for b in blocks),
             search_ms=search_ms, e2e_ms=e2e_ms, abstained=abstained,
             extra={"verified": bool(verified and not abstained), "coverage": coverage,
-                   "citations": len(citations), "policy": "fixed-reader + verify+abstain+proof"},
+                   "confidence": conf, "abstention_signals": sig,
+                   "citations": len(citations),
+                   "candidate_memory_ids": [c.record.memory_id for c in cands],
+                   "entailed_memory_ids": _entailed_memory_ids(citations),
+                   "entailed_content_hashes": _entailed_content_hashes(citations),
+                   "entailed_raw_uris": _entailed_raw_uris(citations),
+                   "proof_surface_tokens": _proof_surface_tokens(citations),
+                   "policy": "fixed-reader + verify+abstain+proof",
+                   **_region_context_extra(r, question)},
         )
 
 
@@ -178,31 +312,59 @@ class EideticProductSystem(EideticSystem):
 
     name = "eidetic-product"
 
+    def after_answer(self, namespace: str, question: str, result: AnswerResult, *,
+                     correct: Optional[bool] = None,
+                     as_of: Optional[float] = None) -> dict:
+        # engine.ask() already performs verified reconsolidation and co-activation. The benchmark
+        # hook is only for rows that bypass ask().
+        return {}
+
     def answer(self, namespace: str, question: str,
                as_of: Optional[float] = None) -> AnswerResult:
         scope = Scope(namespace=namespace)
         r = self.engine.retriever
-        # Report cost (tokens/query) and search latency on the SAME block basis as every other row,
-        # so the columns are comparable: engine.ask() does not expose its internal reader blocks, so
-        # we time a retrieve and assemble the context the reader consumes. (This is a representative
-        # retrieve for accounting; the cache/reflex path engine.ask actually takes may differ.) The
-        # ANSWER itself still comes from the full product path (engine.ask) below.
-        t_s = time.perf_counter()
-        cands = r.retrieve(question, at=as_of, scope=scope)
-        search_ms = (time.perf_counter() - t_s) * 1000.0
-        blocks = r.assemble_context(question, cands, at=as_of, scope=scope)
-        ctx_tokens = sum(approx_tokens(b) for b in blocks)
         t0 = time.perf_counter()
         ans = self.engine.ask(question, at=as_of, scope=scope, verify=True)
         e2e_ms = (time.perf_counter() - t0) * 1000.0
         note = ans.note or ""
         abstained = note.startswith("abstained")
+        structured_recall = ans.generated_by == "smqe" or note.startswith("smqe:")
+        if structured_recall:
+            cands = []
+            search_ms = e2e_ms
+            ctx_tokens = sum(
+                approx_tokens(getattr(c, "snippet", "") or "")
+                for c in ans.citations
+                if c.nli_label == NLILabel.ENTAILMENT
+            )
+            candidate_memory_ids = [c.memory_id for c in ans.citations]
+        else:
+            # Report cost (tokens/query) and search latency on the SAME block basis as every other
+            # row, so the columns are comparable: engine.ask() does not expose its internal reader
+            # blocks. This representative retrieve is skipped for SMQE structured answers because
+            # the deployed product path really did not assemble reader context for them.
+            t_s = time.perf_counter()
+            cands = r.retrieve(question, at=as_of, scope=scope)
+            search_ms = (time.perf_counter() - t_s) * 1000.0
+            blocks = r.assemble_context(question, cands, at=as_of, scope=scope)
+            ctx_tokens = sum(approx_tokens(b) for b in blocks)
+            candidate_memory_ids = [c.record.memory_id for c in cands]
         return AnswerResult(
             answer=ans.answer, context_tokens=ctx_tokens,
             search_ms=search_ms, e2e_ms=e2e_ms, abstained=abstained,
             extra={"verified": bool(ans.verified and not abstained),
                    "confidence": ans.confidence, "citations": len(ans.citations),
+                   "candidate_memory_ids": candidate_memory_ids,
+                   "entailed_memory_ids": _entailed_memory_ids(ans.citations),
+                   "entailed_content_hashes": _entailed_content_hashes(ans.citations),
+                   "entailed_raw_uris": _entailed_raw_uris(ans.citations),
                    "proof_surface_tokens": sum(
                        approx_tokens(getattr(c, "snippet", "") or "") for c in ans.citations),
-                   "note": note, "policy": "engine.ask: cache+reflex+flow+cascade+verify+abstain"},
+                   "note": note,
+                   "policy": "engine.ask: smqe+cache+reflex+flow+cascade+verify+abstain",
+                   **(
+                       {"region_hint_count": 0, "region_ids": [], "region_member_ids": []}
+                       if structured_recall else _region_context_extra(r, question)
+                   ),
+                   **_smqe_extra(note)},
         )

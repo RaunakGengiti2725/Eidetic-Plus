@@ -30,6 +30,8 @@ def select_scratchpad(records, *, top_k: int = 5, min_salience: float = 0.6,
         out.append({
             "memory_id": r.memory_id,
             "content_hash": r.content_hash,          # links back to the immutable raw source
+            "raw_uri": getattr(r, "raw_uri", ""),
+            "valid_at": getattr(r, "valid_at", None),
             "text": (r.text or r.summary or "")[:240],
             "salience": round(float(getattr(r, "salience", 0.0)), 3),
             "verified_helpful_count": int(getattr(r, "verified_helpful_count", 0)),

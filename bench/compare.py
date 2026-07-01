@@ -15,7 +15,18 @@ from typing import Any
 import numpy as np
 from pydantic import BaseModel
 
-from .scoreboard import _mcnemar_pvalue, _wilson_ci
+from .scoreboard import _mcnemar_pvalue, _wilson_ci, consolidation_rollup
+
+
+_CONSOLIDATION_DELTA_FIELDS = (
+    "groups",
+    "pending_processed",
+    "facts_extracted",
+    "events_indexed",
+    "extraction_timed_out",
+    "extraction_deferred",
+    "record_raw_only_bounded",
+)
 
 
 class LogBundle(BaseModel):
@@ -157,12 +168,28 @@ def _paired(control: list[dict], experiment: list[dict], key: tuple[str, str, st
     }
 
 
+def _consolidation_deltas(control: dict[str, dict], experiment: dict[str, dict]) -> dict[str, dict]:
+    out: dict[str, dict] = {}
+    for sysname in sorted(set(control) | set(experiment)):
+        c = control.get(sysname, {})
+        e = experiment.get(sysname, {})
+        out[sysname] = {
+            "control": c,
+            "experiment": e,
+            "delta": {field: int(e.get(field, 0) or 0) - int(c.get(field, 0) or 0)
+                      for field in _CONSOLIDATION_DELTA_FIELDS},
+        }
+    return out
+
+
 def compare_dirs(control_dir: Path, experiment_dir: Path,
                  *, system: str | None = None) -> dict:
     control_bundle = _load_logs_strict(control_dir)
     experiment_bundle = _load_logs_strict(experiment_dir)
     control_rows = control_bundle.rows
     experiment_rows = experiment_bundle.rows
+    control_consolidation = consolidation_rollup(control_rows, system=system)
+    experiment_consolidation = consolidation_rollup(experiment_rows, system=system)
     warnings: list[str] = []
     if not control_rows:
         warnings.append("no control logs")
@@ -215,6 +242,11 @@ def compare_dirs(control_dir: Path, experiment_dir: Path,
         "experiment_rows": experiment_bundle.row_count,
         "warnings": warnings,
         "system_filter": system,
+        "consolidation": {
+            "control": control_consolidation,
+            "experiment": experiment_consolidation,
+            "delta": _consolidation_deltas(control_consolidation, experiment_consolidation),
+        },
         "comparisons": comparisons,
     }
 
@@ -291,6 +323,22 @@ def render_markdown(result: dict, out_path: Path) -> Path:
         ]
     else:
         lines.append("_No per-question flips (identical correctness on every paired question)._")
+
+    consolidation = result.get("consolidation", {})
+    deltas = consolidation.get("delta", {}) if isinstance(consolidation, dict) else {}
+    if deltas:
+        lines += ["", "## Consolidation deltas", ""]
+        lines.append("| system | control groups | experiment groups | pending delta | facts delta | events delta | timed out delta | deferred delta | record raw-only delta |")
+        lines.append("|---|---:|---:|---:|---:|---:|---:|---:|---:|")
+        for sysname, item in sorted(deltas.items()):
+            c = item.get("control", {})
+            e = item.get("experiment", {})
+            d = item.get("delta", {})
+            lines.append(f"| {sysname} | {c.get('groups', 0)} | {e.get('groups', 0)} | "
+                         f"{d.get('pending_processed', 0)} | {d.get('facts_extracted', 0)} | "
+                         f"{d.get('events_indexed', 0)} | {d.get('extraction_timed_out', 0)} | "
+                         f"{d.get('extraction_deferred', 0)} | "
+                         f"{d.get('record_raw_only_bounded', 0)} |")
 
     out_path.write_text("\n".join(lines) + "\n")
     out_path.with_suffix(".json").write_text(json.dumps(result, indent=2))

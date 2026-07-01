@@ -1,0 +1,18 @@
+{
+  "counts": {
+    "locomo": 1218,
+    "longmemeval": 408
+  },
+  "dataset": "both",
+  "description": "Source-audit registry for release-grade memory evaluation. Contains sample IDs only; keep questions, answers, and transcripts out of this file.",
+  "files": [
+    "leaked_sample_ids.json",
+    "longmemeval_test_holdout.json",
+    "locomo_test_holdout.json"
+  ],
+  "registry_kind": "holdout_sample_id_needles",
+  "samples_file": "",
+  "split": "test",
+  "variant": "longmemeval_s",
+  "version": 1
+}

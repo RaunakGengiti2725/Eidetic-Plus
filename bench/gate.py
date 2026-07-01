@@ -11,6 +11,7 @@ from pathlib import Path
 from statistics import mean
 
 from .compare import _load_logs_strict
+from .fingerprints import log_fingerprint
 
 
 def _as_fraction(value: float) -> float:
@@ -88,6 +89,7 @@ def run_gate(out_dir: Path, expected_path: Path, *, system: str = "mem0",
              dataset: str = "locomo") -> dict:
     expected, tolerance, min_n, required_reader = _load_expected(expected_path)
     manifest = _load_manifest(out_dir)
+    fingerprint = log_fingerprint(out_dir)
     env = manifest.get("env", {}) if isinstance(manifest.get("env", {}), dict) else {}
     actual_reader = env.get("READER_MODEL", "")
     if actual_reader != required_reader:
@@ -98,11 +100,21 @@ def run_gate(out_dir: Path, expected_path: Path, *, system: str = "mem0",
             "dataset": dataset,
             "manifest": manifest,
             "expected": expected,
+            "log_fingerprint": fingerprint,
         }
     rows = _load_logs_strict(out_dir).rows
     obs = _observed(rows, system=system, dataset=dataset)
     if not rows:
-        return {"status": "FAIL", "reason": "no logs", "observed": obs, "expected": expected}
+        return {
+            "status": "FAIL",
+            "reason": "no logs",
+            "system": system,
+            "dataset": dataset,
+            "manifest": manifest,
+            "observed": obs,
+            "expected": expected,
+            "log_fingerprint": fingerprint,
+        }
 
     missing = [cat for cat in expected if cat not in obs]
     total_n = sum(v["n"] for v in obs.values())
@@ -143,7 +155,35 @@ def run_gate(out_dir: Path, expected_path: Path, *, system: str = "mem0",
         "expected": expected,
         "manifest": manifest,
         "comparisons": comparisons,
+        "log_fingerprint": fingerprint,
     }
+
+
+def render_markdown(result: dict, out_path: Path) -> Path:
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    lines = ["# Mem0 Reproduction Gate", ""]
+    lines.append(f"Status: **{result['status']}**")
+    lines.append(f"Reason: {result.get('reason', '')}")
+    lines.append(f"System: `{result.get('system', '')}`")
+    lines.append(f"Dataset: `{result.get('dataset', '')}`")
+    lines.append("")
+    lines.append("| category | status | n | observed | expected | delta pp | search p95 |")
+    lines.append("|---|---|---:|---:|---:|---:|---:|")
+    for cat, item in sorted(result.get("comparisons", {}).items()):
+        if item.get("status") == "missing":
+            lines.append(f"| {cat} | missing | 0 | - | {item.get('expected', 0.0) * 100:.1f}% | - | - |")
+            continue
+        observed = float(item.get("observed", 0.0) or 0.0)
+        expected = float(item.get("expected", 0.0) or 0.0)
+        delta = float(item.get("delta", 0.0) or 0.0)
+        sp95 = item.get("search_p95")
+        sp95_s = "-" if sp95 is None else f"{float(sp95):.1f}"
+        lines.append(f"| {cat} | {item.get('status', '')} | {item.get('n', 0)} | "
+                     f"{observed * 100:.1f}% | {expected * 100:.1f}% | "
+                     f"{delta * 100:.1f} | {sp95_s} |")
+    out_path.write_text("\n".join(lines) + "\n")
+    out_path.with_suffix(".json").write_text(json.dumps(result, indent=2))
+    return out_path
 
 
 def main() -> int:
@@ -152,6 +192,7 @@ def main() -> int:
     ap.add_argument("--expected", required=True, help="JSON reference with published category scores")
     ap.add_argument("--system", default="mem0")
     ap.add_argument("--dataset", default="locomo")
+    ap.add_argument("--report-out", default="", help="write Markdown + JSON report")
     args = ap.parse_args()
 
     res = run_gate(Path(args.out), Path(args.expected), system=args.system, dataset=args.dataset)
@@ -164,6 +205,9 @@ def main() -> int:
         runs = got["runs"] if got else []
         print(f"  {cat}: n={n}, runs={runs}")
     print(json.dumps(res, indent=2))
+    report_out = Path(args.report_out) if args.report_out else Path(args.out) / "mem0_gate.md"
+    render_markdown(res, report_out)
+    print(f"Report -> {report_out}")
     return 0 if res["status"] == "PASS" else 2
 
 

@@ -59,6 +59,19 @@ def _age_days(sample: Sample) -> Optional[float]:
     return max(0.0, (q - min(times)) / 86400.0)
 
 
+def _as_of_time(sample: Sample) -> Optional[float]:
+    """Question timestamp for bi-temporal reads.
+
+    Some benchmark rows provide dated haystack sessions but no explicit question date. In that
+    case, relative phrases such as "past few months" should resolve against the conversation end,
+    not the machine's wall clock years later. This is passed to every system equally.
+    """
+    if sample.question_time is not None:
+        return sample.question_time
+    times = [s.session_time for s in sample.sessions if s.session_time is not None]
+    return max(times) if times else None
+
+
 def _judge_sample(judge: Judge, sample: Sample, answer: str) -> bool:
     if sample.dataset == "longmemeval":
         return judge.judge_longmemeval(sample.question, sample.gold, answer, sample.category)
@@ -94,14 +107,19 @@ def run_system(system: MemorySystem, samples: list[Sample], judge: Judge, *,
         with open(log_path, "w") as fh:
             for gi, (sessions, qs) in enumerate(groups):
                 ns = f"{system.name}-{qs[0].dataset}-g{gi}-r{run_idx}"
-                system.reset(ns)
                 write_tokens = 0
-                for sess in sessions:
-                    turns = [{"role": t.role, "content": t.content, "timestamp": t.timestamp}
-                             for t in sess.turns]
-                    wr = system.ingest_session(ns, sess.session_id, turns, sess.session_time)
-                    write_tokens += wr.tokens
-                system.consolidate(ns)
+                consolidate_report = {}
+                group_error = ""
+                try:
+                    system.reset(ns)
+                    for sess in sessions:
+                        turns = [{"role": t.role, "content": t.content, "timestamp": t.timestamp}
+                                 for t in sess.turns]
+                        wr = system.ingest_session(ns, sess.session_id, turns, sess.session_time)
+                        write_tokens += wr.tokens
+                    consolidate_report = system.consolidate(ns) or {}
+                except Exception as e:  # noqa: BLE001 - write/sleep failures are logged per row
+                    group_error = f"{type(e).__name__}: {str(e)[:200]}"
 
                 for s in qs:
                     # Per-question resilience: a transient transport/runtime error on ONE question
@@ -109,8 +127,24 @@ def run_system(system: MemorySystem, samples: list[Sample], judge: Judge, *,
                     # Record it with an `error` flag and continue; analysis excludes errored rows
                     # from accuracy (never silently counted right or wrong).
                     try:
-                        ar = system.answer(ns, s.question, as_of=s.question_time)
+                        if group_error:
+                            raise RuntimeError(f"write/consolidate failed: {group_error}")
+                        q_as_of = _as_of_time(s)
+                        ar = system.answer(ns, s.question, as_of=q_as_of)
+                        if consolidate_report:
+                            ar.extra = {**(ar.extra or {}), "consolidate": consolidate_report}
                         correct = _judge_sample(judge, s, ar.answer)
+                        try:
+                            post = system.after_answer(
+                                ns, s.question, ar, correct=bool(correct), as_of=q_as_of
+                            )
+                            if post:
+                                ar.extra = {**(ar.extra or {}), "post_answer": post}
+                        except Exception as hook_error:  # optional hook, never abort a scored row
+                            ar.extra = {
+                                **(ar.extra or {}),
+                                "post_answer_error": f"{type(hook_error).__name__}: {str(hook_error)[:200]}",
+                            }
                         qr = QResult(
                             system=system.name, dataset=s.dataset, category=s.category,
                             sample_id=s.sample_id, question=s.question, gold=s.gold,
@@ -128,6 +162,7 @@ def run_system(system: MemorySystem, samples: list[Sample], judge: Judge, *,
                             query_tokens=0, search_ms=0.0, e2e_ms=0.0, abstained=False,
                             run_idx=run_idx, age_days=_age_days(s), n_sessions=len(sessions),
                             error=f"{type(e).__name__}: {str(e)[:200]}",
+                            extra={"consolidate": consolidate_report} if consolidate_report else {},
                         )
                     fh.write(json.dumps(asdict(qr)) + "\n")
                     fh.flush()

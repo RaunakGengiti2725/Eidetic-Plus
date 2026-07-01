@@ -19,9 +19,11 @@ import base64
 import json
 import random
 import re
+import signal
 import threading
 import time
 from contextlib import contextmanager
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any, Callable, Optional
 
@@ -32,6 +34,10 @@ from .config import Settings, get_settings
 
 class ModelCallError(RuntimeError):
     """Raised when a real model call cannot be completed. Never swallowed into a fake."""
+
+
+class ModelCallTimeout(ModelCallError, TimeoutError):
+    """Raised when a single model SDK call exceeds the client-side wall-clock deadline."""
 
 
 _RATE_HINTS = ("429", "throttl", "rate limit", "requests rate", "request rate",
@@ -174,7 +180,8 @@ class RateGovernor:
     then a concurrency slot (reverse order deadlocks under load, per the Alibaba best-practice doc)."""
 
     def __init__(self, rpm: int, max_concurrency: int, max_retries: int = 5,
-                 backoff_base: float = 0.5, backoff_max: float = 30.0):
+                 backoff_base: float = 0.5, backoff_max: float = 30.0,
+                 slot_acquire_timeout: Optional[float] = None):
         self.rpm = max(1, int(rpm))
         self._capacity = float(self.rpm)
         self._tokens = float(self.rpm)
@@ -185,6 +192,10 @@ class RateGovernor:
         self.max_retries = int(max_retries)
         self.backoff_base = float(backoff_base)
         self.backoff_max = float(backoff_max)
+        self.slot_acquire_timeout = (
+            None if slot_acquire_timeout is None or float(slot_acquire_timeout) <= 0.0
+            else float(slot_acquire_timeout)
+        )
         # Optional telemetry hook fired on each retryable 429/backoff. MUST be cheap, thread-safe,
         # and must NOT re-enter the governor; it runs on the worker thread off-lock (model calls
         # never hold the engine write lock). Best-effort: a hook failure never breaks the call.
@@ -206,7 +217,15 @@ class RateGovernor:
     @contextmanager
     def _slot(self):
         self._take_token()        # RPM token first ...
-        self._sem.acquire()       # ... then a concurrency slot
+        if self.slot_acquire_timeout is None:
+            acquired = self._sem.acquire()       # ... then a concurrency slot
+        else:
+            acquired = self._sem.acquire(timeout=self.slot_acquire_timeout)
+        if not acquired:
+            raise ModelCallError(
+                f"DashScope governor concurrency slot unavailable after "
+                f"{self.slot_acquire_timeout:.3f}s"
+            )
         try:
             yield
         finally:
@@ -225,7 +244,7 @@ class RateGovernor:
                     # Retry rate limits (429/throttle) AND transient 5xx server errors; a 4xx bad
                     # request is deterministic and fails loud immediately (never fabricated).
                     if attempt >= self.max_retries or not (
-                            _is_rate_limit(msg) or _is_server_error(msg)):
+                            _is_rate_limit(msg) or _is_server_error(msg) or _is_transient(e)):
                         raise
                     retry_after = _retry_after_seconds(msg)
                 except Exception as e:               # transient TRANSPORT blip (SSL/timeout/reset)?
@@ -312,6 +331,44 @@ def _parse_triples(raw: str) -> list[dict]:
             if isinstance(t, dict) and t.get("src") and t.get("relation") and t.get("dst")]
 
 
+def _parse_claims(raw: str) -> list[dict]:
+    """Parse complete structured-claim objects from a model response."""
+    cand: list = []
+    try:
+        data = json.loads(_strip_json(raw or ""))
+        if isinstance(data, dict):
+            cand = data.get("claims", []) or []
+        elif isinstance(data, list):
+            cand = data
+    except json.JSONDecodeError:
+        cand = _salvage_json_objects(raw or "")
+    out = []
+    for item in cand:
+        if not isinstance(item, dict):
+            continue
+        ctype = str(item.get("claim_type") or item.get("type") or "").strip().lower()
+        atom = str(item.get("proof_atom") or item.get("fact") or item.get("text") or "").strip()
+        if ctype and atom:
+            out.append(item)
+    return out
+
+
+def dedupe_claim_dicts(claims: list[dict]) -> list[dict]:
+    seen: set[tuple[str, str, str, str]] = set()
+    out: list[dict] = []
+    for claim in claims:
+        key = (
+            str(claim.get("claim_type") or claim.get("type") or "").strip().lower(),
+            str(claim.get("subject") or "").strip().lower(),
+            str(claim.get("predicate") or "").strip().lower(),
+            re.sub(r"\s+", " ", str(claim.get("proof_atom") or claim.get("fact") or "").strip().lower()),
+        )
+        if key[0] and key[3] and key not in seen:
+            seen.add(key)
+            out.append(claim)
+    return out
+
+
 class DashScopeClient:
     """Thin, synchronous wrapper over the dashscope SDK with region + key wired in."""
 
@@ -328,7 +385,8 @@ class DashScopeClient:
         self._governor: Optional[RateGovernor] = (
             RateGovernor(self.settings.dashscope_rpm, self.settings.dashscope_max_concurrency,
                          self.settings.dashscope_max_retries, self.settings.dashscope_backoff_base,
-                         self.settings.dashscope_backoff_max)
+                         self.settings.dashscope_backoff_max,
+                         self.settings.dashscope_slot_timeout_sec)
             if self.settings.dashscope_govern_enabled else None)
         # S4 persistent embedding cache (keyed by model+dim+hash). Construction is offline-safe.
         if self.settings.embed_cache_enabled:
@@ -340,9 +398,40 @@ class DashScopeClient:
     def _governed(self, fn: Callable[[], Any]) -> Any:
         """Route a real SDK call (the callable MUST include _ok so a 429 raises) through the rate
         governor when enabled; otherwise call directly. Single choke point that makes fan-out safe."""
+        wrapped = lambda: self._call_with_deadline(fn)
         if self._governor is None:
+            return wrapped()
+        return self._governor.run(wrapped)
+
+    def _call_with_deadline(self, fn: Callable[[], Any]) -> Any:
+        """Hard wall-clock cap around a single blocking SDK request.
+
+        `requests.timeout` is a connect/read-idle timeout, not a total deadline; a slow chunked
+        response can keep a write or benchmark run alive indefinitely. On the main thread, SIGALRM
+        interrupts that blocking read and lets the governor retry the identical request. Worker
+        threads cannot receive Python signals, so they still rely on the SDK/requests idle timeout.
+        """
+        timeout_s = float(getattr(self.settings, "dashscope_request_timeout_sec", 0.0) or 0.0)
+        if timeout_s <= 0.0 or threading.current_thread() is not threading.main_thread():
             return fn()
-        return self._governor.run(fn)
+
+        previous_handler = signal.getsignal(signal.SIGALRM)
+        previous_timer = signal.setitimer(signal.ITIMER_REAL, 0.0)
+
+        def _raise_timeout(_signum, _frame):
+            raise ModelCallTimeout(
+                f"DashScope call exceeded wall-clock timeout of {timeout_s:.3f}s"
+            )
+
+        signal.signal(signal.SIGALRM, _raise_timeout)
+        signal.setitimer(signal.ITIMER_REAL, timeout_s)
+        try:
+            return fn()
+        finally:
+            signal.setitimer(signal.ITIMER_REAL, 0.0)
+            signal.signal(signal.SIGALRM, previous_handler)
+            if previous_timer[0] > 0.0:
+                signal.setitimer(signal.ITIMER_REAL, previous_timer[0], previous_timer[1])
 
     # ---- guards -----------------------------------------------------------
     def _require_key(self) -> None:
@@ -366,7 +455,12 @@ class DashScopeClient:
     # ---- embeddings -------------------------------------------------------
     def _embed_batch_call(self, batch: list[str]) -> list[list[float]]:
         resp = self._governed(lambda b=batch: self._ok(self._ds.TextEmbedding.call(
-            model=self.settings.text_embed_model, input=b, dimension=self.settings.embed_dim)))
+            model=self.settings.text_embed_model,
+            input=b,
+            dimension=self.settings.embed_dim,
+            request_timeout=self.settings.dashscope_request_timeout_sec,
+            timeout=self.settings.dashscope_request_timeout_sec,
+        )))
         embs = sorted(resp.output["embeddings"], key=lambda e: e.get("text_index", 0))
         return [e["embedding"] for e in embs]
 
@@ -378,16 +472,33 @@ class DashScopeClient:
         limit at any token density). A short input's prefix is itself, so only the over-length input
         is affected; its full raw text still lives losslessly in the substrate. Every other error
         (incl. non-length 4xx) propagates."""
-        out: list[list[float]] = []
-        for i in range(0, len(texts), 10):
-            batch = texts[i : i + 10]
+        batches = [(i, texts[i : i + 10]) for i in range(0, len(texts), 10)]
+
+        def _embed_one(batch: list[str]) -> list[list[float]]:
             try:
-                out.extend(self._embed_batch_call(batch))
+                return self._embed_batch_call(batch)
             except ModelCallError as e:
                 if not _is_input_too_long(str(e)):
                     raise
                 cap = self.settings.embed_truncate_chars
-                out.extend(self._embed_batch_call([t[:cap] for t in batch]))
+                return self._embed_batch_call([t[:cap] for t in batch])
+
+        parallelism = max(1, int(getattr(self.settings, "embed_batch_parallelism", 1) or 1))
+        if parallelism <= 1 or len(batches) <= 1:
+            out: list[list[float]] = []
+            for _start, batch in batches:
+                out.extend(_embed_one(batch))
+            return np.asarray(out, dtype=np.float32)
+
+        ordered: list[tuple[int, list[list[float]]]] = []
+        with ThreadPoolExecutor(max_workers=min(parallelism, len(batches)),
+                                thread_name_prefix="eidetic-embed") as pool:
+            futs = {pool.submit(_embed_one, batch): start for start, batch in batches}
+            for fut in as_completed(futs):
+                ordered.append((futs[fut], fut.result()))
+        out = []
+        for _start, embs in sorted(ordered, key=lambda item: item[0]):
+            out.extend(embs)
         return np.asarray(out, dtype=np.float32)
 
     def embed_texts(self, texts: list[str]) -> np.ndarray:
@@ -426,7 +537,11 @@ class DashScopeClient:
         if "://" not in uri:
             uri = f"file://{Path(uri).resolve()}"
         resp = self._governed(lambda: self._ok(self._ds.MultiModalEmbedding.call(
-            model=self.settings.multimodal_embed_model, input=[{"image": uri}])))
+            model=self.settings.multimodal_embed_model,
+            input=[{"image": uri}],
+            request_timeout=self.settings.dashscope_request_timeout_sec,
+            timeout=self.settings.dashscope_request_timeout_sec,
+        )))
         emb = resp.output["embeddings"][0]["embedding"]
         return np.asarray(emb, dtype=np.float32)
 
@@ -443,6 +558,8 @@ class DashScopeClient:
         kwargs: dict[str, Any] = dict(
             model=model, messages=messages, result_format="message",
             temperature=temperature, max_tokens=max_tokens,
+            request_timeout=self.settings.dashscope_request_timeout_sec,
+            timeout=self.settings.dashscope_request_timeout_sec,
         )
         _ = json_mode  # accepted for API symmetry; parsing is prompt-driven
         resp = self._governed(lambda: self._ok(self._ds.Generation.call(**kwargs)))
@@ -494,9 +611,20 @@ class DashScopeClient:
         into overlapping windows, each extracted, and the triples merged+deduped -- so facts
         beyond char ~6000 still enter the graph/events (long LoCoMo/LongMemEval sessions). This
         multiplies the extraction LLM call 2-3x on long sessions, hence gated (default OFF)."""
+        return self.extract_edges_bounded(text, max_windows=0)
+
+    def extract_edges_bounded(self, text: str, *, max_windows: int = 0) -> list[dict[str, str]]:
+        """Extraction with an optional window cap for bounded sleep over huge haystacks.
+
+        ``max_windows<=0`` preserves the full configured behavior. A positive cap keeps the first
+        N extraction windows; raw memory remains lossless and searchable, while graph/event
+        enrichment is deliberately bounded so long benchmark sleeps complete.
+        """
         s = self.settings
         if s.extract_chunking_enabled and len(text) > 6000:
             windows = chunk_text(text, s.extract_chunk_chars, s.extract_chunk_overlap)
+            if max_windows > 0:
+                windows = windows[:max_windows]
             triples: list[dict[str, str]] = []
             for w in windows:
                 triples.extend(self._extract_edges_window(w))
@@ -538,6 +666,41 @@ class DashScopeClient:
                     "fact": str(t.get("fact", f"{t['src']} {t['relation']} {t['dst']}")).strip(),
                 })
         return out
+
+    def extract_claims(self, text: str) -> list[dict[str, Any]]:
+        """qwen-plus extraction of typed, source-backed memory claims for SMQE."""
+        return self.extract_claims_bounded(text, max_windows=0)
+
+    def extract_claims_bounded(self, text: str, *, max_windows: int = 0) -> list[dict[str, Any]]:
+        s = self.settings
+        if s.extract_chunking_enabled and len(text) > 6000:
+            windows = chunk_text(text, s.extract_chunk_chars, s.extract_chunk_overlap)
+            if max_windows > 0:
+                windows = windows[:max_windows]
+            claims: list[dict[str, Any]] = []
+            for w in windows:
+                claims.extend(self._extract_claims_window(w))
+            return dedupe_claim_dicts(claims)
+        return self._extract_claims_window(text[:6000])
+
+    def _extract_claims_window(self, window: str) -> list[dict[str, Any]]:
+        model = self.settings.salience_model if self.settings.extract_light_enabled else self.settings.extract_model
+        try:
+            raw = self.chat(
+                model,
+                "Extract source-backed memory claims from the text. Reply ONLY as JSON: "
+                "{\"claims\":[{\"claim_type\":\"state|quantity|event|interval|table|preference\","
+                "\"subject\":...,\"predicate\":...,\"object\":...,\"value\":...,\"unit\":...,"
+                "\"proof_atom\":...}]}. proof_atom must be a verbatim span from the text. "
+                "Do not answer questions and do not infer beyond the text.",
+                f"Text:\n{window}",
+                json_mode=True, temperature=0.0, max_tokens=2048,
+            )
+        except ModelCallError as e:
+            if _is_content_moderation(str(e)):
+                return []
+            raise
+        return _parse_claims(raw)
 
     # ---- Component 7: contradiction judge --------------------------------
     def find_contradictions(self, new_fact: str, candidates: list[str]) -> list[int]:
@@ -650,7 +813,10 @@ class DashScopeClient:
         docs = [d[:4000] for d in documents][:500]
         resp = self._governed(lambda: self._ok(self._ds.TextReRank.call(
             model=self.settings.rerank_model, query=query[:4000], documents=docs,
-            top_n=min(top_n, len(docs)), return_documents=False)))
+            top_n=min(top_n, len(docs)), return_documents=False,
+            request_timeout=self.settings.dashscope_request_timeout_sec,
+            timeout=self.settings.dashscope_request_timeout_sec,
+        )))
         results = resp.output["results"]
         return [(int(r["index"]), float(r["relevance_score"])) for r in results]
 

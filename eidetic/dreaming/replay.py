@@ -43,8 +43,9 @@ def cycle(engine, scope: Optional[Scope] = None, settings: Optional[Settings] = 
         return float(max(0.0, 1.0 - (max(sims) if sims else 0.0)))
 
     def need(r) -> float:
-        ppr = np.mean([feats[e.lower()]["ppr"] for e in r.entities if e.lower() in feats]) if (
-            feats and r.entities) else 0.0
+        vals = [feats[e.lower()]["ppr"] for e in r.entities if e.lower() in feats] if (
+            feats and r.entities) else []
+        ppr = float(np.mean(vals)) if vals else 0.0
         recency = 1.0 / (1.0 + r.age_days(t))
         return float(0.5 * min(1.0, ppr * 20.0) + 0.5 * recency)
 

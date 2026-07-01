@@ -23,8 +23,8 @@ from datetime import datetime
 
 from . import fsrs, preferences, salience as salience_mod, structure_code as sc
 from .config import Settings, get_settings
-from .dashscope_client import DashScopeClient, get_client
-from .events import EventRecord, normalize_dates
+from .dashscope_client import DashScopeClient, chunk_text, get_client
+from .events import EventRecord, event_aliases_from_text, normalize_dates
 from .graph import KnowledgeGraph
 from .ingestion import IngestInput, from_bytes, from_file, from_text
 from .memory_types import classify_record
@@ -45,6 +45,16 @@ from .vector_index import make_vector_index
 # memories within this window (dossier 6.7 -> ~1 hour for the biological analog).
 TAG_CAPTURE_WINDOW_SEC = 3600.0
 TAG_CAPTURE_SALIENCE = 0.7  # only events at/above this salience tag their neighbors
+_FALSE_PREMISE_STOP_TERMS = {
+    "about", "after", "before", "between", "did", "does", "doing", "for", "from",
+    "had", "has", "have", "how", "into", "is", "leave", "leaving", "left", "over",
+    "quit", "the", "then", "there", "this", "was", "were", "what", "when", "where",
+    "which", "who", "why", "with", "work", "worked", "working",
+}
+_FALSE_PREMISE_GENERIC_TERMS = {
+    "company", "home", "job", "office", "place", "project", "school", "team",
+    "thing", "work",
+}
 
 _log = logging.getLogger("eidetic.engine")
 
@@ -84,6 +94,7 @@ class Engine:
         # Prospective memory: a first-order Markov model of query-signature transitions.
         from .optim.markov import MarkovPrefetcher
         self.markov = MarkovPrefetcher()
+        self._last_query_text = ""
         # Connected Brain Loop: the single in-memory improvement stream. Constructing an empty
         # ring is free; emission is gated on BRAIN_EVENTS so baseline behavior is unchanged.
         self.brain_log = BrainEventLog()
@@ -180,18 +191,17 @@ class Engine:
         valid_at = now() if valid_at is None else valid_at
         scope = scope or Scope()
 
-        # SHA-256 dedup BEFORE embedding (cost control + provenance). Dedup is PER-SCOPE:
-        # raw bytes are shared globally by the substrate, but the index record is distinct
-        # per namespace so the same text in scope B never inherits scope A's record.
+        # SHA-256 dedup BEFORE embedding (cost control + provenance). Dedup is PER-SCOPE and
+        # per valid_at: identical text repeated in a later session is still a distinct memory event
+        # for count/sum recall, while the immutable raw bytes remain shared by content_hash.
         h = sha256_hex(item.raw_bytes)
-        existing = self.store.get_by_hash(h, scope)
-        if existing is not None:
-            return existing
+        for existing in self.store.records_by_hash(h, scope):
+            if abs(float(existing.valid_at or 0.0) - float(valid_at or 0.0)) <= 1e-6:
+                return existing
 
-        content_hash, raw_uri = self.substrate.put(item.raw_bytes)
-
-        # Embed (real; allowed on the write path). Salience uses the in-scope index state
-        # BEFORE this memory is added.
+        # Embed (real; allowed on the write path) before committing immutable bytes. If a
+        # missing key/quota/model failure happens here, public MCP callers get a loud error and
+        # no orphan raw blob is left in the write-once substrate.
         content_vec = self.client.embed_text(item.text)
 
         triples: list[dict[str, str]] = []
@@ -236,6 +246,8 @@ class Engine:
                     seen.add(e.lower())
                     entities.append(e)
 
+        content_hash = h
+        raw_uri = self.substrate.uri_for(h)
         record = MemoryRecord(
             content_hash=content_hash, modality=item.modality, raw_uri=raw_uri,
             raw_bytes_len=len(item.raw_bytes), text=item.text, is_described=item.is_described,
@@ -271,6 +283,10 @@ class Engine:
         if self.settings.memory_typing_enabled:
             record.metadata["type"] = classify_record(record).value
 
+        content_hash, raw_uri = self.substrate.put(item.raw_bytes)
+        record.content_hash = content_hash
+        record.raw_uri = raw_uri
+
         # Index-write tail under the write lock (content_vec / struct_vec were computed above, OFF
         # the lock -> no model call is held here).
         with self._write_lock:
@@ -291,7 +307,7 @@ class Engine:
         self._brain(BrainEventType.MEMORY_INGESTED, namespace=scope.namespace,
                     memory_ids=[record.memory_id], modality=record.modality.value,
                     pending=not consolidate_now)
-        return record
+        return self.lifecycle.after_ingest(record, scope)
 
     def _visual_triples(self, raw_bytes: bytes, modality: Modality) -> list[dict[str, str]]:
         """Run real visual graph extraction by writing the raw bytes to a temp file."""
@@ -369,6 +385,44 @@ class Engine:
                 self.reflex_index.rebuild_from_store(self.store)
         return {"rebuilt": len(recs)}
 
+    def clear_namespace(self, namespace: str) -> dict:
+        """Administrative reset of one namespace's mutable memory state.
+
+        Deletes only the forgettable SQLite index/state rows for the namespace; immutable substrate
+        blobs remain content-addressed and untouched. Rebuildable in-memory surfaces are invalidated
+        so repeated benchmark runs start from the same empty scoped state.
+        """
+        ns = namespace or "default"
+        with self._write_lock:
+            removed = self.store.clear_namespace(ns)
+            self.cache.clear()
+            self._bump_ns_version(ns)
+            self.feedback.clear(ns)
+            if self.reflex_index.built or self.settings.reflex_recall_enabled:
+                self.reflex_index.rebuild_from_store(self.store)
+            with self._hotset_lock:
+                self._hotset.pop(ns, None)
+            if self.activation is not None:
+                self.activation.clear_namespace(ns)
+
+            surfaces_reset = False
+            if self.store.count(None) == 0:
+                for f in list(self.settings.index_dir.glob("*")):
+                    if f.name.startswith(("numpy_index", "hnsw", "quant", "bm25_index")):
+                        try:
+                            f.unlink()
+                        except OSError:
+                            pass
+                self.index = make_vector_index(self.settings)
+                self.retriever.index = self.index
+                self.index.save()
+                if self.settings.persistent_bm25_enabled:
+                    self.retriever.bm25.index([])
+                    self.retriever.bm25.save()
+                self._ingest_since_save = 0
+                surfaces_reset = True
+        return {**removed, "surfaces_reset": surfaces_reset}
+
     def ingest_many(self, items, *, valid_at: Optional[float] = None,
                     scope: Optional[Scope] = None) -> list:
         """Batched bulk ingest (S2, LLM-free fast path): embed ALL texts in batches (N/10 round
@@ -422,6 +476,11 @@ class Engine:
                 self._bump_ns_version(scope.namespace)
             self.index.save()
             self.retriever.save_lexical()
+        if new_idx:
+            for rec in out:
+                if rec.metadata.get("pending_consolidation"):
+                    self.lifecycle.after_ingest(rec, scope)
+                    break
         return out
 
     def _enqueue_reembed(self, memory_ids) -> None:
@@ -654,6 +713,172 @@ class Engine:
                         coverage=packet.coverage, latency_ms=packet.latency_ms.get("total"))
         return packet
 
+    def region_hints(self, query: str, *, scope: Optional[Scope] = None,
+                     as_of: Optional[float] = None, limit: int = 3,
+                     member_limit: int = 6, use_reflex: bool = True) -> dict:
+        """Model-free memory-neighborhood hints for host agents.
+
+        Regions/cocoons route the caller toward raw memories; they are never treated as answer
+        evidence. Every returned hint includes raw member ids plus content hashes/raw URIs so the
+        caller can follow the path down to immutable substrate bytes.
+        """
+        t0 = time.perf_counter()
+        scope = scope or Scope()
+        limit = max(0, min(20, int(limit)))
+        member_limit = max(0, min(50, int(member_limit)))
+        if not self.settings.gist_channel_enabled:
+            return {
+                "query": query,
+                "scope": scope.model_dump(),
+                "as_of": as_of,
+                "enabled": False,
+                "source": "region_hints",
+                "hint_count": 0,
+                "hints": [],
+                "reflex_candidate_ids": [],
+                "latency_ms": {"total": (time.perf_counter() - t0) * 1000.0},
+                "note": "region routing disabled (GIST_CHANNEL=0)",
+            }
+        packet: Optional[MemoryPacket] = None
+        candidates = []
+        if use_reflex:
+            packet = self.reflex_recall(
+                query,
+                scope=scope,
+                as_of=as_of,
+                emit=False,
+                begin_turn=False,
+            )
+            candidates = packet.to_candidates()
+        hints = self.retriever.memory_region_hints(
+            query,
+            scope=scope,
+            at=as_of,
+            candidates=candidates,
+            limit=limit,
+            member_limit=member_limit,
+        )
+        return {
+            "query": query,
+            "scope": scope.model_dump(),
+            "as_of": as_of,
+            "enabled": True,
+            "source": "region_hints",
+            "hint_count": len(hints),
+            "hints": hints,
+            "reflex_candidate_ids": packet.candidate_ids() if packet is not None else [],
+            "latency_ms": {"total": (time.perf_counter() - t0) * 1000.0},
+            "note": "routing hints only; verify answers against raw source memories",
+        }
+
+    def structured_recall(self, query: str, *, scope: Optional[Scope] = None,
+                          as_of: Optional[float] = None, verify: bool = True) -> dict:
+        """Run the typed SMQE path directly and expose its plan/support/proof trace."""
+        from .smqe import structured_recall
+        out = structured_recall(
+            self.retriever,
+            query,
+            at=as_of,
+            verify=verify,
+            scope=scope or Scope(),
+        )
+        out.pop("_answer_model", None)
+        citations = out.get("citations") if isinstance(out.get("citations"), list) else []
+        proof_link_checks = 0
+        for cit in citations:
+            if not isinstance(cit, dict):
+                continue
+            content_hash = str(cit.get("content_hash", "") or "").strip().lower()
+            raw_uri = str(cit.get("raw_uri", "") or "").strip().lower()
+            if (
+                re.fullmatch(r"[0-9a-f]{64}", content_hash)
+                and raw_uri == f"cas://{content_hash}"
+                and self.substrate.verify(content_hash)
+            ):
+                proof_link_checks += 1
+        out["proof_link_checks"] = proof_link_checks
+        out["immutable_proof"] = bool(
+            out.get("answered")
+            and out.get("verified")
+            and citations
+            and proof_link_checks == len(citations)
+        )
+        if out.get("answered") and out.get("verified") and not out["immutable_proof"]:
+            out.update({
+                "answered": False,
+                "abstained": True,
+                "verified": False,
+                "confidence": 0.0,
+                "failure_reason": "missing_immutable_proof",
+            })
+        return out
+
+    def preference_profile(self, *, scope: Optional[Scope] = None,
+                           include_inactive: bool = False, limit: int = 50) -> dict:
+        """Read the current preference profile with source-memory provenance.
+
+        The profile table is namespace-level, so this method enforces optional agent/project
+        sub-scope through each line's source memory. Unattributed legacy lines are only visible to
+        namespace-wide reads, never to a narrowed sub-scope where they cannot be proven visible.
+        Source-linked rows whose source memory is missing are hidden from every scope.
+        """
+        scope = scope or Scope()
+        limit = max(0, min(500, int(limit)))
+        read_at = now()
+        entries = self.store.get_profile_entries(
+            scope.namespace,
+            include_inactive=include_inactive,
+        )
+        profile: list[dict] = []
+        skipped_unattributed = 0
+        skipped_missing_source = 0
+        skipped_scope = 0
+        for entry in entries:
+            source_id = str(entry.get("source_memory_id", "") or "")
+            rec = self.store.get_record(source_id) if source_id else None
+            if rec is None:
+                if source_id:
+                    skipped_missing_source += 1
+                    continue
+                if scope.agent_id is not None or scope.project_id is not None:
+                    skipped_unattributed += 1
+                    continue
+            else:
+                if not rec.scope.visible_to(scope):
+                    skipped_scope += 1
+                    continue
+                if not include_inactive and not rec.is_active_at(read_at):
+                    skipped_scope += 1
+                    continue
+            out = dict(entry)
+            if rec is not None:
+                out["content_hash"] = out.get("content_hash") or rec.content_hash
+                out["raw_uri"] = out.get("raw_uri") or rec.raw_uri
+                out["source_scope"] = rec.scope.model_dump()
+                out["source_active"] = rec.is_active_at(read_at)
+            else:
+                out["source_scope"] = {"namespace": scope.namespace,
+                                       "agent_id": None, "project_id": None}
+                out["source_active"] = None
+            out["provenance_complete"] = bool(
+                out.get("source_memory_id") and out.get("content_hash") and out.get("raw_uri")
+            )
+            out["status"] = "inactive" if out.get("invalid_at") is not None else "active"
+            profile.append(out)
+            if len(profile) >= limit:
+                break
+        return {
+            "scope": scope.model_dump(),
+            "include_inactive": include_inactive,
+            "profile_count": len(profile),
+            "profile": profile,
+            "provenance_complete": all(e["provenance_complete"] for e in profile) if profile else True,
+            "skipped_unattributed": skipped_unattributed,
+            "skipped_missing_source": skipped_missing_source,
+            "skipped_out_of_scope": skipped_scope,
+            "note": "preference profile lines are routing context; verify decisions with raw sources",
+        }
+
     def sync_health(self, scope: Optional[Scope] = None) -> dict:
         """Track 2 derived synchronization report: are the rebuildable surfaces (vector index, BM25)
         consistent with the source-of-truth store, plus the namespace memory version and reflex
@@ -729,6 +954,29 @@ class Engine:
             if hit is not None:
                 self._brain(BrainEventType.CACHE_HIT, namespace=scope.namespace, mode="exact")
                 return hit
+
+        # SMQE answers narrow extractive/compositional memory questions from typed claims first and
+        # raw records second. It is the general structured recall path; retrieval remains the fallback.
+        from .smqe import structured_answer
+        structured_answered = structured_answer(
+            self.retriever, query, at=read_at, verify=verify, scope=scope
+        )
+        if structured_answered is not None and (
+                self.settings.recall_trace_enabled or self.settings.brain_events_enabled):
+            cited_ids = [c.memory_id for c in structured_answered.citations]
+            self.retriever.last_trace = RecallTrace(
+                query=query,
+                scope=scope,
+                enabled_channels=["smqe"],
+                channel_results={"smqe": cited_ids},
+                fused_scores={mid: 1.0 for mid in cited_ids},
+                selected_candidates=cited_ids,
+                latency_by_stage={},
+            )
+        if structured_answered is not None and self.settings.flow_activation_enabled:
+            self._flow_begin_turn(scope.namespace, query, scope=scope, as_of=read_at)
+
+        if structured_answered is None and use_cache:
             qvec = self.client.embed_text(query)         # embed once, reuse in retrieval
             if len(self._query_log) < 5000:              # bounded query log for pre-fetch
                 self._query_log.append((sk, qvec))
@@ -740,7 +988,7 @@ class Engine:
         # Track 9 Flow: begin the turn (one decay + optional query prime) ONLY now that this is a
         # real recall -- a cache hit returned above without mutating the field. Done once here, so
         # the nested reflex_recall call below passes begin_turn=False (no double-decay).
-        if self.settings.flow_activation_enabled:
+        if structured_answered is None and self.settings.flow_activation_enabled:
             self._flow_begin_turn(scope.namespace, query, scope=scope, as_of=read_at)
 
         # Track 1 Reflex Recall: try the LOCAL fast path first. On a confident hit, feed the reflex
@@ -748,7 +996,7 @@ class Engine:
         # recall itself); NLI/abstention/proof still gate the FINAL answer. On a low-coverage miss,
         # fall back to full retrieval. Flag-off -> this block never runs (baseline byte-identical).
         reflex_candidates = None
-        if self.settings.reflex_recall_enabled:
+        if structured_answered is None and self.settings.reflex_recall_enabled:
             packet = self.reflex_recall(query, scope=scope, as_of=read_at, emit=False, begin_turn=False)
             if packet.coverage >= self.settings.reflex_min_coverage and packet.items:
                 reflex_candidates = packet.to_candidates()
@@ -777,7 +1025,9 @@ class Engine:
         # (inert when the activation channels are off; None when flow is off -> byte-identical).
         flow_act = self._flow_snapshot(scope.namespace) if self.settings.flow_activation_enabled else None
         precomputed = None
-        if reflex_candidates is not None:
+        if structured_answered is not None:
+            ans = structured_answered
+        elif reflex_candidates is not None:
             ans = self.retriever.answer(query, at=read_at, verify=verify, scope=scope, qvec=qvec,
                                         precomputed=reflex_candidates, reader_model=reader_model,
                                         activation=flow_act)
@@ -870,6 +1120,28 @@ class Engine:
             self.cache.put(sk, query, qvec, ans, version=cache_ver)
         return ans
 
+    def link_coactivated(
+        self,
+        memory_ids: list[str],
+        *,
+        scope: Optional[Scope] = None,
+        valid_at: Optional[float] = None,
+        cap: int = 5,
+    ) -> dict:
+        """Link top co-surfaced memories with CO_ACTIVATED edges.
+
+        The neutral benchmark rows do not call ask(), so they would otherwise never write the
+        co-activation graph that the product path writes after verified recalls. This hook is a
+        pure graph mutation, gated by the caller, and never calls a model or changes raw memory.
+        """
+        scope = scope or Scope()
+        ids = [mid for mid in dict.fromkeys(memory_ids or []) if mid][: max(0, cap)]
+        if len(ids) < 2:
+            return {"linked": 0, "memory_ids": ids}
+        with self._write_lock:
+            linked = self.graph.link_memories(ids, scope=scope, valid_at=valid_at)
+        return {"linked": linked, "memory_ids": ids}
+
     def _emit_feedback(self, scope: Scope, query: str, qvec, candidates: list,
                        confirmed: list[str]) -> None:
         """Append one dev-feedback tuple from the PRODUCT read path. The reward is whether any
@@ -920,31 +1192,77 @@ class Engine:
         return toks[0] if toks else "_"
 
     def _observe_query(self, query: str) -> None:
+        self._last_query_text = query or ""
         self.markov.observe(self._query_signature(query))
 
     def predict_next_signatures(self, query: str, top_k: int = 3) -> list:
         """The Markov model's most-likely NEXT query signatures given the current query."""
         return self.markov.predict(self._query_signature(query), top_k=top_k)
 
+    def warmup_predicted_prefetch(self, query: Optional[str] = None, *,
+                                  scope: Optional[Scope] = None,
+                                  at: Optional[float] = None,
+                                  top_k: Optional[int] = None) -> dict:
+        """Pre-stage contexts for Markov-predicted next query signatures.
+
+        This connects the prospective Markov model to the existing PrefetchCache during idle time.
+        It is default-off, embedding-only, and still builds context through the normal retriever so
+        future citation-preserving answer paths can consume the same evidence shape.
+        """
+        enabled = self.settings.markov_prefetch_enabled and self.settings.flow_warmup_enabled
+        if not enabled:
+            return {"enabled": False, "predictions": 0, "warmed": 0}
+        scope = scope or Scope()
+        current = query if query is not None else self._last_query_text
+        if not current:
+            return {"enabled": True, "predictions": 0, "warmed": 0, "note": "no-query"}
+        k = self.settings.flow_warmup_topk if top_k is None else top_k
+        if k <= 0:
+            return {"enabled": True, "predictions": 0, "warmed": 0, "note": "topk<=0"}
+        predictions = self.predict_next_signatures(current, top_k=k)
+        signatures = [str(sig) for sig, _prob in predictions if str(sig).strip() and str(sig) != "_"]
+        if not signatures:
+            return {"enabled": True, "predictions": len(predictions), "warmed": 0,
+                    "signatures": []}
+        qvecs = np.asarray(self.client.embed_texts(signatures), dtype=np.float32)
+        activation = self._flow_snapshot(scope.namespace) if self.settings.flow_activation_enabled else None
+        warmed = 0
+        for sig, qvec in zip(signatures, qvecs):
+            cands = self.retriever.retrieve(
+                sig, at=at, scope=scope, qvec=qvec, skip_rerank=True, activation=activation)
+            blocks = self.retriever.assemble_context(
+                sig, cands, at=at, scope=scope, activation=activation)
+            if not blocks:
+                continue
+            self.prefetch.add(qvec, blocks)
+            warmed += 1
+        if warmed:
+            self._brain(BrainEventType.FLOW_WARMED, namespace=scope.namespace,
+                        signatures=signatures[:warmed], warmed=warmed)
+        return {"enabled": True, "predictions": len(predictions), "warmed": warmed,
+                "signatures": signatures}
+
     def reawaken(self, memory_id: str) -> Optional[MemoryRecord]:
         """Strong-cue reawakening: reset retrievability + boost stability (O(1))."""
-        rec = self.store.get_record(memory_id)
-        if rec is None:
-            return None
-        fsrs.reinforce(rec.fsrs, importance=max(0.6, rec.importance))
-        self.store.upsert_record(rec)
-        return rec
+        with self._write_lock:
+            rec = self.store.get_record(memory_id)
+            if rec is None:
+                return None
+            fsrs.reinforce(rec.fsrs, importance=max(0.6, rec.importance))
+            self.store.upsert_record(rec)
+            return rec
 
     def forget(self, memory_id: str) -> Optional[MemoryRecord]:
         """Lower a memory's retrieval PRIORITY via the FSRS forgetting path. This is the inverse
         of reawaken and NEVER deletes the raw record: the immutable substrate is untouched, only
         the mutable index-priority weight drops. Returns None if the memory does not exist."""
-        rec = self.store.get_record(memory_id)
-        if rec is None:
-            return None
-        fsrs.lapse(rec.fsrs)
-        self.store.upsert_record(rec)
-        return rec
+        with self._write_lock:
+            rec = self.store.get_record(memory_id)
+            if rec is None:
+                return None
+            fsrs.lapse(rec.fsrs)
+            self.store.upsert_record(rec)
+            return rec
 
     def get_record_in_scope(self, memory_id: str,
                             scope: Optional[Scope] = None) -> Optional[MemoryRecord]:
@@ -962,12 +1280,13 @@ class Engine:
                      scope: Optional[Scope] = None) -> Optional[MemoryRecord]:
         """Attach/merge metadata onto a memory's mutable state (the raw substrate is NOT touched).
         Scope-checked so it cannot write across a namespace boundary."""
-        rec = self.get_record_in_scope(memory_id, scope)
-        if rec is None:
-            return None
-        rec.metadata.update(dict(metadata or {}))
-        self.store.upsert_record(rec)
-        return rec
+        with self._write_lock:
+            rec = self.get_record_in_scope(memory_id, scope)
+            if rec is None:
+                return None
+            rec.metadata.update(dict(metadata or {}))
+            self.store.upsert_record(rec)
+            return rec
 
     # ---- sleep: consolidation/replay -------------------------------------
     def consolidate(self, *, verify: bool = True, scope: Optional[Scope] = None) -> dict:
@@ -1044,7 +1363,7 @@ class Engine:
         are computed ONCE (not per record). `score_importance=False` skips the per-record
         qwen-flash call -- importance only feeds FSRS priority / salience pruning, neither of
         which is in the ranking path, so it has no effect on retrieval accuracy."""
-        from concurrent.futures import ThreadPoolExecutor
+        from concurrent.futures import ALL_COMPLETED, ThreadPoolExecutor, wait
 
         # Idle/sleep cadence also drains the deferred re-embed queue (S1).
         reembed = self.drain_reembed_queue()
@@ -1054,11 +1373,95 @@ class Engine:
             return {"pending_processed": 0, "facts_extracted": 0, "events_indexed": 0,
                     "reembedded": reembed.get("reembedded", 0)}
 
-        def _extract(rec: MemoryRecord) -> tuple[MemoryRecord, list[dict]]:
+        def _planned_extract_windows(rec: MemoryRecord) -> int:
+            text = rec.text or ""
+            if not text.strip():
+                return 0
+            if self.settings.extract_chunking_enabled and len(text) > 6000:
+                return len(chunk_text(
+                    text,
+                    self.settings.extract_chunk_chars,
+                    self.settings.extract_chunk_overlap,
+                ))
+            return 1
+
+        window_plan = {rec.memory_id: _planned_extract_windows(rec) for rec in pending}
+        planned_windows = sum(window_plan.values())
+        call_budget = max(0, int(getattr(self.settings, "consolidation_extract_call_budget", 0) or 0))
+        raw_only_window_threshold = max(
+            0,
+            int(getattr(self.settings, "consolidation_raw_only_window_threshold", 0) or 0),
+        )
+        record_raw_only_ids = {
+            rec.memory_id
+            for rec in pending
+            if raw_only_window_threshold
+            and window_plan.get(rec.memory_id, 0) > raw_only_window_threshold
+        }
+        extracting_records = sum(1 for n in window_plan.values() if n > 0)
+        budget_trigger = max(1, int(call_budget * 0.8)) if call_budget else 0
+        aggregate_long_haystack_bounded = bool(call_budget and planned_windows > budget_trigger)
+        long_haystack_bounded = bool(aggregate_long_haystack_bounded or record_raw_only_ids)
+        raw_only_long_haystack = (
+            aggregate_long_haystack_bounded
+            and bool(getattr(self.settings, "consolidation_long_haystack_raw_only", False))
+        )
+        window_cap_per_record = 0
+        if aggregate_long_haystack_bounded and not raw_only_long_haystack and extracting_records:
+            # Every record gets at least one extraction window; raw memory is still fully indexed.
+            # This bounds auxiliary graph/event enrichment without making long-haystack sleep fail.
+            window_cap_per_record = max(1, call_budget // extracting_records)
+        remaining_budget = (
+            0 if raw_only_long_haystack
+            else (call_budget if aggregate_long_haystack_bounded else None)
+        )
+        window_allowance: dict[str, int] = {}
+        for rec in pending:
+            n = window_plan.get(rec.memory_id, 0)
+            if n <= 0:
+                window_allowance[rec.memory_id] = 0
+                continue
+            if rec.memory_id in record_raw_only_ids:
+                allow = 0
+            elif remaining_budget is None:
+                allow = n
+            elif remaining_budget > 0:
+                allow = min(n, window_cap_per_record, remaining_budget)
+                remaining_budget -= allow
+            else:
+                allow = 0
+            window_allowance[rec.memory_id] = allow
+        submitted_windows = sum(window_allowance.values())
+        raw_only_bounded = sum(
+            1 for rec in pending
+            if window_plan.get(rec.memory_id, 0) > 0 and window_allowance.get(rec.memory_id, 0) == 0
+        )
+        record_raw_only_bounded = sum(1 for rec in pending if rec.memory_id in record_raw_only_ids)
+        partial_bounded = sum(
+            1 for rec in pending
+            if 0 < window_allowance.get(rec.memory_id, 0) < window_plan.get(rec.memory_id, 0)
+        )
+
+        def _extract(rec: MemoryRecord) -> tuple[MemoryRecord, list[dict], list[dict]]:
             triples: list[dict[str, str]] = []
+            extracted_claims: list[dict] = []
             if rec.text.strip():
                 try:
-                    triples.extend(self.client.extract_edges(rec.text))   # real, concurrent
+                    bounded = getattr(self.client, "extract_edges_bounded", None)
+                    claim_bounded = getattr(self.client, "extract_claims_bounded", None)
+                    claim_extract = getattr(self.client, "extract_claims", None)
+                    allow = window_allowance.get(rec.memory_id, 0)
+                    if allow <= 0:
+                        triples = []
+                        extracted_claims = []
+                    elif window_cap_per_record and callable(bounded):
+                        triples.extend(bounded(rec.text, max_windows=allow))
+                        if callable(claim_bounded):
+                            extracted_claims.extend(claim_bounded(rec.text, max_windows=allow))
+                    else:
+                        triples.extend(self.client.extract_edges(rec.text))   # real, concurrent
+                        if callable(claim_extract):
+                            extracted_claims.extend(claim_extract(rec.text))
                 except Exception as e:   # one record's extraction must not abort the whole sweep
                     # extract_edges already degrades moderation/truncation internally; this catches
                     # the residual (e.g. a transient past its retry budget). The raw record stays in
@@ -1070,28 +1473,71 @@ class Engine:
                         self.substrate.get(rec.content_hash), rec.modality))
                 except Exception as e:        # visual extraction is best-effort; log, don't swallow
                     self._degraded("visual-extract", e)
-            return rec, triples
+            return rec, triples, extracted_claims
 
-        with ThreadPoolExecutor(max_workers=max_workers) as ex:
-            extracted = list(ex.map(_extract, pending))
+        timed_out: list[MemoryRecord] = []
+        deferred: list[MemoryRecord] = []
+        deadline = max(0.0, float(getattr(self.settings, "consolidation_extract_deadline_sec", 0.0)))
+        policy = str(getattr(self.settings, "consolidation_timeout_policy", "degrade")).lower()
+        if deadline <= 0.0:
+            with ThreadPoolExecutor(max_workers=max_workers) as ex:
+                extracted = list(ex.map(_extract, pending))
+        else:
+            ex = ThreadPoolExecutor(max_workers=max_workers)
+            future_by_id = {ex.submit(_extract, rec): rec for rec in pending}
+            done, not_done = wait(future_by_id, timeout=deadline, return_when=ALL_COMPLETED)
+            result_by_id: dict[str, tuple[MemoryRecord, list[dict], list[dict]]] = {}
+            for fut in done:
+                rec = future_by_id[fut]
+                try:
+                    result_by_id[rec.memory_id] = fut.result()
+                except Exception as e:  # _extract is best-effort, but keep the batch alive anyway.
+                    self._degraded("extract-future", e)
+                    result_by_id[rec.memory_id] = (rec, [], [])
+            for fut in not_done:
+                rec = future_by_id[fut]
+                fut.cancel()
+                timed_out.append(rec)
+                rec.metadata["consolidation_timeout"] = True
+                rec.metadata["consolidation_timeout_sec"] = deadline
+                if policy == "defer":
+                    deferred.append(rec)
+                    self.store.upsert_record(rec)
+                    continue
+                result_by_id[rec.memory_id] = (rec, [], [])
+            # Do not hold the whole sleep/query path waiting for slow network calls. Running calls may
+            # finish in the background; their result is ignored because raw memory is already stored.
+            ex.shutdown(wait=False, cancel_futures=True)
+            extracted = [result_by_id[r.memory_id] for r in pending if r.memory_id in result_by_id]
 
-        facts = events_total = 0
+        facts = events_total = claims_total = 0
         rel_by_id: dict[str, list[str]] = {}
+        anchor_events_by_scope: dict[str, list[EventRecord]] = {}
+        from .smqe.claim_extraction import claims_for_record
         # Pass 1: add facts/events (SEQUENTIAL -> contradiction ordering preserved), prefs.
-        for rec, triples in extracted:
+        for rec, triples, extracted_claims in extracted:
+            anchor_events = anchor_events_by_scope.setdefault(
+                rec.scope.key(),
+                list(self.store.events_in_scope(rec.scope.namespace, scope=rec.scope)),
+            )
             entities, seen = [], set()
             for t in triples:
                 for e in (t["src"], t["dst"]):
                     if e.lower() not in seen:
                         seen.add(e.lower())
                         entities.append(e)
-            date_ranges = normalize_dates(rec.text, rec.valid_at)
-            # Anchor events to the SESSION date (rec.valid_at) by default -- that is the
-            # temporal ground truth in conversational memory -- preferring an explicit
-            # absolute (year-bearing) date if the text states one. (Off-by-one date phrasing
-            # is tolerated by the LongMemEval temporal judge.)
-            ev_range = self._event_epochs(date_ranges, rec.valid_at)
+            date_ranges = normalize_dates(rec.text, rec.valid_at, anchor_events)
             for t in triples:
+                event_text = self._event_source_window(rec.text, t)
+                event_ranges = (
+                    normalize_dates(event_text, rec.valid_at, anchor_events)
+                    if event_text and event_text != rec.text else date_ranges
+                )
+                # Anchor events to the most local source sentence when possible, falling back to
+                # whole-record dates and then the session date. Long benchmark sessions often pack
+                # many dated facts into one memory; per-event windows keep their calendar entries
+                # from all inheriting the first explicit date in the session.
+                ev_range = self._event_epochs(event_ranges or date_ranges, rec.valid_at)
                 _edge, invalidated = self.graph.add_fact(
                     t["src"], t["relation"], t["dst"], fact=t["fact"],
                     source_memory_id=rec.memory_id, valid_at=rec.valid_at, scope=rec.scope)
@@ -1099,34 +1545,68 @@ class Engine:
                     self._brain(BrainEventType.SUPERSEDED, namespace=rec.scope.namespace,
                                 memory_ids=[rec.memory_id], closed=len(invalidated))
                 facts += 1
-                self.store.add_event(EventRecord(
+                ev = EventRecord(
                     subject=t["src"], verb=t["relation"], object=t["dst"], fact=t["fact"],
-                    aliases=[t["fact"], f"{t['src']} {t['dst']}", f"{t['relation']} {t['dst']}"],
+                    aliases=(
+                        event_aliases_from_text(rec.text, t)
+                        if self.settings.event_alias_expansion_enabled
+                        else [t["fact"], f"{t['src']} {t['dst']}", f"{t['relation']} {t['dst']}"]
+                    ),
                     start=ev_range[0], end=ev_range[1],
                     source_memory_id=rec.memory_id, namespace=rec.scope.namespace,
                     valid_at=rec.valid_at,
-                ))
+                )
+                self.store.add_event(ev)
+                anchor_events.append(ev)
                 events_total += 1
             if self.settings.pref_sentence_scan_enabled:
                 # Scan every sentence/turn so mid-conversation preferences become profile lines.
-                # Pass a normalized dedup key so casing/whitespace variants across sessions don't
-                # bloat the profile (exact-string dedup alone would let "I like Tea" and "i like
-                # tea" both land).
+                # Store a canonical profile line and key so casing/whitespace/simple paraphrase
+                # variants across sessions don't bloat the profile.
                 lines = preferences.extract_all_preferences(rec.text)
                 for line in lines:
-                    self.store.add_profile_line(rec.scope.namespace, line, salience=rec.salience,
-                                                dedup_key=" ".join(line.lower().split()))
+                    profile_line = preferences.canonicalize_preference(line) or line
+                    self.store.add_profile_line(
+                        rec.scope.namespace,
+                        profile_line,
+                        salience=rec.salience,
+                        dedup_key=preferences.preference_dedup_key(profile_line),
+                        source_memory_id=rec.memory_id,
+                        content_hash=rec.content_hash,
+                        raw_uri=rec.raw_uri,
+                        valid_at=rec.valid_at,
+                        scope=rec.scope,
+                    )
                 if lines:
                     rec.metadata["type"] = "preference"
             elif preferences.is_preference(rec.text):
                 pref = preferences.extract_preference(rec.text)
                 if pref:
-                    self.store.add_profile_line(rec.scope.namespace, pref, salience=rec.salience)
+                    self.store.add_profile_line(
+                        rec.scope.namespace,
+                        pref,
+                        salience=rec.salience,
+                        source_memory_id=rec.memory_id,
+                        content_hash=rec.content_hash,
+                        raw_uri=rec.raw_uri,
+                        valid_at=rec.valid_at,
+                        scope=rec.scope,
+                    )
                     rec.metadata["type"] = "preference"
             if score_importance:
                 rec.importance = self.client.score_importance(rec.text)   # real qwen-flash
                 rec.salience = max(0.0, min(1.0, 0.45 * rec.surprise + 0.55 * rec.importance))
             rec.entities = entities
+            if window_plan.get(rec.memory_id, 0) > 0 and window_allowance.get(rec.memory_id, 0) == 0:
+                reason = (
+                    "record_window_threshold"
+                    if rec.memory_id in record_raw_only_ids
+                    else "batch_window_budget"
+                )
+                rec.metadata["consolidation_raw_only"] = reason
+                if rec.memory_id in record_raw_only_ids:
+                    rec.metadata["consolidation_raw_only_window_threshold"] = raw_only_window_threshold
+                    rec.metadata["consolidation_windows_planned"] = window_plan.get(rec.memory_id, 0)
             # MIRIX role typing on the async consolidate path via the token-free deterministic
             # classifier (reads text/modality only). This activates the MEMORY_TYPING retrieval
             # prior on the write path the bench uses -- the fast ingest path never sets
@@ -1137,6 +1617,10 @@ class Engine:
             rec.metadata["pending_consolidation"] = False
             rec.metadata["dates"] = [r["start"] for r in date_ranges]
             rel_by_id[rec.memory_id] = [t["relation"] for t in triples]
+            claims = claims_for_record(rec, triples=triples, extracted_claims=extracted_claims)
+            if claims:
+                claims_total += self.store.add_claims(claims)
+                rec.metadata["claims_extracted"] = len(claims)
             self.store.upsert_record(rec)
             self.retriever.index_lexical(rec, save=False)
 
@@ -1145,7 +1629,7 @@ class Engine:
         # Index-write tail under the write lock so a concurrent ingest cannot race the index here
         # (no model call inside: build_structure_code is pure, extraction already ran above).
         with self._write_lock:
-            for rec, _ in extracted:
+            for rec, _, _ in extracted:
                 gfeat: dict = {"relations": rel_by_id.get(rec.memory_id, [])}
                 agg = [feats[e.lower()] for e in rec.entities if e.lower() in feats] if feats else []
                 if agg:
@@ -1157,19 +1641,34 @@ class Engine:
                                       sc.build_structure_code(rec, self.settings.struct_dim, gfeat))
                 if self.settings.reflex_recall_enabled:
                     self.reflex_index.add_record(rec)   # rec.entities now populated -> index them
-            for ns in {rec.scope.namespace for rec, _ in extracted}:
+            for ns in {rec.scope.namespace for rec, _, _ in extracted}:
                 self._bump_ns_version(ns)               # facts/entities changed -> invalidate cache
             self.index.save()
             self.retriever.save_lexical()
-        return {"pending_processed": len(pending), "facts_extracted": facts,
-                "events_indexed": events_total}
+        return {"pending_processed": len(extracted), "facts_extracted": facts,
+                "events_indexed": events_total,
+                "claims_extracted": claims_total,
+                "claim_coverage": (claims_total / len(extracted)) if extracted else 0.0,
+                "extraction_timed_out": len(timed_out),
+                "extraction_deferred": len(deferred),
+                "extraction_windows_planned": planned_windows,
+                "extraction_windows_submitted": submitted_windows,
+                "extraction_window_cap_per_record": window_cap_per_record,
+                "extraction_call_budget": call_budget,
+                "extraction_raw_only_bounded": raw_only_bounded,
+                "record_raw_only_bounded": record_raw_only_bounded,
+                "extraction_partial_bounded": partial_bounded,
+                "long_haystack_bounded": long_haystack_bounded,
+                "long_haystack_raw_only": raw_only_long_haystack}
 
     @staticmethod
     def _event_epochs(date_ranges: list[dict],
                       default_epoch: Optional[float] = None) -> tuple[Optional[float], Optional[float]]:
-        """Resolve an event's date range. Prefer an explicit ABSOLUTE (year-bearing) date
-        from the text; otherwise anchor to `default_epoch` (the session date) as a day range;
-        else (None, None)."""
+        """Resolve an event's date range.
+
+        Prefer explicit absolute dates and event-relative ranges anchored to a known calendar event;
+        otherwise fall back to `default_epoch` (the session date) as a day range.
+        """
         import re as _re
         from datetime import timedelta
 
@@ -1180,8 +1679,8 @@ class Engine:
             except (ValueError, KeyError):
                 return None
 
-        for r in date_ranges:                       # prefer an explicit absolute date
-            if _re.search(r"\d{4}", r.get("expr", "")):
+        for r in date_ranges:                       # prefer an explicit absolute/anchored date
+            if r.get("anchored") or _re.search(r"\d{4}", r.get("expr", "")):
                 got = _parse(r)
                 if got:
                     return got
@@ -1189,6 +1688,44 @@ class Engine:
             d = datetime.fromtimestamp(default_epoch).replace(hour=0, minute=0, second=0, microsecond=0)
             return (d.timestamp(), (d + timedelta(days=1) - timedelta(seconds=1)).timestamp())
         return (None, None)
+
+    @staticmethod
+    def _event_source_window(text: str, triple: dict[str, str]) -> str:
+        """Return the sentence/span most likely to support an extracted event triple.
+
+        The extractor emits triples, not character offsets. For event dating we need a local text
+        window, otherwise every event in a multi-date session inherits whichever absolute date
+        appeared first. This scorer is deliberately simple: choose the sentence with the largest
+        overlap against the triple's subject/relation/object/fact tokens.
+        """
+        if not text:
+            return text
+        terms: set[str] = set()
+        for field in ("src", "relation", "dst", "fact"):
+            terms.update(t for t in re.findall(r"[a-z0-9]+", str(triple.get(field, "")).lower())
+                         if len(t) > 2)
+        if not terms:
+            return text
+        pieces = [s.strip() for s in re.split(r"(?<=[.!?])\s+|\n+", text) if s.strip()]
+        if not pieces:
+            return text
+        fact = str(triple.get("fact", "") or "").lower().strip()
+        dst = str(triple.get("dst", "") or "").lower().strip()
+        scored: list[tuple[int, int, str]] = []
+        for idx, sentence in enumerate(pieces):
+            low = sentence.lower()
+            sent_terms = set(re.findall(r"[a-z0-9]+", low))
+            score = len(terms & sent_terms)
+            if fact and fact in low:
+                score += 3
+            if dst and dst in low:
+                score += 2
+            if score:
+                scored.append((score, idx, sentence))
+        if not scored:
+            return text
+        scored.sort(key=lambda item: (-item[0], item[1]))
+        return scored[0][2]
 
     @staticmethod
     def _legacy_normalize_dates(text: str) -> list[str]:
@@ -1354,6 +1891,7 @@ class Engine:
         records = self.store.all_records(scope)
         total = 0
         lossless = 0
+        audited_hashes: set[str] = set()
         failures: list[dict] = []
         for rec in records:
             h = (rec.content_hash or "").strip()
@@ -1368,11 +1906,14 @@ class Engine:
                 continue
             if ok:
                 lossless += 1
+                audited_hashes.add(h)
             else:
                 failures.append({"memory_id": rec.memory_id, "content_hash": h,
                                  "error": "hash_mismatch"})
         return {"total": total, "lossless": lossless,
-                "rate": (lossless / total) if total else 1.0, "failures": failures}
+                "rate": (lossless / total) if total else 1.0,
+                "audited_content_hashes": sorted(audited_hashes),
+                "failures": failures}
 
     def stats(self, scope: Optional[Scope] = None) -> dict:
         return {
@@ -1408,7 +1949,7 @@ class Engine:
             "memories": len(recs),
             "edges": len(edges),
             "derived_gists": gists,
-            "events": len(self.store.events_in_scope(ns)),
+            "events": len(self.store.events_in_scope(ns, scope=scope)),
             "distinct_entities": len(distinct_entities),
             "contradiction_load": closed,        # bi-temporally closed (superseded) edges
             "inferred_edges": inferred,
@@ -1506,22 +2047,25 @@ class Engine:
 
         Rule (biased toward answering -- a false abstain is a recall regression): only when the
         question names >=2 entities AND no in-scope active memory co-mentions a pair AND no active
-        graph edge directly connects a pair. Matching is case-insensitive. The entity signal is
-        parse_query's capitalized/quoted/ID forms (a fully lowercased question yields no entities,
-        so no check fires); coreference and aliases are not resolved (documented limits)."""
+        graph edge directly connects a pair. Matching is case-insensitive; lowercase questions are
+        backed by known memory/graph entity vocabulary plus conservative high-signal tokens.
+        Coreference and aliases are not resolved (documented limits)."""
         from .events import parse_query
         from .graph import _norm
         scope = scope or Scope()
         at = now() if as_of is None else as_of
-        ents = parse_query(question, at).get("entities", [])
+        active_records = self.store.active_records_at(at, scope)
+        active_edges = self.store.active_edges_at(at, scope)
+        ents = self._false_premise_entities(
+            question, parse_query(question, at).get("entities", []), active_records, active_edges)
         ent_norms = list(dict.fromkeys(e.strip().lower() for e in ents if e.strip()))
         if len(ent_norms) < 2:
             return None
-        for r in self.store.active_records_at(at, scope):
+        for r in active_records:
             hay = (r.text or r.summary or "").lower()
             if sum(1 for e in ent_norms if e in hay) >= 2:
                 return None                       # a memory co-mentions >=2 query entities
-        for e in self.store.active_edges_touching_many(set(ents), at, scope):
+        for e in active_edges:
             ends = {_norm(e.src), _norm(e.dst)}
             if sum(1 for x in ent_norms if x in ends) >= 2:
                 return None                       # an edge directly connects two query entities
@@ -1531,6 +2075,51 @@ class Engine:
                         + ", so I can't answer a question that presupposes a relationship "
                           "between them."),
         }
+
+    @staticmethod
+    def _false_premise_entities(question: str, parsed_entities: list,
+                                records: list[MemoryRecord], edges: list) -> list[str]:
+        """Entity candidates for false-premise checks, including lowercase user questions."""
+        tokens = re.findall(r"[a-z0-9]+", (question or "").lower())
+        qterms = set(tokens)
+        qphrase = " ".join(tokens)
+        out: list[str] = []
+        seen: set[str] = set()
+
+        def add(name: str) -> None:
+            clean = str(name or "").strip()
+            key = clean.lower()
+            if len(key) < 2 or key in seen:
+                return
+            seen.add(key)
+            out.append(clean)
+
+        for ent in parsed_entities:
+            add(str(ent))
+
+        known_names: list[str] = []
+        for rec in records:
+            known_names.extend(str(e) for e in rec.entities if str(e).strip())
+        for edge in edges:
+            known_names.extend([str(getattr(edge, "src", "")), str(getattr(edge, "dst", ""))])
+        for name in known_names:
+            name_tokens = re.findall(r"[a-z0-9]+", name.lower().replace("_", " "))
+            if not name_tokens:
+                continue
+            phrase = " ".join(name_tokens)
+            terms = set(name_tokens)
+            if phrase in qphrase or (len(terms) == 1 and terms & qterms) or len(terms & qterms) >= 2:
+                add(name)
+
+        if len(out) < 2:
+            for tok in tokens:
+                if (tok in seen or tok in _FALSE_PREMISE_STOP_TERMS
+                        or tok in _FALSE_PREMISE_GENERIC_TERMS or len(tok) < 3):
+                    continue
+                add(tok.title() if tok.isalpha() else tok)
+                if len(out) >= 4:
+                    break
+        return out
 
     def integrity_report(self, scope: Optional[Scope] = None) -> dict:
         """C1 operation-level integrity (HaluMem-style), provable from the BrainEvent stream + the
@@ -1573,7 +2162,7 @@ class Engine:
         qterms = _terms(failed_question)
         matching = [r for r in recs if qterms & _terms(r.text or r.summary or "")]
         pending = [r for r in recs if r.metadata.get("pending_consolidation")]
-        events = self.store.events_in_scope(scope.namespace)
+        events = self.store.events_in_scope(scope.namespace, scope=scope, at=at)
 
         if not recs or not matching:
             diagnosis = "missing_write"
@@ -1692,26 +2281,85 @@ class Engine:
     def salience_explanation(self, memory_id: str,
                              scope: Optional[Scope] = None) -> Optional[dict]:
         """'Why I remember this strongly' (Phase 7): the affect/usage components behind a memory's
-        salience plus its provenance. Read-only, no model call. None if the id is not in scope."""
+        salience plus its provenance. Read-only, no model call. None if the id is not in scope.
+        The explanation is about ranking signals only, never an emotional diagnosis."""
         rec = (self.get_record_in_scope(memory_id, scope) if scope is not None
                else self.store.get_record(memory_id))
         if rec is None:
             return None
         md = rec.metadata or {}
+        components = {
+            "importance": round(float(rec.importance), 3),
+            "surprise": round(float(rec.surprise), 3),
+            "arousal": md.get("arousal"),
+            "valence": md.get("valence"),
+            "emphasis": md.get("emphasis"),
+            "verified_helpful_count": int(getattr(rec, "verified_helpful_count", 0)),
+        }
+        preview, preview_source = self._salience_source_preview(rec)
         return {
             "memory_id": rec.memory_id,
             "salience": round(float(rec.salience), 3),
-            "components": {
-                "importance": round(float(rec.importance), 3),
-                "surprise": round(float(rec.surprise), 3),
-                "arousal": md.get("arousal"),
-                "valence": md.get("valence"),
-                "emphasis": md.get("emphasis"),
-                "verified_helpful_count": int(getattr(rec, "verified_helpful_count", 0)),
+            "why": self._salience_why_text(components),
+            "components": components,
+            "component_sources": {
+                "importance": "write-time scorer or consolidation scorer",
+                "surprise": "write-time novelty against the current memory index",
+                "arousal": "write-time affect scorer when affect salience is enabled",
+                "valence": "write-time affect scorer when affect salience is enabled",
+                "emphasis": "deterministic cues in the source text, such as explicit remember/important phrasing",
+                "verified_helpful_count": "later verified answers that cited this exact memory",
             },
             "provenance": {"content_hash": rec.content_hash, "source": rec.source,
-                           "valid_at": rec.valid_at},
+                           "raw_uri": rec.raw_uri, "raw_bytes_len": rec.raw_bytes_len,
+                           "valid_at": rec.valid_at, "source_preview": preview,
+                           "source_preview_from": preview_source},
+            "limits": [
+                "This explains memory priority from recorded salience signals, not hidden intent.",
+                "Arousal and valence are model-scored signals, not a clinical or emotional diagnosis.",
+                "The source preview is for audit; factual answers still require normal proof verification.",
+            ],
         }
+
+    def _salience_source_preview(self, rec: MemoryRecord, *, max_chars: int = 220) -> tuple[str, str]:
+        if rec.content_hash:
+            try:
+                raw = self.substrate.get(rec.content_hash)
+                text = raw.decode("utf-8", errors="replace")
+                preview = " ".join(text.split())
+                if preview:
+                    return preview[:max_chars], "immutable_substrate"
+            except Exception:
+                pass
+        preview = " ".join((rec.text or rec.summary or "").split())
+        return preview[:max_chars], "record_text" if preview else "unavailable"
+
+    @staticmethod
+    def _salience_why_text(components: dict) -> str:
+        labels = {
+            "importance": "importance",
+            "surprise": "novelty",
+            "arousal": "arousal signal",
+            "emphasis": "explicit emphasis",
+            "verified_helpful_count": "verified reuse",
+        }
+        scored: list[tuple[str, float]] = []
+        for key in ("importance", "surprise", "arousal", "emphasis"):
+            value = components.get(key)
+            if isinstance(value, (int, float)) and float(value) > 0.0:
+                scored.append((key, float(value)))
+        helpful = components.get("verified_helpful_count")
+        if isinstance(helpful, int) and helpful > 0:
+            scored.append(("verified_helpful_count", min(1.0, helpful / 5.0)))
+        scored.sort(key=lambda item: item[1], reverse=True)
+        top = [labels[key] for key, _value in scored[:3]]
+        if not top:
+            top = ["baseline salience"]
+        return (
+            "This memory is prioritized because recorded ranking signals include "
+            + ", ".join(top)
+            + ". This is a hedged memory-priority explanation, not a diagnosis of what the user felt."
+        )
 
     def explain_candidate(self, memory_id: str) -> Optional[dict]:
         """'Why this memory?' (Phase 6): from the last RecallTrace, the channels that surfaced
@@ -1746,10 +2394,14 @@ class Engine:
         when nothing is pending and llm_summaries is False."""
         return self.lifecycle.sleep(scope, llm_summaries=llm_summaries)
 
-    def idle_tick(self, *, run_dream: bool = False) -> dict:
+    def idle_tick(self, *, run_dream: bool = False, scope: Optional[Scope] = None) -> dict:
         """One idle optimization cadence (learn fusion weights from the dev buffer, optional dream)
-        plus a connection-effectiveness snapshot. Token-free unless run_dream pulls an LLM config."""
-        return self.lifecycle.idle_tick(run_dream=run_dream)
+        plus a connection-effectiveness snapshot. `FLOW_WARMUP` may run embeddings; no reader call."""
+        return self.lifecycle.idle_tick(run_dream=run_dream, scope=scope)
+
+    def auto_sleep_status(self, scope: Optional[Scope] = None) -> dict:
+        """Read-only status for the host-agent background write drain."""
+        return self.lifecycle.auto_sleep_status(scope)
 
     # ---- channel-win ledger + connection effectiveness (Phase 3) ---------
     def record_channel_wins(self, answer) -> dict:

@@ -5,7 +5,9 @@ import hashlib
 import re
 
 import numpy as np
+import pytest
 
+from eidetic.dashscope_client import ModelCallError
 from eidetic.engine import Engine
 from eidetic.ingestion import from_text
 from eidetic.models import MemoryRecord, Scope
@@ -31,6 +33,24 @@ class _FakeEmbed:
         return np.stack([self._e(t) for t in ts]) if ts else np.zeros((0, self.dim), np.float32)
 
 
+class _FailingEmbed(_FakeEmbed):
+    def embed_text(self, t):
+        raise ModelCallError("embed failed")
+
+
+def _substrate_files(root):
+    return [p for p in root.rglob("*") if p.is_file()]
+
+
+def test_failed_embed_does_not_leave_orphan_raw_blob(fresh_settings):
+    e = Engine(fresh_settings, client=_FailingEmbed(fresh_settings.embed_dim))
+    with pytest.raises(ModelCallError, match="embed failed"):
+        e.ingest_text("this write should not commit raw bytes", consolidate_now=False)
+    assert e.store.count() == 0
+    assert len(e.index) == 0
+    assert _substrate_files(fresh_settings.substrate_dir) == []
+
+
 def test_ingest_many_batches_and_dedups(fresh_settings):
     e = Engine(fresh_settings, client=_FakeEmbed(fresh_settings.embed_dim))
     scope = Scope(namespace="bulk")
@@ -40,6 +60,23 @@ def test_ingest_many_batches_and_dedups(fresh_settings):
     # re-ingesting an identical item dedups (same memory_id, no new index entry).
     again = e.ingest_many([items[0]], scope=scope)
     assert again[0].memory_id == recs[0].memory_id and len(e.index) == 25
+
+
+def test_identical_text_at_different_times_remains_distinct_memory_event(fresh_settings):
+    e = Engine(fresh_settings, client=_FakeEmbed(fresh_settings.embed_dim))
+    scope = Scope(namespace="repeat")
+
+    first = e.ingest_text("I spent 4 hours on the field guide.", scope=scope,
+                          valid_at=100.0, consolidate_now=False)
+    same_time = e.ingest_text("I spent 4 hours on the field guide.", scope=scope,
+                              valid_at=100.0, consolidate_now=False)
+    later = e.ingest_text("I spent 4 hours on the field guide.", scope=scope,
+                          valid_at=200.0, consolidate_now=False)
+
+    assert same_time.memory_id == first.memory_id
+    assert later.memory_id != first.memory_id
+    assert later.content_hash == first.content_hash
+    assert e.store.count(scope) == 2
 
 
 def test_rebuild_index_from_store_recovers_a_lost_index(fresh_settings):

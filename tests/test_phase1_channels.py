@@ -45,7 +45,8 @@ def _store_with(tmp_path, ns="proj"):
     scope = Scope(namespace=ns)
     for i in range(5):
         store.upsert_record(MemoryRecord(memory_id=f"m{i}", content_hash=f"h{i}",
-                                         text=f"memory {i}", scope=scope, valid_at=1.0))
+                                         raw_uri=f"cas://h{i}", text=f"memory {i}",
+                                         scope=scope, valid_at=1.0))
     return store, scope
 
 
@@ -79,6 +80,108 @@ def test_run_gist_boosts_members_with_provenance(fresh_settings, tmp_path):
                                     member_ids=["m4"], vector=[1.0, 0.0]))
     order, m, prov = r._run_gist(np.array([1.0, 0.0], np.float32), scope, allowed={"m4"})
     assert order == ["m4"] and prov["m4"] == "gist1"
+
+
+def test_gist_context_region_hint_carries_raw_member_hashes(fresh_settings, tmp_path):
+    settings = replace(fresh_settings, gist_channel_enabled=True)
+    r, store, scope = _retriever(tmp_path, settings, _FakeIndex(dense=[]))
+    store.add_derived(DerivedRecord(
+        cid="tea-region",
+        kind="gist",
+        namespace=scope.namespace,
+        level=1,
+        text="tea kettle cafe preferences",
+        member_ids=["m1", "m4"],
+        vector=[1.0, 0.0],
+    ))
+
+    blocks = r.assemble_context("What tea preference did I mention?", [], scope=scope)
+    joined = " ".join(blocks)
+
+    assert "Memory region hint" in joined
+    assert "region_id=tea-region" in joined
+    assert "members=m1,m4" in joined
+    assert "content_hashes=h1,h4" in joined
+
+
+def test_gist_context_region_hint_updates_threadlocal_telemetry_and_trace(fresh_settings, tmp_path):
+    qvec = np.array([1.0, 0.0], np.float32)
+    idx = _FakeIndex(dense=[("m0", 0.9)], vecs={f"m{i}": qvec for i in range(5)})
+    settings = replace(
+        fresh_settings,
+        rerank_enabled=False,
+        gist_channel_enabled=True,
+        recall_trace_enabled=True,
+    )
+    r, store, scope = _retriever(tmp_path, settings, idx)
+    store.add_derived(DerivedRecord(
+        cid="tea-region",
+        kind="gist",
+        namespace=scope.namespace,
+        level=1,
+        text="tea kettle cafe preferences",
+        member_ids=["m1", "m4"],
+        vector=[1.0, 0.0],
+    ))
+
+    query = "What tea preference did I mention?"
+    cands = r.retrieve(query, scope=scope, qvec=qvec, use_recency=False)
+    r.assemble_context(query, cands, scope=scope)
+    telemetry = r.last_context_telemetry
+
+    assert telemetry["region_hint_count"] == 1
+    assert telemetry["region_ids"] == ["tea-region"]
+    assert telemetry["region_hints"][0]["members"] == ["m1", "m4"]
+    assert telemetry["region_hints"][0]["raw_uris"] == ["cas://h1", "cas://h4"]
+    assert r.last_trace.region_hints[0]["region_id"] == "tea-region"
+    assert r.last_trace.region_hints[0]["raw_uris"] == ["cas://h1", "cas://h4"]
+
+
+def test_gist_context_region_hint_resolves_nested_cocoons_to_raw_hashes(fresh_settings, tmp_path):
+    settings = replace(fresh_settings, gist_channel_enabled=True)
+    r, store, scope = _retriever(tmp_path, settings, _FakeIndex(dense=[]))
+    store.add_derived(DerivedRecord(
+        cid="tea-child",
+        kind="gist",
+        namespace=scope.namespace,
+        level=1,
+        text="child cluster",
+        member_ids=["m3"],
+        vector=[1.0, 0.0],
+    ))
+    store.add_derived(DerivedRecord(
+        cid="tea-parent",
+        kind="gist",
+        namespace=scope.namespace,
+        level=2,
+        text="tea ritual cocoon",
+        member_ids=["tea-child"],
+        vector=[1.0, 0.0],
+    ))
+
+    blocks = r.assemble_context("Which tea ritual did I describe?", [], scope=scope)
+    joined = " ".join(blocks)
+
+    assert "region_id=tea-parent" in joined
+    assert "members=m3" in joined
+    assert "content_hashes=h3" in joined
+
+
+def test_gist_context_region_hint_is_flag_gated(fresh_settings, tmp_path):
+    settings = replace(fresh_settings, gist_channel_enabled=False)
+    r, store, scope = _retriever(tmp_path, settings, _FakeIndex(dense=[]))
+    store.add_derived(DerivedRecord(
+        cid="tea-region",
+        kind="gist",
+        namespace=scope.namespace,
+        text="tea kettle cafe preferences",
+        member_ids=["m1"],
+        vector=[1.0, 0.0],
+    ))
+
+    blocks = r.assemble_context("What tea preference did I mention?", [], scope=scope)
+
+    assert "Memory region hint" not in " ".join(blocks)
 
 
 # ---- integration through retrieve() --------------------------------------------------------

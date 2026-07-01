@@ -14,7 +14,11 @@ venv/
 env/
 
 # Local data (immutable substrate, indexes, sqlite, generated plots)
-data/
+data/*
+!data/bench/
+data/bench/*
+!data/bench/holdout/
+!data/bench/holdout/*.json
 *.sqlite
 *.sqlite3
 *.db

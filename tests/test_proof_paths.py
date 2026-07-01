@@ -48,6 +48,7 @@ def test_matching_trace_adds_paths_and_gist_provenance():
                         enabled_channels=["dense", "gist"],
                         channel_results={"dense": ["m0", "m1"], "gist": ["m4"]},
                         gist_provenance={"m4": "g7"},
+                        region_hints=[{"region_id": "g7", "members": ["m4"]}],
                         selected_candidates=["m4"],
                         latency_by_stage={"total_ms": 1.2})
     out = prove_answer(_answer(), trace)
@@ -55,6 +56,7 @@ def test_matching_trace_adds_paths_and_gist_provenance():
     assert e["recall_paths"] == ["gist"] and e["via_gist"] == "g7"
     assert out["recall_trace"]["enabled_channels"] == ["dense", "gist"]
     assert out["recall_trace"]["selected"] == ["m4"]
+    assert out["recall_trace"]["region_hints"] == [{"region_id": "g7", "members": ["m4"]}]
 
 
 def test_mismatched_trace_is_treated_as_no_trace():

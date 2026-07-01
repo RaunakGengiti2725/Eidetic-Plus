@@ -48,7 +48,13 @@ Observation-only contracts that make every subsystem speak one language. Nothing
 
 - **Multimodal dense path** (`embed_image` for image memories): needs a live model to embed/measure; not built in this pass.
 - **Anti-regression weight promotion** through the EvolveMem guard for learned fusion weights: the guard exists (`bench/guard.py`); wiring learned-weight promotion through it is left to the live-measurement step.
-- **Markov → prefetch warm-up bridge**: `predict_next_signatures` and `build_prefetch` both exist; binding predicted next-signatures to prefetched contexts is a latency optimization deferred until measurable.
+
+## Added Since
+
+- **Markov → prefetch warm-up bridge**: `warmup_predicted_prefetch()` now binds
+  `predict_next_signatures()` to `PrefetchCache` through the lifecycle idle cadence
+  (`MARKOV_PREFETCH=1`, `FLOW_WARMUP=1`). It is embedding-only, default-off, and
+  offline-tested; live latency lift is still unclaimed until a funded benchmark run measures it.
 
 ## Not yet measured
 

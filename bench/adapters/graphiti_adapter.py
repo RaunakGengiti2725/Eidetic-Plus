@@ -21,14 +21,45 @@ from __future__ import annotations
 
 import asyncio
 import os
+import socket
 import time
 from datetime import datetime, timezone
 from typing import Any, Optional
+from urllib.parse import urlparse
 
 from eidetic.config import get_settings
 
 from ..reader import answer_with_fixed_reader
 from .base import AnswerResult, MemorySystem, WriteResult, approx_tokens
+
+
+def _preflight_neo4j_dns(uri: str) -> None:
+    """Fail fast when Neo4j Aura DNS is not resolvable.
+
+    The async Neo4j driver can spend minutes retrying a hostname that the OS cannot resolve. A
+    benchmark health check should record that configuration failure immediately instead of burning
+    the run budget before `system_failures` can be written.
+    """
+    if os.environ.get("BENCH_GRAPHITI_DNS_PREFLIGHT", "1").strip().lower() in (
+        "0", "false", "no", "off"
+    ):
+        return
+    parsed = urlparse(uri)
+    host = parsed.hostname
+    if not host:
+        raise RuntimeError(
+            "GraphitiSystem could not parse a hostname from NEO4J_URI. Expected a URI like "
+            "neo4j+s://<id>.databases.neo4j.io."
+        )
+    port = parsed.port or 7687
+    try:
+        socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
+    except OSError as e:
+        raise RuntimeError(
+            "GraphitiSystem cannot resolve the Neo4j host from NEO4J_URI before startup: "
+            f"{host}:{port}. This baseline is not healthy until NEO4J_URI points at a "
+            f"reachable Neo4j instance. Underlying DNS error: {e!r}"
+        ) from e
 
 
 class GraphitiSystem(MemorySystem):
@@ -72,6 +103,7 @@ class GraphitiSystem(MemorySystem):
         # adapter works STANDALONE (not only when another adapter set them first).
         os.environ["OPENAI_API_KEY"] = api_key
         os.environ["OPENAI_BASE_URL"] = base_url
+        _preflight_neo4j_dns(uri)
 
         # 3) Import graphiti-core. Each uncertain symbol is imported in its own guard so a
         #    path drift in a future point release produces a clear, named error instead of
@@ -198,6 +230,12 @@ class GraphitiSystem(MemorySystem):
                 "needs no Docker; verify NEO4J_URI/NEO4J_USER/NEO4J_PASSWORD. "
                 f"Underlying error: {e!r}."
             ) from e
+        self._health = {
+            "status": "ok",
+            "system": "graphiti",
+            "neo4j_uri_present": bool(uri),
+            "dashscope_base_url": base_url,
+        }
 
     # ------------------------------------------------------------------ helpers
     def _run(self, coro: Any) -> Any:
@@ -286,7 +324,7 @@ class GraphitiSystem(MemorySystem):
             search_ms=search_ms,
             e2e_ms=e2e_ms,
             abstained=False,
-            extra={"n_results": len(context_blocks)},
+            extra={"n_results": len(context_blocks), "baseline_health": self._health},
         )
 
     def teardown(self) -> None:

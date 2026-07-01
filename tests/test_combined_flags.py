@@ -64,10 +64,11 @@ def test_all_flags_on_full_lifecycle(fresh_settings):
     e.consolidate_pending(scope=ns, score_importance=False)
     raw_before = sorted(r.content_hash for r in e.store.all_records(None))
 
-    # 1) supported question -> reflex hit feeds the reader -> verified answer with a citation.
+    # 1) supported question -> structured recall verifies the answer with a citation.
     a1 = e.ask("where does Alice work", scope=ns)
     assert a1.verified is True and "Acme" in a1.answer and a1.citations
-    assert _hits(e, BrainEventType.REFLEX_HIT) >= 1
+    assert a1.generated_by == "smqe"
+    assert _hits(e, BrainEventType.ANSWER_VERIFIED) >= 1
     assert not a1.note.startswith("abstained")
 
     # 2) identical repeat, no write between -> versioned cache hit (truth-fresh under BRAIN_EVENTS).

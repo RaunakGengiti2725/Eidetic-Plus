@@ -41,8 +41,10 @@ delta isolates memory quality, not reader strength.
 | metabolism memory OFF (reader+proof fixed) | 16.7% (1/6) | **-16.7pp** |
 
 Per-question flip (`artifacts/proof/multisession/attribution_compare.md`): **1 question gained**
-(`b5ef892d`) by turning the memory layer on, 0 regressed. The long-horizon gain points to the memory
-layer, in the predicted direction. McNemar p=1.0000 (1 discordant, n=6) -- directional, not significant.
+by turning the memory layer on, 0 regressed. Sample identifiers are intentionally omitted from source
+docs so holdout leakage audits can guard the real test split. The long-horizon gain points to the
+memory layer, in the predicted direction. McNemar p=1.0000 (1 discordant, n=6) -- directional, not
+significant.
 
 ## Integrity row (honest tax)
 eidetic abstained on 33.3% (2/6) rather than guess; verified accuracy 16.7%. The RAG baselines emit

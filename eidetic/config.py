@@ -37,17 +37,44 @@ METABOLISM_PROFILE: dict[str, str] = {
     "COACTIVATION_CHANNEL": "1",  # multi-hop co-confirmed memories (graph CO_ACTIVATED)
     "STRUCT_CHANNEL": "1",        # cyclic structure-code channel (age-independent)
     "EVENT_RANKING": "1",         # event-calendar overlap with the query's time constraint
+    "EVENT_CHAIN_CONTEXT": "1",   # chronological chain for count/order/temporal questions
+    "EVENT_ALIAS_EXPANSION": "1",  # source-phrase aliases for event-relative anchors
+    "TEMPORAL_EVIDENCE_AUDIT": "1",  # exact relative-date source snippets for temporal Qs
+    "GRAPH_BRIDGE_CONTEXT": "1",  # active graph edges connecting query entities
+    "AGGREGATION_AUDIT": "1",     # source-completeness audit for count/total questions
+    "LIST_AUDIT": "1",            # source-completeness audit for exact list questions
+    "USER_EVIDENCE_CONTEXT": "1",  # user-turn source snippets for single-session-user Qs
+    "ASSISTANT_EVIDENCE_CONTEXT": "1",  # assistant-turn source snippets for assistant-recall Qs
+    "RAW_SPAN_AUDIT": "1",       # scan long raw-only records for exact supporting spans
+    "RAW_SPAN_AUDIT_TOPK": "6",
+    "RAW_SPAN_MIN_CHARS": "12000",
+    "RAW_SPAN_PER_RECORD": "3",
     "GRAPH_VOCAB_SEEDING": "1",   # seed retrieval vocabulary from graph entities
+    "HIPPO2_SEEDING": "1",        # graph seeds from query-linked facts
+    "ACTIVE_RETRIEVAL": "1",      # anticipated-topic dense query scaffold
+    "ADAPTIVE_EF": "1",           # widen HNSW search only for hard queries
+    "PARALLEL_CHANNELS": "1",     # dense/BM25/recency fan-out
+    "MARKOV_PREFETCH": "1",       # learn next-query signatures
+    "FLOW_WARMUP": "1",           # idle-warm Markov-predicted contexts into PrefetchCache
+    "BENCH_COACTIVATION": "1",    # harness-only co-activation after neutral answers
     # Layer 2 -- capture fidelity (write path): nothing buried past the single-call cap is lost.
     "EXTRACT_CHUNKING": "1",      # chunked fact extraction over long sessions
+    "CONSOLIDATION_EXTRACT_DEADLINE_SEC": "180",  # bounded sleep extraction; timeout -> raw-only
+    "CONSOLIDATION_EXTRACT_CALL_BUDGET": "90",  # cap huge sleep batches before timeout collapse
+    "CONSOLIDATION_LONG_HAYSTACK_RAW_ONLY": "1",  # over-budget haystacks skip graph enrichment
+    "CONSOLIDATION_RAW_ONLY_WINDOW_THRESHOLD": "64",  # one giant record can skip graph enrichment
     "MEMORY_TYPING": "1",         # MIRIX role typing + soft retrieval prior
     "PREF_SENTENCE_SCAN": "1",    # every preference-bearing sentence becomes a profile line
+    "HOST_AUTO_SLEEP": "1",       # host remember() fast-writes self-drain in the background
+    "HOST_AUTO_SLEEP_MIN_INTERVAL_SEC": "5",  # coalesce rapid host writes by scope
+    "HOST_AUTO_SLEEP_SCORE_IMPORTANCE": "0",  # low-cost drain: extract claims/events, skip salience LLM
     # Layer 3 -- mind: the ONE shared reader's fairness fixes (applied to EVERY system equally).
     "READER_TIER_A": "1",         # temporal/inference/list/recency scaffolds (question-text only)
     "READER_MODE": "photographic",  # quote-verbatim-with-[S#] answer prompt
     "READER_BLOCK_CHARS": "8000",   # per-source context width handed to the reader
     "READER_COT": "1",            # chain-of-thought reader suffix
     "CONFLICT_RESOLVER": "1",     # contradiction resolution at read time
+    "ACTIVE_FACT_CONTEXT": "1",   # current graph facts in context; superseded facts excluded
     "TEMPORAL_RERANK": "1",       # temporal re-ranking for order/sequence queries
     "PERSISTENT_BM25": "1",       # lexical channel (already default on; pinned for the manifest)
     # Layer 4 -- proof: prove-or-abstain integrity gate (calibrated, batched, short-circuited).
@@ -57,10 +84,32 @@ METABOLISM_PROFILE: dict[str, str] = {
 }
 
 
+BENCH_FULL_CONSOLIDATION_PROFILE: dict[str, str] = {
+    # Release/proof profile: spend write-time work so SMQE can answer from extracted claims/events
+    # instead of depending on raw-only long-haystack fallbacks.
+    "FULL_SLEEP": "1",
+    "EXTRACT_CHUNKING": "1",
+    "EXTRACT_LIGHT": "0",
+    "CONSOLIDATION_EXTRACT_DEADLINE_SEC": "0",
+    "CONSOLIDATION_TIMEOUT_POLICY": "degrade",
+    "CONSOLIDATION_EXTRACT_CALL_BUDGET": "0",
+    "CONSOLIDATION_LONG_HAYSTACK_RAW_ONLY": "0",
+    "CONSOLIDATION_RAW_ONLY_WINDOW_THRESHOLD": "0",
+    "MEMORY_TYPING": "1",
+    "PREF_SENTENCE_SCAN": "1",
+}
+
+
 def metabolism_enabled(env: dict | None = None) -> bool:
     """True iff METABOLISM_MODE is set to a truthy value (case-insensitive)."""
     e = os.environ if env is None else env
     return e.get("METABOLISM_MODE", "0").strip().lower() in ("1", "true", "yes", "on")
+
+
+def bench_full_consolidation_enabled(env: dict | None = None) -> bool:
+    """True iff BENCH_FULL_CONSOLIDATION requests the release-grade extraction profile."""
+    e = os.environ if env is None else env
+    return e.get("BENCH_FULL_CONSOLIDATION", "0").strip().lower() in ("1", "true", "yes", "on")
 
 
 def apply_metabolism_overlay(env: dict | None = None) -> list[str]:
@@ -78,8 +127,26 @@ def apply_metabolism_overlay(env: dict | None = None) -> list[str]:
     return set_keys
 
 
+def apply_bench_full_consolidation_overlay(env: dict | None = None) -> list[str]:
+    """Force release-grade consolidation settings when BENCH_FULL_CONSOLIDATION is on.
+
+    Unlike METABOLISM_MODE, this profile deliberately overwrites the bounded long-haystack defaults:
+    its purpose is to test complete claim/event extraction, not benchmark liveness under a deadline.
+    """
+    e = os.environ if env is None else env
+    if not bench_full_consolidation_enabled(e):
+        return []
+    changed: list[str] = []
+    for k, v in BENCH_FULL_CONSOLIDATION_PROFILE.items():
+        if e.get(k) != v:
+            e[k] = v
+            changed.append(k)
+    return changed
+
+
 # Apply at import so module-level env reads (e.g. bench/reader.py constants) see the profile.
 apply_metabolism_overlay()
+apply_bench_full_consolidation_overlay()
 
 # DashScope endpoints per region. The dashscope SDK uses the /api/v1 base; the
 # OpenAI-compatible base (used for the Files API / qwen-long document reading) differs.
@@ -140,6 +207,10 @@ class Settings:
     # free across restarts (a full cache hit needs no key and no model call). On by default; the
     # (model, dim) key guarantees a rename/dim change misses rather than returns a stale vector.
     embed_cache_enabled: bool = field(default_factory=lambda: _get_bool("EMBED_CACHE", "1"))
+    # Number of embedding batches to issue concurrently inside one embed_texts() call. Default 1
+    # preserves the historical serial path; benchmark runs can raise this to keep vector baselines
+    # from spending hours on long-haystack indexing while still using the same real embedding model.
+    embed_batch_parallelism: int = field(default_factory=lambda: _get_int("EMBED_BATCH_PARALLELISM", 1))
 
     # F1 DashScope rate governor: token-bucket RPM + concurrency semaphore + 429 backoff, so
     # batching/fan-out never trips per-account limits. Conservative defaults (a low-tier key never
@@ -150,6 +221,10 @@ class Settings:
     dashscope_max_retries: int = field(default_factory=lambda: _get_int("DASHSCOPE_MAX_RETRIES", 5))
     dashscope_backoff_base: float = field(default_factory=lambda: float(_get("DASHSCOPE_BACKOFF_BASE", "0.5")))
     dashscope_backoff_max: float = field(default_factory=lambda: float(_get("DASHSCOPE_BACKOFF_MAX", "30.0")))
+    dashscope_slot_timeout_sec: float = field(default_factory=lambda: float(_get("DASHSCOPE_SLOT_TIMEOUT_SEC", "30.0")))
+    dashscope_request_timeout_sec: float = field(
+        default_factory=lambda: float(_get("DASHSCOPE_REQUEST_TIMEOUT_SEC", "45.0"))
+    )
 
     salience_model: str = field(default_factory=lambda: _get("SALIENCE_MODEL", "qwen-flash"))
     extract_model: str = field(default_factory=lambda: _get("EXTRACT_MODEL", "qwen-plus"))
@@ -201,6 +276,13 @@ class Settings:
     conflict_resolver_enabled: bool = field(
         default_factory=lambda: _get_bool("CONFLICT_RESOLVER", "0")
     )
+    active_fact_context_enabled: bool = field(
+        default_factory=lambda: _get_bool("ACTIVE_FACT_CONTEXT", "0")
+    )
+    active_fact_context_topk: int = field(
+        default_factory=lambda: _get_int("ACTIVE_FACT_CONTEXT_TOPK", 6)
+    )
+    rrf_w_active_fact: float = field(default_factory=lambda: float(_get("RRF_W_ACTIVE_FACT", "0.8")))
     context_compress_enabled: bool = field(
         default_factory=lambda: _get_bool("CONTEXT_COMPRESS", "0")
     )
@@ -338,6 +420,33 @@ class Settings:
     extract_chunking_enabled: bool = field(default_factory=lambda: _get_bool("EXTRACT_CHUNKING", "0"))
     extract_chunk_chars: int = field(default_factory=lambda: int(_get("EXTRACT_CHUNK_CHARS", "4000")))
     extract_chunk_overlap: int = field(default_factory=lambda: int(_get("EXTRACT_CHUNK_OVERLAP", "400")))
+    # Bounded async extraction for sleep/consolidation. 0 = legacy wait-for-all. When positive,
+    # completed records are consolidated and any records still extracting at the deadline are either
+    # "degrade"d to raw-only/no graph facts (default for benchmark liveness) or "defer"red pending
+    # for the next sleep pass. Immutable raw memory is already indexed before this stage.
+    consolidation_extract_deadline_sec: float = field(
+        default_factory=lambda: float(_get("CONSOLIDATION_EXTRACT_DEADLINE_SEC", "0"))
+    )
+    consolidation_timeout_policy: str = field(
+        default_factory=lambda: _get("CONSOLIDATION_TIMEOUT_POLICY", "degrade").lower()
+    )
+    # Maximum extraction windows submitted by one consolidate_pending() batch. 0 = unlimited. When
+    # a huge long-haystack batch would exceed the budget, each record still gets at least one source
+    # window and the immutable raw text remains fully searchable/provable; only auxiliary graph/event
+    # extraction is bounded so sleep completes instead of timing out half the batch.
+    consolidation_extract_call_budget: int = field(
+        default_factory=lambda: _get_int("CONSOLIDATION_EXTRACT_CALL_BUDGET", 0)
+    )
+    consolidation_long_haystack_raw_only: bool = field(
+        default_factory=lambda: _get_bool("CONSOLIDATION_LONG_HAYSTACK_RAW_ONLY", "0")
+    )
+    # Per-record long-haystack breaker. If one record alone would require more extraction windows
+    # than this threshold, keep it fully searchable as raw memory and skip auxiliary graph/event
+    # extraction for that record. 0 = disabled. This protects LongMemEval-scale transcripts from
+    # consuming the whole sleep deadline before smaller records are consolidated.
+    consolidation_raw_only_window_threshold: int = field(
+        default_factory=lambda: _get_int("CONSOLIDATION_RAW_ONLY_WINDOW_THRESHOLD", 0)
+    )
     # Sentence-level preference scan. OFF (default): one profile line per session (first match) --
     # byte-identical to the historical write. ON: every preference-bearing sentence in the session
     # becomes a profile line (mid-conversation preferences are no longer lost). Token-free.
@@ -361,6 +470,10 @@ class Settings:
     # co-activation frequency, never by age. Default OFF.
     coactivation_channel_enabled: bool = field(default_factory=lambda: _get_bool("COACTIVATION_CHANNEL", "0"))
     rrf_w_coact: float = field(default_factory=lambda: float(_get("RRF_W_COACT", "0.5")))
+    # Benchmark co-activation hook: the neutral harness does not call engine.ask(), so it would
+    # otherwise never write CO_ACTIVATED links. When enabled, adapters link the top retrieved
+    # candidates after an emitted answer. The shared reader still decides the answer.
+    bench_coactivation_enabled: bool = field(default_factory=lambda: _get_bool("BENCH_COACTIVATION", "0"))
     # Memory typing coordinator (Phase 4): classify type on ingest + soft retrieval prior that
     # boosts the query class's preferred MIRIX types. MEMORY_TYPING gates BOTH (default OFF).
     type_prior_weight: float = field(default_factory=lambda: float(_get("TYPE_PRIOR_WEIGHT", "0.15")))
@@ -387,12 +500,59 @@ class Settings:
     # Phase 5 event-chain context: for order/sequence/temporal queries, add a chronologically
     # ordered event chain to the context ('what changed after X'). Off -> context is unchanged.
     event_chain_context_enabled: bool = field(default_factory=lambda: _get_bool("EVENT_CHAIN_CONTEXT", "0"))
+    # Source-derived event aliases: preserve rich source mentions such as "annual robotics
+    # conference" when the extracted object is the generic "conference", so event-relative
+    # anchors can choose the right dated event among ties. Token-free and default off.
+    event_alias_expansion_enabled: bool = field(
+        default_factory=lambda: _get_bool("EVENT_ALIAS_EXPANSION", "0")
+    )
+    # Temporal evidence audit: for "when/date/how long" questions, surface exact source snippets
+    # containing date expressions plus query-scope terms. This preserves relative wording for the
+    # shared reader; it never computes the answer.
+    temporal_evidence_audit_enabled: bool = field(
+        default_factory=lambda: _get_bool("TEMPORAL_EVIDENCE_AUDIT", "0")
+    )
+    temporal_evidence_topk: int = field(default_factory=lambda: _get_int("TEMPORAL_EVIDENCE_TOPK", 10))
+    # Multi-session graph bridge context: for relationship/connected/multi-hop questions, surface
+    # active graph edges touching the query entities and append their raw source memories.
+    graph_bridge_context_enabled: bool = field(default_factory=lambda: _get_bool("GRAPH_BRIDGE_CONTEXT", "0"))
+    graph_bridge_topk: int = field(default_factory=lambda: _get_int("GRAPH_BRIDGE_TOPK", 10))
+    # Count/total evidence audit: for aggregation questions, scan the scoped, bi-temporal corpus for
+    # matching source snippets (especially amount-bearing ones) and pull them into context/candidates.
+    # It never computes the answer; the shared reader still counts/sums from cited evidence.
+    aggregation_audit_enabled: bool = field(default_factory=lambda: _get_bool("AGGREGATION_AUDIT", "0"))
+    # Exact-list evidence audit: for list questions, scan for source snippets matching the query's
+    # scope terms and pull them into context/candidates. It never enumerates the final answer; the
+    # shared reader still filters and formats the list from cited evidence.
+    list_audit_enabled: bool = field(default_factory=lambda: _get_bool("LIST_AUDIT", "0"))
+    list_evidence_topk: int = field(default_factory=lambda: _get_int("LIST_EVIDENCE_TOPK", 10))
+    # Assistant-turn evidence: for "what did the assistant say/suggest/recommend" questions,
+    # surface matching assistant lines from active records. It never computes the answer; the
+    # shared reader still answers from quoted source text.
+    user_evidence_context_enabled: bool = field(
+        default_factory=lambda: _get_bool("USER_EVIDENCE_CONTEXT", "0")
+    )
+    user_evidence_topk: int = field(default_factory=lambda: _get_int("USER_EVIDENCE_TOPK", 8))
+    assistant_evidence_context_enabled: bool = field(
+        default_factory=lambda: _get_bool("ASSISTANT_EVIDENCE_CONTEXT", "0")
+    )
+    assistant_evidence_topk: int = field(default_factory=lambda: _get_int("ASSISTANT_EVIDENCE_TOPK", 8))
+    # Long raw span audit: for huge records that deliberately skipped graph extraction, scan only
+    # long active raw text for query-term-supported spans and append the source record if normal
+    # dense/BM25/rerank missed it. This keeps query cost low by sending the bounded span selected
+    # in assemble_context, not the full transcript.
+    raw_span_audit_enabled: bool = field(default_factory=lambda: _get_bool("RAW_SPAN_AUDIT", "0"))
+    raw_span_audit_topk: int = field(default_factory=lambda: _get_int("RAW_SPAN_AUDIT_TOPK", 6))
+    raw_span_min_chars: int = field(default_factory=lambda: _get_int("RAW_SPAN_MIN_CHARS", 12000))
+    raw_span_per_record: int = field(default_factory=lambda: _get_int("RAW_SPAN_PER_RECORD", 3))
 
     # Phase 6 working scratchpad: a small derived channel of high-salience verified ACTIVE facts
-    # (each linked to its raw source hash). Context channel only; off -> context unchanged.
+    # (each linked to its raw source hash). When enabled it also seeds retrieval candidates, so
+    # facts surfaced in context can be verified/cited by the normal proof path. Off -> unchanged.
     scratchpad_enabled: bool = field(default_factory=lambda: _get_bool("SCRATCHPAD", "0"))
     scratchpad_topk: int = field(default_factory=lambda: _get_int("SCRATCHPAD_TOPK", 5))
     scratchpad_min_salience: float = field(default_factory=lambda: float(_get("SCRATCHPAD_MIN_SALIENCE", "0.6")))
+    scratchpad_channel_weight: float = field(default_factory=lambda: float(_get("SCRATCHPAD_CHANNEL_WEIGHT", "0.6")))
 
     # --- S1 read-path latency (best-of-fastest plan; all default OFF, semantics preserved) -------
     # Batched NLI: judge all candidate sources in ONE request instead of N (faster + rate-friendly).
@@ -455,11 +615,10 @@ class Settings:
     # pair AND no graph edge connects a pair (TOTAL disconnection), abstain with a structured
     # missing-premise reason instead of letting the reader confabulate. Bias is toward answering: a
     # false abstain is a recall regression, a miss just falls back to the normal answer+NLI path.
-    # Deterministic + no model call on the abstain path. KNOWN LIMITS (recall regressions, not
-    # correctness): the entity signal is parse_query's capitalized/quoted/ID forms (a fully
-    # lowercased question yields no entities -> no check); coreference/pronoun memories and aliases
-    # (Meta vs stored Facebook) are not resolved. Matching IS case-insensitive (a lowercase stored
-    # memory still prevents a false abstain).
+    # Deterministic + no model call on the abstain path. Lowercase questions are supported via
+    # known memory/graph entity vocabulary plus conservative high-signal token fallback. KNOWN
+    # LIMITS (recall regressions, not correctness): coreference/pronoun memories and aliases
+    # (Meta vs stored Facebook) are not resolved.
     false_premise_enabled: bool = field(default_factory=lambda: _get_bool("FALSE_PREMISE", "0"))
 
     # --- Track 9 Flow / Instinct Recall (all default OFF / zero-amplitude; flag-off byte-identical) -
@@ -538,6 +697,17 @@ class Settings:
     # Consolidation
     consolidation_interval_sec: int = field(
         default_factory=lambda: _get_int("CONSOLIDATION_INTERVAL_SEC", 3600)
+    )
+    # Host-agent autonomous write drain. Off in the neutral baseline; METABOLISM_MODE turns it on.
+    # This keeps remember() low-latency (raw+embed commit returns immediately) while scheduling
+    # consolidate_pending -> dream on a daemon thread so typed claims/events/profile lines appear
+    # without the host having to call sleep after every write.
+    host_auto_sleep_enabled: bool = field(default_factory=lambda: _get_bool("HOST_AUTO_SLEEP", "0"))
+    host_auto_sleep_min_interval_sec: float = field(
+        default_factory=lambda: float(_get("HOST_AUTO_SLEEP_MIN_INTERVAL_SEC", "5.0"))
+    )
+    host_auto_sleep_score_importance: bool = field(
+        default_factory=lambda: _get_bool("HOST_AUTO_SLEEP_SCORE_IMPORTANCE", "0")
     )
 
     # Prod-only (Alibaba Cloud)

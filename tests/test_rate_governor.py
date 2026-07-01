@@ -1,12 +1,15 @@
 """Offline tests for the F1 DashScope rate governor (no network)."""
 from __future__ import annotations
 
+from dataclasses import replace
 import time
 
 import pytest
 
-from eidetic.dashscope_client import (ModelCallError, RateGovernor, _is_rate_limit,
-                                      _is_server_error, _retry_after_seconds)
+from eidetic.dashscope_client import (DashScopeClient, ModelCallError, ModelCallTimeout,
+                                      RateGovernor,
+                                      _is_rate_limit, _is_server_error,
+                                      _retry_after_seconds)
 
 
 def _fast(**kw):
@@ -93,6 +96,20 @@ def test_governor_retries_transient_5xx_then_succeeds():
     assert n["c"] == 3                     # two retries, then success
 
 
+def test_governor_retries_wall_clock_timeout_then_succeeds():
+    g = _fast(max_retries=3)
+    n = {"c": 0}
+
+    def fn():
+        n["c"] += 1
+        if n["c"] < 2:
+            raise ModelCallTimeout("DashScope call exceeded wall-clock timeout of 0.050s")
+        return "ok"
+
+    assert g.run(fn) == "ok"
+    assert n["c"] == 2
+
+
 def test_governor_5xx_exhausts_retries_then_fails_loud_never_fabricates():
     g = _fast(max_retries=3)
     n = {"c": 0}
@@ -117,6 +134,67 @@ def test_governor_gives_up_after_max_retries_never_fabricates():
     with pytest.raises(ModelCallError):
         g.run(fn)
     assert n["c"] == 4                     # initial + 3 retries; never returns a fake result
+
+
+def test_governor_slot_acquire_timeout_fails_loud_instead_of_parking():
+    g = RateGovernor(
+        rpm=6000,
+        max_concurrency=1,
+        max_retries=0,
+        backoff_base=0.0,
+        backoff_max=0.0,
+        slot_acquire_timeout=0.01,
+    )
+    assert g._sem.acquire(blocking=False) is True
+    try:
+        t0 = time.monotonic()
+        with pytest.raises(ModelCallError, match="concurrency slot unavailable"):
+            g.run(lambda: "should not run")
+        assert time.monotonic() - t0 < 0.25
+    finally:
+        g._sem.release()
+
+
+def test_generation_call_passes_request_timeout_to_dashscope_sdk(fresh_settings):
+    calls = {}
+
+    class _Resp:
+        status_code = 200
+        output = {"choices": [{"message": {"content": "ok"}}]}
+
+    class _Generation:
+        @staticmethod
+        def call(**kwargs):
+            calls.update(kwargs)
+            return _Resp()
+
+    class _DS:
+        Generation = _Generation
+
+    client = DashScopeClient.__new__(DashScopeClient)
+    client.settings = replace(
+        fresh_settings,
+        api_key="test-key",
+        dashscope_request_timeout_sec=12.5,
+    )
+    client._governor = None
+    client._embed_cache = None
+    client._ds = _DS()
+
+    assert client.chat("qwen-plus", "system", "user") == "ok"
+    assert calls["request_timeout"] == 12.5
+    assert calls["timeout"] == 12.5
+
+
+def test_dashscope_client_wall_clock_deadline_interrupts_blocking_sdk_call(fresh_settings):
+    client = DashScopeClient.__new__(DashScopeClient)
+    client.settings = replace(fresh_settings, dashscope_request_timeout_sec=0.05)
+    client._governor = None
+
+    t0 = time.monotonic()
+    with pytest.raises(ModelCallTimeout):
+        client._governed(lambda: time.sleep(1.0))
+    assert time.monotonic() - t0 < 0.5
 
 
 def test_token_bucket_rate_limits_after_initial_burst():

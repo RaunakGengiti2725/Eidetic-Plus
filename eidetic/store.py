@@ -14,7 +14,8 @@ from pathlib import Path
 from typing import Optional
 
 from .events import EventRecord
-from .models import DerivedRecord, Edge, MemoryRecord, Scope, now
+from .models import ClaimRecord, DerivedRecord, Edge, MemoryRecord, Scope, now
+from .preferences import preference_dedup_key, preference_polarity, preference_update_key
 
 
 class RecordStore:
@@ -105,10 +106,38 @@ class RecordStore:
             CREATE TABLE IF NOT EXISTS profiles (
                 namespace  TEXT NOT NULL,
                 line       TEXT NOT NULL,
+                dedup_key  TEXT,
+                update_key TEXT,
+                polarity   TEXT,
+                source_memory_id TEXT,
+                content_hash TEXT,
+                raw_uri TEXT,
+                valid_at REAL,
                 salience   REAL NOT NULL DEFAULT 0.5,
-                created_at REAL NOT NULL
+                created_at REAL NOT NULL,
+                invalid_at REAL
             );
             CREATE INDEX IF NOT EXISTS idx_profile_ns ON profiles(namespace);
+
+            CREATE TABLE IF NOT EXISTS claims (
+                claim_id          TEXT PRIMARY KEY,
+                namespace         TEXT NOT NULL DEFAULT 'default',
+                agent_id          TEXT,
+                project_id        TEXT,
+                claim_type        TEXT NOT NULL,
+                subject           TEXT,
+                predicate         TEXT,
+                object            TEXT,
+                valid_at          REAL NOT NULL,
+                invalid_at        REAL,
+                source_memory_id  TEXT NOT NULL,
+                json              TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_claim_scope_valid
+                ON claims(namespace, agent_id, project_id, valid_at);
+            CREATE INDEX IF NOT EXISTS idx_claim_type_pred
+                ON claims(claim_type, predicate);
+            CREATE INDEX IF NOT EXISTS idx_claim_source ON claims(source_memory_id);
             """
         )
         # Migrate older DBs that predate scope / inferred columns.
@@ -121,6 +150,14 @@ class RecordStore:
         ecols = {r["name"] for r in c.execute("PRAGMA table_info(edges)").fetchall()}
         if "inferred" not in ecols:
             c.execute("ALTER TABLE edges ADD COLUMN inferred INTEGER NOT NULL DEFAULT 0")
+        pcols = {r["name"] for r in c.execute("PRAGMA table_info(profiles)").fetchall()}
+        for col, decl in (("dedup_key", "TEXT"), ("update_key", "TEXT"), ("polarity", "TEXT"),
+                          ("source_memory_id", "TEXT"), ("content_hash", "TEXT"),
+                          ("raw_uri", "TEXT"), ("valid_at", "REAL"),
+                          ("invalid_at", "REAL")):
+            if col not in pcols:
+                c.execute(f"ALTER TABLE profiles ADD COLUMN {col} {decl}")
+        c.execute("CREATE INDEX IF NOT EXISTS idx_profile_active ON profiles(namespace, invalid_at)")
         c.commit()
 
     @staticmethod
@@ -137,6 +174,13 @@ class RecordStore:
             clause += f" AND {prefix}project_id=?"
             params.append(scope.project_id)
         return clause, params
+
+    def _profile_scope(self, namespace: str, source_memory_id: str = "",
+                       scope: Optional[Scope] = None) -> Scope:
+        if scope is not None:
+            return scope
+        rec = self.get_record(source_memory_id) if source_memory_id else None
+        return rec.scope if rec is not None else Scope(namespace=namespace or "default")
 
     # ---- memories ---------------------------------------------------------
     def upsert_record(self, rec: MemoryRecord) -> None:
@@ -167,6 +211,14 @@ class RecordStore:
             [content_hash, *params],
         ).fetchone()
         return MemoryRecord.model_validate_json(row["json"]) if row else None
+
+    def records_by_hash(self, content_hash: str, scope: Optional[Scope] = None) -> list[MemoryRecord]:
+        clause, params = self._scope_clause(scope)
+        rows = self._conn().execute(
+            "SELECT json FROM memories WHERE content_hash=?" + clause + " ORDER BY valid_at, memory_id",
+            [content_hash, *params],
+        ).fetchall()
+        return [MemoryRecord.model_validate_json(row["json"]) for row in rows]
 
     def all_records(self, scope: Optional[Scope] = None) -> list[MemoryRecord]:
         clause, params = self._scope_clause(scope)
@@ -231,6 +283,123 @@ class RecordStore:
             return
         rec.expired_at = at
         self.upsert_record(rec)
+        for claim in self.claims_by_source(memory_id):
+            if claim.invalid_at is None or claim.invalid_at > at:
+                claim.invalid_at = at
+                self.add_claim(claim)
+
+    def clear_namespace(self, namespace: str) -> dict[str, object]:
+        """Remove all mutable index/state rows for one namespace.
+
+        This is an administrative reset primitive for isolated benchmark/test scopes. It never
+        touches the immutable substrate blobs addressed by ``content_hash``; normal product
+        forgetting should continue to use FSRS decay / bi-temporal invalidation instead.
+        """
+        ns = namespace or "default"
+        c = self._conn()
+        tables = ("memories", "edges", "events", "profiles", "derived", "claims")
+        counts: dict[str, int] = {}
+        with c:
+            rows = c.execute("SELECT memory_id FROM memories WHERE namespace=?", (ns,)).fetchall()
+            memory_ids = [r["memory_id"] for r in rows]
+            for table in tables:
+                counts[table] = c.execute(
+                    f"SELECT COUNT(*) AS n FROM {table} WHERE namespace=?", (ns,)
+                ).fetchone()["n"]
+            for table in tables:
+                c.execute(f"DELETE FROM {table} WHERE namespace=?", (ns,))
+        return {"namespace": ns, "memory_ids": memory_ids, **counts}
+
+    # ---- structured memory claims ------------------------------------------
+    def add_claim(self, claim: ClaimRecord) -> None:
+        c = self._conn()
+        c.execute(
+            "INSERT OR REPLACE INTO claims "
+            "(claim_id, namespace, agent_id, project_id, claim_type, subject, predicate, object, "
+            " valid_at, invalid_at, source_memory_id, json) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+            (
+                claim.claim_id,
+                claim.scope.namespace,
+                claim.scope.agent_id,
+                claim.scope.project_id,
+                claim.claim_type,
+                claim.subject,
+                claim.predicate,
+                claim.object,
+                claim.valid_at,
+                claim.invalid_at,
+                claim.source_memory_id,
+                claim.model_dump_json(),
+            ),
+        )
+        c.commit()
+
+    def add_claims(self, claims: list[ClaimRecord]) -> int:
+        if not claims:
+            return 0
+        c = self._conn()
+        with c:
+            c.executemany(
+                "INSERT OR REPLACE INTO claims "
+                "(claim_id, namespace, agent_id, project_id, claim_type, subject, predicate, object, "
+                " valid_at, invalid_at, source_memory_id, json) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                [
+                    (
+                        claim.claim_id,
+                        claim.scope.namespace,
+                        claim.scope.agent_id,
+                        claim.scope.project_id,
+                        claim.claim_type,
+                        claim.subject,
+                        claim.predicate,
+                        claim.object,
+                        claim.valid_at,
+                        claim.invalid_at,
+                        claim.source_memory_id,
+                        claim.model_dump_json(),
+                    )
+                    for claim in claims
+                ],
+            )
+        return len(claims)
+
+    def claims_in_scope(self, scope: Optional[Scope] = None,
+                        claim_type: Optional[str] = None) -> list[ClaimRecord]:
+        clause, params = self._scope_clause(scope)
+        q = "SELECT json FROM claims WHERE 1=1" + clause
+        if claim_type:
+            q += " AND claim_type=?"
+            params.append(claim_type)
+        rows = self._conn().execute(q, params).fetchall()
+        return [ClaimRecord.model_validate_json(r["json"]) for r in rows]
+
+    def active_claims_at(self, t: Optional[float] = None, scope: Optional[Scope] = None,
+                         claim_type: Optional[str] = None) -> list[ClaimRecord]:
+        t = now() if t is None else t
+        clause, params = self._scope_clause(scope, prefix="m.")
+        q = (
+            "SELECT cl.json FROM claims cl "
+            "JOIN memories m ON m.memory_id=cl.source_memory_id "
+            "WHERE cl.valid_at<=? "
+            "AND (cl.invalid_at IS NULL OR cl.invalid_at>?) "
+            "AND m.valid_at<=? "
+            "AND (m.invalid_at IS NULL OR m.invalid_at>?) "
+            "AND (m.expired_at IS NULL OR m.expired_at>?)" + clause
+        )
+        args: list = [t, t, t, t, t, *params]
+        if claim_type:
+            q += " AND cl.claim_type=?"
+            args.append(claim_type)
+        rows = self._conn().execute(q, args).fetchall()
+        return [ClaimRecord.model_validate_json(r["json"]) for r in rows]
+
+    def claims_by_source(self, memory_id: str) -> list[ClaimRecord]:
+        rows = self._conn().execute(
+            "SELECT json FROM claims WHERE source_memory_id=?", (memory_id,)
+        ).fetchall()
+        return [ClaimRecord.model_validate_json(r["json"]) for r in rows]
 
     # ---- edges ------------------------------------------------------------
     def add_edge(self, edge: Edge) -> None:
@@ -333,40 +502,148 @@ class RecordStore:
         )
         c.commit()
 
-    def events_in_scope(self, namespace: str = "default") -> list[EventRecord]:
+    def events_in_scope(self, namespace: str = "default", *,
+                        scope: Optional[Scope] = None,
+                        at: Optional[float] = None) -> list[EventRecord]:
         rows = self._conn().execute(
             "SELECT json FROM events WHERE namespace=?", (namespace,)
         ).fetchall()
-        return [EventRecord.model_validate_json(r["json"]) for r in rows]
+        events = [EventRecord.model_validate_json(r["json"]) for r in rows]
+        if scope is None:
+            return events
+        read_at = now() if at is None else at
+        narrowed = scope.agent_id is not None or scope.project_id is not None
+        visible = []
+        for ev in events:
+            rec = self.get_record(ev.source_memory_id) if ev.source_memory_id else None
+            if rec is None:
+                if not ev.source_memory_id and not narrowed:
+                    visible.append(ev)
+                continue
+            if rec.scope.visible_to(scope) and rec.is_active_at(read_at):
+                visible.append(ev)
+        return visible
 
     # ---- per-user preference profile -------------------------------------
     def add_profile_line(self, namespace: str, line: str, salience: float = 0.5,
-                         dedup_key: Optional[str] = None) -> None:
+                         dedup_key: Optional[str] = None, source_memory_id: str = "",
+                         content_hash: str = "", raw_uri: str = "",
+                         valid_at: Optional[float] = None,
+                         scope: Optional[Scope] = None) -> None:
         c = self._conn()
+        created_at = now()
+        source_valid_at = created_at if valid_at is None else float(valid_at)
+        effective_dedup_key = dedup_key or preference_dedup_key(line)
+        update_key = preference_update_key(line)
+        polarity = preference_polarity(line)
+        profile_scope = self._profile_scope(namespace, source_memory_id, scope)
         if dedup_key is None:
             # Default (all existing callers): exact-string dedup -- byte-identical to before.
-            exists = c.execute(
-                "SELECT 1 FROM profiles WHERE namespace=? AND line=?", (namespace, line)
-            ).fetchone()
-            if exists:
+            rows = c.execute(
+                "SELECT line, source_memory_id FROM profiles "
+                "WHERE namespace=? AND line=? AND invalid_at IS NULL",
+                (namespace, line),
+            ).fetchall()
+            if any(self._profile_scope(namespace, row["source_memory_id"]).key() == profile_scope.key()
+                   for row in rows):
                 return
         else:
             # Near-duplicate dedup: skip if any existing line normalizes to the same key (the
-            # sentence-scan path passes a lower+whitespace-collapsed key, so casing/spacing
-            # variants of the same preference don't bloat the profile). Profiles are small.
-            rows = c.execute("SELECT line FROM profiles WHERE namespace=?", (namespace,)).fetchall()
-            if any(" ".join(r["line"].lower().split()) == dedup_key for r in rows):
+            # sentence-scan path passes a canonical preference key, so casing/spacing and simple
+            # paraphrase variants of the same preference don't bloat the profile). Profiles are small.
+            rows = c.execute(
+                "SELECT line, source_memory_id FROM profiles WHERE namespace=? AND invalid_at IS NULL",
+                (namespace,),
+            ).fetchall()
+            if any(
+                self._profile_scope(namespace, r["source_memory_id"]).key() == profile_scope.key()
+                and (
+                    preference_dedup_key(r["line"]) == dedup_key
+                    or " ".join(r["line"].lower().split()) == dedup_key
+                )
+                for r in rows
+            ):
                 return
-        c.execute("INSERT INTO profiles (namespace, line, salience, created_at) VALUES (?,?,?,?)",
-                  (namespace, line, salience, now()))
+        new_invalid_at: Optional[float] = None
+        if update_key:
+            active = c.execute(
+                "SELECT rowid, line, update_key, polarity, valid_at, created_at, source_memory_id "
+                "FROM profiles "
+                "WHERE namespace=? AND invalid_at IS NULL",
+                (namespace,),
+            ).fetchall()
+            invalidate: list[int] = []
+            for row in active:
+                if self._profile_scope(namespace, row["source_memory_id"]).key() != profile_scope.key():
+                    continue
+                old_key = row["update_key"] or preference_update_key(row["line"])
+                if old_key != update_key:
+                    continue
+                old_polarity = row["polarity"] or preference_polarity(row["line"])
+                same_preference = preference_dedup_key(row["line"]) == effective_dedup_key
+                favorite_update = update_key.startswith("favorite:")
+                opposite_polarity = (
+                    polarity in {"positive", "negative"}
+                    and old_polarity in {"positive", "negative"}
+                    and polarity != old_polarity
+                )
+                if not same_preference and (favorite_update or opposite_polarity):
+                    old_valid_at = (
+                        float(row["valid_at"])
+                        if row["valid_at"] is not None else float(row["created_at"])
+                    )
+                    if old_valid_at <= source_valid_at:
+                        invalidate.append(int(row["rowid"]))
+                    else:
+                        new_invalid_at = (
+                            old_valid_at
+                            if new_invalid_at is None else min(new_invalid_at, old_valid_at)
+                        )
+            if invalidate:
+                placeholders = ",".join("?" for _ in invalidate)
+                c.execute(
+                    f"UPDATE profiles SET invalid_at=? WHERE rowid IN ({placeholders})",
+                    (source_valid_at, *invalidate),
+                )
+        c.execute(
+            "INSERT INTO profiles "
+            "(namespace, line, dedup_key, update_key, polarity, source_memory_id, content_hash, "
+            " raw_uri, valid_at, salience, created_at, invalid_at) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+            (
+                namespace, line, effective_dedup_key, update_key, polarity,
+                source_memory_id, content_hash, raw_uri, source_valid_at,
+                salience, created_at, new_invalid_at,
+            ),
+        )
         c.commit()
 
-    def get_profile(self, namespace: str = "default") -> list[str]:
+    def get_profile_entries(self, namespace: str = "default", *,
+                            include_inactive: bool = False) -> list[dict]:
+        where = "namespace=?" if include_inactive else "namespace=? AND invalid_at IS NULL"
         rows = self._conn().execute(
-            "SELECT line FROM profiles WHERE namespace=? ORDER BY salience DESC, created_at DESC",
-            (namespace,)
+            f"SELECT line, salience, created_at, invalid_at, source_memory_id, content_hash, "
+            f"raw_uri, valid_at FROM profiles WHERE {where} "
+            "ORDER BY salience DESC, created_at DESC",
+            (namespace,),
         ).fetchall()
-        return [r["line"] for r in rows]
+        return [
+            {
+                "line": r["line"],
+                "salience": float(r["salience"]),
+                "created_at": r["created_at"],
+                "invalid_at": r["invalid_at"],
+                "source_memory_id": r["source_memory_id"] or "",
+                "content_hash": r["content_hash"] or "",
+                "raw_uri": r["raw_uri"] or "",
+                "valid_at": r["valid_at"],
+            }
+            for r in rows
+        ]
+
+    def get_profile(self, namespace: str = "default", *, include_inactive: bool = False) -> list[str]:
+        return [entry["line"] for entry in self.get_profile_entries(
+            namespace, include_inactive=include_inactive)]
 
     # ---- dreaming-engine DERIVED layer (additive; never the observed store) ----------
     def add_derived(self, rec: DerivedRecord) -> None:

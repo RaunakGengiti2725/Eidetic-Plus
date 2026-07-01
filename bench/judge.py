@@ -1,6 +1,6 @@
-"""The ONE fixed judge + ONE fixed reader prompt, applied to ALL THREE systems.
+"""The ONE fixed judge + ONE fixed reader prompt, applied to every benchmark row.
 
-This is the neutrality guarantee: identical grading for Eidetic-Plus, Mem0, and Graphiti.
+This is the neutrality guarantee: identical grading for Eidetic-Plus, RAG, Mem0, and Graphiti.
 Default judge = qwen3-max (Qwen stack). Configurable to GPT-4o via JUDGE_BASE_URL +
 JUDGE_API_KEY + JUDGE_MODEL for a leaderboard-comparable headline number; the harness
 records which judge was used. LongMemEval uses category-specific judge semantics (temporal
@@ -46,6 +46,8 @@ FIXED_READER_PHOTOGRAPHIC_PROMPT = (
 
 _YESNO = re.compile(r"\b(yes|no|correct|incorrect|true|false)\b", re.I)
 _WORD = re.compile(r"[a-z0-9]+")
+_SOURCE_TAG = re.compile(r"\s*\[(?:s|source)\s*\d+\]\s*", re.I)
+_DECLINE = re.compile(r"\b(?:do not|don't) have (?:that|enough|the)|cannot answer|insufficient evidence", re.I)
 
 
 def _is_yes(text: str) -> bool:
@@ -57,6 +59,14 @@ def _is_yes(text: str) -> bool:
 
 def _norm(text: str) -> str:
     return " ".join(_WORD.findall((text or "").lower()))
+
+
+def _strip_source_tags(text: str) -> str:
+    return _SOURCE_TAG.sub(" ", text or "")
+
+
+def _tokens(text: str) -> list[str]:
+    return _WORD.findall(_strip_source_tags(text).lower())
 
 
 def _aliases(gold: str, meta: dict | None = None) -> list[str]:
@@ -71,13 +81,43 @@ def _aliases(gold: str, meta: dict | None = None) -> list[str]:
 
 
 def exact_match(predicted: str, aliases: list[str]) -> bool:
-    p = _norm(predicted)
-    return bool(p) and any(p == _norm(a) for a in aliases)
+    p = _tokens(predicted)
+    return bool(p) and any(p == _tokens(a) for a in aliases)
 
 
 def substring_exact_match(predicted: str, aliases: list[str]) -> bool:
-    p = _norm(predicted)
-    return bool(p) and any(_norm(a) and _norm(a) in p for a in aliases)
+    p = _tokens(predicted)
+    if not p:
+        return False
+    for alias in aliases:
+        a = _tokens(alias)
+        if not a or len(a) > len(p):
+            continue
+        for i in range(0, len(p) - len(a) + 1):
+            if p[i:i + len(a)] == a:
+                return True
+    return False
+
+
+def short_answer_exact_match(gold: str, hypothesis: str, meta: dict | None = None) -> bool:
+    """Conservative deterministic judge for short extractive answers.
+
+    This fixes obvious false negatives such as `Summer Vibes [S4]` vs gold `Summer Vibes`, while
+    leaving compositional/list/narrative answers to the LLM judge.
+    """
+    if _DECLINE.search(hypothesis or ""):
+        return False
+    aliases = _aliases(gold, meta)
+    if not aliases:
+        return False
+    short_aliases = [a for a in aliases if 0 < len(_tokens(a)) <= 8]
+    if not short_aliases:
+        return False
+    # Exact citation-stripped match is always safe. Contiguous substring is safe only when the
+    # response is still short enough that it is not a long, partially-correct list explanation.
+    if exact_match(hypothesis, short_aliases):
+        return True
+    return len(_tokens(hypothesis)) <= 16 and substring_exact_match(hypothesis, short_aliases)
 
 
 class Judge:
@@ -120,6 +160,10 @@ class Judge:
                    "ONLY if the response correctly declines / says it lacks the information; "
                    "reply 'no' if it fabricates an answer.")
             return _is_yes(self._call(sys, f"Question: {question}\nResponse: {hypothesis}"))
+        if _DECLINE.search(hypothesis or ""):
+            return False
+        if short_answer_exact_match(gold, hypothesis):
+            return True
 
         extra = ""
         if "temporal" in cat:

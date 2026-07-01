@@ -4,7 +4,11 @@
 # Versions below resolved cleanly on CPython 3.14 (dry-run verified 2026-06-23).
 
 # Mem0 baseline (configure its LLM/embedder to DashScope via OpenAI-compatible base_url).
+# spaCy and fastembed are material optional capabilities for current Mem0 releases; the
+# harness marks Mem0 degraded under STRICT_BASELINE_HEALTH if either is missing.
 mem0ai==2.0.7
+spacy==3.8.13
+fastembed==0.8.0
 
 # Graphiti baseline + its required Neo4j driver. Graphiti also needs a running Neo4j
 # (free Neo4j AuraDB cloud works with no Docker; set NEO4J_URI/USER/PASSWORD).

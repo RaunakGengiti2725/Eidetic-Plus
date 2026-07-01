@@ -14,7 +14,7 @@ from __future__ import annotations
 import time
 import uuid
 from enum import Enum
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -243,6 +243,76 @@ class Answer(BaseModel):
     note: str = ""
 
 
+ClaimType = Literal["quantity", "state", "event", "interval", "table", "preference"]
+
+
+class ClaimRecord(BaseModel):
+    """A normalized, source-backed memory claim extracted during consolidation.
+
+    Claims are not generated answers. They are typed pointers back to observed memory text so read-time
+    operators can compute answers without knowing benchmark questions.
+    """
+
+    claim_id: str = Field(default_factory=lambda: new_id("claim"))
+    claim_type: ClaimType = "state"
+    scope: Scope = Field(default_factory=Scope)
+    subject: str = ""
+    predicate: str = ""
+    object: str = ""
+    value: Any = None
+    unit: str = ""
+    filters: dict[str, Any] = Field(default_factory=dict)
+    anchors: list[dict[str, Any]] = Field(default_factory=list)
+    valid_at: float = Field(default_factory=now)
+    invalid_at: Optional[float] = None
+    source_memory_id: str = ""
+    proof_atom: str = ""
+    confidence: float = 1.0
+    created_at: float = Field(default_factory=now)
+
+    def is_active_at(self, t: Optional[float] = None) -> bool:
+        t = now() if t is None else t
+        if self.valid_at is not None and self.valid_at > t:
+            return False
+        if self.invalid_at is not None and self.invalid_at <= t:
+            return False
+        return True
+
+
+class ExecutionPlan(BaseModel):
+    op: str = "open_inference"
+    entities: list[str] = Field(default_factory=list)
+    slot: str = ""
+    filters: dict[str, Any] = Field(default_factory=dict)
+    as_of: Optional[float] = None
+    unit: str = ""
+    backend_preference: str = "auto"
+    requires_synthesis: bool = False
+    confidence: float = 1.0
+    reason: str = ""
+
+
+class StructuredSupport(BaseModel):
+    memory_id: str = ""
+    claim_id: Optional[str] = None
+    proof_atom: str = ""
+    answer_atom: str = ""
+    score: float = 0.0
+
+
+class StructuredAnswerResult(BaseModel):
+    answer: str = ""
+    op: str = ""
+    backend: str = ""
+    supports: list[StructuredSupport] = Field(default_factory=list)
+    citations: list[Citation] = Field(default_factory=list)
+    verified: bool = False
+    confidence: float = 0.0
+    abstained: bool = False
+    failure_reason: str = ""
+    note: str = ""
+
+
 # --------------------------------------------------------------------------
 # Connected Brain Loop: the brain spine (observation-only contracts).
 #
@@ -265,6 +335,7 @@ class RecallTrace(BaseModel):
     channel_weights: dict[str, float] = Field(default_factory=dict)
     fused_scores: dict[str, float] = Field(default_factory=dict)
     gist_provenance: dict[str, str] = Field(default_factory=dict)         # member_id -> gist cid
+    region_hints: list[dict[str, Any]] = Field(default_factory=list)      # context cocoon hints
     selected_candidates: list[str] = Field(default_factory=list)
     dropped_candidates: list[str] = Field(default_factory=list)
     latency_by_stage: dict[str, float] = Field(default_factory=dict)      # stage -> milliseconds

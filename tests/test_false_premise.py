@@ -87,6 +87,26 @@ def test_check_is_case_insensitive_against_stored_memory(fresh_settings):
     assert e.check_false_premise("Why did Alice leave Google?") is None       # still matches
 
 
+def test_lowercase_question_flags_disconnected_entities(fresh_settings):
+    e = _engine(fresh_settings)
+    e.ingest_text("Alice is a software engineer at Microsoft", consolidate_now=False)
+    fp = e.check_false_premise("why did alice leave google?")
+    assert fp is not None and fp["category"] == "missing_premise"
+    assert "Alice" in fp["entities"] and "Google" in fp["entities"]
+
+
+def test_lowercase_question_passes_when_entities_co_occur(fresh_settings):
+    e = _engine(fresh_settings)
+    e.ingest_text("alice worked at google last year", consolidate_now=False)
+    assert e.check_false_premise("why did alice leave google?") is None
+
+
+def test_lowercase_false_premise_ignores_generic_object_tokens(fresh_settings):
+    e = _engine(fresh_settings)
+    e.ingest_text("Alice is a software engineer at Microsoft", consolidate_now=False)
+    assert e.check_false_premise("why did alice leave work?") is None
+
+
 def test_ask_abstains_on_false_premise_with_no_model_call(fresh_settings):
     e = _engine(fresh_settings, brain_events_enabled=True)
     e.ingest_text("Alice is a software engineer at Microsoft", consolidate_now=False)

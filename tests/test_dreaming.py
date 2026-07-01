@@ -80,6 +80,18 @@ def test_replay_is_near_linear_not_quadratic(engine, monkeypatch):
     assert calls["n"] <= 2, f"node_features called {calls['n']}x -> quadratic risk"
 
 
+def test_replay_tolerates_entities_missing_from_feature_map(engine, monkeypatch):
+    import warnings
+
+    ns, _ = _seed(engine, n=6)
+    monkeypatch.setattr(engine.graph, "node_features", lambda *a, **k: {"other": {"ppr": 1.0}})
+    with warnings.catch_warnings(record=True) as seen:
+        warnings.simplefilter("always", RuntimeWarning)
+        res = engine.dream_replay(scope=ns)
+    assert res["memories"] == 6
+    assert seen == []
+
+
 # ---- the token-free gate ----
 def test_inferred_gate_threshold():
     assert gatemod.gate(0.9, 0.9, 0.7).passed

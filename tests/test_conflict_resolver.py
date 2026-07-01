@@ -8,8 +8,15 @@ from eidetic.retrieval import Retriever
 from eidetic.store import RecordStore
 
 
-def _cand(memory_id: str, text: str, valid_at: float) -> RetrievalCandidate:
-    rec = MemoryRecord(memory_id=memory_id, content_hash=memory_id, text=text, valid_at=valid_at)
+def _cand(memory_id: str, text: str, valid_at: float,
+          entities: list[str] | None = None) -> RetrievalCandidate:
+    rec = MemoryRecord(
+        memory_id=memory_id,
+        content_hash=memory_id,
+        text=text,
+        valid_at=valid_at,
+        entities=list(entities or []),
+    )
     return RetrievalCandidate(record=rec, fused_score=1.0)
 
 
@@ -56,7 +63,7 @@ def test_current_value_router_rejects_historical_queries():
     assert not is_current_value_query("Has Alice worked at Acme?")
 
 
-def test_retriever_conflict_resolver_flag_returns_direct_answer(tmp_path, monkeypatch):
+def test_retriever_current_value_routes_through_smqe(tmp_path, monkeypatch):
     monkeypatch.setenv("APP_ENV", "dev")
     monkeypatch.setenv("DATA_DIR", str(tmp_path / "data"))
     monkeypatch.setenv("VECTOR_BACKEND", "numpy")
@@ -79,13 +86,12 @@ def test_retriever_conflict_resolver_flag_returns_direct_answer(tmp_path, monkey
             _cand("old", "Alice works at Acme.", 10.0),
             _cand("new", "Alice works at Globex.", 20.0),
         ],
-        verify=False,
+        verify=True,
     )
-    assert ans.answer == "Alice works at Globex."
-    assert ans.generated_by == "conflict-resolver"
-    # the note now surfaces the supersession chain (the older Acme value, closed not deleted).
-    assert ans.note.startswith("conflict-resolver")
-    assert "superseded 1 older value(s)" in ans.note
+    assert ans.answer == "Globex"
+    assert ans.generated_by == "smqe"
+    assert ans.note == "smqe:latest_value:record"
+    assert ans.verified is True
     get_settings.cache_clear()
 
 
@@ -114,8 +120,71 @@ def test_conflict_resolver_reaches_fixed_reader_context(tmp_path, monkeypatch):
         ],
     )
     joined = "\n".join(blocks)
-    assert "Current-value resolver selected latest matching evidence" in joined
-    assert "Alice works at Globex." in joined
+    assert "SMQE latest-value operator selected matching evidence" in joined
+    assert "Globex" in joined
+    get_settings.cache_clear()
+
+
+def test_conflict_resolver_skips_hypothetical_activity_questions():
+    assert is_current_value_query("Where does Alice work now?") is True
+    assert is_current_value_query(
+        "What is an indoor activity that Andrew would enjoy doing while making his dog happy?"
+    ) is False
+    assert is_current_value_query("What activity would Andrew enjoy?") is False
+
+
+def test_conflict_resolver_fail_open_on_extractor_error(tmp_path, monkeypatch):
+    monkeypatch.setenv("APP_ENV", "dev")
+    monkeypatch.setenv("DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("VECTOR_BACKEND", "numpy")
+    monkeypatch.setenv("CONFLICT_RESOLVER", "1")
+    get_settings.cache_clear()
+    settings = get_settings()
+
+    class FakeClient:
+        def extract_current_value_matches(self, _query: str, _candidates: list[dict]) -> list[dict]:
+            raise ValueError("malformed model JSON")
+
+    store = RecordStore(tmp_path / "db.sqlite")
+    retriever = Retriever(store, object(), KnowledgeGraph(store), object(), FakeClient(), settings)
+    candidates = [_cand("new", "Caroline is a transgender woman.", 20.0)]
+
+    assert retriever._try_conflict_resolver("What is Caroline's identity?", candidates) is None
+    blocks = retriever.assemble_context("What is Caroline's identity?", candidates)
+    assert "Caroline is a transgender woman." in "\n".join(blocks)
+    get_settings.cache_clear()
+
+
+def test_conflict_resolver_uses_graph_closure_for_stale_source(tmp_path, monkeypatch):
+    monkeypatch.setenv("APP_ENV", "dev")
+    monkeypatch.setenv("DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("VECTOR_BACKEND", "numpy")
+    monkeypatch.setenv("CONFLICT_RESOLVER", "1")
+    get_settings.cache_clear()
+    settings = get_settings()
+
+    class FakeClient:
+        def extract_current_value_matches(self, _query: str, candidates: list[dict]) -> list[dict]:
+            return [{"memory_id": candidates[0]["memory_id"], "answer": candidates[0]["text"]}]
+
+    store = RecordStore(tmp_path / "db.sqlite")
+    graph = KnowledgeGraph(store)
+    graph.add_fact(
+        "Alice", "works_at", "Acme", fact="Alice works at Acme.",
+        source_memory_id="old", valid_at=10.0)
+    graph.add_fact(
+        "Alice", "works_at", "Globex", fact="Alice works at Globex.",
+        source_memory_id="new", valid_at=20.0)
+    retriever = Retriever(store, object(), graph, object(), FakeClient(), settings)
+    old = _cand("old", "Alice works at Acme.", 10.0, ["Alice", "Acme"])
+
+    current = retriever._try_conflict_resolver("Where does Alice work now?", [old], as_of=30.0)
+    assert current is not None and current.abstained
+    assert current.records == []
+
+    historical = retriever._try_conflict_resolver("Where does Alice work now?", [old], as_of=15.0)
+    assert historical is not None and not historical.abstained
+    assert [r.memory_id for r in historical.records] == ["old"]
     get_settings.cache_clear()
 
 

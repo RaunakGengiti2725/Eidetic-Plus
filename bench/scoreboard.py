@@ -11,10 +11,11 @@ from collections import defaultdict
 from itertools import combinations
 from pathlib import Path
 from statistics import mean, pstdev
-from typing import Optional
+from typing import Iterable, Optional
 
 import numpy as np
 
+from .fingerprints import log_fingerprint
 from .harness import load_logs
 
 _LME_ORDER = ["single-session-user", "single-session-assistant", "single-session-preference",
@@ -49,6 +50,65 @@ def _mcnemar_pvalue(a_only: int, b_only: int) -> float:
     return min(1.0, 2.0 * tail)
 
 
+_CONSOLIDATION_FIELDS = (
+    "pending_processed",
+    "facts_extracted",
+    "events_indexed",
+    "extraction_timed_out",
+    "extraction_deferred",
+    "extraction_windows_planned",
+    "extraction_windows_submitted",
+    "extraction_window_cap_per_record",
+    "extraction_call_budget",
+    "extraction_raw_only_bounded",
+    "record_raw_only_bounded",
+    "extraction_partial_bounded",
+    "long_haystack_bounded",
+    "long_haystack_raw_only",
+)
+
+
+def _consolidation_group_key(row: dict) -> str:
+    sample_id = str(row.get("sample_id", "unknown"))
+    return f"{row.get('dataset', 'unknown')}:{sample_id.split('_q')[0]}:{row.get('run_idx', 0)}"
+
+
+def _consolidation_field(report: dict, field: str) -> int:
+    src = report.get("consolidate_pending", report)
+    if not isinstance(src, dict):
+        return 0
+    try:
+        return int(src.get(field, 0) or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def consolidation_rollup(rows: Iterable[dict], *, system: str | None = None) -> dict[str, dict]:
+    """Roll up logged consolidation reports once per conversation/run.
+
+    The harness attaches the same consolidation report to every question in a grouped
+    conversation. De-duping by dataset/sample-prefix/run keeps the health metrics honest.
+    """
+    by_group: dict = defaultdict(dict)
+    for row in rows:
+        sysname = row.get("system")
+        if not sysname or (system is not None and sysname != system):
+            continue
+        extra = row.get("extra") or {}
+        report = extra.get("consolidate")
+        if not isinstance(report, dict):
+            continue
+        by_group[sysname][_consolidation_group_key(row)] = report
+
+    out: dict[str, dict] = {}
+    for sysname, reports_by_group in by_group.items():
+        reports = list(reports_by_group.values())
+        out[sysname] = {"groups": len(reports)}
+        for field in _CONSOLIDATION_FIELDS:
+            out[sysname][field] = sum(_consolidation_field(r, field) for r in reports)
+    return out
+
+
 def aggregate(rows: list[dict]) -> dict:
     # accuracy per (system, dataset, category) averaged within a run, then mean+/-std across runs
     by_run: dict = defaultdict(lambda: defaultdict(list))   # (sys,ds,cat) -> run_idx -> [correct]
@@ -73,8 +133,9 @@ def aggregate(rows: list[dict]) -> dict:
         ig = integrity[sys]
         ig["n"] += 1
         _abst = bool(r.get("abstained"))
-        _ver = bool((r.get("extra") or {}).get("verified"))
-        if _ver or _abst:
+        extra = r.get("extra") or {}
+        _ver = bool(extra.get("verified"))
+        if ("verified" in extra) or _abst:
             ig["has_verify"] = True              # this system has a verify/abstain step
         if _abst:
             ig["abstained"] += 1
@@ -94,7 +155,8 @@ def aggregate(rows: list[dict]) -> dict:
         search[sys].append(r.get("search_ms", 0.0))
         e2e[sys].append(r.get("e2e_ms", 0.0))
         # one write-cost per (system, group, run); group encoded in sample namespace prefix
-        write_by_group[sys][f"{ds}:{r['sample_id'].split('_q')[0]}:{r['run_idx']}"] = r.get("write_tokens", 0)
+        group_key = f"{ds}:{r['sample_id'].split('_q')[0]}:{r['run_idx']}"
+        write_by_group[sys][group_key] = r.get("write_tokens", 0)
 
     acc: dict = {}
     acc_ci: dict = {}
@@ -116,6 +178,7 @@ def aggregate(rows: list[dict]) -> dict:
                 "tokens_per_query": (mean(qtok[s]) if qtok[s] else 0.0)} for s in systems}
     latency = {s: {"search_p50": pct(search[s], 50), "search_p95": pct(search[s], 95),
                    "e2e_p50": pct(e2e[s], 50), "e2e_p95": pct(e2e[s], 95)} for s in systems}
+    consolidation = consolidation_rollup(rows)
     head_to_head: dict = {}
     for ds_cat in sorted({(r["dataset"], r["category"]) for r in rows}):
         ds, cat = ds_cat
@@ -156,7 +219,8 @@ def aggregate(rows: list[dict]) -> dict:
     return {"systems": sorted(systems), "acc": acc, "cats_by_ds": {k: sorted(v) for k, v in cats_by_ds.items()},
             "cost": cost, "latency": latency, "n_by_cat": dict(n_by_cat),
             "acc_ci": acc_ci, "head_to_head": head_to_head, "survival": survival,
-            "integrity": {s: dict(v) for s, v in integrity.items()}}
+            "integrity": {s: dict(v) for s, v in integrity.items()},
+            "consolidation": consolidation}
 
 
 def _acc_cell(acc, sys, ds, cat) -> str:
@@ -176,6 +240,7 @@ def _ci_cell(acc_ci, sys, ds, cat) -> str:
 def render(out_dir: Path, judge_desc: Optional[dict] = None) -> Path:
     out_dir = Path(out_dir)
     rows = load_logs(out_dir)
+    fingerprint = log_fingerprint(out_dir)
     md = out_dir / "scoreboard.md"
     if not rows:
         md.write_text("# Eidetic-Plus benchmark scoreboard\n\n"
@@ -183,6 +248,11 @@ def render(out_dir: Path, judge_desc: Optional[dict] = None) -> Path:
                       "with a funded key (and the baselines) to populate this scoreboard:\n\n"
                       "```bash\nbash bench/reproduce.sh\n```\n\n"
                       "Numbers appear here ONLY from real runs -- never fabricated.\n")
+        (out_dir / "scoreboard.json").write_text(json.dumps({
+            "status": "pending",
+            "reason": "no logs",
+            "log_fingerprint": fingerprint,
+        }, indent=2))
         return md
 
     agg = aggregate(rows)
@@ -258,6 +328,28 @@ def render(out_dir: Path, judge_desc: Optional[dict] = None) -> Path:
                      f"{la['e2e_p50']:.1f} | {la['e2e_p95']:.1f} |")
     lines.append("")
 
+    con = agg.get("consolidation", {})
+    if con:
+        lines.append("## Consolidation Health\n")
+        lines.append("_Counts are logged once per ingested conversation/run. Timeouts mean the "
+                     "record stayed searchable as raw memory, but did not finish fact/event "
+                     "extraction within the configured sleep deadline._\n")
+        lines.append("| system | groups | pending processed | facts | events | extraction timed out | extraction deferred | windows planned | windows submitted | raw-only bounded | record raw-only | partial bounded | long-haystack bounded | long-haystack raw-only |")
+        lines.append("|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|")
+        for s in sorted(con):
+            c = con[s]
+            lines.append(f"| {s} | {c.get('groups', 0)} | {c.get('pending_processed', 0)} | "
+                         f"{c.get('facts_extracted', 0)} | {c.get('events_indexed', 0)} | "
+                         f"{c.get('extraction_timed_out', 0)} | {c.get('extraction_deferred', 0)} | "
+                         f"{c.get('extraction_windows_planned', 0)} | "
+                         f"{c.get('extraction_windows_submitted', 0)} | "
+                         f"{c.get('extraction_raw_only_bounded', 0)} | "
+                         f"{c.get('record_raw_only_bounded', 0)} | "
+                         f"{c.get('extraction_partial_bounded', 0)} | "
+                         f"{c.get('long_haystack_bounded', 0)} | "
+                         f"{c.get('long_haystack_raw_only', 0)} |")
+        lines.append("")
+
     integ = agg.get("integrity", {})
     if integ:
         lines.append("## Integrity (verified recall) - from logged verify/abstain flags\n")
@@ -304,5 +396,7 @@ def render(out_dir: Path, judge_desc: Optional[dict] = None) -> Path:
         },
         "cost": agg["cost"], "latency": agg["latency"], "judge": judge_desc,
         "integrity": agg.get("integrity", {}),
+        "consolidation": agg.get("consolidation", {}),
+        "log_fingerprint": fingerprint,
     }, indent=2))
     return md

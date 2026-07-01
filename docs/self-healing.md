@@ -29,7 +29,7 @@ win before it is measured on the held-out test set.*
 | Heuristic **memory manager** router (ADD/UPDATE/DELETE-tombstone/NOOP) | 3a-RL | `eidetic/dreaming/manager.py` | `MEMORY_MANAGER` |
 | MemMA **repair router** (diagnose → SKIP/MERGE/INSERT) + anomaly targeting | 1a/1c | `eidetic/dreaming/repair.py` | `DREAM_REPAIR` |
 | MIRIX **role typing** (6 types) + coordinator | 2c | `eidetic/memory_types.py` | `MEMORY_TYPING` |
-| **Markov** prospective prefetch (P(next-signature\|current), wired into ask) | 3c | `eidetic/optim/markov.py` | `MARKOV_PREFETCH` |
+| **Markov** prospective prefetch (P(next-signature\|current), idle warm-up into prefetch) | 3c | `eidetic/optim/markov.py` + `engine.warmup_predicted_prefetch` | `MARKOV_PREFETCH`, `FLOW_WARMUP` |
 | Bounded-**debate aggregation** guard (≥2 agree, else abstain) | 2a/2b | `eidetic/debate.py` | `DEBATE` |
 | HaluMem **operation-level grading** (extraction recall / update acc / QA rates) | -- | `bench/halumem.py` | (bench) |
 

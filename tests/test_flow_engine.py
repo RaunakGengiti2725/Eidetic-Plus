@@ -37,6 +37,31 @@ class _Reader:
         return ("entailment", 0.9) if "acme" in (premise or "").lower() else ("neutral", 0.2)
 
 
+class _CountingReader(_Reader):
+    def __init__(self, dim):
+        super().__init__(dim)
+        self.embed_calls = 0
+        self.generate_calls = 0
+        self.nli_calls = 0
+
+    def embed_text(self, t):
+        self.embed_calls += 1
+        return super().embed_text(t)
+
+    def generate_answer(self, q, blocks, model=None):
+        self.generate_calls += 1
+        return super().generate_answer(q, blocks, model=model)
+
+    def nli(self, premise, hypothesis):
+        self.nli_calls += 1
+        return super().nli(premise, hypothesis)
+
+    def reset_counts(self):
+        self.embed_calls = 0
+        self.generate_calls = 0
+        self.nli_calls = 0
+
+
 def _eng(fresh_settings, **kw):
     s = replace(fresh_settings, semantic_cache_enabled=False, rerank_enabled=False, **kw)
     return Engine(s, client=_Reader(s.embed_dim))
@@ -73,6 +98,42 @@ def test_flow_commits_even_with_reflex_off(fresh_settings):
     ans = e.ask("where does Alice work")
     assert ans.answer
     assert any(v > 0.0 for v in e._flow_snapshot("default").values())
+
+
+def test_ask_smqe_fast_path_skips_embedding_retrieval_and_generation(fresh_settings, monkeypatch):
+    s = replace(
+        fresh_settings,
+        semantic_cache_enabled=True,
+        cache_versioning_enabled=True,
+        flow_activation_enabled=True,
+        reflex_recall_enabled=True,
+        defer_reembed_enabled=True,
+        rerank_enabled=False,
+    )
+    client = _CountingReader(s.embed_dim)
+    e = Engine(s, client=client)
+    scope = Scope(namespace="fast-smqe")
+    e.ingest_text(
+        "user: I'm training for a charity 5K run and hoping to beat my personal "
+        "best time of 25:50 this time around.",
+        consolidate_now=False,
+        scope=scope,
+    )
+    client.reset_counts()
+
+    def _retrieve_should_not_run(*args, **kwargs):
+        raise AssertionError("SMQE answer should skip retrieval")
+
+    monkeypatch.setattr(e.retriever, "retrieve", _retrieve_should_not_run)
+    ans = e.ask("What was my personal best time in the charity 5K run?", scope=scope)
+
+    assert ans.answer == "25:50"
+    assert ans.verified is True
+    assert ans.generated_by == "smqe"
+    assert ans.note == "smqe:latest_value:record"
+    assert client.embed_calls == 0
+    assert client.generate_calls == 0
+    assert client.nli_calls == 0
 
 
 def test_reflex_recall_field_seeds_activated_unnamed_memory(fresh_settings):

@@ -7,14 +7,22 @@ Guards the one-switch design and its two hard invariants:
 """
 from __future__ import annotations
 
-from eidetic.config import (METABOLISM_PROFILE, apply_metabolism_overlay,
-                            metabolism_enabled)
+from eidetic.config import (
+    BENCH_FULL_CONSOLIDATION_PROFILE,
+    METABOLISM_PROFILE,
+    apply_bench_full_consolidation_overlay,
+    apply_metabolism_overlay,
+    bench_full_consolidation_enabled,
+    metabolism_enabled,
+)
 
 
 def test_profile_is_nonempty_and_string_valued():
     assert METABOLISM_PROFILE, "profile must list the flags the switch wires"
     for k, v in METABOLISM_PROFILE.items():
         assert isinstance(k, str) and isinstance(v, str) and v != ""
+    assert METABOLISM_PROFILE["HOST_AUTO_SLEEP"] == "1"
+    assert METABOLISM_PROFILE["HOST_AUTO_SLEEP_SCORE_IMPORTANCE"] == "0"
 
 
 def test_overlay_off_is_a_noop():
@@ -66,3 +74,28 @@ def test_overlay_is_idempotent():
     assert second == []          # nothing left to set
     assert env == snapshot       # no further mutation
     assert set(first) == set(METABOLISM_PROFILE)
+
+
+def test_bench_full_consolidation_overlay_forces_complete_extraction_profile():
+    env = {
+        "BENCH_FULL_CONSOLIDATION": "1",
+        "CONSOLIDATION_EXTRACT_DEADLINE_SEC": "180",
+        "CONSOLIDATION_EXTRACT_CALL_BUDGET": "90",
+        "CONSOLIDATION_LONG_HAYSTACK_RAW_ONLY": "1",
+        "CONSOLIDATION_RAW_ONLY_WINDOW_THRESHOLD": "64",
+    }
+
+    assert bench_full_consolidation_enabled(env)
+    changed = apply_bench_full_consolidation_overlay(env)
+
+    assert set(changed) == set(BENCH_FULL_CONSOLIDATION_PROFILE)
+    for key, value in BENCH_FULL_CONSOLIDATION_PROFILE.items():
+        assert env[key] == value
+
+
+def test_bench_full_consolidation_overlay_off_is_noop():
+    env = {"BENCH_FULL_CONSOLIDATION": "0", "EXTRACT_CHUNKING": "0"}
+
+    assert not bench_full_consolidation_enabled(env)
+    assert apply_bench_full_consolidation_overlay(env) == []
+    assert env == {"BENCH_FULL_CONSOLIDATION": "0", "EXTRACT_CHUNKING": "0"}

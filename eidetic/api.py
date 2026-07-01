@@ -68,6 +68,7 @@ class TextMemoryIn(ScopeIn):
     valid_at: Optional[float] = None
     extract_graph: bool = True
     segment: bool = False
+    consolidate_now: bool = True
 
 
 class AskIn(ScopeIn):
@@ -76,9 +77,17 @@ class AskIn(ScopeIn):
     prove: bool = False
 
 
+class StructuredRecallIn(ScopeIn):
+    query: str
+    verify: bool = True
+    as_of: Optional[float] = None
+
+
 class ReflexRecallIn(ScopeIn):
     query: str
     as_of: Optional[float] = None
+    limit: int = 3
+    member_limit: int = 6
 
 
 # ---- helpers --------------------------------------------------------------
@@ -122,9 +131,9 @@ async def memory_map():
 
 
 @app.get("/api/stats")
-async def stats(namespace: Optional[str] = None, agent_id: Optional[str] = None,
+async def stats(namespace: str = "default", agent_id: Optional[str] = None,
                 project_id: Optional[str] = None):
-    scope = _scope(namespace, agent_id, project_id) if namespace else None
+    scope = _scope(namespace, agent_id, project_id)
     return await run_in_threadpool(engine().stats, scope)
 
 
@@ -139,25 +148,38 @@ async def preflight():
 
 @app.post("/api/memories/text")
 async def add_text(body: TextMemoryIn):
+    eng = engine()
     rec = await run_in_threadpool(
-        lambda: _guard(engine().ingest_text, body.text, source=body.source,
+        lambda: _guard(eng.ingest_text, body.text, source=body.source,
                        valid_at=body.valid_at, extract_graph=body.extract_graph,
-                       scope=body.to_scope(), segment=body.segment)
+                       scope=body.to_scope(), segment=body.segment,
+                       consolidate_now=body.consolidate_now)
     )
-    return _record_brief(rec)
+    return {
+        **_record_brief(rec),
+        "pending_consolidation": bool(rec.metadata.get("pending_consolidation")),
+        "auto_sleep": await run_in_threadpool(eng.auto_sleep_status, body.to_scope()),
+    }
 
 
 @app.post("/api/memories/file")
 async def add_file(file: UploadFile = File(...), source: str = Form(""),
                    extract_graph: bool = Form(True), namespace: str = Form("default"),
-                   agent_id: str = Form(""), project_id: str = Form("")):
+                   agent_id: str = Form(""), project_id: str = Form(""),
+                   consolidate_now: bool = Form(True)):
     data = await file.read()
     scope = _scope(namespace, agent_id, project_id)
+    eng = engine()
     rec = await run_in_threadpool(
-        lambda: _guard(engine().ingest_bytes, data, file.filename,
-                       source=source or file.filename, extract_graph=extract_graph, scope=scope)
+        lambda: _guard(eng.ingest_bytes, data, file.filename,
+                       source=source or file.filename, extract_graph=extract_graph, scope=scope,
+                       consolidate_now=consolidate_now)
     )
-    return _record_brief(rec)
+    return {
+        **_record_brief(rec),
+        "pending_consolidation": bool(rec.metadata.get("pending_consolidation")),
+        "auto_sleep": await run_in_threadpool(eng.auto_sleep_status, scope),
+    }
 
 
 @app.post("/api/ask")
@@ -183,6 +205,37 @@ async def reflex_recall(body: ReflexRecallIn):
     packet = await run_in_threadpool(
         lambda: engine().reflex_recall(body.query, scope=body.to_scope(), as_of=body.as_of))
     return packet.public_dict()
+
+
+@app.post("/api/region_hints")
+async def region_hints(body: ReflexRecallIn):
+    """LOCAL memory-region/cocoon routing hints for a query, proof-linked to active raw members.
+    No model call. Scope-filtered. Mirrors the MCP `region_hints` tool."""
+    limit = max(0, min(20, int(body.limit)))
+    member_limit = max(0, min(50, int(body.member_limit)))
+    return await run_in_threadpool(
+        lambda: engine().region_hints(
+            body.query,
+            scope=body.to_scope(),
+            as_of=body.as_of,
+            limit=limit,
+            member_limit=member_limit,
+        )
+    )
+
+
+@app.post("/api/structured_recall")
+async def structured_recall(body: StructuredRecallIn):
+    """Run the typed SMQE memory path directly: plan -> execute -> verify-or-abstain.
+    Returns plan/backend/supports/citations with no generation step."""
+    return await run_in_threadpool(
+        lambda: engine().structured_recall(
+            body.query,
+            scope=body.to_scope(),
+            as_of=body.as_of,
+            verify=body.verify,
+        )
+    )
 
 
 @app.get("/api/truth_ledger")
@@ -215,30 +268,36 @@ async def sync_health(namespace: str = "default", agent_id: Optional[str] = None
 
 
 @app.get("/api/memories")
-async def list_memories(namespace: Optional[str] = None, agent_id: Optional[str] = None,
+async def list_memories(namespace: str = "default", agent_id: Optional[str] = None,
                         project_id: Optional[str] = None):
-    scope = _scope(namespace, agent_id, project_id) if namespace else None
+    scope = _scope(namespace, agent_id, project_id)
     recs = await run_in_threadpool(engine().list_memories, scope)
     return [_record_brief(r) for r in recs]
 
 
 @app.get("/api/memories/{memory_id}")
-async def get_memory(memory_id: str, namespace: Optional[str] = None,
+async def get_memory(memory_id: str, namespace: str = "default",
                      agent_id: Optional[str] = None, project_id: Optional[str] = None):
-    # Scope-safe single read: with a namespace, an id from another namespace is invisible (no
-    # cross-scope leak). Without one, the legacy unscoped read is preserved for back-compat.
-    if namespace:
-        scope = _scope(namespace, agent_id, project_id)
-        rec = await run_in_threadpool(engine().get_record_in_scope, memory_id, scope)
-    else:
-        rec = await run_in_threadpool(engine().get_record, memory_id)
+    # Scope-safe single read: an id from another namespace is invisible (no cross-scope leak).
+    scope = _scope(namespace, agent_id, project_id)
+    rec = await run_in_threadpool(engine().get_record_in_scope, memory_id, scope)
     if rec is None:
         raise HTTPException(status_code=404, detail="No such memory")
     return rec.model_dump()
 
 
 @app.get("/api/raw/{content_hash}")
-async def get_raw(content_hash: str):
+async def get_raw(content_hash: str, namespace: str = "default",
+                  agent_id: Optional[str] = None, project_id: Optional[str] = None):
+    """Return immutable bytes only when the hash is attached to a record visible in scope.
+
+    The substrate is globally content-addressed internally, but the HTTP proof surface is scoped
+    like memory reads: knowing a hash from namespace A must not open raw bytes from namespace B.
+    """
+    scope = _scope(namespace, agent_id, project_id)
+    rec = await run_in_threadpool(lambda: engine().store.get_by_hash(content_hash, scope))
+    if rec is None:
+        raise HTTPException(status_code=404, detail="No such immutable object in scope")
     try:
         data = await run_in_threadpool(engine().get_raw, content_hash)
     except KeyError:
@@ -248,36 +307,53 @@ async def get_raw(content_hash: str):
 
 
 @app.post("/api/consolidate")
-async def consolidate(namespace: Optional[str] = None, agent_id: Optional[str] = None,
+async def consolidate(namespace: str = "default", agent_id: Optional[str] = None,
                       project_id: Optional[str] = None):
-    scope = _scope(namespace, agent_id, project_id) if namespace else None
+    scope = _scope(namespace, agent_id, project_id)
     return await run_in_threadpool(lambda: _guard(engine().consolidate, scope=scope))
 
 
 @app.post("/api/reawaken/{memory_id}")
-async def reawaken(memory_id: str):
+async def reawaken(memory_id: str, namespace: str = "default",
+                   agent_id: Optional[str] = None, project_id: Optional[str] = None):
+    scope = _scope(namespace, agent_id, project_id)
+    if await run_in_threadpool(engine().get_record_in_scope, memory_id, scope) is None:
+        raise HTTPException(status_code=404, detail="No such memory")
     rec = await run_in_threadpool(engine().reawaken, memory_id)
     if rec is None:
         raise HTTPException(status_code=404, detail="No such memory")
     return _record_brief(rec)
 
 
+@app.post("/api/forget/{memory_id}")
+async def forget(memory_id: str, namespace: str = "default",
+                 agent_id: Optional[str] = None, project_id: Optional[str] = None):
+    """Decay retrieval priority only; immutable raw bytes remain available in scope."""
+    scope = _scope(namespace, agent_id, project_id)
+    if await run_in_threadpool(engine().get_record_in_scope, memory_id, scope) is None:
+        raise HTTPException(status_code=404, detail="No such memory")
+    rec = await run_in_threadpool(engine().forget, memory_id)
+    if rec is None:
+        raise HTTPException(status_code=404, detail="No such memory")
+    return {"ok": True, "note": "priority decayed; raw record NOT deleted", **_record_brief(rec)}
+
+
 @app.post("/api/sleep")
-async def sleep(namespace: Optional[str] = None, agent_id: Optional[str] = None,
+async def sleep(namespace: str = "default", agent_id: Optional[str] = None,
                 project_id: Optional[str] = None, llm_summaries: bool = Query(False)):
     """The unified sleep cycle (consolidate_pending -> dream -> optional LLM summaries), identical
     to the MCP `sleep` tool. Token-free + key-free when nothing is pending and llm_summaries off."""
-    scope = _scope(namespace, agent_id, project_id) if namespace else None
+    scope = _scope(namespace, agent_id, project_id)
     return await run_in_threadpool(
         lambda: _guard(engine().sleep, scope=scope, llm_summaries=llm_summaries))
 
 
 @app.post("/api/dream")
-async def dream(namespace: Optional[str] = None, agent_id: Optional[str] = None,
+async def dream(namespace: str = "default", agent_id: Optional[str] = None,
                 project_id: Optional[str] = None):
     """Token-free dreaming pass (replay / inference / multi-resolution gists) for a scope. Mirrors
     the MCP `consolidate` tool; never deletes a raw record. Works without a key."""
-    scope = _scope(namespace, agent_id, project_id) if namespace else None
+    scope = _scope(namespace, agent_id, project_id)
     return await run_in_threadpool(engine().dream, scope=scope)
 
 
@@ -327,10 +403,28 @@ async def scratchpad(namespace: str = "default", agent_id: Optional[str] = None,
     return {"scratchpad": entries}
 
 
+@app.get("/api/preference_profile")
+async def preference_profile(namespace: str = "default", agent_id: Optional[str] = None,
+                             project_id: Optional[str] = None,
+                             include_inactive: bool = Query(False),
+                             limit: int = Query(50)):
+    """Current preference profile with source memory provenance. Mirrors MCP
+    `preference_profile`. Read-only, no key."""
+    scope = _scope(namespace, agent_id, project_id)
+    limit = max(0, min(500, int(limit)))
+    return await run_in_threadpool(
+        lambda: engine().preference_profile(
+            scope=scope,
+            include_inactive=include_inactive,
+            limit=limit,
+        )
+    )
+
+
 @app.get("/api/why_remembered/{memory_id}")
 async def why_remembered(memory_id: str, namespace: str = "default",
                          agent_id: Optional[str] = None, project_id: Optional[str] = None):
-    """'Why I remember this strongly': salience components + provenance (mirrors the MCP tool)."""
+    """'Why I remember this strongly': proof-linked salience signals, hedged and non-clinical."""
     scope = _scope(namespace, agent_id, project_id)
     out = await run_in_threadpool(engine().salience_explanation, memory_id, scope)
     if out is None:

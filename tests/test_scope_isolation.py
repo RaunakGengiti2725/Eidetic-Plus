@@ -10,8 +10,9 @@ import time
 import pytest
 
 from eidetic.config import get_settings
+from eidetic.events import EventRecord
 from eidetic.graph import KnowledgeGraph
-from eidetic.models import MemoryRecord, Scope
+from eidetic.models import DerivedRecord, Edge, MemoryRecord, Scope
 from eidetic.store import RecordStore
 
 
@@ -46,6 +47,42 @@ def test_dedup_is_per_scope(tmp_path):
     store.upsert_record(MemoryRecord(content_hash="shared", text="same text", scope=A))
     assert store.get_by_hash("shared", A) is not None
     assert store.get_by_hash("shared", B) is None          # not visible cross-namespace
+
+
+def test_clear_namespace_removes_only_mutable_rows_for_that_namespace(tmp_path):
+    store = RecordStore(tmp_path / "db.sqlite")
+    A, B = Scope(namespace="alpha"), Scope(namespace="beta")
+    store.upsert_record(MemoryRecord(memory_id="a-mem", content_hash="ha", text="alpha", scope=A))
+    store.upsert_record(MemoryRecord(memory_id="b-mem", content_hash="hb", text="beta", scope=B))
+    store.add_edge(Edge(src="Alice", relation="likes", dst="tea", scope=A, valid_at=1.0))
+    store.add_edge(Edge(src="Bob", relation="likes", dst="coffee", scope=B, valid_at=1.0))
+    store.add_event(EventRecord(namespace="alpha", subject="Alice", verb="visited",
+                                object="Paris", start=1.0, end=2.0, valid_at=1.0))
+    store.add_event(EventRecord(namespace="beta", subject="Bob", verb="visited",
+                                object="Rome", start=1.0, end=2.0, valid_at=1.0))
+    store.add_profile_line("alpha", "prefers window seats")
+    store.add_profile_line("beta", "prefers aisle seats")
+    store.add_derived(DerivedRecord(cid="alpha-gist", namespace="alpha", text="alpha gist"))
+    store.add_derived(DerivedRecord(cid="beta-gist", namespace="beta", text="beta gist"))
+
+    removed = store.clear_namespace("alpha")
+
+    assert removed["memory_ids"] == ["a-mem"]
+    assert removed["memories"] == 1
+    assert removed["edges"] == 1
+    assert removed["events"] == 1
+    assert removed["profiles"] == 1
+    assert removed["derived"] == 1
+    assert store.count(A) == 0
+    assert store.all_edges(A) == []
+    assert store.events_in_scope("alpha") == []
+    assert store.get_profile("alpha") == []
+    assert store.derived_in_scope("alpha") == []
+    assert store.count(B) == 1
+    assert len(store.all_edges(B)) == 1
+    assert len(store.events_in_scope("beta")) == 1
+    assert store.get_profile("beta") == ["prefers aisle seats"]
+    assert [d.cid for d in store.derived_in_scope("beta")] == ["beta-gist"]
 
 
 def test_graph_contradiction_does_not_cross_namespace(tmp_path):

@@ -8,8 +8,9 @@ from pathlib import Path
 
 import pytest
 
+from bench.adapters.base import AnswerResult, MemorySystem, WriteResult
 from bench.datasets import Sample, Session, Turn, category_counts
-from bench.harness import _age_days, _group_by_sessions
+from bench.harness import _age_days, _as_of_time, _group_by_sessions, run_system
 from bench import scoreboard
 
 
@@ -20,12 +21,56 @@ def _sample(sid, sessions, q="q", gold="g", cat="single-hop", ds="locomo", qtime
 
 def test_grouping_shares_sessions():
     sess = [Session("s0", [Turn("user", "hi")], session_time=1000.0)]
-    a, b = _sample("c0_q0", sess), _sample("c0_q1", sess)  # same sessions object
-    c = _sample("c1_q0", [Session("s1", [Turn("user", "yo")])])
+    a, b = _sample("toy0_q0", sess), _sample("toy0_q1", sess)  # same sessions object
+    c = _sample("toy1_q0", [Session("s1", [Turn("user", "yo")])])
     groups = _group_by_sessions([a, b, c])
     assert len(groups) == 2
     sizes = sorted(len(qs) for _, qs in groups)
     assert sizes == [1, 2]
+
+
+def test_run_system_logs_write_failures_per_question(tmp_path):
+    class FailingWriteSystem(MemorySystem):
+        name = "broken-write"
+
+        def reset(self, namespace: str) -> None:
+            return None
+
+        def ingest_session(self, namespace: str, session_id: str, turns: list[dict],
+                           session_time=None) -> WriteResult:
+            raise TimeoutError("embedding service stalled")
+
+        def answer(self, namespace: str, question: str, as_of=None) -> AnswerResult:
+            raise AssertionError("answer should not be called after write failure")
+
+    class Judge:
+        def judge_locomo(self, question: str, gold: str, answer: str) -> bool:
+            raise AssertionError("judge should not be called after write failure")
+
+    sess = [Session("s0", [Turn("user", "hello")], session_time=1000.0)]
+    samples = [
+        _sample("toy0_q0", sess, q="q0", gold="g"),
+        _sample("toy0_q1", sess, q="q1", gold="g"),
+    ]
+
+    results = run_system(
+        FailingWriteSystem(),
+        samples,
+        Judge(),
+        runs=1,
+        out_dir=tmp_path,
+        overwrite=True,
+    )
+
+    assert len(results) == 2
+    assert all("write/consolidate failed: TimeoutError" in r.error for r in results)
+    assert all(r.correct is False for r in results)
+    rows = [
+        json.loads(line)
+        for line in (tmp_path / "broken-write__run0.jsonl").read_text().splitlines()
+    ]
+    assert len(rows) == 2
+    assert all("embedding service stalled" in row["error"] for row in rows)
 
 
 def test_age_days_from_session_times():
@@ -35,6 +80,14 @@ def test_age_days_from_session_times():
     assert _age_days(s) == pytest.approx(20.0)
     # No times -> None
     assert _age_days(_sample("c_q", [Session("s", [Turn("user", "x")])])) is None
+
+
+def test_as_of_time_falls_back_to_latest_session_time():
+    sess = [Session("s0", [Turn("user", "x")], session_time=1000.0),
+            Session("s1", [Turn("user", "y")], session_time=3000.0)]
+    assert _as_of_time(_sample("c_q", sess)) == 3000.0
+    assert _as_of_time(_sample("c_q", sess, qtime=2000.0)) == 2000.0
+    assert _as_of_time(_sample("c_q", [Session("s", [Turn("user", "x")])])) is None
 
 
 def test_locomo_loader_counts_if_cached():
@@ -49,6 +102,31 @@ def test_locomo_loader_counts_if_cached():
     assert sum(counts.values()) == 1540                # matches the dossier's ~1,540 QA
 
 
+def test_longmemeval_loader_preserves_haystack_session_ids(tmp_path):
+    from bench.datasets import longmemeval
+
+    d = tmp_path / "longmemeval"
+    d.mkdir()
+    (d / "mini.json").write_text(json.dumps([{
+        "question_id": "q1",
+        "question_type": "single-session-user",
+        "question": "What degree did I graduate with?",
+        "answer": "Business Administration",
+        "answer_session_ids": ["answer_1"],
+        "haystack_session_ids": ["noise_1", "answer_1"],
+        "haystack_dates": ["2023/05/01 (Mon) 09:00", "2023/05/02 (Tue) 09:00"],
+        "haystack_sessions": [
+            [{"role": "user", "content": "hello"}],
+            [{"role": "user", "content": "I graduated with a degree in Business Administration."}],
+        ],
+    }]))
+
+    [sample] = longmemeval.load(variant="mini", data_dir=d)
+
+    assert [s.session_id for s in sample.sessions] == ["noise_1", "answer_1"]
+    assert sample.meta["answer_session_ids"] == ["answer_1"]
+
+
 def test_scoreboard_pending_when_no_logs(tmp_path):
     md = scoreboard.render(tmp_path)
     assert md.exists()
@@ -61,12 +139,21 @@ def test_scoreboard_aggregates_from_real_logs(tmp_path):
     for run in (0, 1):
         for sysname, correctness in (("eidetic-plus", [True, True]), ("mem0", [True, False])):
             for i, ok in enumerate(correctness):
+                extra = {}
+                if sysname == "eidetic-plus":
+                    extra = {"consolidate": {"consolidate_pending": {
+                        "pending_processed": 2,
+                        "facts_extracted": 1,
+                        "events_indexed": 1,
+                        "extraction_timed_out": 1,
+                        "extraction_deferred": 0,
+                    }}}
                 rows.append({
                     "system": sysname, "dataset": "locomo", "category": "single-hop",
                     "sample_id": f"c0_q{i}", "question": "q", "gold": "g", "predicted": "p",
                     "correct": ok, "write_tokens": 100, "query_tokens": 50,
                     "search_ms": 10.0, "e2e_ms": 100.0, "abstained": False,
-                    "run_idx": run, "age_days": 5.0, "n_sessions": 2, "extra": {},
+                    "run_idx": run, "age_days": 5.0, "n_sessions": 2, "extra": extra,
                 })
     (tmp_path / "eidetic-plus__run0.jsonl").write_text(
         "\n".join(json.dumps(r) for r in rows if r["system"] == "eidetic-plus" and r["run_idx"] == 0))
@@ -92,6 +179,33 @@ def test_scoreboard_aggregates_from_real_logs(tmp_path):
     assert h2h["a_only"] == 2 and h2h["b_only"] == 0
     assert "eidetic-plus vs mem0" in text
     assert data["survival"]["eidetic-plus|mem0|locomo|single-hop"]["status"] == "survives"
+    assert "Consolidation Health" in text
+    assert data["consolidation"]["eidetic-plus"]["groups"] == 2
+    assert data["consolidation"]["eidetic-plus"]["pending_processed"] == 4
+    assert data["consolidation"]["eidetic-plus"]["extraction_timed_out"] == 2
+    assert data["log_fingerprint"]["file_count"] == 4
+    assert data["log_fingerprint"]["combined_sha256"]
+
+
+def test_curves_single_age_slice_renders_without_warnings(tmp_path):
+    import warnings
+    from bench import curves
+
+    row = {
+        "system": "eidetic-plus", "dataset": "longmemeval", "category": "single-session-user",
+        "sample_id": "q0", "question": "q", "gold": "g", "predicted": "g", "correct": True,
+        "write_tokens": 1, "query_tokens": 1, "search_ms": 1.0, "e2e_ms": 2.0,
+        "abstained": False, "run_idx": 0, "age_days": 10.0, "n_sessions": 1, "extra": {},
+    }
+    (tmp_path / "eidetic-plus__run0.jsonl").write_text(json.dumps(row) + "\n")
+    with warnings.catch_warnings(record=True) as seen:
+        warnings.simplefilter("always")
+        res = curves.render(tmp_path)
+    assert res["ok"] is True
+    assert res["slopes"] == {}
+    assert "Need at least two" in res["note"]
+    assert seen == []
+    assert (tmp_path / "recall_vs_age.png").exists()
 
 
 def test_fixed_reader_cot_extracts_answer(tmp_path, monkeypatch):
@@ -158,13 +272,46 @@ def test_beam_normalized_loader(tmp_path):
 
 
 def test_deterministic_memory_judges_do_not_need_api():
-    from bench.judge import Judge, exact_match, substring_exact_match
+    from bench.judge import Judge, exact_match, short_answer_exact_match, substring_exact_match
 
     assert exact_match("Globex", ["globex"])
+    assert exact_match("Summer Vibes [S4]", ["Summer Vibes"])
     assert substring_exact_match("Alice works at Globex now.", ["Globex"])
+    assert not substring_exact_match("13", ["3"])       # token-contiguous, not char substring
+    assert short_answer_exact_match("Summer Vibes", "Summer Vibes [S4]")
+    assert not short_answer_exact_match("3", "13 [S0]")
     judge = Judge()
     assert judge.judge_memoryagentbench("", "Alice works at Globex now.", {"gold_aliases": ["Globex"]})
     assert judge.judge_beam("NIM-9", "NIM-9", {})
+
+
+def test_longmemeval_answerable_decline_is_never_correct(monkeypatch):
+    from bench.judge import Judge
+
+    judge = Judge()
+    monkeypatch.setattr(judge, "_call", lambda *_args, **_kw: "yes")
+
+    assert judge.judge_longmemeval(
+        "What degree did I graduate with?",
+        "Business Administration",
+        "I don't have enough verified evidence in memory to answer that confidently.",
+        "single-session-user",
+    ) is False
+
+
+def test_longmemeval_short_exact_match_skips_llm_judge():
+    from bench.judge import Judge
+
+    class NoCallJudge(Judge):
+        def _call(self, system, user):
+            raise AssertionError("LLM judge should not be called for exact short answer")
+
+    assert NoCallJudge().judge_longmemeval(
+        "What is the Spotify playlist called?",
+        "Summer Vibes",
+        "Summer Vibes [S4]",
+        "single-session-user",
+    )
 
 
 def test_harness_routes_memory_datasets_to_deterministic_judges():
@@ -208,7 +355,7 @@ def _write_gate_manifest(path: Path, reader_model: str = "qwen-plus") -> None:
 
 
 def test_mem0_gate_passes_only_against_real_logs(tmp_path):
-    from bench.gate import run_gate
+    from bench.gate import render_markdown, run_gate
 
     _write_gate_manifest(tmp_path)
     rows = [
@@ -228,6 +375,13 @@ def test_mem0_gate_passes_only_against_real_logs(tmp_path):
     assert res["status"] == "PASS"
     assert res["comparisons"]["single-hop"]["n"] == 10
     assert res["comparisons"]["single-hop"]["search_p95"] == pytest.approx(3.0)
+    assert res["log_fingerprint"]["file_count"] == 1
+    assert res["log_fingerprint"]["combined_sha256"]
+    out = render_markdown(res, tmp_path / "mem0_gate.md")
+    assert "Mem0 Reproduction Gate" in out.read_text()
+    rendered = json.loads((tmp_path / "mem0_gate.json").read_text())
+    assert rendered["status"] == "PASS"
+    assert rendered["log_fingerprint"] == res["log_fingerprint"]
 
 
 def test_mem0_gate_fails_on_missing_category_or_small_n(tmp_path):
@@ -290,6 +444,51 @@ def test_load_samples_supports_offset_without_changing_both_semantics(monkeypatc
     assert [s.sample_id for s in out] == ["longmemeval1", "longmemeval2", "locomo1", "locomo2"]
 
 
+def test_load_samples_stratified_round_robins_conversation_categories(monkeypatch):
+    from bench import run
+    from bench.datasets import Sample, Session, Turn
+
+    sess = [Session("s", [Turn("user", "x")])]
+    loaded = [
+        Sample("toy0_q0", sess, "q", "a", "temporal", "locomo"),
+        Sample("toy0_q1", sess, "q", "a", "temporal", "locomo"),
+        Sample("toy0_q2", sess, "q", "a", "multi-hop", "locomo"),
+        Sample("toy1_q0", sess, "q", "a", "temporal", "locomo"),
+        Sample("toy1_q1", sess, "q", "a", "temporal", "locomo"),
+        Sample("toy2_q0", sess, "q", "a", "open-domain", "locomo"),
+    ]
+
+    monkeypatch.setattr(run.locomo, "load", lambda **_kw: loaded)
+    out = run.load_samples(
+        "locomo", subset=5, variant="v", split="all", sample_strategy="stratified"
+    )
+
+    assert [s.sample_id for s in out] == ["toy0_q0", "toy0_q2", "toy2_q0", "toy1_q0", "toy0_q1"]
+
+
+def test_load_samples_stratified_balances_category_sorted_longmemeval(monkeypatch):
+    from bench import run
+    from bench.datasets import Sample, Session, Turn
+
+    sess = [Session("s", [Turn("user", "x")])]
+    loaded = [
+        Sample("u0", sess, "q", "a", "single-session-user", "longmemeval"),
+        Sample("u1", sess, "q", "a", "single-session-user", "longmemeval"),
+        Sample("u2", sess, "q", "a", "single-session-user", "longmemeval"),
+        Sample("m0", sess, "q", "a", "multi-session", "longmemeval"),
+        Sample("m1", sess, "q", "a", "multi-session", "longmemeval"),
+        Sample("t0", sess, "q", "a", "temporal-reasoning", "longmemeval"),
+        Sample("k0", sess, "q", "a", "knowledge-update", "longmemeval"),
+    ]
+
+    monkeypatch.setattr(run.longmemeval, "load", lambda **_kw: loaded)
+    out = run.load_samples(
+        "longmemeval", subset=6, variant="v", split="all", sample_strategy="stratified"
+    )
+
+    assert [s.sample_id for s in out] == ["u0", "m0", "t0", "k0", "u1", "m1"]
+
+
 def test_run_system_honors_run_offset(tmp_path):
     from bench.adapters.base import AnswerResult, MemorySystem, WriteResult
     from bench.datasets import Sample, Session, Turn
@@ -319,6 +518,45 @@ def test_run_system_honors_run_offset(tmp_path):
         run_system(FakeSystem(), samples, FakeJudge(), runs=1, out_dir=tmp_path, run_offset=3)
 
 
+def test_run_system_logs_consolidation_report(tmp_path):
+    from bench.adapters.base import AnswerResult, MemorySystem, WriteResult
+    from bench.datasets import Sample, Session, Turn
+    from bench.harness import run_system
+
+    class FakeSystem(MemorySystem):
+        name = "fake"
+
+        def reset(self, namespace):
+            self.namespace = namespace
+
+        def ingest_session(self, namespace, session_id, turns, session_time=None):
+            return WriteResult(tokens=1, ms=0.0)
+
+        def consolidate(self, namespace):
+            return {"consolidate_pending": {
+                "pending_processed": 3,
+                "facts_extracted": 2,
+                "events_indexed": 1,
+                "extraction_timed_out": 1,
+                "extraction_deferred": 0,
+            }}
+
+        def answer(self, namespace, question, as_of=None):
+            return AnswerResult(answer="yes", context_tokens=1, extra={"verified": True})
+
+    class FakeJudge:
+        def judge_locomo(self, question, gold, hypothesis):
+            return True
+
+    samples = [Sample("s_q0", [Session("sess", [Turn("user", "x")])], "q", "yes",
+                      "single-hop", "locomo")]
+    results = run_system(FakeSystem(), samples, FakeJudge(), runs=1, out_dir=tmp_path)
+    assert results[0].extra["verified"] is True
+    assert results[0].extra["consolidate"]["consolidate_pending"]["extraction_timed_out"] == 1
+    row = json.loads((tmp_path / "fake__run0.jsonl").read_text())
+    assert row["extra"]["consolidate"]["consolidate_pending"]["pending_processed"] == 3
+
+
 def test_run_cli_rejects_invalid_offsets(monkeypatch):
     from bench import run
 
@@ -341,8 +579,8 @@ def test_compare_dirs_reports_flag_deltas(tmp_path):
     control.mkdir()
     experiment.mkdir()
 
-    def rows(ok0, ok1, query_tokens, search_ms):
-        return [
+    def rows(ok0, ok1, query_tokens, search_ms, *, timeout=False):
+        out = [
             {"system": "eidetic-plus", "dataset": "locomo", "category": "temporal",
              "sample_id": "s0", "correct": ok0, "run_idx": 0,
              "query_tokens": query_tokens, "search_ms": search_ms, "e2e_ms": search_ms + 100},
@@ -350,15 +588,27 @@ def test_compare_dirs_reports_flag_deltas(tmp_path):
              "sample_id": "s1", "correct": ok1, "run_idx": 0,
              "query_tokens": query_tokens, "search_ms": search_ms, "e2e_ms": search_ms + 100},
         ]
+        if timeout:
+            out[1]["extra"] = {"consolidate": {"consolidate_pending": {
+                "pending_processed": 2,
+                "facts_extracted": 1,
+                "events_indexed": 1,
+                "extraction_timed_out": 1,
+                "extraction_deferred": 0,
+            }}}
+        return out
 
     (control / "eidetic-plus__run0.jsonl").write_text("\n".join(json.dumps(r) for r in rows(True, False, 100, 20)))
-    (experiment / "eidetic-plus__run0.jsonl").write_text("\n".join(json.dumps(r) for r in rows(True, True, 80, 10)))
+    (experiment / "eidetic-plus__run0.jsonl").write_text(
+        "\n".join(json.dumps(r) for r in rows(True, True, 80, 10, timeout=True)))
     res = compare_dirs(control, experiment, system="eidetic-plus")
     item = res["comparisons"]["eidetic-plus|locomo|temporal"]
     assert item["delta_accuracy_points"] == pytest.approx(50.0)
     assert item["delta_tokens_per_query"] == pytest.approx(-20.0)
     assert item["delta_write_tokens_per_conversation"] is None
     assert item["paired"]["experiment_only"] == 1
+    assert res["consolidation"]["experiment"]["eidetic-plus"]["extraction_timed_out"] == 1
+    assert res["consolidation"]["delta"]["eidetic-plus"]["delta"]["extraction_timed_out"] == 1
     # Per-question flip attribution: s1 went wrong->right (a gain); nothing regressed.
     assert item["paired"]["gained"] == [{"sample_id": "s1", "run_idx": 0}]
     assert item["paired"]["regressed"] == []
@@ -368,6 +618,7 @@ def test_compare_dirs_reports_flag_deltas(tmp_path):
     # The flip table names the actual questions so a judge can check the attribution.
     text = md.read_text()
     assert "Per-question flips" in text
+    assert "Consolidation deltas" in text
     assert "s1" in text
 
 
@@ -486,19 +737,42 @@ def test_run_manifest_records_flags(tmp_path, monkeypatch):
     monkeypatch.setenv("RRF_W_BM25", "1.2")
     args = Namespace(
         systems="eidetic", dataset="locomo", subset=10, sample_offset=5,
-        runs=1, run_offset=2, variant="longmemeval_s", render_only=False,
+        sample_strategy="stratified", runs=1, run_offset=2, variant="longmemeval_s",
+        render_only=False,
     )
     samples = [Sample("s0", [Session("sess", [Turn("user", "x")])], "q", "a",
                       "single-hop", "locomo")]
     path = write_manifest(tmp_path, args, {"judge_model": "qwen-plus"}, samples=samples)
     data = json.loads(path.read_text())
     assert data["sample_offset"] == 5
+    assert data["sample_strategy"] == "stratified"
     assert data["run_offset"] == 2
+    assert data["system_failures"] == []
     assert data["env"]["READER_COT"] == "1"
     assert data["env"]["CONTEXT_COMPRESS"] == "1"
     assert data["env"]["RERANK_FAIL_OPEN"] == "1"
     assert data["env"]["RRF_W_BM25"] == "1.2"
     assert data["sample_rows"] == [{"dataset": "locomo", "sample_id": "s0", "category": "single-hop"}]
+
+
+def test_run_manifest_records_system_failures(tmp_path):
+    from argparse import Namespace
+    from bench.run import write_manifest
+
+    args = Namespace(
+        systems="eidetic,graphiti", dataset="locomo", subset=10, sample_offset=0,
+        sample_strategy="contiguous", runs=1, run_offset=0, variant="longmemeval_s",
+        render_only=False,
+    )
+    failures = [{
+        "system": "graphiti",
+        "error_type": "RuntimeError",
+        "error": "Neo4j DNS failure",
+    }]
+    data = json.loads(write_manifest(
+        tmp_path, args, {}, samples=[], system_failures=failures
+    ).read_text())
+    assert data["system_failures"] == failures
 
 
 def test_manifest_records_all_sweep_env_vars(tmp_path):

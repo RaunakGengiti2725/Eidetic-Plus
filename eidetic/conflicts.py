@@ -20,7 +20,9 @@ _CURRENT_HINTS = (
 _NON_CURRENT_HINTS = (
     "previous", "previously", "before", "used to", "earlier", "historical",
     "history", "then", "at the time", "back then", "how many", "count",
-    "list", "all ", "every", "activities", "books", "movies", "songs",
+    "list", "all ", "every", "activity", "activities", "books", "movies", "songs",
+    "would", "wouldn't", "could", "couldn't", "might", "probably", "likely",
+    "should", "recommend", "suggest", "good fit", "enjoy",
 )
 _YES_NO_RE = re.compile(r"\s*(is|are|was|were|do|does|did|has|have|had|can|could|should|would)\b", re.I)
 _CURRENT_VALUE_RE = re.compile(

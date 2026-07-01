@@ -18,7 +18,8 @@ result and never silently no-ops.
 Run:
     uvx eidetic-plus                          # one-command install + run (stdio)
     python -m eidetic.mcp_server              # stdio (default; Claude Code / Cursor / Cline)
-    python -m eidetic.mcp_server --transport http --http-port 8765   # remote / shared
+    python -m eidetic.mcp_server --http --http-port 8765             # remote / shared
+    python -m eidetic.mcp_server --transport http --http-port 8765   # same, explicit form
 """
 from __future__ import annotations
 
@@ -43,12 +44,23 @@ mcp = FastMCP(
     port=_PORT,
     instructions=(
         "Persistent, lossless, verifiable long-term memory for AI agents. Every tool takes a "
-        "`namespace` (default 'default') plus optional `agent_id` / `project_id`; reads never "
-        "cross namespaces, so use a stable namespace per project or agent. Use `remember` for "
+        "optional `namespace` plus optional `agent_id` / `project_id`; omitted scope values use "
+        "EIDETIC_NAMESPACE / EIDETIC_AGENT_ID / EIDETIC_PROJECT_ID, then the safe global "
+        "default. Reads never cross namespaces, so use a stable namespace per project or agent. "
+        "Use `remember` for "
         "durable facts worth keeping, `recall` to retrieve prior context with cited sources, "
         "and `get_raw` to verify a source against the immutable record."
     ),
 )
+
+_DEFAULT_PAGE_LIMIT = 50
+_MAX_PAGE_LIMIT = 500
+_MAX_CITATION_LIMIT = 50
+_DEFAULT_RAW_MAX_BYTES = 200_000
+_MAX_RAW_BYTES = 2_000_000
+_MAX_QUERY_CHARS = 12_000
+_MAX_CONTENT_CHARS = int(os.environ.get("EIDETIC_MCP_MAX_CONTENT_CHARS", "1000000"))
+_MAX_PROBE_K = 50
 
 # One long-lived Engine, built lazily on first model-or-store use, shared by all tool calls.
 # Construction does NOT call the API, so the server starts and lists tools without a key.
@@ -74,6 +86,37 @@ def _scope(namespace: Optional[str] = None, agent_id: Optional[str] = None,
     return Scope(namespace=ns, agent_id=aid, project_id=pid)
 
 
+def _bounded_int(value: int | None, *, default: int, minimum: int, maximum: int) -> int:
+    try:
+        n = int(default if value is None else value)
+    except (TypeError, ValueError):
+        n = default
+    return max(minimum, min(maximum, n))
+
+
+def _text_arg(value: str, name: str, *, max_chars: int) -> str:
+    text = (value or "").strip()
+    if not text:
+        raise RuntimeError(f"{name} must not be empty")
+    if len(text) > max_chars:
+        raise RuntimeError(f"{name} is too large ({len(text)} chars; max {max_chars})")
+    return text
+
+
+def _bounded_raw(raw: bytes, *, offset: int, max_bytes: int) -> tuple[bytes, dict]:
+    start = _bounded_int(offset, default=0, minimum=0, maximum=max(0, len(raw)))
+    cap = _bounded_int(max_bytes, default=_DEFAULT_RAW_MAX_BYTES,
+                       minimum=1, maximum=_MAX_RAW_BYTES)
+    chunk = raw[start:start + cap]
+    return chunk, {
+        "raw_total_bytes": len(raw),
+        "raw_offset": start,
+        "raw_returned_bytes": len(chunk),
+        "raw_truncated": start + len(chunk) < len(raw),
+        "raw_max_bytes": cap,
+    }
+
+
 def _brief(rec) -> dict:
     return {
         "memory_id": rec.memory_id,
@@ -89,18 +132,26 @@ def _brief(rec) -> dict:
 
 
 @mcp.tool()
-def remember(content: str, namespace: str = "default", agent_id: Optional[str] = None,
+def remember(content: str, namespace: Optional[str] = None, agent_id: Optional[str] = None,
              project_id: Optional[str] = None, metadata: Optional[dict] = None,
              consolidate_now: bool = False) -> dict:
     """Store a durable memory in the given scope. Use this for facts worth keeping across
     conversations. The text is stored losslessly in the immutable record store; returns the
     stored memory id plus provenance. Needs DASHSCOPE_API_KEY (it embeds the text)."""
+    content = _text_arg(content, "content", max_chars=_MAX_CONTENT_CHARS)
     scope = _scope(namespace, agent_id, project_id)
     try:
-        rec = engine().ingest_text(content, scope=scope, consolidate_now=consolidate_now)
+        eng = engine()
+        rec = eng.ingest_text(content, scope=scope, consolidate_now=consolidate_now)
         if metadata:
-            engine().set_metadata(rec.memory_id, metadata, scope=scope)
-        return {"ok": True, "memory_id": rec.memory_id, **_brief(rec)}
+            eng.set_metadata(rec.memory_id, metadata, scope=scope)
+        return {
+            "ok": True,
+            "memory_id": rec.memory_id,
+            "pending_consolidation": bool(rec.metadata.get("pending_consolidation")),
+            "auto_sleep": eng.auto_sleep_status(scope),
+            **_brief(rec),
+        }
     except ModelCallError as e:
         raise RuntimeError(
             f"remember needs the model and no result was fabricated: {e}. "
@@ -109,7 +160,7 @@ def remember(content: str, namespace: str = "default", agent_id: Optional[str] =
 
 
 @mcp.tool()
-def recall(query: str, namespace: str = "default", agent_id: Optional[str] = None,
+def recall(query: str, namespace: Optional[str] = None, agent_id: Optional[str] = None,
            project_id: Optional[str] = None, limit: int = 10, verify: bool = True,
            prove: bool = False) -> dict:
     """Retrieve relevant prior memories for a query within a scope. Returns a verified answer
@@ -117,9 +168,11 @@ def recall(query: str, namespace: str = "default", agent_id: Optional[str] = Non
     cite them, or an explicit abstention. Set prove=True to also return a machine-readable proof
     tree. Never confabulates. Needs DASHSCOPE_API_KEY."""
     try:
+        query = _text_arg(query, "query", max_chars=_MAX_QUERY_CHARS)
+        limit = _bounded_int(limit, default=10, minimum=1, maximum=_MAX_CITATION_LIMIT)
         ans = engine().ask(query, verify=verify, scope=_scope(namespace, agent_id, project_id))
         out = ans.model_dump()
-        if isinstance(out.get("citations"), list) and limit and limit > 0:
+        if isinstance(out.get("citations"), list):
             out["citations"] = out["citations"][:limit]
         if prove:
             # include recall-path metadata in the proof when RECALL_TRACE is on (the trace from
@@ -134,7 +187,7 @@ def recall(query: str, namespace: str = "default", agent_id: Optional[str] = Non
 
 
 @mcp.tool()
-def reflex_recall(query: str, namespace: str = "default", agent_id: Optional[str] = None,
+def reflex_recall(query: str, namespace: Optional[str] = None, agent_id: Optional[str] = None,
                   project_id: Optional[str] = None, as_of: Optional[float] = None) -> dict:
     """LOCAL recall: the candidate memories a query activates, with their provenance (content hash,
     validity, score breakdown, co-activation paths, supersession chains), built from a derived index
@@ -144,19 +197,56 @@ def reflex_recall(query: str, namespace: str = "default", agent_id: Optional[str
     incrementally); with the flag off the index is rebuilt from the store per call (O(records),
     correct but not sub-second on a large store). Useful as a fast pre-check or a debugging/control
     view of what the engine would activate."""
+    query = _text_arg(query, "query", max_chars=_MAX_QUERY_CHARS)
     packet = engine().reflex_recall(query, scope=_scope(namespace, agent_id, project_id),
                                     as_of=as_of)
     return packet.public_dict()
 
 
 @mcp.tool()
-def truth_ledger(query: str, namespace: str = "default", agent_id: Optional[str] = None,
+def region_hints(query: str, namespace: Optional[str] = None, agent_id: Optional[str] = None,
+                 project_id: Optional[str] = None, as_of: Optional[float] = None,
+                 limit: int = 3, member_limit: int = 6) -> dict:
+    """LOCAL memory-region/cocoon routing hints for a query, with active raw member ids, short
+    content hashes, and raw URIs. No model call. Scope-filtered. These are route hints only; use
+    `recall` or `get_raw` to verify source-backed answers."""
+    query = _text_arg(query, "query", max_chars=_MAX_QUERY_CHARS)
+    limit = _bounded_int(limit, default=3, minimum=0, maximum=20)
+    member_limit = _bounded_int(member_limit, default=6, minimum=0, maximum=50)
+    return engine().region_hints(
+        query,
+        scope=_scope(namespace, agent_id, project_id),
+        as_of=as_of,
+        limit=limit,
+        member_limit=member_limit,
+    )
+
+
+@mcp.tool()
+def structured_recall(query: str, namespace: Optional[str] = None, agent_id: Optional[str] = None,
+                      project_id: Optional[str] = None, as_of: Optional[float] = None,
+                      verify: bool = True) -> dict:
+    """Run the SMQE typed memory path directly: plan -> claim backend first -> record backend
+    second -> verify supports or abstain. Returns plan/backend/supports/citations. No generation;
+    only verification may call the model if exact source proof is insufficient."""
+    query = _text_arg(query, "query", max_chars=_MAX_QUERY_CHARS)
+    return engine().structured_recall(
+        query,
+        scope=_scope(namespace, agent_id, project_id),
+        as_of=as_of,
+        verify=verify,
+    )
+
+
+@mcp.tool()
+def truth_ledger(query: str, namespace: Optional[str] = None, agent_id: Optional[str] = None,
                  project_id: Optional[str] = None, verify: bool = True) -> dict:
     """Answer `query` and return its full TRUTH LEDGER: the complete chain from raw bytes to current
     truth. Each cited source carries its immutable hash/snippet, NLI grounding, bi-temporal validity
     window, whether it is still current, and the supersession chain of any fact it sourced (oldest
     first, closed facts retained); plus a final claim_status (verified / contradicted / abstained /
     unverified). The proof-grade 'show your work' surface. Needs DASHSCOPE_API_KEY (it answers)."""
+    query = _text_arg(query, "query", max_chars=_MAX_QUERY_CHARS)
     scope = _scope(namespace, agent_id, project_id)
     try:
         ans = engine().ask(query, verify=verify, scope=scope)
@@ -168,7 +258,7 @@ def truth_ledger(query: str, namespace: str = "default", agent_id: Optional[str]
 
 
 @mcp.tool()
-def sync_health(namespace: str = "default", agent_id: Optional[str] = None,
+def sync_health(namespace: Optional[str] = None, agent_id: Optional[str] = None,
                 project_id: Optional[str] = None) -> dict:
     """Track 2 synchronization report for a scope: whether the rebuildable surfaces (vector index,
     BM25) are consistent with the source-of-truth store, the namespace memory version, and reflex
@@ -178,7 +268,7 @@ def sync_health(namespace: str = "default", agent_id: Optional[str] = None,
 
 
 @mcp.tool()
-def consolidate(namespace: str = "default", agent_id: Optional[str] = None,
+def consolidate(namespace: Optional[str] = None, agent_id: Optional[str] = None,
                 project_id: Optional[str] = None) -> dict:
     """Run the unified sleep cycle for a scope: consolidate_pending (so pending fast writes flow
     into graph/events/gists) THEN the token-free dream pass (replay, link inference, multi-res
@@ -188,29 +278,33 @@ def consolidate(namespace: str = "default", agent_id: Optional[str] = None,
 
 
 @mcp.tool()
-def list_memories(namespace: str = "default", agent_id: Optional[str] = None,
+def list_memories(namespace: Optional[str] = None, agent_id: Optional[str] = None,
                   project_id: Optional[str] = None, limit: int = 50, offset: int = 0) -> dict:
     """List stored memories within a scope (newest first), paginated. Read-only; works without a
     key. Returns ids, short previews, timestamps, salience, and FSRS retrievability."""
     recs = engine().list_memories(_scope(namespace, agent_id, project_id))
     total = len(recs)
-    offset = max(0, int(offset))
-    page = recs[offset: offset + max(1, int(limit))]
+    offset = _bounded_int(offset, default=0, minimum=0, maximum=max(0, total))
+    limit = _bounded_int(limit, default=_DEFAULT_PAGE_LIMIT, minimum=1, maximum=_MAX_PAGE_LIMIT)
+    page = recs[offset: offset + limit]
     return {"total": total, "offset": offset, "limit": limit,
             "memories": [_brief(r) for r in page]}
 
 
 @mcp.tool()
-def get_raw(memory_id: str, namespace: str = "default", agent_id: Optional[str] = None,
-            project_id: Optional[str] = None) -> dict:
+def get_raw(memory_id: str, namespace: Optional[str] = None, agent_id: Optional[str] = None,
+            project_id: Optional[str] = None, max_bytes: int = _DEFAULT_RAW_MAX_BYTES,
+            offset: int = 0) -> dict:
     """Return the IMMUTABLE raw record for a memory id verbatim (the show-your-work tool that
     proves no confabulation). Scope-filtered: an id from another namespace is invisible. Read-only;
-    works without a key. The raw bytes are returned exactly as stored, never paraphrased."""
+    works without a key. Raw bytes are returned exactly as stored, never paraphrased; very large
+    records are returned in bounded byte ranges with truncation metadata."""
     scope = _scope(namespace, agent_id, project_id)
     rec = engine().get_record_in_scope(memory_id, scope)
     if rec is None:
         raise RuntimeError(f"No such memory in scope: {memory_id}")
-    raw = engine().get_raw(rec.content_hash)
+    raw, raw_meta = _bounded_raw(engine().get_raw(rec.content_hash),
+                                 offset=offset, max_bytes=max_bytes)
     try:
         raw_repr, encoding = raw.decode("utf-8"), "utf-8"
     except UnicodeDecodeError:
@@ -221,6 +315,7 @@ def get_raw(memory_id: str, namespace: str = "default", agent_id: Optional[str] 
         "raw_uri": rec.raw_uri,
         "raw_encoding": encoding,
         "raw": raw_repr,
+        **raw_meta,
         "provenance": {
             "source": rec.source, "modality": rec.modality.value,
             "scope": rec.scope.model_dump(), "valid_at": rec.valid_at,
@@ -232,7 +327,7 @@ def get_raw(memory_id: str, namespace: str = "default", agent_id: Optional[str] 
 
 
 @mcp.tool()
-def forget(memory_id: str, namespace: str = "default", agent_id: Optional[str] = None,
+def forget(memory_id: str, namespace: Optional[str] = None, agent_id: Optional[str] = None,
            project_id: Optional[str] = None) -> dict:
     """Lower a memory's retrieval PRIORITY via the FSRS forgetting path. This is priority decay,
     NOT deletion: the immutable raw record is never deleted and can be brought back with reawaken.
@@ -245,7 +340,7 @@ def forget(memory_id: str, namespace: str = "default", agent_id: Optional[str] =
 
 
 @mcp.tool()
-def reawaken(memory_id: str, namespace: str = "default", agent_id: Optional[str] = None,
+def reawaken(memory_id: str, namespace: Optional[str] = None, agent_id: Optional[str] = None,
              project_id: Optional[str] = None) -> dict:
     """Re-promote a down-weighted memory (reset retrievability, boost stability). The inverse of
     forget. Scope-filtered. Works without a key."""
@@ -257,7 +352,7 @@ def reawaken(memory_id: str, namespace: str = "default", agent_id: Optional[str]
 
 
 @mcp.tool()
-def stats(namespace: str = "default", agent_id: Optional[str] = None,
+def stats(namespace: Optional[str] = None, agent_id: Optional[str] = None,
           project_id: Optional[str] = None) -> dict:
     """Scope-level counts: number of memories, edges, indexed vectors, backend, key presence.
     Read-only, no fabricated numbers, works without a key."""
@@ -265,7 +360,7 @@ def stats(namespace: str = "default", agent_id: Optional[str] = None,
 
 
 @mcp.tool()
-def health_report(namespace: str = "default", agent_id: Optional[str] = None,
+def health_report(namespace: Optional[str] = None, agent_id: Optional[str] = None,
                   project_id: Optional[str] = None) -> dict:
     """Read-only self-diagnosis of a scope: coverage, contradiction load, low-confidence and
     inferred facts, derived/replay debt, orphan records, and age spread. Every figure is counted
@@ -275,7 +370,7 @@ def health_report(namespace: str = "default", agent_id: Optional[str] = None,
 
 @mcp.tool()
 def value_as_of(entity: str, relation: str, as_of: Optional[float] = None,
-                namespace: str = "default", agent_id: Optional[str] = None,
+                namespace: Optional[str] = None, agent_id: Optional[str] = None,
                 project_id: Optional[str] = None) -> dict:
     """C2 time-travel: the DETERMINISTIC value of (entity, relation) valid at unix time `as_of`
     (now if omitted), chosen from the bi-temporal graph -- not an LLM guess. Read-only, no key.
@@ -286,7 +381,7 @@ def value_as_of(entity: str, relation: str, as_of: Optional[float] = None,
 
 
 @mcp.tool()
-def fact_history(entity: str, relation: str, namespace: str = "default",
+def fact_history(entity: str, relation: str, namespace: Optional[str] = None,
                  agent_id: Optional[str] = None, project_id: Optional[str] = None) -> dict:
     """C2 current-vs-historical: the full superseded chain for (entity, relation), oldest first,
     each with its validity window (closed facts retained, never deleted). Read-only, no key."""
@@ -295,7 +390,7 @@ def fact_history(entity: str, relation: str, namespace: str = "default",
 
 
 @mcp.tool()
-def integrity_report(namespace: str = "default", agent_id: Optional[str] = None,
+def integrity_report(namespace: Optional[str] = None, agent_id: Optional[str] = None,
                      project_id: Optional[str] = None) -> dict:
     """C1 operation-level integrity: fabrication / abstention / verified rates + conflict load,
     counted from the BrainEvent stream + the store (never fabricated). Read-only, no key."""
@@ -303,7 +398,7 @@ def integrity_report(namespace: str = "default", agent_id: Optional[str] = None,
 
 
 @mcp.tool()
-def scratchpad(namespace: str = "default", agent_id: Optional[str] = None,
+def scratchpad(namespace: Optional[str] = None, agent_id: Optional[str] = None,
                project_id: Optional[str] = None) -> dict:
     """The working scratchpad for a scope: high-salience, verified, ACTIVE facts, each linked to its
     immutable source hash. A quick-recall context channel, NOT a source of truth (superseded facts
@@ -312,11 +407,27 @@ def scratchpad(namespace: str = "default", agent_id: Optional[str] = None,
 
 
 @mcp.tool()
-def why_remembered(memory_id: str, namespace: str = "default", agent_id: Optional[str] = None,
+def preference_profile(namespace: Optional[str] = None, agent_id: Optional[str] = None,
+                       project_id: Optional[str] = None, include_inactive: bool = False,
+                       limit: int = 50) -> dict:
+    """Read the current preference profile for a scope, with source memory ids, content hashes,
+    and raw URIs. Superseded profile history is hidden unless include_inactive=True. Read-only,
+    no key."""
+    limit = _bounded_int(limit, default=50, minimum=0, maximum=500)
+    return engine().preference_profile(
+        scope=_scope(namespace, agent_id, project_id),
+        include_inactive=include_inactive,
+        limit=limit,
+    )
+
+
+@mcp.tool()
+def why_remembered(memory_id: str, namespace: Optional[str] = None, agent_id: Optional[str] = None,
                    project_id: Optional[str] = None) -> dict:
     """'Why I remember this strongly': the affect/usage components behind a memory's salience
-    (importance, arousal, valence, surprise, emphasis, verified-helpful count) plus its provenance.
-    Scope-filtered, read-only, no key."""
+    (importance, arousal, valence, surprise, emphasis, verified-helpful count) plus immutable
+    source provenance. The explanation is hedged and non-clinical. Scope-filtered, read-only,
+    no key."""
     out = engine().salience_explanation(memory_id, scope=_scope(namespace, agent_id, project_id))
     if out is None:
         raise RuntimeError(f"No such memory in scope: {memory_id}")
@@ -334,7 +445,7 @@ def preflight() -> dict:
 
 
 @mcp.tool()
-def brain_health_score(namespace: str = "default", agent_id: Optional[str] = None,
+def brain_health_score(namespace: Optional[str] = None, agent_id: Optional[str] = None,
                        project_id: Optional[str] = None) -> dict:
     """A local BrainHealthScore in [0,1] for a scope plus its components (recall connectivity,
     proof coverage, temporal coverage, channel diversity, orphan/contradiction/stale-gist debt).
@@ -343,7 +454,7 @@ def brain_health_score(namespace: str = "default", agent_id: Optional[str] = Non
 
 
 @mcp.tool()
-def sleep(namespace: str = "default", agent_id: Optional[str] = None,
+def sleep(namespace: Optional[str] = None, agent_id: Optional[str] = None,
           project_id: Optional[str] = None, llm_summaries: bool = False) -> dict:
     """Run the unified sleep cycle for a scope: consolidate_pending -> dream -> optional LLM
     summaries (the same path the HTTP API uses, so both transports behave identically). Token-free
@@ -353,11 +464,12 @@ def sleep(namespace: str = "default", agent_id: Optional[str] = None,
 
 
 @mcp.tool()
-def memory_autopsy(question: str, namespace: str = "default", agent_id: Optional[str] = None,
+def memory_autopsy(question: str, namespace: Optional[str] = None, agent_id: Optional[str] = None,
                    project_id: Optional[str] = None) -> dict:
     """Read-only diagnosis of WHY a question would miss in a scope (missing write, pending
     consolidation, entity-extraction failure, event-normalization failure, vector underfill, or a
     retrieval/reader failure), with a suggested repair. Counted from the store; no key needed."""
+    question = _text_arg(question, "question", max_chars=_MAX_QUERY_CHARS)
     return engine().memory_autopsy(question, scope=_scope(namespace, agent_id, project_id))
 
 
@@ -371,12 +483,13 @@ def recall_trace() -> dict:
 
 
 @mcp.tool()
-def prove_age_independence(namespace: str = "default", agent_id: Optional[str] = None,
+def prove_age_independence(namespace: Optional[str] = None, agent_id: Optional[str] = None,
                            project_id: Optional[str] = None, k: int = 5) -> dict:
     """Compute recall@k and p95 latency vs memory AGE on the current scope and report the slopes
     (flat = age-independent recall, the signature property). Needs DASHSCOPE_API_KEY (it embeds
     partial cues for the probe). Mirrors the HTTP /api/prove_age_independence route."""
     try:
+        k = _bounded_int(k, default=5, minimum=1, maximum=_MAX_PROBE_K)
         return engine().prove_age_independence(
             scope=_scope(namespace, agent_id, project_id), k=k)
     except ModelCallError as e:

@@ -89,26 +89,29 @@ def test_confident_reflex_hit_does_not_spuriously_abstain(fresh_settings):
     e.ingest_text("The Helios project quarterly revenue was 4.2 million dollars",
                   source="memo", extract_graph=False, consolidate_now=False)
     ans = e.ask("What was the Helios project revenue?")
-    assert e.brain_log.by_type(BrainEventType.REFLEX_HIT)
     assert not e.brain_log.by_type(BrainEventType.REFLEX_FALLBACK)
     assert not ans.note.startswith("abstained")
     assert ans.verified is True
-    # the rerank_score proxy must lift confidence above the 0.5 floor a zero-scored candidate gives.
+    assert ans.generated_by == "smqe"
+    assert ans.note.startswith("smqe:")
     assert ans.confidence > 0.5
     assert ans.citations
+    assert all(c.nli_label.value == "entailment" for c in ans.citations)
+    assert sum(len(c.snippet or "") for c in ans.citations) < 160
+    assert e.client.gen_calls == 0
 
 
 def test_low_coverage_reflex_falls_back_to_full_retrieval(fresh_settings):
-    # an impossible coverage bar forces every reflex attempt to miss -> fallback path.
+    # SMQE runs before reflex; when it can answer, an impossible reflex bar is irrelevant.
     e = _engine(fresh_settings, reflex_recall_enabled=True, reflex_min_coverage=1.5,
                 brain_events_enabled=True, semantic_cache_enabled=False, rerank_enabled=False)
     e.ingest_text("The Helios project quarterly revenue was 4.2 million dollars",
                   source="memo", extract_graph=False, consolidate_now=False)
     ans = e.ask("What was the Helios project revenue?")
-    assert e.brain_log.by_type(BrainEventType.REFLEX_MISS)
-    assert e.brain_log.by_type(BrainEventType.REFLEX_FALLBACK)
+    assert not e.brain_log.by_type(BrainEventType.REFLEX_MISS)
+    assert not e.brain_log.by_type(BrainEventType.REFLEX_FALLBACK)
     assert ans.answer
-    assert ans.verified is True  # fallback retrieval still grounds + verifies
+    assert ans.verified is True
 
 
 class _FakeExtractor(_FakeReader):
@@ -138,9 +141,8 @@ def test_consolidate_pending_indexes_extracted_entities(fresh_settings):
 
 
 def test_reflex_hit_sets_a_fresh_recall_trace(fresh_settings):
-    """A reflex hit bypasses retrieve() (where last_trace is built), so proof recall-paths and
-    channel-win telemetry would otherwise read a STALE trace from a prior query. The hit must set
-    an honest reflex trace for the current query."""
+    """A structured fast-path hit bypasses retrieve(), so proof recall-paths and channel telemetry
+    still need an honest trace for the current query."""
     e = _engine(fresh_settings, reflex_recall_enabled=True, recall_trace_enabled=True,
                 brain_events_enabled=True, semantic_cache_enabled=False)
     e.ingest_text("The Helios project quarterly revenue was 4.2 million dollars",
@@ -149,7 +151,7 @@ def test_reflex_hit_sets_a_fresh_recall_trace(fresh_settings):
     tr = e.retriever.last_trace
     assert tr is not None
     assert tr.query == "What was the Helios project revenue?"
-    assert "reflex" in tr.enabled_channels
+    assert "smqe" in tr.enabled_channels
     assert tr.selected_candidates
 
 

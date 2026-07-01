@@ -66,6 +66,10 @@ class ActivationField:
         with self._lock:
             return dict(self._field.get(namespace, {}))
 
+    def clear_namespace(self, namespace: str) -> None:
+        with self._lock:
+            self._field.pop(namespace, None)
+
     def _evict_locked(self, m: dict[str, float]) -> None:
         if len(m) <= self.cap:
             return

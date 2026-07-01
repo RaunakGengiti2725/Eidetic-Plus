@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from eidetic import fsrs
 from eidetic.models import MemoryRecord, now
+from scripts.snap_back_audit import build_report
 
 
 def _ingest_offline(engine, raws: list[bytes]) -> None:
@@ -37,6 +38,7 @@ def test_snap_back_audit_is_lossless_after_a_century_of_fade(engine):
     assert audit["total"] == len(raws)
     assert audit["lossless"] == len(raws)
     assert audit["rate"] == 1.0
+    assert set(audit["audited_content_hashes"]) == {r.content_hash for r in engine.store.all_records()}
     assert audit["failures"] == []
 
 
@@ -62,6 +64,7 @@ def test_snap_back_audit_flags_corruption_never_hides_it(engine):
     assert audit["total"] == 2
     assert audit["lossless"] == 1
     assert audit["rate"] < 1.0
+    assert len(audit["audited_content_hashes"]) == 1
     assert len(audit["failures"]) == 1
     assert audit["failures"][0]["content_hash"] == "de" * 32
 
@@ -75,3 +78,19 @@ def test_records_without_a_raw_blob_are_skipped(engine):
     audit = engine.snap_back_audit()
     assert audit["total"] == 1
     assert audit["rate"] == 1.0
+
+
+def test_snap_back_script_report_fails_empty_or_corrupt(tmp_path):
+    empty = build_report({"total": 0, "lossless": 0, "rate": 1.0, "failures": []}, tmp_path)
+    assert empty["status"] == "FAIL"
+    assert empty["records_with_raw_blob"] == 0
+
+    corrupt = build_report(
+        {"total": 2, "lossless": 1, "rate": 0.5,
+         "audited_content_hashes": ["ab" * 32],
+         "failures": [{"memory_id": "m1", "content_hash": "bad", "error": "missing"}]},
+        tmp_path,
+    )
+    assert corrupt["status"] == "FAIL"
+    assert corrupt["rate_pct"] == 50.0
+    assert corrupt["audited_content_hashes"] == ["ab" * 32]

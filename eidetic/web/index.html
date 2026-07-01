@@ -524,7 +524,7 @@ function renderAnswer(a){
       card.className = "cite";
       // Resolve the immutable bytes over HTTP. c.raw_uri is a cas:///oss:// locator
       // (not browser-resolvable); the server exposes the bytes at /api/raw/{hash}.
-      const rawUri = "/api/raw/" + encodeURIComponent(c.content_hash || "");
+      const rawUri = "/api/raw/" + encodeURIComponent(c.content_hash || "") + "?" + scopeQS();
       card.innerHTML =
         '<div class="cite-head">' +
           '<span class="cite-src">' + esc(c.source || "unknown source") + '</span>' +

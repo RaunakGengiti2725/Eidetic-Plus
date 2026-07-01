@@ -96,6 +96,8 @@ def test_tool_schemas_mark_required_fields():
 def test_remember_then_recall_round_trip(mcp_engine):
     out = mcp_server.remember("Alice works at Acme Corporation", namespace="proj")
     assert out["ok"] and out["memory_id"]
+    assert out["pending_consolidation"] is True
+    assert out["auto_sleep"]["enabled"] is False
     ans = mcp_server.recall("where does Alice work", namespace="proj")
     assert "acme" in ans["answer"].lower()
     assert ans["citations"], "recall must return cited sources"
@@ -111,6 +113,19 @@ def test_scope_isolation_no_cross_namespace_leak(mcp_engine):
     assert mcp_server.list_memories(namespace="A")["total"] == 1
 
 
+def test_omitted_namespace_uses_env_default(mcp_engine, monkeypatch):
+    monkeypatch.setenv("EIDETIC_NAMESPACE", "envproj")
+    out = mcp_server.remember("The env scoped memory is violet")
+    assert out["scope"]["namespace"] == "envproj"
+    assert mcp_server.list_memories()["total"] == 1
+    assert mcp_server.list_memories(namespace="default")["total"] == 0
+    assert mcp_server.list_memories(namespace="envproj")["total"] == 1
+
+    explicit = mcp_server.remember("The explicit scoped memory is amber", namespace="explicit")
+    assert explicit["scope"]["namespace"] == "explicit"
+    assert mcp_server.list_memories(namespace="explicit")["total"] == 1
+
+
 # ---- get_raw byte-identical + scope-filtered -----------------------------------------------
 def test_get_raw_is_byte_identical_and_scope_filtered(mcp_engine):
     content = "Carol lives in Paris since 2019"
@@ -122,6 +137,35 @@ def test_get_raw_is_byte_identical_and_scope_filtered(mcp_engine):
     # the same id is invisible from another namespace (no cross-scope read)
     with pytest.raises(RuntimeError, match="No such memory in scope"):
         mcp_server.get_raw(mid, namespace="B")
+
+
+def test_get_raw_is_bounded_with_truncation_metadata(mcp_engine):
+    content = "x" * 120
+    mid = mcp_server.remember(content, namespace="A")["memory_id"]
+    raw = mcp_server.get_raw(mid, namespace="A", max_bytes=25, offset=10)
+    assert raw["raw_encoding"] == "utf-8"
+    assert raw["raw"] == "x" * 25
+    assert raw["raw_total_bytes"] == 120
+    assert raw["raw_offset"] == 10
+    assert raw["raw_returned_bytes"] == 25
+    assert raw["raw_truncated"] is True
+
+
+def test_mcp_list_memories_bounds_pagination(mcp_engine):
+    for i in range(3):
+        mcp_server.remember(f"bounded list memory {i}", namespace="A")
+    page = mcp_server.list_memories(namespace="A", limit=10_000, offset=-10)
+    assert page["limit"] == 500
+    assert page["offset"] == 0
+    assert page["total"] == 3
+    assert len(page["memories"]) == 3
+
+
+def test_mcp_rejects_empty_text_arguments(mcp_engine):
+    with pytest.raises(RuntimeError, match="content must not be empty"):
+        mcp_server.remember("   ", namespace="A")
+    with pytest.raises(RuntimeError, match="query must not be empty"):
+        mcp_server.recall("", namespace="A")
 
 
 # ---- forget lowers priority without deleting the raw record --------------------------------
@@ -182,6 +226,8 @@ def test_mcp_scratchpad_and_why_remembered(mcp_engine):
     assert any(e["memory_id"] == "m1" for e in sp["scratchpad"])
     why = mcp_server.why_remembered("m1", namespace="sp")
     assert why["salience"] == 0.95 and why["components"]["arousal"] == 0.9
+    assert "not a diagnosis" in why["why"]
+    assert why["provenance"]["source_preview"] == "the trophy day"
 
 
 # ---- entry point ---------------------------------------------------------------------------
@@ -191,3 +237,22 @@ def test_main_entry_point_runs_stdio(monkeypatch):
     monkeypatch.setattr("sys.argv", ["eidetic-plus"])
     mcp_server.main()
     assert called["t"] == "stdio"
+
+
+def test_main_entry_point_runs_http_alias(monkeypatch):
+    called = {}
+    old_port = mcp_server.mcp.settings.port
+    monkeypatch.setattr(mcp_server.mcp.settings, "port", old_port)
+    monkeypatch.setattr(mcp_server.mcp, "run", lambda transport: called.setdefault("t", transport))
+    monkeypatch.setattr("sys.argv", ["eidetic-plus", "--http", "--http-port", "9876"])
+    mcp_server.main()
+    assert called["t"] == "streamable-http"
+    assert mcp_server.mcp.settings.port == 9876
+
+
+def test_main_entry_point_runs_http_transport(monkeypatch):
+    called = {}
+    monkeypatch.setattr(mcp_server.mcp, "run", lambda transport: called.setdefault("t", transport))
+    monkeypatch.setattr("sys.argv", ["eidetic-plus", "--transport", "http"])
+    mcp_server.main()
+    assert called["t"] == "streamable-http"
