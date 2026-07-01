@@ -335,6 +335,8 @@ def _relation_object_claims_from_atom(rec: MemoryRecord, atom: str) -> list[Clai
             if not obj:
                 continue
             source = re.sub(r"\s+", " ", (m.groupdict().get("source") or "").strip(" .,:;!?"))
+            if source.lower() in {"i", "we", "me", "us"}:
+                source = _speaker_for_atom(rec, text) or source
             predicate = predicate_template.format(source=source).strip()
             claim = _claim_from_atom(rec, obj, "state", predicate=predicate, value=obj)
             if claim is None:
@@ -365,16 +367,44 @@ def _clean_relation_object(value: str) -> str:
     return value[:120]
 
 
+def _dialogue_answer_claims_from_text(rec: MemoryRecord) -> list[ClaimRecord]:
+    """Q->A adjacency crystals: the sentence answering an in-conversation question carries the
+    question's terms as filters, so paraphrased slot queries ("plans for the summer") match the
+    stated answer even when the answer sentence itself never repeats the slot words."""
+    atoms = _sentences(rec.text or "", limit=200)
+    out: list[ClaimRecord] = []
+    for idx, question in enumerate(atoms[:-1]):
+        if not question.rstrip().endswith("?"):
+            continue
+        q_body = re.sub(r"^[A-Z][A-Za-z'_-]{1,32}:\s*", "", question).strip()
+        if len(_norm(q_body)) < 12:
+            continue
+        answer = atoms[idx + 1]
+        if answer.rstrip().endswith("?"):
+            continue
+        claim = _claim_from_atom(rec, answer)
+        if claim is None:
+            continue
+        claim.subject = _speaker_for_atom(rec, answer) or claim.subject
+        claim.filters = {**claim.filters, "question": q_body[:160], "dialogue": "answer"}
+        out.append(claim)
+    return out
+
+
 def heuristic_claims_from_text(rec: MemoryRecord) -> list[ClaimRecord]:
     claims = _duration_answer_claims_from_text(rec)
+    claims.extend(_dialogue_answer_claims_from_text(rec))
     for atom in _sentences(rec.text or "", limit=200):
         claims.extend(_acquisition_claims_from_atom(rec, atom))
         claims.extend(_action_location_claims_from_atom(rec, atom))
         claims.extend(_action_object_claims_from_atom(rec, atom))
         relation_claims = _relation_object_claims_from_atom(rec, atom)
         if relation_claims:
+            # Keep the full-sentence claim TOO: the concise relation claim wins on precision,
+            # but the sentence keeps the verb visible for attribution ("who gave ...").
             claims.extend(relation_claims)
-            continue
+        if atom.rstrip().endswith("?"):
+            continue  # questions are dialogue context, not facts; Q->A adjacency covers them
         claim = _claim_from_atom(rec, atom)
         if claim is not None:
             claims.append(claim)

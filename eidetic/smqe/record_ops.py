@@ -8,6 +8,14 @@ from typing import Iterable, Optional
 
 from eidetic.models import ClaimRecord, ExecutionPlan, MemoryRecord, StructuredAnswerResult, StructuredSupport
 
+from .qa_ops import (
+    _action_location_phrase,
+    _dialogue_answer_match,
+    _premise_affinity_answer,
+    _verb_base_forms,
+)
+
+
 _STOP = {
     "a", "about", "after", "all", "an", "and", "any", "are", "as", "at", "be", "before",
     "been", "between", "by", "can", "did", "do", "does", "for", "from", "had", "has", "have", "how", "i",
@@ -1054,6 +1062,7 @@ def _count_term_key(term: str) -> str:
     return term
 
 
+
 def _verb_variants(verb: str) -> set[str]:
     verb = _count_term_key((verb or "").lower())
     if len(verb) <= 2 or verb in _STOP or verb in _COUNT_QUERY_STOP:
@@ -1092,7 +1101,11 @@ def _count_dynamic_action_terms(query: str) -> set[str]:
             verb = m.group(1).lower()
             if verb in {"have", "has", "had", "there", "been", "being", "were", "was", "are", "is"}:
                 continue
-            verbs.update(_verb_variants(verb))
+            # The captured word is syntactically a verb here, so destemming is safe: "camped"
+            # must also match "camping"/"camp" atoms. Never destem in generic term expansion,
+            # where nouns ("brass", "compass") would corrupt match keys.
+            for base in _verb_base_forms(verb):
+                verbs.update(_verb_variants(base))
     return verbs
 
 
@@ -1246,6 +1259,12 @@ def _action_object_phrase(query: str, atom: str) -> str:
 
 def _is_temporal_window_list_query(query: str) -> bool:
     q = (query or "").lower()
+    # Speech-act recall ("What did Owen mention/say about ...") asks for the CONTENT of one
+    # utterance, not an enumerable activity list; the speaker_fact op owns that shape.
+    if re.search(r"\b(?:say|says|said|tell|tells|told|mention|mentions|mentioned|ask|asks|asked|"
+                 r"answer|answers|answered|reply|replies|replied|discuss|discusses|discussed|"
+                 r"talk|talks|talked)\b", q):
+        return False
     if re.search(r"\b(?:what|which|where)\s+(?:did|do|does|have|has|had)\b", q) and _count_dynamic_action_terms(q):
         return True
     if re.search(r"\b(?:how\s+many|count|number\s+of|total|sum|combined|altogether)\b", q):
@@ -1263,6 +1282,7 @@ def _is_temporal_window_list_query(query: str) -> bool:
     return any(w in {"ones", "items", "things"} or (len(w) > 3 and w.endswith("s")) for w in words)
 
 
+
 def _temporal_window_list_answer(
     plan: ExecutionPlan,
     query: str,
@@ -1275,6 +1295,11 @@ def _temporal_window_list_answer(
         return "", []
     action_terms, target_terms = _count_profile(query)
     threshold = _target_threshold(target_terms)
+    where_query = bool(re.search(r"\bwhere\b", query, re.I))
+    # Multi-location experience lists only for perfect-tense recall ("Where has X camped?").
+    # Present/singular lookups ("Where does X keep Y?") stay on the latest-value path.
+    where_experience_query = bool(re.search(r"\bwhere\s+(?:has|have|had)\b", query, re.I))
+    past_query = bool(re.search(r"\b(?:did|has|have|had|was|were)\b", query, re.I))
     values: list[str] = []
     selected: list[tuple[float, object, str]] = []
     seen = set()
@@ -1287,7 +1312,11 @@ def _temporal_window_list_answer(
             continue
         if _count_action_negated(atom, action_terms):
             continue
-        value = _clean(item.object) if isinstance(item, ClaimRecord) and ((item.filters.get("action") == "object" and not re.search(r"\bwhere\b", query, re.I) and (_expanded_terms(item.predicate) & action_terms)) or (item.filters.get("action") == "location" and re.search(r"\bwhere\b", query, re.I))) else _action_object_phrase(query, atom)
+        if past_query and _is_future_intent_atom(atom):
+            continue
+        value = _clean(item.object) if isinstance(item, ClaimRecord) and ((item.filters.get("action") == "object" and not where_query and (_expanded_terms(item.predicate) & action_terms)) or (item.filters.get("action") == "location" and where_query)) else _action_object_phrase(query, atom)
+        if not value and where_experience_query:
+            value = _action_location_phrase(atom, action_terms)
         if not value:
             continue
         key = re.sub(r"\W+", " ", value.lower()).strip()
@@ -1820,6 +1849,7 @@ def _generic_quantity_sum_answer(query: str, atoms: list[tuple[float, object, st
     total = 0.0
     selected: list[tuple[float, object, str]] = []
     group_terms_by_key: dict[str, set[str]] = {}
+    counted_atoms: set[tuple[str, str]] = set()
     for _score, item, atom in atoms:
         group_terms_by_key.setdefault(_group_key(item), set()).update(_expanded_terms(atom))
     for score, item, atom in atoms:
@@ -1834,9 +1864,14 @@ def _generic_quantity_sum_answer(query: str, atoms: list[tuple[float, object, st
             group_terms=group_terms_by_key.get(_group_key(item)),
         ):
             continue
+        # One stated amount counts once, however many claims share the sentence.
+        atom_key = (_group_key(item), re.sub(r"\W+", " ", text.lower()).strip())
+        if atom_key in counted_atoms:
+            continue
         values = _unit_values(text, unit)
         if not values:
             continue
+        counted_atoms.add(atom_key)
         total += sum(values)
         selected.append((score, item, atom))
     if total and selected:
@@ -2928,6 +2963,7 @@ def _sum_duration_answer(query: str, atoms: list[tuple[float, object, str]]) -> 
     total = 0.0
     selected: list[tuple[float, object, str]] = []
     group_terms_by_key: dict[str, set[str]] = {}
+    counted_atoms: set[tuple[str, str]] = set()
     for _score, item, atom in atoms:
         group_terms_by_key.setdefault(_group_key(item), set()).update(_expanded_terms(atom))
     for score, item, atom in atoms:
@@ -2947,9 +2983,15 @@ def _sum_duration_answer(query: str, atoms: list[tuple[float, object, str]]) -> 
             group_terms=group_terms_by_key.get(_group_key(item)),
         ):
             continue
+        # A quantity stated once in the source must count once, no matter how many claims
+        # crystallized the same sentence (e.g. an event claim plus a quantity claim).
+        atom_key = (_group_key(item), re.sub(r"\W+", " ", text.lower()).strip())
+        if atom_key in counted_atoms:
+            continue
         values = _duration_values(text, unit_hint)
         if not values:
             continue
+        counted_atoms.add(atom_key)
         total += sum(values)
         selected.append((score, item, atom))
     if total and selected:
@@ -4023,6 +4065,7 @@ def _process_list_answer(query: str, atoms: list[tuple[float, object, str]]) -> 
         return "", []
     return ", ".join(values), selected[:6]
 
+
 def _needs_explicit_synthesis(query: str) -> bool:
     q = (query or "").lower()
     return bool(
@@ -4092,6 +4135,10 @@ def _execute_atoms(plan: ExecutionPlan, query: str,
     answer, selected = _temporal_window_list_answer(plan, query, atoms)
     if answer and selected:
         return result_from(answer, selected)
+    if op in {"latest_value", "open_inference", "preference_synth", "speaker_fact"}:
+        answer, selected = _dialogue_answer_match(query, atoms)
+        if answer and selected:
+            return result_from(answer, selected, confidence=0.95)
 
     answer, selected = _numeric_average_answer(query, atoms)
     if answer and selected:
@@ -4142,17 +4189,23 @@ def _execute_atoms(plan: ExecutionPlan, query: str,
             re.I,
         ))
         group_terms_by_key: dict[str, set[str]] = {}
+        counted_atoms: set[tuple[str, str]] = set()
         for _score, item, atom in atoms[:20]:
             group_terms_by_key.setdefault(_group_key(item), set()).update(_expanded_terms(atom))
         for score, item, atom in atoms[:20]:
             local = []
             if not _sum_atom_relevant(query, atom, money=money, unit_hint=unit_hint, group_terms=group_terms_by_key.get(_group_key(item))):
                 continue
+            # One stated amount counts once, however many claims share the sentence.
+            atom_key = (_group_key(item), re.sub(r"\W+", " ", _strip_role(atom).lower()).strip())
+            if atom_key in counted_atoms:
+                continue
             if money:
                 local.extend(_money_values(atom))
             else:
                 local.extend(_duration_values(atom, unit_hint))
             if local:
+                counted_atoms.add(atom_key)
                 values.extend(local)
                 supports.append(sup(item, atom, score))
         if values and supports:
@@ -4285,14 +4338,26 @@ def _execute_atoms(plan: ExecutionPlan, query: str,
         return None
 
     if op in {"preference_synth", "open_inference"}:
+        answer, selected = _premise_affinity_answer(query, atoms)
+        if answer and selected:
+            return result_from(answer, selected, confidence=0.85)
         answer, selected = _open_or_preference_answer(query, atoms)
         if answer and selected:
             return result_from(answer, selected, confidence=0.85)
-        if op == "open_inference" and not _is_suggestion_query(query): return None
-        for score, item, atom in atoms:
+        # Specific slot extraction with a target-term gate: an open-shaped question that names a
+        # concrete target ("the Lantern Walk event") is answerable from a matching atom; vague
+        # opinion/synthesis questions stay on the fallback path below.
+        oi_target_terms = _latest_target_terms(query, plan)
+        oi_threshold = _target_threshold(oi_target_terms)
+        for score, item, atom in atoms[:20]:
+            if oi_threshold and _target_hit_count(
+                _expanded_terms(_item_match_text(item, atom)), oi_target_terms
+            ) < oi_threshold:
+                continue
             answer = _answer_value_specific(query, atom, item)
             if answer:
                 return _result(answer, plan, backend, [sup(item, atom, score)], confidence=0.9)
+        if op == "open_inference" and not _is_suggestion_query(query): return None
         if _needs_explicit_synthesis(query) or _requires_verified_synthesis(query):
             return None
         supports = [sup(item, atom, score) for score, item, atom in atoms[:3]]
@@ -4337,7 +4402,9 @@ def _execute_atoms(plan: ExecutionPlan, query: str,
         elif media_example_query:
             answer = _answer_value_specific(query, atom, item)
         else:
-            answer = _action_object_phrase(query, atom) or _answer_value_specific(query, atom, item)
+            # Specific slot extraction outranks the action-object phrase: the phrase route can
+            # return filler ("with a degree") when the slot value follows a preposition.
+            answer = _answer_value_specific(query, atom, item) or _action_object_phrase(query, atom)
         if answer:
             if duration_value_query and (not (_DURATION_RE.search(answer) or re.search(r"\btimes?\s+a\s+(?:day|week|month|year)\b", answer, re.I)) or (not re.search(r"\bago\b", query or "", re.I) and re.search(rf"\b{re.escape(answer)}\s+ago\b", atom, re.I))):
                 continue

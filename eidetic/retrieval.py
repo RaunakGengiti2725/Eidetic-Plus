@@ -2586,7 +2586,7 @@ def _qa_parts(text: str) -> tuple[str, str] | None:
 
 
 def _qa_question_supported_by_premise(question: str, answer: str, premise: str) -> bool:
-    stop = _DATE_RESIDUAL_STOP_TERMS | {"question", "answer", "when", "what", "which", "how", "long", "often", "have", "has", "had", "been", "for", "current", "group", "groups", "did", "do", "does", "was", "were", "is", "are", "go", "went", "attend", "attended", "family", "friend", "child", "children", *list(_MONTH_NUM)}
+    stop = _DATE_RESIDUAL_STOP_TERMS | {"question", "answer", "when", "what", "which", "where", "who", "whom", "whose", "why", "how", "long", "often", "have", "has", "had", "been", "for", "current", "group", "groups", "did", "do", "does", "was", "were", "is", "are", "would", "could", "should", "will", "shall", "may", "might", "must", "can", "about", "into", "onto", "from", "with", "many", "much", "any", "some", "want", "wants", "wanted", "need", "needs", "needed", "hoping", "looking", "wondering", "please", "help", "go", "went", "attend", "attended", "family", "friend", "child", "children", *list(_MONTH_NUM)}
     terms = {t for t in _support_norm(question).split() if len(t) > 2 and t not in stop}
     if not terms:
         return True
@@ -2614,9 +2614,63 @@ def _qa_duration_entailment(premise: str, hypothesis: str) -> bool:
     return bool(re.search(r"\bhow\s+(?:long|often)\b", question, re.I) and _duration_entailment(premise, answer) and _qa_question_supported_by_premise(question, answer, premise))
 
 
+def _qa_slot_entailment(premise: str, hypothesis: str) -> bool:
+    """Local proof for verbatim slot answers under a query-aware hypothesis.
+
+    Accepts "Question: Q / Answer: A" only when A (minus a leading yes/no inference marker) is
+    copied verbatim from the immutable source AND every content term of the question is supported
+    by that same source. Semantically bridged answers still require model NLI.
+    """
+    parts = _qa_parts(hypothesis)
+    if not parts:
+        return False
+    question, answer = parts
+    answer = re.sub(r"^\s*(?:yes|no)\s*[-,:]\s*", "", answer, flags=re.I)
+    an = _support_norm(answer)
+    if len(an) < 4 or len(an.split()) > 40:
+        return False
+    pn = _support_norm(premise)
+    if an not in pn:
+        # A joined enumeration ("A, B, and C") is verbatim if EVERY item is verbatim; the join
+        # order/format is deterministic executor output, not new content.
+        items = [
+            _support_norm(re.sub(r"^\s*and\s+", "", part, flags=re.I))
+            for part in re.split(r"[,;]", answer)
+            if part.strip()
+        ]
+        if len(items) < 2 or any(len(item) < 4 or item not in pn for item in items):
+            return False
+    return _qa_question_supported_by_premise(question, answer, premise)
+
+
+_IRREGULAR_QA_VERB_FORMS = {
+    "say": {"said", "says", "saying"},
+    "get": {"got", "gets", "gotten", "getting"},
+    "give": {"gave", "gives", "given", "giving"},
+    "take": {"took", "takes", "taken", "taking"},
+    "buy": {"bought", "buys", "buying"},
+    "bring": {"brought", "brings", "bringing"},
+    "teach": {"taught", "teaches", "teaching"},
+    "catch": {"caught", "catches", "catching"},
+    "think": {"thought", "thinks", "thinking"},
+    "come": {"came", "comes", "coming"},
+    "meet": {"met", "meets", "meeting"},
+    "find": {"found", "finds", "finding"},
+    "tell": {"told", "tells", "telling"},
+    "make": {"made", "makes", "making"},
+    "see": {"saw", "sees", "seen", "seeing"},
+    "keep": {"kept", "keeps", "keeping"},
+    "leave": {"left", "leaves", "leaving"},
+    "send": {"sent", "sends", "sending"},
+    "spend": {"spent", "spends", "spending"},
+    "win": {"won", "wins", "winning"},
+}
+
+
 def _term_variants(term: str) -> set[str]:
     term = (term or "").lower()
     out = {term} if term else set()
+    out.update(_IRREGULAR_QA_VERB_FORMS.get(term, set()))
     if len(term) > 3 and term.endswith("s"):
         out.add(term[:-1])
     if len(term) > 4 and term.endswith("ed"):
@@ -2965,6 +3019,7 @@ def _extractive_entailment(premise: str, hypothesis: str,
     return (
         _qa_temporal_entailment(premise, hypothesis, valid_at)
         or _qa_duration_entailment(premise, hypothesis)
+        or _qa_slot_entailment(premise, hypothesis)
         or _duration_entailment(premise, hypothesis)
         or _preference_entailment(premise, hypothesis)
         or _identity_entailment(premise, hypothesis)
