@@ -18,6 +18,10 @@ _COMPUTED_OPS = {"temporal_delta", "count_aggregate", "multi_session_sum", "even
                  "relative_temporal", "table_lookup"}
 _OPTION_CHOICE_RE = re.compile(
     r"\b(?:would|prefer|rather|enjoy|choose|pick)\b[^.?!]*\bor\b", re.I)
+_LIKELY_INFERENCE_RE = re.compile(
+    r"\bwould\b[^.?!]{0,80}\blikely\b|\blikely\s+(?:have|has|enjoy|like|want|be|get|buy)\b",
+    re.I,
+)
 
 
 def _norm_ws(text: str) -> str:
@@ -33,7 +37,11 @@ def _atom_anchor_allowed(query: str, result: StructuredAnswerResult) -> bool:
         return True
     if result.op in _COMPUTED_OPS:
         return True
-    return bool(_OPTION_CHOICE_RE.search(query or ""))
+    if _OPTION_CHOICE_RE.search(query or ""):
+        return True
+    # Explicitly speculative questions ("Would X likely ...?"): the verifiable content is the
+    # cited premise; the yes/no marker is the executor's labeled inference over that premise.
+    return bool(_LIKELY_INFERENCE_RE.search(query or ""))
 
 
 def answer_from_result(retriever, query: str, result: StructuredAnswerResult,

@@ -11,6 +11,7 @@ from eidetic.models import ClaimRecord, ExecutionPlan, MemoryRecord, StructuredA
 from .qa_ops import (
     _action_location_phrase,
     _dialogue_answer_match,
+    _named_recommendation_answer,
     _premise_affinity_answer,
     _verb_base_forms,
 )
@@ -1325,7 +1326,10 @@ def _temporal_window_list_answer(
     values: list[str] = []
     selected: list[tuple[float, object, str]] = []
     seen = set()
-    for score, item, atom in atoms[:20]:
+    # Deep scan: list completeness must not depend on which typed claims a given extraction run
+    # produced; the deterministic full-sentence claims further down the ranking still carry every
+    # mention.
+    for score, item, atom in atoms[:60]:
         match_text = _item_match_text(item, atom)
         terms = _expanded_terms(match_text)
         if threshold and _target_hit_count(terms, target_terms) < threshold:
@@ -3890,6 +3894,40 @@ def _compatibility_suggestion_answer(query: str, atoms: list[tuple[float, object
     return f"{prefix}: {item_text}.", selected[:5]
 
 
+_PAST_RECOMMENDATION_RE = re.compile(
+    r"\byou\s+(?:suggested|recommended|mentioned|gave|shared|listed|proposed)\b|\bremind\b|"
+    r"\bwhat\s+did\s+you\s+(?:suggest|recommend|say)\b|\bwe\s+(?:discussed|talked\s+about)\b",
+    re.I,
+)
+
+
+def _norm_key(text: str) -> str:
+    return re.sub(r"\W+", " ", (text or "").lower()).strip()
+
+
+def _advice_evidence_allowed(item: object, atom: str) -> bool:
+    """Fresh advice may be synthesized from the asker's OWN evidence or from assistant-authored
+    suggestions -- never by replaying a third-person human's remark as if it answered."""
+    m = re.match(r"\s*([A-Za-z][\w'-]{0,32})\s*:", atom or "")
+    if m:
+        return m.group(1).strip().lower() in {"assistant", "ai", "bot", "user", "human", "system"}
+    subject = str(getattr(item, "subject", "") or "").strip().lower()
+    if subject in {"assistant", "ai", "bot", "user", "human", "system", "", "memory"}:
+        return True
+    source_text = str(getattr(item, "text", "") or "")
+    if source_text:
+        for mm in re.finditer(r"(?:^|\n)\s*([A-Za-z][\w'-]{0,32})\s*:\s*([^\n]+)", source_text):
+            if _norm_key(atom) and _norm_key(atom) in _norm_key(mm.group(2)):
+                return mm.group(1).strip().lower() in {"assistant", "ai", "bot", "user", "human", "system"}
+    return True
+
+
+def _advice_atoms(query: str, atoms: list[tuple[float, object, str]]) -> list[tuple[float, object, str]]:
+    if not _is_suggestion_query(query) or _PAST_RECOMMENDATION_RE.search(query or ""):
+        return atoms
+    return [row for row in atoms if _advice_evidence_allowed(row[1], row[2])]
+
+
 def _source_suggestion_answer(query: str, atoms: list[tuple[float, object, str]]) -> tuple[str, list[tuple[float, object, str]]]:
     if not _is_suggestion_query(query):
         return "", []
@@ -4161,6 +4199,9 @@ def _execute_atoms(plan: ExecutionPlan, query: str,
         answer, selected = _dialogue_answer_match(query, atoms)
         if answer and selected:
             return result_from(answer, selected, confidence=0.95)
+        answer, selected = _named_recommendation_answer(query, atoms)
+        if answer and selected:
+            return result_from(answer, selected, confidence=0.9)
 
     answer, selected = _numeric_average_answer(query, atoms)
     if answer and selected:
@@ -4363,9 +4404,13 @@ def _execute_atoms(plan: ExecutionPlan, query: str,
         answer, selected = _premise_affinity_answer(query, atoms)
         if answer and selected:
             return result_from(answer, selected, confidence=0.85)
-        answer, selected = _open_or_preference_answer(query, atoms)
+        advice_atoms = _advice_atoms(query, atoms)
+        if _is_suggestion_query(query) and not advice_atoms:
+            return None
+        answer, selected = _open_or_preference_answer(query, advice_atoms)
         if answer and selected:
             return result_from(answer, selected, confidence=0.85)
+        atoms = advice_atoms if _is_suggestion_query(query) else atoms
         # Specific slot extraction with a target-term gate: an open-shaped question that names a
         # concrete target ("the Lantern Walk event") is answerable from a matching atom; vague
         # opinion/synthesis questions stay on the fallback path below.
@@ -4387,7 +4432,10 @@ def _execute_atoms(plan: ExecutionPlan, query: str,
         return _result(answer, plan, backend, supports, confidence=0.85)
 
     if _is_suggestion_query(query):
-        answer, selected = _open_or_preference_answer(query, atoms)
+        advice_atoms = _advice_atoms(query, atoms)
+        if not advice_atoms:
+            return None
+        answer, selected = _open_or_preference_answer(query, advice_atoms)
         if answer and selected:
             return result_from(answer, selected, confidence=0.85)
 

@@ -4272,8 +4272,17 @@ class Retriever:
         # what the affect-off ablation measures. Inactive unless the demotion flag AND at least
         # one forgetting knob are on, so forgetting-off runs pay the true keep-everything cost.
         s = self.settings
+        # Enumeration-shaped queries (lists, counts, commonalities, perfect-tense experience
+        # sweeps) need every mention across the corpus; attention stays wide for them. Demotion
+        # applies to point lookups, where the query-centered span carries the answer.
+        enumeration_query = bool(re.search(
+            r"\b(?:how\s+many|both|all|each|every|list|total|sum|combined|altogether)\b"
+            r"|\b(?:what|where|which)\s+(?:has|have|had)\b"
+            r"|\bwhat\s+(?:does|do|did)\b[^?]{0,60}\bdo\b",
+            query, re.I))
         demotion_active = (
             s.crystal_span_demotion_enabled
+            and not enumeration_query
             and (s.dream_prune_percentile > 0.0 or s.salience_prune_threshold > 0.0)
         )
         vivid_ids: set[str] = set()

@@ -102,6 +102,58 @@ def _dialogue_answer_match(query: str, atoms: list[tuple[float, object, str]]) -
     return value, [(score, item, atom)]
 
 
+_REMIND_NAME_RE = re.compile(
+    r"\b(?:remind\s+me|what\s+was\s+the\s+name\s+of|the\s+name\s+of\s+(?:that|the))\b", re.I)
+_NAME_HEAD_RE = re.compile(
+    r"^\s*(?:\d+[.)]\s*)?\*{0,2}((?:The\s+)?[A-Z][\w'&-]*(?:\s+[A-Z][\w'&-]*){0,4})\*{0,2}\s*[-:–—]")
+_RECOMMEND_NAME_RE = re.compile(
+    r"\b(?:recommend(?:ed)?|suggest(?:ed)?|try|check\s+out)\s+((?:The\s+)?[A-Z][\w'&-]*(?:\s+[A-Z][\w'&-]*){0,4})")
+_LOCATED_AT_RE = re.compile(
+    r"\blocated\s+(?:at|in|on)\s+((?:the\s+)?[A-Z][\w'&-]*(?:\s+[A-Z][\w'&-]*){0,3})")
+_GENERIC_NAME_WORDS = {
+    "note", "notes", "post", "posts", "tip", "tips", "step", "steps", "option", "options",
+    "warning", "image", "video", "here", "first", "second", "third", "item", "items",
+}
+
+
+def _named_recommendation_answer(query: str, atoms: list[tuple[float, object, str]]) -> tuple[str, list[tuple[float, object, str]]]:
+    """Remind-me recall of a previously recommended NAMED thing: match the demonstrative noun
+    phrase's content terms against recommendation atoms and return the proper name (with its
+    stated location when the source gives one)."""
+    ro = _ro()
+    if not _REMIND_NAME_RE.search(query or ""):
+        return "", []
+    qkeys = {
+        ro._count_term_key(t) for t in ro._query_terms(query)
+        if t not in {"remind", "name", "wondering", "planning", "revisit", "visit", "trip",
+                     "back", "going", "checking", "previous", "chat", "conversation"}
+    }
+    if not qkeys:
+        return "", []
+    best: tuple[int, float, object, str, str] | None = None
+    for score, item, atom in atoms[:40]:
+        text = atom.strip()
+        m = _NAME_HEAD_RE.match(text) or _RECOMMEND_NAME_RE.search(ro._strip_role(text))
+        if not m:
+            continue
+        name = m.group(1).strip()
+        words = name.split()
+        if len(words) == 1 and words[0].lower() in _GENERIC_NAME_WORDS:
+            continue
+        akeys = {ro._count_term_key(t) for t in ro._terms(atom)}
+        hits = len(qkeys & akeys)
+        if hits < 2:
+            continue
+        if best is None or (hits, score) > (best[0], best[1]):
+            best = (hits, score, item, atom, name)
+    if best is None:
+        return "", []
+    _hits, score, item, atom, name = best
+    loc = _LOCATED_AT_RE.search(atom)
+    answer = f"{name} at {loc.group(1)}" if loc else name
+    return answer, [(score, item, atom)]
+
+
 _AFFINITY_MARKER_RE = re.compile(
     r"\b(?:have|has|had|got|own|owns|owned|collect|collects|collected|love|loves|loved|"
     r"like|likes|liked|enjoy|enjoys|enjoyed|favou?rite|fan\s+of|into|passionate\s+about)\b",

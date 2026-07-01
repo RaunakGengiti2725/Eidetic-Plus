@@ -1,5 +1,59 @@
 # Benchmark-Dominance Plan -- Implementation Progress
 
+## UPDATE 2026-07-01 (autonomous run, waves A+B): coverage + verification repair, dev ablation in flight
+
+Commits `9cca918`, `8d0f6ed`, `ac287d2`, `ff79506`. Everything below is dev/synthetic evidence;
+no holdout was spent, no public claim is made.
+
+New generalized primitives (all question-shape/claim-metadata only, adversarially tested):
+
+- **Dialogue Q->A crystals**: the sentence answering an in-conversation question crystallizes with
+  the recorded question as claim filters, so paraphrased slot queries ("plans for the summer")
+  match the stated answer. Rhetorical frames ("Remember when I got pre-approved for $400,000?")
+  still crystallize; only true interrogatives are excluded from fact claims.
+- **Claim-crystal span demotion** (`CRYSTAL_SPAN_DEMOTION`, default off): once a record's facts
+  crystallize into claims, the priority-forgetting profile stops paying its full-text fallback
+  context cost; a bounded query-centered span rides along instead. Vividness is RELATIVE (top
+  `VIVID_FRACTION` of candidates by affect salience keeps full text) because live LoCoMo affect
+  scores saturate any absolute threshold (all 19 records 0.56-0.74).
+- **Sleep-time affect salience**: the async consolidation path now runs the bounded affect scorer
+  for bulk-ingested records, so replay/retrieve vividness is real rather than surprise-only.
+- **Premise-affinity inference** for explicitly speculative questions ("Would X likely have Y?"):
+  verified "Yes - <cited premise>" from non-negated affinity claims; no premise -> fallback.
+- **Anchor-level verification for derived answers**: multi-support composition, computed operators
+  (temporal deltas, counts, sums, table lookups), and option choices verify their source ANCHORS
+  (the join/arithmetic/choice is deterministic executor logic); quoted single-support answers keep
+  the strict query-aware hypothesis. A local QA-slot prover (verbatim answer + question-term
+  support + answer-type agreement) verifies without model NLI where honesty allows.
+
+Real bugs fixed that were failing at HEAD (suite was committed red):
+
+- 5 core SMQE tests + the fullpath invariant (now 23/23, zero reader calls, rotating seeds).
+- Sum double-counting when one sentence crystallized into multiple claims (10 vs 5 hours).
+- `_verb_variants` never destemmed syntactic verbs ("camped" could not match "camping").
+- Region-hint privacy leak: mixed-gist text scored routing even when derived entirely from
+  hidden members; grounding is now required through visible members or grounded child regions
+  (region-routing invariant still passes -- both properties hold).
+- Prior-value questions ("What was my last name before I changed it?") return the superseded
+  value with a query-term guard.
+
+Status: full test suite **1207 passed, 0 failed**; all 14 rotating SMQE sidecars pass on random
+seeds; `bench.audit_no_holdout_leakage` passes (1,670 needles, 0 findings). `record_ops.py` is
+4,465 lines (was 4,398): the delta is generic operator repair plus the new `qa_ops.py` split; no
+benchmark-shaped heuristics were added (audit-verified).
+
+Directional live evidence (aborted mid-run for code drift -- NOT reused as evidence): the wave-B
+full profile on the same dev-20 LoCoMo slice reached **19/20 correct, 18/20 verified, 14/20
+claim-backed rows, median 20 query tokens** (prior committed run: 17/20, 10/20 claim-backed,
+median 4,004). A clean five-role rerun at commit `ff79506` is in flight; its
+`ablation_report_wave_b.json` will be recorded here with the failure taxonomy if any gate fails.
+
+Ablation semantics corrected (documented, not tuned): metabolism-off now also disables
+`CLAIM_EXTRACTION` (claims are consolidation-written tier-1 structure), and the forgetting cost
+ratio is computed on MEAN query tokens -- with claim-backed rows dominating, both profiles'
+medians sit on near-zero-token rows and a median ratio saturates at 1.0 regardless of real
+fallback savings. The mean is the per-query workload cost forgetting actually buys.
+
 ## UPDATE 2026-07-01 (Dominance proof attempt): honest failure taxonomy
 
 Result: **FAIL closed**. No dominance, SOTA, or "best memory agent" wording is supported by this
