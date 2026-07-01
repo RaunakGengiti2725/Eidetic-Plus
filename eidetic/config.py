@@ -345,7 +345,10 @@ class Settings:
     # measure the true cost of keeping everything hot. Default OFF (neutral path byte-identical).
     crystal_span_demotion_enabled: bool = field(default_factory=lambda: _get_bool("CRYSTAL_SPAN_DEMOTION", "0"))
     crystal_span_chars: int = field(default_factory=lambda: _get_int("CRYSTAL_SPAN_CHARS", 600))
-    salience_vivid_threshold: float = field(default_factory=lambda: float(_get("SALIENCE_VIVID_THRESHOLD", "0.55")))
+    # Vividness is RELATIVE: the top fraction of retrieved candidates by affect salience keeps
+    # full text under demotion. Attention is competitive; an absolute threshold saturates when a
+    # warm conversation scores every record high.
+    vivid_fraction: float = field(default_factory=lambda: float(_get("VIVID_FRACTION", "0.25")))
 
     # --- Layer 2: per-query hot-path optimizers (all default OFF / current behavior) -----
     # 2a Adaptive-k: cut the final candidate list at the largest score gap (token savings).

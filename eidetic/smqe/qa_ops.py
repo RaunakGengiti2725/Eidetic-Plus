@@ -51,10 +51,22 @@ def _action_location_phrase(atom: str, action_terms: set[str]) -> str:
     return ro._clean(m.group(1)) if m else ""
 
 
+_ADVICE_REQUEST_RE = re.compile(
+    r"\b(?:any\s+(?:tips?|ideas?|suggestions?|advice|recommendations?)|tips?\s+for|ideas?\s+for|"
+    r"suggest|recommend|what\s+should\s+i|how\s+should\s+i|ways\s+to|help\s+me)\b",
+    re.I,
+)
+
+
 def _dialogue_answer_match(query: str, atoms: list[tuple[float, object, str]]) -> tuple[str, list[tuple[float, object, str]]]:
     """A claim that was the literal in-conversation answer to an equivalent question answers the
     query directly: match query terms against the RECORDED question (paraphrase-stable), require
-    subject/entity agreement, and return the crystallized answer sentence."""
+    subject/entity agreement, and return the crystallized answer sentence.
+
+    Advice requests are excluded: they ask for fresh synthesis grounded in preferences, not the
+    replay of one past reply."""
+    if _ADVICE_REQUEST_RE.search(query or ""):
+        return "", []
     ro = _ro()
     qkeys = {ro._count_term_key(t) for t in ro._query_terms(query)}
     if not qkeys:

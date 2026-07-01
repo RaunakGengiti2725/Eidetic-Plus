@@ -439,7 +439,14 @@ def _answer_value_specific(query: str, atom: str, item: object | None = None) ->
     q = (query or "").lower()
     text = _strip_role(atom)
     if re.search(r"\b(?:before|previous(?:ly)?|old|formerly|originally|used\s+to)\b", q):
-        # Prior-value question: return the SUPERSEDED value, not the current one.
+        # Prior-value question: return the SUPERSEDED value, not the current one. The matched
+        # sentence must share a content term with the query (e.g. "name"), so an unrelated
+        # "was X before" sentence cannot masquerade as the prior value.
+        prior_targets = {
+            _count_term_key(t) for t in _query_terms(q)
+            if t not in {"before", "previous", "previously", "old", "formerly", "originally",
+                         "used", "changed", "change"}
+        }
         for pat in (
             r"\b(?:old|previous|former|maiden)\s+\w*\s*(?:name\s+)?(?:was|were)\s+([A-Z][\w'-]+(?:\s+[A-Z][\w'-]+){0,3})",
             r"\bused\s+to\s+be\s+(?:called\s+)?([A-Z][\w'-]+(?:\s+[A-Z][\w'-]+){0,3})",
@@ -448,6 +455,10 @@ def _answer_value_specific(query: str, atom: str, item: object | None = None) ->
         ):
             m = re.search(pat, text)
             if m:
+                sentence = next((s for s in re.split(r"(?<=[.!?])\s+", text) if m.group(1) in s), text)
+                sent_keys = {_count_term_key(t) for t in _terms(sentence)}
+                if prior_targets and not (prior_targets & sent_keys):
+                    continue
                 return _clean(m.group(1))
     if re.search(r"\brelationship status|marital status|single|married|dating|partner\b", q):
         m = re.search(r"\b(single|married|divorced|separated|widowed|dating|engaged)\b", text, re.I)
@@ -4422,6 +4433,10 @@ def _execute_atoms(plan: ExecutionPlan, query: str,
             answer = _answer_value_specific(query, atom, item) or _action_object_phrase(query, atom)
         if answer:
             if duration_value_query and (not (_DURATION_RE.search(answer) or re.search(r"\btimes?\s+a\s+(?:day|week|month|year)\b", answer, re.I)) or (not re.search(r"\bago\b", query or "", re.I) and re.search(rf"\b{re.escape(answer)}\s+ago\b", atom, re.I))):
+                continue
+            # An amount question needs an amount-shaped answer; a topical sentence without a
+            # number ("Congratulations on your pre-approval") is not a value.
+            if scalar_amount_query and not (_MONEY_RE.search(answer) or re.search(r"\d", answer)):
                 continue
             target_hits = _latest_atom_target_hit(specific_target_terms, _item_match_text(item, atom), group_terms_by_key.get(_group_key(item)))
             if specific_target_terms and target_hits == 0:

@@ -88,18 +88,28 @@ def test_demotion_shrinks_crystallized_low_salience_context(fresh_settings):
     assert any("kiln schedule moved" in b for b in demoted)
 
 
-def test_vivid_records_keep_full_text_under_demotion(fresh_settings):
+def test_vivid_top_fraction_keeps_full_text_under_demotion(fresh_settings):
     scope = Scope(namespace="crystal-vivid")
     settings = replace(
         fresh_settings,
         crystal_span_demotion_enabled=True,
         dream_prune_percentile=5.0,
         gist_channel_enabled=False,
+        vivid_fraction=0.25,
     )
-    vivid = [_rec("vivid", salience=0.9, crystallized=True, scope=scope)]
-    r, cands = _retriever(settings, vivid)
+    records = [
+        _rec("vivid", salience=0.9, crystallized=True, scope=scope),
+        _rec("dull-1", salience=0.35, crystallized=True, scope=scope),
+        _rec("dull-2", salience=0.36, crystallized=True, scope=scope),
+        _rec("dull-3", salience=0.37, crystallized=True, scope=scope),
+    ]
+    r, cands = _retriever(settings, records)
     blocks = r.assemble_context("When did the kiln schedule move?", cands, scope=scope)
-    assert _raw_block_chars(blocks) > settings.crystal_span_chars + 120
+    # 4 candidates x 0.25 -> exactly one vivid record keeps its full text; the other three are
+    # crystallized and demote to bounded spans.
+    full_len = len(records[0].text)
+    kept_full = sum(1 for b in blocks if len(b) >= full_len)
+    assert kept_full == 1
 
 
 def test_uncrystallized_records_keep_full_text_under_demotion(fresh_settings):

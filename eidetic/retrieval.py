@@ -2651,17 +2651,35 @@ def _qa_duration_entailment(premise: str, hypothesis: str) -> bool:
     return bool(re.search(r"\bhow\s+(?:long|often)\b", question, re.I) and _duration_entailment(premise, answer) and _qa_question_supported_by_premise(question, answer, premise))
 
 
+def _qa_answer_type_agrees(question: str, answer: str) -> bool:
+    """The answer's SHAPE must fit the question's type: a quantity question needs a number, a
+    who question needs a name-like token, a where question needs a compact place phrase. A
+    topical sentence that merely appears in the source is not an answer."""
+    q = (question or "").lower()
+    a = (answer or "").strip()
+    if re.search(r"\bhow\s+(?:much|many)\b|\bamount\b|\btotal\b", q):
+        return bool(re.search(r"\d|\b(?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\b", a, re.I))
+    if re.search(r"^\s*who\b|\bwho\s+(?:gave|told|said|recommended|suggested)\b", q):
+        return bool(re.search(r"\b[A-Z][a-z]", a))
+    if re.search(r"^\s*where\b", q):
+        return len(a.split()) <= 8
+    return True
+
+
 def _qa_slot_entailment(premise: str, hypothesis: str) -> bool:
     """Local proof for verbatim slot answers under a query-aware hypothesis.
 
     Accepts "Question: Q / Answer: A" only when A (minus a leading yes/no inference marker) is
-    copied verbatim from the immutable source AND every content term of the question is supported
-    by that same source. Semantically bridged answers still require model NLI.
+    copied verbatim from the immutable source, A's shape fits the question type, AND every
+    content term of the question is supported by that same source. Semantically bridged answers
+    still require model NLI.
     """
     parts = _qa_parts(hypothesis)
     if not parts:
         return False
     question, answer = parts
+    if not _qa_answer_type_agrees(question, answer):
+        return False
     answer = re.sub(r"^\s*(?:yes|no)\s*[-,:]\s*", "", answer, flags=re.I)
     an = _support_norm(answer)
     if len(an) < 4 or len(an.split()) > 40:
@@ -4258,12 +4276,20 @@ class Retriever:
             s.crystal_span_demotion_enabled
             and (s.dream_prune_percentile > 0.0 or s.salience_prune_threshold > 0.0)
         )
+        vivid_ids: set[str] = set()
+        if demotion_active and ordered_candidates:
+            vivid_k = int(max(0.0, s.vivid_fraction) * len(ordered_candidates))
+            if vivid_k > 0:
+                by_salience = sorted(
+                    ordered_candidates, key=lambda c: -(float(c.record.salience or 0.0))
+                )
+                vivid_ids = {c.record.memory_id for c in by_salience[:vivid_k]}
         for c in ordered_candidates:
             txt = c.record.text or c.record.summary or ""
             demote = (
                 demotion_active
                 and int(c.record.metadata.get("claims_extracted", 0) or 0) > 0
-                and float(c.record.salience or 0.0) < s.salience_vivid_threshold
+                and c.record.memory_id not in vivid_ids
             )
             txt = _raw_query_centered_span(
                 txt,
