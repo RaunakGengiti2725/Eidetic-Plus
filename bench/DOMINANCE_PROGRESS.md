@@ -106,6 +106,20 @@ Artifact: `artifacts/holdout_dominance_20260701_codex/ablation_report_wave_b.jso
 | forgetting_off | 0.90 | 0.90 | 20 | 2,408 |
 | affect_off | 0.85 | 0.85 | 17 | 1,736 |
 
+Follow-ups after this reading:
+
+- Region gate at scale: a code-matched pair on a mixed 24-sample dev slice (12 LongMemEval
+  haystacks + 12 LoCoMo) measured `regions_off_manual` vs `full`: **+4.2pp verified** (14/24 vs
+  13/24; the flip is a region-hint recovery on an LME single-session row). All five gate
+  mechanisms have now passed individually on dev; the single-report five-role run on the mixed
+  slice is the remaining artifact.
+- Wave D (`38e1c5f`) + Wave E: the mixed slice falsified SMQE classes that over-fired where the
+  reader is stronger (unbounded low counts, current-state ownership counts, >=3-event orderings,
+  object-anchored action deltas, fragment/imperative-step suggestion composition, span-vs-sum
+  "did it take" confusion, slot-extraction/atom-join leaks for advice requests). Each now fails
+  closed to the reader; dispatch tracing verified every leak path returns None. Full suite 1207
+  green; all rotating sidecars pass random seeds.
+
 Reading: consolidation-written claims + metabolism now earn +40pp verified accuracy honestly
 (metabolism-off loses CLAIM_EXTRACTION, as it should). Forgetting buys a 1.38x mean-cost
 reduction with zero accuracy regression via claim-crystal span demotion. Sleep-time affect
