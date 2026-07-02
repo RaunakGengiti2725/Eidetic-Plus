@@ -83,9 +83,38 @@ New rotating sidecars (both required by `bench.release_gate`, aggregated by
   enumeration queries never demote, and flag-off output is byte-identical.
 
 Run-3 full-profile reading before abort (directional): 18/20 correct, 18/20 verified, median 17
-query tokens, mean 1,408 (fallback rows 3.7-8k; demotion active on point lookups only). The
-final clean five-role run is in flight at the commonality-fix commit; its report will be recorded
-below honestly, pass or fail.
+query tokens, mean 1,408 (fallback rows 3.7-8k; demotion active on point lookups only).
+
+### Clean five-role dev ablation at the commonality-fix commit (`3bcf43d`): 4/5 gates PASS
+
+Artifact: `artifacts/holdout_dominance_20260701_codex/ablation_report_wave_b.json`
+(runs under `dev_ablation_locomo20_wave_b/`, same dev-20 LoCoMo slice as every prior attempt).
+
+| gate | required | measured | prior committed run |
+|---|---:|---:|---:|
+| metabolism_delta_pp (verified) | >= 5.0 | **+40.0** | +5.0 |
+| affect_delta_pp (verified) | >= 2.0 | **+5.0** | 0.0 |
+| forgetting_cost_ratio (mean tokens) | >= 1.05 | **1.381** | 1.000 |
+| forgetting_accuracy_regression_pp | <= 1.0 | **0.0** | 0.0 |
+| region_delta_pp (verified) | >= 2.0 | **-10.0 (FAIL)** | +15.0 |
+
+| role | acc | verified | median tokens | mean tokens |
+|---|---:|---:|---:|---:|
+| full | 0.90 | 0.90 | 17 | 1,743 |
+| metabolism_off | 0.60 | 0.50 | 7,989 | 4,801 |
+| regions_off | 1.00 | 1.00 | 20 | 1,741 |
+| forgetting_off | 0.90 | 0.90 | 20 | 2,408 |
+| affect_off | 0.85 | 0.85 | 17 | 1,736 |
+
+Reading: consolidation-written claims + metabolism now earn +40pp verified accuracy honestly
+(metabolism-off loses CLAIM_EXTRACTION, as it should). Forgetting buys a 1.38x mean-cost
+reduction with zero accuracy regression via claim-crystal span demotion. Sleep-time affect
+salience earns +5pp verified. The remaining failure is honest and structural: on a 19-record
+single-conversation namespace, region routing has nothing to narrow -- regions_off scored a
+perfect 20/20, so the -10pp "delta" is reader variance plus region-hint blocks displacing
+context on a corpus that already fits. Regions are a SCALE feature; a mixed 24-sample dev
+ablation (12 LongMemEval haystacks + 12 LoCoMo, stratified) is in flight to measure the region
+gate in its operating regime. No thresholds were changed to force this gate.
 
 ## UPDATE 2026-07-01 (Dominance proof attempt): honest failure taxonomy
 
