@@ -612,6 +612,25 @@ def _write_artifacts(path: Path, *, split: str = "test", runs: int = 2) -> None:
         "backend_counts": {"claim": 48, "record": 48},
         "avg_proof_tokens": 18.0,
     }))
+    (path / "smqe_dialogue_invariant.json").write_text(json.dumps({
+        "pass": True,
+        "seed": 434343,
+        "seed_mode": "random",
+        "cases": 24,
+        "correct": 24,
+        "failures": [],
+        "case_type_counts": {"paraphrase_slot": 6, "entity_guard": 6,
+                             "advice_deferral": 6, "unrelated_guard": 6},
+    }))
+    (path / "crystal_demotion_invariant.json").write_text(json.dumps({
+        "pass": True,
+        "seed": 444444,
+        "seed_mode": "random",
+        "cases": 20,
+        "correct": 20,
+        "avg_demotion_ratio": 0.15,
+        "failures": [],
+    }))
     (path / "run_manifest.json").write_text(json.dumps({
         "systems": "eidetic,eidetic-full,rag-full",
         "dataset": "locomo",
@@ -1360,6 +1379,8 @@ def test_release_gate_rejects_fixed_seed_for_every_rotating_sidecar(tmp_path):
         ("smqe_subscope_invariant.json", "smqe_subscope:evidence"),
         ("smqe_time_invariant.json", "smqe_time:evidence"),
         ("smqe_invalidation_invariant.json", "smqe_invalidation:evidence"),
+        ("smqe_dialogue_invariant.json", "smqe_dialogue:evidence"),
+        ("crystal_demotion_invariant.json", "crystal_demotion:evidence"),
     ]
     for idx, (filename, check_name) in enumerate(sidecars):
         artifact = tmp_path / f"fixed-seed-{idx}"

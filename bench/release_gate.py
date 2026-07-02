@@ -2540,6 +2540,13 @@ def run_release_gate(
     smqe_invalidation_report: str = "smqe_invalidation_invariant.json",
     min_smqe_invalidation_cases: int = 24,
     max_smqe_invalidation_avg_proof_tokens: float = 80.0,
+    require_smqe_dialogue_invariant: bool = True,
+    smqe_dialogue_report: str = "smqe_dialogue_invariant.json",
+    min_smqe_dialogue_cases: int = 24,
+    require_crystal_demotion_invariant: bool = True,
+    crystal_demotion_report: str = "crystal_demotion_invariant.json",
+    min_crystal_demotion_cases: int = 20,
+    max_crystal_demotion_ratio: float = 0.7,
 ) -> dict:
     out_dir = Path(out_dir)
     required_systems = required_systems if required_systems is not None else [
@@ -3245,6 +3252,32 @@ def run_release_gate(
                 if invalidation_summary["pass"]
                 else "; ".join(invalidation_summary["failures"][:8]),
                 **invalidation_summary)
+    if require_smqe_dialogue_invariant:
+        dialogue_report, dialogue_error = _load_json_report(out_dir / smqe_dialogue_report)
+        _append(checks, "smqe_dialogue:valid_json",
+                not dialogue_error, "valid" if not dialogue_error else dialogue_error)
+        dlg_ok = (
+            bool(dialogue_report.get("pass"))
+            and int(dialogue_report.get("cases", 0) or 0) >= min_smqe_dialogue_cases
+            and str(dialogue_report.get("seed_mode", "")) == "random"
+        )
+        _append(checks, "smqe_dialogue:evidence", dlg_ok,
+                f"{dialogue_report.get('correct', 0)}/{dialogue_report.get('cases', 0)} dialogue "
+                f"Q->A crystal checks, seed_mode:{dialogue_report.get('seed_mode', '<missing>')}")
+    if require_crystal_demotion_invariant:
+        demotion_report, demotion_error = _load_json_report(out_dir / crystal_demotion_report)
+        _append(checks, "crystal_demotion:valid_json",
+                not demotion_error, "valid" if not demotion_error else demotion_error)
+        ratio = demotion_report.get("avg_demotion_ratio")
+        demo_ok = (
+            bool(demotion_report.get("pass"))
+            and int(demotion_report.get("cases", 0) or 0) >= min_crystal_demotion_cases
+            and str(demotion_report.get("seed_mode", "")) == "random"
+            and ratio is not None and float(ratio) <= max_crystal_demotion_ratio
+        )
+        _append(checks, "crystal_demotion:evidence", demo_ok,
+                f"{demotion_report.get('correct', 0)}/{demotion_report.get('cases', 0)} demotion "
+                f"checks, avg_ratio={ratio}, seed_mode:{demotion_report.get('seed_mode', '<missing>')}")
     abstention_calibration = {}
     abstention_v2_enabled = _truthy(env.get("ABSTENTION_V2"))
     if require_abstention_calibration and abstention_v2_enabled:
@@ -3942,6 +3975,13 @@ def run_release_gate(
             "smqe_invalidation_report": smqe_invalidation_report,
             "min_smqe_invalidation_cases": min_smqe_invalidation_cases,
             "max_smqe_invalidation_avg_proof_tokens": max_smqe_invalidation_avg_proof_tokens,
+            "require_smqe_dialogue_invariant": require_smqe_dialogue_invariant,
+            "smqe_dialogue_report": smqe_dialogue_report,
+            "min_smqe_dialogue_cases": min_smqe_dialogue_cases,
+            "require_crystal_demotion_invariant": require_crystal_demotion_invariant,
+            "crystal_demotion_report": crystal_demotion_report,
+            "min_crystal_demotion_cases": min_crystal_demotion_cases,
+            "max_crystal_demotion_ratio": max_crystal_demotion_ratio,
         },
     }
 

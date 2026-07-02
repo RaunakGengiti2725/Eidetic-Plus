@@ -146,6 +146,12 @@ run_sidecar smqe_time_invariant python -m bench.smqe_time_invariant \
 run_sidecar smqe_invalidation_invariant python -m bench.smqe_invalidation_invariant \
   --cases "${SMQE_INVALIDATION_CASES:-24}" \
   --out "$OUT/smqe_invalidation_invariant.json"
+run_sidecar smqe_dialogue_invariant python -m bench.smqe_dialogue_invariant \
+  --cases "${SMQE_DIALOGUE_CASES:-24}" \
+  --out "$OUT/smqe_dialogue_invariant.json"
+run_sidecar crystal_demotion_invariant python -m bench.crystal_demotion_invariant \
+  --cases "${CRYSTAL_DEMOTION_CASES:-20}" \
+  --out "$OUT/crystal_demotion_invariant.json"
 if [[ "$SIDECAR_STATUS" -ne 0 ]]; then
   echo "one or more invariant sidecars failed; release_gate will fail closed." >&2
 fi

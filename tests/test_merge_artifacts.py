@@ -587,6 +587,25 @@ def _write_source(path: Path, *, dataset: str, category: str, sample_id: str,
         "backend_counts": {"claim": 48, "record": 48},
         "avg_proof_tokens": 18.0,
     }))
+    (path / "smqe_dialogue_invariant.json").write_text(json.dumps({
+        "pass": True,
+        "seed": 434343,
+        "seed_mode": "random",
+        "cases": 24,
+        "correct": 24,
+        "failures": [],
+        "case_type_counts": {"paraphrase_slot": 6, "entity_guard": 6,
+                             "advice_deferral": 6, "unrelated_guard": 6},
+    }))
+    (path / "crystal_demotion_invariant.json").write_text(json.dumps({
+        "pass": True,
+        "seed": 444444,
+        "seed_mode": "random",
+        "cases": 20,
+        "correct": 20,
+        "avg_demotion_ratio": 0.15,
+        "failures": [],
+    }))
     (path / "snap_back_audit.json").write_text(json.dumps({
         "status": "PASS",
         "data_dir": str(data_dir),
