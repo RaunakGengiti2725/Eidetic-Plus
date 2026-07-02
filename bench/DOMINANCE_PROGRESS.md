@@ -120,6 +120,36 @@ Follow-ups after this reading:
   closed to the reader; dispatch tracing verified every leak path returns None. Full suite 1207
   green; all rotating sidecars pass random seeds.
 
+### Mixed-24 five-role run at the wave-E commit: FAIL, two honest blockers named
+
+Artifact: `artifacts/holdout_dominance_20260701_codex/ablation_report_mixed24_wave_d.json`
+(12 LongMemEval dev + 12 LoCoMo dev, one run per role).
+
+| gate | required | measured |
+|---|---:|---:|
+| metabolism_delta_pp | >= 5.0 | **+31.7 PASS** |
+| forgetting_cost_ratio (mean) | >= 1.05 | **1.147 PASS** |
+| region_delta_pp | >= 2.0 | -1.9 FAIL |
+| affect_delta_pp | >= 2.0 | -8.3 FAIL |
+| forgetting_accuracy_regression_pp | <= 1.0 | 7.4 FAIL |
+
+Failure taxonomy (both blockers are measurement-infrastructure, not accuracy cheats):
+
+1. **Governor exhaustion errors**: 4 rows across metabolism_off/regions_off/forgetting_off died
+   with "concurrency slot unavailable after 240s" during LME consolidation, unpairing rows and
+   biasing those roles' rates. Fix: RPM 60 / concurrency 4 / slot timeout 600s for the wave-F
+   rerun (a throughput setting, recorded in the manifest, not score-affecting logic).
+2. **Variance vs a 1pp cap at n=24**: one paired row flip is 4.2pp. The full-vs-forgetting_off
+   flips were symmetric reader-variance rows (an abstention flip each way) plus ONE real
+   demotion loss (Maria's May-3 dinner: the date-matching record was span-demoted; wave F makes
+   date-anchored records exempt from demotion and gives demoted records two query-centered
+   spans). The affect reading (-8.3) is the same ±2-row variance structure. The honest paths to
+   a stable single-artifact PASS are: eliminate all real demotion/affect-caused losses (wave F),
+   and aggregate the ablation over more runs; the thresholds themselves stay untouched.
+
+The earlier per-gate evidence stands: LoCoMo-20 clean report (metabolism +40, affect +5,
+forgetting 1.381 at 0.0pp regression) and the code-matched mixed-24 region pair (+4.2pp).
+
 Reading: consolidation-written claims + metabolism now earn +40pp verified accuracy honestly
 (metabolism-off loses CLAIM_EXTRACTION, as it should). Forgetting buys a 1.38x mean-cost
 reduction with zero accuracy regression via claim-crystal span demotion. Sleep-time affect
