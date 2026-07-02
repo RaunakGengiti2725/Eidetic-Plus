@@ -3238,10 +3238,19 @@ def _generic_commonality_answer(query: str, atoms: list[tuple[float, object, str
         return "", []
     wanted = people[:2]
     qterms = _query_terms(query)
+    # The shared value must come from evidence ABOUT the queried topic: every contributing atom
+    # needs at least one non-person content term of the query (with verb variants), or an
+    # unrelated sentence that merely names both people can fabricate a "commonality".
+    person_term_pool = set().union(*(_terms(p) for p in wanted)) if wanted else set()
+    topic_terms: set[str] = set()
+    for t in qterms - person_term_pool:
+        topic_terms.update(_verb_variants(t) or {t})
     by_value: dict[str, dict[str, tuple[float, object, str, str]]] = {}
     for score, item, atom in atoms:
         text = _strip_role(atom)
         atom_terms = _terms(text)
+        if topic_terms and not (topic_terms & _expanded_terms(text)):
+            continue
         for person in wanted:
             person_terms = _terms(person)
             if person_terms and not (person_terms & atom_terms):
