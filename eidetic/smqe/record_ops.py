@@ -2983,6 +2983,10 @@ def _sum_duration_answer(query: str, atoms: list[tuple[float, object, str]]) -> 
     q = (query or "").lower()
     if not re.search(r"\bhow\s+many\s+(?:hours?|days?|weeks?|months?|years?)\b|\btotal\b|\bsum\b|\bspent\b", q):
         return "", []
+    if re.search(r"\bdid\s+it\s+take\b|\bhow\s+long\s+did\b", q):
+        # "How many weeks did it take me to finish X?" is a calendar SPAN (first to last dated
+        # mention), not a sum of stated durations; summing per-session durations overcounts.
+        return "", []
     if re.search(r"\b(?:ago|since|between|after|before|passed|elapsed)\b", q):
         return "", []
     if re.search(r"\b(?:road\s+trip|destinations?|driv(?:e|ing))\b", q):
@@ -3330,7 +3334,10 @@ def _shared_job_business_answer(query: str, atoms: list[tuple[float, object, str
 
 def _is_event_order_query(query: str) -> bool:
     q = (query or "").lower()
-    return bool(re.search(r"\b(?:which|what)\b.+\bfirst\b.+\bor\b|\bhappened\s+first\b|\bwhich\s+event\b", q))
+    return bool(re.search(
+        r"\b(?:which|what)\b.+\bfirst\b.+\bor\b|\bhappened\s+first\b|\bwhich\s+event\b|"
+        r"\bin\s+(?:the\s+)?order\b|\border\s+from\s+first\b|\bfrom\s+first\s+to\s+last\b",
+        q))
 
 
 def _event_order_answer(query: str, atoms: list[tuple[float, object, str]]) -> tuple[str, list[tuple[float, object, str]]]:
@@ -4106,7 +4113,8 @@ def _source_suggestion_answer(query: str, atoms: list[tuple[float, object, str]]
     clean_items = [
         item for item in items
         if not re.match(r"^(?:it'?s|there|that|this|these|those|interesting|creating|also|and|but|"
-                        r"can|could|would|do|does|did|what|which|how|why)\b", item, re.I)
+                        r"can|could|would|do|does|did|what|which|how|why|"
+                        r"click|select|press|drag|scroll|tap|type|enter|adjust|set)\b", item, re.I)
         and not re.search(r"\*\*|[:;?]\s*$", item)
     ]
     if len(items) >= 3 and len(clean_items) < max(2, len(items) - 1):
@@ -4258,6 +4266,11 @@ def _execute_atoms(plan: ExecutionPlan, query: str,
         # owns that reasoning. Fail closed here.
         if re.search(r"\bhow\s+many\b[^?]{0,60}\b(?:currently|now)\s+(?:own|have|has|owns)\b"
                      r"|\bcurrently\s+(?:own|have|owns)\b", query or "", re.I):
+            return None
+        # "How many weeks did it take..." is a calendar span, not a countable set; counting
+        # mentions answers the wrong question.
+        if re.search(r"\bhow\s+many\s+(?:hours?|days?|weeks?|months?|years?)\b[^?]{0,60}\bdid\s+it\s+take\b",
+                     query or "", re.I):
             return None
         windowed_count = bool((plan.filters or {}).get("date_ranges")) or bool(_query_temporal_windows(plan))
         atoms = _filter_atoms_to_query_windows(plan, atoms)
@@ -4491,7 +4504,11 @@ def _execute_atoms(plan: ExecutionPlan, query: str,
         atoms = advice_atoms if _is_suggestion_query(query) else atoms
         # Specific slot extraction with a target-term gate: an open-shaped question that names a
         # concrete target ("the Lantern Walk event") is answerable from a matching atom; vague
-        # opinion/synthesis questions stay on the fallback path below.
+        # opinion/synthesis and advice questions stay on the fallback path below.
+        if _is_suggestion_query(query):
+            # The suggestion machinery above was the last structured chance for advice
+            # requests; slot extraction and atom joins would replay fragments as advice.
+            return None
         oi_target_terms = _latest_target_terms(query, plan)
         oi_threshold = _target_threshold(oi_target_terms)
         for score, item, atom in atoms[:20]:
