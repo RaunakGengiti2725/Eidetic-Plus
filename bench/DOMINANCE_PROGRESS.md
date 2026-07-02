@@ -54,6 +54,39 @@ ratio is computed on MEAN query tokens -- with claim-backed rows dominating, bot
 medians sit on near-zero-token rows and a median ratio saturates at 1.0 regardless of real
 fallback savings. The mean is the per-query workload cost forgetting actually buys.
 
+### Wave C (commits `04ed376`, `39fd23d`, + commonality fix): live falsification loop
+
+Three aborted five-role runs each caught a real defect before any gate reading was trusted:
+
+1. Run 1 (code drift): full-profile row hit 19/20 correct / 18 verified / median 20 tokens, but
+   mid-run edits broke role comparability. Discipline adopted: never edit modules a bench
+   subprocess imports; rerun at a fixed commit.
+2. Run 2: span demotion starved multi-item rows (painted/camped lists at 600-char spans) and
+   sleep-time affect calls starved the 30s governor slot cap (whole metabolism-off role errored).
+   Fixes: enumeration-shaped queries never demote; `DASHSCOPE_SLOT_TIMEOUT_SEC=240` for
+   consolidation-heavy runs; vividness made RELATIVE (`VIVID_FRACTION`) after live affect scores
+   saturated any absolute threshold.
+3. Run 3: a VERIFIED-WRONG commonality answer ("me at peace" for "What subject have Caroline and
+   Melanie both painted?") -- an unrelated sentence naming both people fabricated a commonality
+   and anchor verification certified the verbatim atoms. Fix: commonality atoms must carry the
+   query's topic terms. Also: fresh advice requests may not be answered by replaying a
+   third-person human's remark (asker's own evidence or assistant-authored suggestions only);
+   remind-me questions gained a named-recommendation recall op (list-item/prose name + location).
+
+New rotating sidecars (both required by `bench.release_gate`, aggregated by
+`bench.merge_artifacts`, emitted by `bench/reproduce.sh`):
+
+- `bench/smqe_dialogue_invariant.py` -- paraphrase recall via dialogue Q->A crystals, speaker
+  isolation, advice deferral, unrelated-question guard.
+- `bench/crystal_demotion_invariant.py` -- token-free proof that crystallized records demote to
+  bounded query-centered spans (avg ratio ~0.14) while the span keeps the answering sentence,
+  enumeration queries never demote, and flag-off output is byte-identical.
+
+Run-3 full-profile reading before abort (directional): 18/20 correct, 18/20 verified, median 17
+query tokens, mean 1,408 (fallback rows 3.7-8k; demotion active on point lookups only). The
+final clean five-role run is in flight at the commonality-fix commit; its report will be recorded
+below honestly, pass or fail.
+
 ## UPDATE 2026-07-01 (Dominance proof attempt): honest failure taxonomy
 
 Result: **FAIL closed**. No dominance, SOTA, or "best memory agent" wording is supported by this
