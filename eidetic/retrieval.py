@@ -2663,6 +2663,10 @@ def _qa_answer_type_agrees(question: str, answer: str) -> bool:
         return bool(re.search(r"\b[A-Z][a-z]", a))
     if re.search(r"^\s*where\b", q):
         return len(a.split()) <= 8
+    if re.search(r"\bwhat\s+(?:kind|type|style|genre|sort)\s+of\b", q):
+        # A category question wants a CATEGORY, not a bare proper-noun title.
+        words = a.split()
+        return any(w[:1].islower() for w in words) or len(words) > 4
     return True
 
 
@@ -4293,10 +4297,26 @@ class Retriever:
                     ordered_candidates, key=lambda c: -(float(c.record.salience or 0.0))
                 )
                 vivid_ids = {c.record.memory_id for c in by_salience[:vivid_k]}
+        # The day being asked about stays vivid: a record whose session date falls inside the
+        # query's parsed date window IS the evidence for a date-anchored lookup and never demotes.
+        query_windows: list[tuple[float, float]] = []
+        if demotion_active:
+            for rng in (parsed.get("ranges") or []):
+                try:
+                    start = float(rng.get("start_epoch", rng.get("start", 0)) or 0)
+                    end = float(rng.get("end_epoch", rng.get("end", 0)) or 0)
+                except (TypeError, ValueError):
+                    continue
+                if start and end:
+                    query_windows.append((min(start, end), max(start, end)))
         for c in ordered_candidates:
             txt = c.record.text or c.record.summary or ""
+            date_anchored = any(
+                lo <= float(c.record.valid_at or 0.0) <= hi for lo, hi in query_windows
+            )
             demote = (
                 demotion_active
+                and not date_anchored
                 and int(c.record.metadata.get("claims_extracted", 0) or 0) > 0
                 and c.record.memory_id not in vivid_ids
             )
@@ -4305,7 +4325,7 @@ class Retriever:
                 query,
                 long_threshold_chars=(s.crystal_span_chars if demote else s.raw_span_min_chars),
                 max_chars=(s.crystal_span_chars if demote else 3_200),
-                span_count=1 if demote else max(1, int(s.raw_span_per_record)),
+                span_count=2 if demote else max(1, int(s.raw_span_per_record)),
             )
             if s.context_compress_enabled and s.compression_ratio < 1.0:
                 txt = compress_chunk(txt, query, s.compression_ratio)

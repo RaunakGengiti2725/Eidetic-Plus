@@ -83,7 +83,9 @@ def test_demotion_shrinks_crystallized_low_salience_context(fresh_settings):
     kept = r2.assemble_context("When did the kiln schedule move?", cands2, scope=scope)
 
     assert _raw_block_chars(demoted) < _raw_block_chars(kept)
-    assert _raw_block_chars(demoted) <= settings.crystal_span_chars + 120
+    # Demoted records contribute up to two query-centered spans (the span helper enforces a
+    # ~700-char floor per span), still a fraction of the full record.
+    assert _raw_block_chars(demoted) <= 2 * 700 + 240
     # the query-centered span keeps the answering sentence
     assert any("kiln schedule moved" in b for b in demoted)
 

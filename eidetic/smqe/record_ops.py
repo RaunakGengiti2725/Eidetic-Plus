@@ -4384,6 +4384,10 @@ def _execute_atoms(plan: ExecutionPlan, query: str,
             action_variants: set[str] = set()
             for base in _verb_base_forms(action_m.group(1)):
                 action_variants |= _verb_variants(base)
+                # Synonym families matter more than morphology here: "did I BUY a smoker" must
+                # anchor on "just GOT a smoker" (acquisition family), not exclude it.
+                if base in _COUNT_ACTION_FAMILIES:
+                    action_variants |= _COUNT_ACTION_FAMILIES[base]
             if action_variants:
                 anchored = [row for row in atoms
                             if action_variants & _expanded_terms(_item_match_text(row[1], row[2]))]
