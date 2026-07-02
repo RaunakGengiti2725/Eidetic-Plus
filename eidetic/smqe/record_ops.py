@@ -970,8 +970,15 @@ def _single_anchor_delta_answer(
 def _elapsed_value(days: int, unit: str, *, with_unit: bool = False) -> str:
     unit = (unit or "days").lower()
     if unit.startswith("week"):
-        value = days // 7
+        # Half-week precision: 24-25 days is 3.5 weeks, not 3. Whole days floor-divide; a
+        # remainder of 3-4 days rounds to the half.
+        whole, rem = divmod(max(0, days), 7)
+        value = whole + (0.5 if 3 <= rem <= 4 else (1 if rem > 4 else 0))
         label = "week"
+        text = f"{value:g}"
+        if with_unit:
+            return f"{text} {label}{'' if value == 1 else 's'}"
+        return text
     elif unit.startswith("month"):
         value = days // 30
         label = "month"
@@ -3329,6 +3336,12 @@ def _is_event_order_query(query: str) -> bool:
 def _event_order_answer(query: str, atoms: list[tuple[float, object, str]]) -> tuple[str, list[tuple[float, object, str]]]:
     if not _is_event_order_query(query):
         return "", []
+    # A full ordering of three or more events needs a composed timeline; answering with the
+    # single first event is wrong by construction. The event-chain reader context owns that
+    # composition, so fail closed here.
+    if re.search(r"\b(?:three|four|five|\d+)\s+events\b", (query or "").lower()) or \
+            len(_temporal_anchor_groups(query)) >= 3:
+        return "", []
     groups = _temporal_anchor_groups(query)
     if len(groups) >= 2:
         selected: list[tuple[date, int, float, object, str]] = []
@@ -4087,7 +4100,22 @@ def _source_suggestion_answer(query: str, atoms: list[tuple[float, object, str]]
     items = _dedupe(items)
     if beverage_query:
         items = _order_beverage_event_items(items, selected)
+    # Fragment guard: a composed suggestion list must read as items, not prose shards. Discourse
+    # openers and dangling clauses are extraction noise; if trimming them guts the list, the
+    # composition is unreliable and the reader owns the answer.
+    clean_items = [
+        item for item in items
+        if not re.match(r"^(?:it'?s|there|that|this|these|those|interesting|creating|also|and|but|"
+                        r"can|could|would|do|does|did|what|which|how|why)\b", item, re.I)
+        and not re.search(r"\*\*|[:;?]\s*$", item)
+    ]
+    if len(items) >= 3 and len(clean_items) < max(2, len(items) - 1):
+        return "", []
+    items = clean_items
     if not items or not selected:
+        return "", []
+    # A fresh advice request needs a recommendation SET; one scavenged phrase is not advice.
+    if len(items) == 1 and not _PAST_RECOMMENDATION_RE.search(query or ""):
         return "", []
     if len(items) == 1:
         return items[0], selected[:3]
@@ -4225,6 +4253,13 @@ def _execute_atoms(plan: ExecutionPlan, query: str,
         return None
 
     if op == "count_aggregate":
+        # Current-state ownership counts ("How many bikes do I currently own?") depend on
+        # supersession (sold/replaced items must not count); the conflict-resolver reader path
+        # owns that reasoning. Fail closed here.
+        if re.search(r"\bhow\s+many\b[^?]{0,60}\b(?:currently|now)\s+(?:own|have|has|owns)\b"
+                     r"|\bcurrently\s+(?:own|have|owns)\b", query or "", re.I):
+            return None
+        windowed_count = bool((plan.filters or {}).get("date_ranges")) or bool(_query_temporal_windows(plan))
         atoms = _filter_atoms_to_query_windows(plan, atoms)
         if not atoms:
             return None
@@ -4241,6 +4276,27 @@ def _execute_atoms(plan: ExecutionPlan, query: str,
         ):
             answer, selected = helper(query, atoms)
             if answer and selected:
+                # An UNBOUNDED accumulation count ("how many projects have I led?") backed by one
+                # anchor is more likely an undercount than a fact; a single source can prove a
+                # stated total or a windowed count, but not a whole-history enumeration. Fail
+                # closed to the reader for those.
+                low_count = answer.strip().lower() in {"one", "two", "1", "2"}
+                stated_total = any(
+                    re.search(r"\b(?:total|all|altogether|in\s+total)\b", a, re.I)
+                    for _s, _i, a in selected
+                )
+                if low_count and not windowed_count and not stated_total:
+                    # Every supporting atom must actually be about the counted action/target;
+                    # an explicit number in an unrelated sentence is not an enumeration.
+                    c_action, c_target = _count_profile(query)
+                    thr = _target_threshold(c_target)
+                    grounded = [
+                        (s, i, a) for s, i, a in selected
+                        if (not c_action or (_expanded_terms(_item_match_text(i, a)) & c_action))
+                        and (not thr or _target_hit_count(_expanded_terms(_item_match_text(i, a)), c_target) >= thr)
+                    ]
+                    if len(grounded) < 2:
+                        continue
                 return result_from(answer, selected)
         return None
 
@@ -4307,6 +4363,19 @@ def _execute_atoms(plan: ExecutionPlan, query: str,
         return None
 
     if op in {"temporal_delta", "relative_temporal"}:
+        # A delta about an ACTION ("How many days ago did I buy a smoker?") must anchor on the
+        # action itself, not on any later mention of the object; a question-day chat about the
+        # smoker would otherwise compute a zero-day delta.
+        action_m = re.search(r"\bago\s+did\s+(?:i|we)\s+([a-z][a-z'-]{2,})\b", (query or "").lower())
+        if action_m:
+            action_variants: set[str] = set()
+            for base in _verb_base_forms(action_m.group(1)):
+                action_variants |= _verb_variants(base)
+            if action_variants:
+                anchored = [row for row in atoms
+                            if action_variants & _expanded_terms(_item_match_text(row[1], row[2]))]
+                if anchored:
+                    atoms = anchored
         if op == "relative_temporal":
             entity_terms = _subject_entity_terms(query)
             target_terms = _relative_temporal_target_terms(query)
