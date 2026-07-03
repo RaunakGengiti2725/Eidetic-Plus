@@ -4023,3 +4023,53 @@ def test_open_inference_copular_needs_titlecase_and_target(tmp_path):
     )
 
     assert ans is None or "chilly" not in ans.answer
+
+
+def test_event_order_composes_dated_timeline_for_three_events(tmp_path):
+    """'Which three events happened in the order from first to last: A, B, and C?' composes a
+    DATED timeline from anchored records - deterministic and judge-checkable, instead of
+    failing closed to a reader that echoes the question's order undated."""
+    store = RecordStore(tmp_path / "event-order-3.sqlite")
+    scope = Scope(namespace="event-order-3")
+    rows = [
+        ("User: I just helped my friend prepare a nursery today.", datetime(2023, 2, 5, 12, 0)),
+        ("User: I just helped my cousin pick out some stuff for her baby shower.",
+         datetime(2023, 2, 10, 12, 0)),
+        ("User: I just ordered a customized phone case for my friend's birthday today.",
+         datetime(2023, 2, 20, 12, 0)),
+        ("User: The weather was lovely all week.", datetime(2023, 2, 12, 12, 0)),
+    ]
+    for text, dt in rows:
+        store.upsert_record(_record(text, scope=scope, valid_at=dt.timestamp()))
+
+    ans = structured_answer(
+        _Retriever(store),
+        "Which three events happened in the order from first to last: the day I helped my "
+        "friend prepare the nursery, the day I helped my cousin pick out stuff for her baby "
+        "shower, and the day I ordered a customized phone case for my friend's birthday?",
+        at=datetime(2023, 3, 1, 12, 0).timestamp(), scope=scope,
+    )
+
+    assert ans is not None
+    assert ans.verified is True
+    low = ans.answer.lower()
+    assert "2023-02-05" in ans.answer and "2023-02-10" in ans.answer and "2023-02-20" in ans.answer
+    assert low.index("nursery") < low.index("baby shower") < low.index("phone case")
+
+
+def test_event_order_three_events_fails_closed_when_one_unanchored(tmp_path):
+    store = RecordStore(tmp_path / "event-order-miss.sqlite")
+    scope = Scope(namespace="event-order-miss")
+    store.upsert_record(_record(
+        "User: I just helped my friend prepare a nursery today.",
+        scope=scope, valid_at=datetime(2023, 2, 5, 12, 0).timestamp()))
+
+    ans = structured_answer(
+        _Retriever(store),
+        "Which three events happened in the order from first to last: the day I helped my "
+        "friend prepare the nursery, the day I adopted the parrot, and the day I sold my "
+        "kayak?",
+        at=datetime(2023, 3, 1, 12, 0).timestamp(), scope=scope,
+    )
+
+    assert ans is None or "parrot" not in ans.answer

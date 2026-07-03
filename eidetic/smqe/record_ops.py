@@ -3528,15 +3528,59 @@ def _is_event_order_query(query: str) -> bool:
         q))
 
 
+def _event_order_query_phrases(query: str) -> list[str]:
+    """The N listed event phrases of a full-ordering question ('...: A, B, and C?'), or []."""
+    tail = query or ""
+    if ":" in tail:
+        tail = tail.split(":", 1)[1]
+    else:
+        m = re.search(r"\border\s+from\s+first\s+to\s+last\b(.*)$", tail, re.I)
+        if not m:
+            return []
+        tail = m.group(1)
+    parts = re.split(r",\s*(?:and\s+)?|\s+and\s+(?=the\s+day\b)", tail.strip().rstrip("?. "))
+    phrases = [re.sub(r"^(?:the\s+day\s+(?:i|we)\s+|the\s+day\s+)", "", p.strip(), flags=re.I)
+               for p in parts]
+    return [p for p in phrases if len(p.split()) >= 2]
+
+
 def _event_order_answer(query: str, atoms: list[tuple[float, object, str]]) -> tuple[str, list[tuple[float, object, str]]]:
     if not _is_event_order_query(query):
         return "", []
-    # A full ordering of three or more events needs a composed timeline; answering with the
-    # single first event is wrong by construction. The event-chain reader context owns that
-    # composition, so fail closed here.
+    # A full ordering of three or more events needs a COMPOSED timeline; answering with the
+    # single first event is wrong by construction. Compose it: anchor EVERY listed phrase to a
+    # dated record (family-aware hit scoring), sort by event date, and emit '[date] phrase'
+    # entries - deterministic, judge-checkable, and verified at anchor level as a computed op.
+    # Any unanchored phrase fails the whole composition closed to the reader.
     if re.search(r"\b(?:three|four|five|\d+)\s+events\b", (query or "").lower()) or \
             len(_temporal_anchor_groups(query)) >= 3:
-        return "", []
+        phrases = _event_order_query_phrases(query)
+        if len(phrases) < 3:
+            return "", []
+        timeline: list[tuple[date, str, float, object, str]] = []
+        used_atoms: set[str] = set()
+        for phrase in phrases:
+            terms = _temporal_anchor_terms(phrase)
+            best: tuple[int, float, date, object, str] | None = None
+            for score, item, atom in atoms[:200]:
+                if atom in used_atoms:
+                    continue
+                hit = _temporal_anchor_hit_score(terms, atom)
+                if not hit:
+                    continue
+                d = _event_date(item, atom)
+                if d is None:
+                    continue
+                if best is None or (hit, score) > (best[0], best[1]):
+                    best = (hit, score, d, item, atom)
+            if best is None:
+                return "", []
+            _hit, score, d, item, atom = best
+            used_atoms.add(atom)
+            timeline.append((d, phrase, score, item, atom))
+        timeline.sort(key=lambda row: row[0])
+        answer = "; ".join(f"[{d.isoformat()}] {phrase}" for d, phrase, _s, _i, _a in timeline)
+        return answer, [(score, item, atom) for _d, _p, score, item, atom in timeline]
     groups = _temporal_anchor_groups(query)
     if len(groups) >= 2:
         selected: list[tuple[date, int, float, object, str]] = []
