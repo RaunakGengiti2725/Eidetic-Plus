@@ -1360,3 +1360,18 @@ anchor-precision investigation), ordinal-anchor slot op (design ready: 'my secon
 self-labeled anchors -> same-record TitleCase slot; c3_q93 target), reader partial-list class
 (c4_q53/c6_q40), cost-flag promotions, EXTRACT_COMBINED, verify LRU, record_ops legacy-collector
 shrink (the junk factories are now verify-gated but still emit).
+
+### Wave J continued - temporal wrong-instance + ordinal class fixes (2026-07-03)
+
+- Bare-year statements ('she gave it to me in 2010') are now date-answer candidates (c0ac08d):
+  the pendant row's strongest evidence was invisible to the extractor while a weaker 'last
+  year' atom shipped verified-wrong. H2H-40 store replays exactly '2010'.
+- Ordinal-anchor slot operator + crystal hygiene (87c3d82): 'the SECOND tournament' questions
+  answer from the self-labeled occurrence's own record ('Street Fighter' exact on the H2H-40
+  store); dialogue crystals now require wh-class agreement and never serve pleasantry-only
+  answers ('Hey Joanna, thanks!' bridged from a how-question crystal was the shipped junk).
+- Remaining from the n=40 taxonomy: c9_q12 Tokyo multi-event ambiguity (possessive
+  performance-vs-visit anchoring - analysis done, precision work queued), reader partial-list
+  rows, record_ops legacy-collector shrink, cost-flag promotions, EXTRACT_COMBINED, verify LRU.
+
+Suite 1272 green; dialogue/paraphrase/lacuna/fullpath sidecars pass post-change.
