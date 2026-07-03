@@ -394,6 +394,14 @@ class DashScopeClient:
             self._embed_cache = PersistentEmbedCache(self.settings.data_dir / "embed_cache.sqlite")
         else:
             self._embed_cache = None
+        # Extraction-result cache (keyed by model+prompt-hash+window): re-ingesting identical
+        # content stops re-paying temp-0 extraction calls. Construction is offline-safe.
+        if self.settings.extract_result_cache_enabled:
+            from .extract_cache import PersistentExtractCache
+            self._extract_cache = PersistentExtractCache(
+                self.settings.data_dir / "extract_cache.sqlite")
+        else:
+            self._extract_cache = None
 
     def _governed(self, fn: Callable[[], Any]) -> Any:
         """Route a real SDK call (the callable MUST include _ok so a 429 raises) through the rate
@@ -631,6 +639,29 @@ class DashScopeClient:
             return dedupe_triples(triples)
         return self._extract_edges_window(text[:6000])
 
+    _EDGES_SYSTEM = (
+        "Extract factual (subject, relation, object) triples from the text for a "
+        "knowledge graph. Reply ONLY as JSON: {\"triples\": [{\"src\":..,\"relation\":..,"
+        "\"dst\":..,\"fact\":..}]}. Keep entity names canonical and short. Empty list if none."
+    )
+
+    def _cached_extract_chat(self, model: str, system_prompt: str, window: str) -> str:
+        """One temp-0 extraction call, served from the persistent extraction cache when the
+        (model, prompt, window) triple was seen before. Errors and moderation skips are never
+        cached: only a successfully returned raw output is stored."""
+        cache = getattr(self, "_extract_cache", None)
+        if cache is not None:
+            hit = cache.get(model, system_prompt, window)
+            if hit is not None:
+                return hit
+        raw = self.chat(
+            model, system_prompt, f"Text:\n{window}",
+            json_mode=True, temperature=0.0, max_tokens=2048,
+        )
+        if cache is not None:
+            cache.put(model, system_prompt, window, raw)
+        return raw
+
     def _extract_edges_window(self, window: str) -> list[dict[str, str]]:
         """One extraction call over an already-prepared text window (no re-truncation).
 
@@ -640,14 +671,7 @@ class DashScopeClient:
         "fewer facts this window" instead of aborting the whole consolidation/run. Never fabricated."""
         model = self.settings.salience_model if self.settings.extract_light_enabled else self.settings.extract_model
         try:
-            raw = self.chat(
-                model,
-                "Extract factual (subject, relation, object) triples from the text for a "
-                "knowledge graph. Reply ONLY as JSON: {\"triples\": [{\"src\":..,\"relation\":..,"
-                "\"dst\":..,\"fact\":..}]}. Keep entity names canonical and short. Empty list if none.",
-                f"Text:\n{window}",
-                json_mode=True, temperature=0.0, max_tokens=2048,
-            )
+            raw = self._cached_extract_chat(model, self._EDGES_SYSTEM, window)
         except ModelCallError as e:
             # Content the moderation filter rejects yields no triples (the raw text still lives in
             # the substrate); skipping it keeps consolidation alive instead of aborting the sample.
@@ -683,19 +707,18 @@ class DashScopeClient:
             return dedupe_claim_dicts(claims)
         return self._extract_claims_window(text[:6000])
 
+    _CLAIMS_SYSTEM = (
+        "Extract source-backed memory claims from the text. Reply ONLY as JSON: "
+        "{\"claims\":[{\"claim_type\":\"state|quantity|event|interval|table|preference\","
+        "\"subject\":...,\"predicate\":...,\"object\":...,\"value\":...,\"unit\":...,"
+        "\"proof_atom\":...}]}. proof_atom must be a verbatim span from the text. "
+        "Do not answer questions and do not infer beyond the text."
+    )
+
     def _extract_claims_window(self, window: str) -> list[dict[str, Any]]:
         model = self.settings.salience_model if self.settings.extract_light_enabled else self.settings.extract_model
         try:
-            raw = self.chat(
-                model,
-                "Extract source-backed memory claims from the text. Reply ONLY as JSON: "
-                "{\"claims\":[{\"claim_type\":\"state|quantity|event|interval|table|preference\","
-                "\"subject\":...,\"predicate\":...,\"object\":...,\"value\":...,\"unit\":...,"
-                "\"proof_atom\":...}]}. proof_atom must be a verbatim span from the text. "
-                "Do not answer questions and do not infer beyond the text.",
-                f"Text:\n{window}",
-                json_mode=True, temperature=0.0, max_tokens=2048,
-            )
+            raw = self._cached_extract_chat(model, self._CLAIMS_SYSTEM, window)
         except ModelCallError as e:
             if _is_content_moderation(str(e)):
                 return []

@@ -750,6 +750,13 @@ class Settings:
         default_factory=lambda: _get_bool("RERANK_SPAN_INPUT", "0")
     )
     rerank_span_chars: int = field(default_factory=lambda: _get_int("RERANK_SPAN_CHARS", 1400))
+    # Persistent extraction-result cache keyed by (model, prompt-hash, window): re-ingesting
+    # identical content stops re-paying temp-0 extraction calls. Default OFF; the win is
+    # confined to reused DATA_DIRs, and model-alias drift is the same accepted risk as the
+    # shipped embed cache.
+    extract_result_cache_enabled: bool = field(
+        default_factory=lambda: _get_bool("EXTRACT_RESULT_CACHE", "0")
+    )
 
     # Prod-only (Alibaba Cloud)
     oss_bucket: str = field(default_factory=lambda: _get("OSS_BUCKET"))
