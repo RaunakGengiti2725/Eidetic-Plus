@@ -1331,3 +1331,32 @@ across three arms: 15/15/14; cost -28% twice-reproduced; no verified-wrong in an
 Config default stays off until bigger-n evidence. Cross-run accuracy noise (+-1-2 rows at
 n=20) now dominates every remaining delta - the bigger-n/holdout gate need is the top
 evaluation-infrastructure item.
+
+---
+
+## Wave J - LoCoMo-40 h2h + junk-enumeration class kill (2026-07-03)
+
+Bigger-n merit test (artifacts/wave_j_h2h_locomo40_codex, ADAPTIVE_CONTEXT=1, fresh ingest):
+
+| system | correct | verified-correct | abstained | errors | median qtok |
+|---|---|---|---|---|---|
+| **eidetic-plus-full** | **25/40 (62.5%)** | **25/40** | 6 | 0 | 4030 |
+| mem0 | 18/40 (45%) | 0/40 | 0 | 3 | 371 |
+
+At doubled n the merit gap is decisive: +17.5pp correct, every correct answer verified, zero
+errors (mem0 had 3), adaptive context holding the -28% cost cut at scale. 17/40 answers were
+structured (~28 tokens each).
+
+Miss taxonomy (15) exposed the dominant verified-wrong CLASS: assembled fragment lists
+('Good, Great Job, Ok, You Get' as outdoor activities) - every fragment quotable, so the
+multi-support anchor exemption verified junk on four rows. Per-collector gating was
+whack-a-mole (attempted, reverted); the class died at the VERIFY layer (bce5df3): assembled
+enumerations from non-computed ops need every item to be a credible content phrase or they
+face the strict hypothesis. All four junk shapes denied, legit list shapes preserved
+(matrix-tested), suite 1269 green, wave-F replay byte-identical.
+
+Remaining wave-J queue: temporal wrong-instance class (pendant 2010->2022, Tokyo May->Nov -
+anchor-precision investigation), ordinal-anchor slot op (design ready: 'my second tournament'
+self-labeled anchors -> same-record TitleCase slot; c3_q93 target), reader partial-list class
+(c4_q53/c6_q40), cost-flag promotions, EXTRACT_COMBINED, verify LRU, record_ops legacy-collector
+shrink (the junk factories are now verify-gated but still emit).
