@@ -68,3 +68,36 @@ def test_flag_off_never_touches_the_cache(fresh_settings, tmp_path, monkeypatch)
     assert calls["n"] == 2                       # no cache: both calls paid
     assert c._extract_cache is None
     assert not (tmp_path / "data" / "extract_cache.sqlite").exists()
+
+
+def test_extract_combined_halves_calls_and_feeds_both_channels(fresh_settings, tmp_path, monkeypatch):
+    """EXTRACT_COMBINED: one call per window yields identical triples AND claims; flag off
+    keeps the two-call path byte-identical."""
+    from dataclasses import replace as _replace
+
+    combined_raw = (
+        '{"triples": [{"src":"Ari","relation":"waters","dst":"the fern",'
+        '"fact":"Ari waters the fern"}],'
+        ' "claims": [{"claim_type":"state","subject":"Ari","predicate":"waters",'
+        '"object":"the fern","value":"Ari waters the fern weekly",'
+        '"proof_atom":"Ari waters the fern every Sunday."}]}'
+    )
+    s = _replace(fresh_settings, data_dir=tmp_path / "data", extract_combined_enabled=True)
+    c = DashScopeClient(s)
+    calls = {"n": 0}
+
+    def fake_chat(model, system, user, **kw):
+        calls["n"] += 1
+        return combined_raw
+
+    monkeypatch.setattr(c, "chat", fake_chat)
+    triples, claims = c.extract_edges_and_claims_bounded("Ari waters the fern every Sunday.")
+    assert calls["n"] == 1
+    assert triples and triples[0]["src"] == "Ari"
+    assert claims and claims[0]["proof_atom"].startswith("Ari waters")
+
+    # truncated combined payload: salvage keeps the complete objects per channel
+    truncated = combined_raw[:combined_raw.rfind('"claims"') + 200]
+    monkeypatch.setattr(c, "chat", lambda *a, **k: truncated)
+    t2, c2 = c.extract_edges_and_claims_bounded("different window text entirely")
+    assert t2 and t2[0]["src"] == "Ari"          # the complete triple survives truncation

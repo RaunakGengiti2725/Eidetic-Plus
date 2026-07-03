@@ -645,7 +645,8 @@ class DashScopeClient:
         "\"dst\":..,\"fact\":..}]}. Keep entity names canonical and short. Empty list if none."
     )
 
-    def _cached_extract_chat(self, model: str, system_prompt: str, window: str) -> str:
+    def _cached_extract_chat(self, model: str, system_prompt: str, window: str,
+                             *, max_tokens: int = 2048) -> str:
         """One temp-0 extraction call, served from the persistent extraction cache when the
         (model, prompt, window) triple was seen before. Errors and moderation skips are never
         cached: only a successfully returned raw output is stored."""
@@ -656,11 +657,57 @@ class DashScopeClient:
                 return hit
         raw = self.chat(
             model, system_prompt, f"Text:\n{window}",
-            json_mode=True, temperature=0.0, max_tokens=2048,
+            json_mode=True, temperature=0.0, max_tokens=max_tokens,
         )
         if cache is not None:
             cache.put(model, system_prompt, window, raw)
         return raw
+
+    _COMBINED_SYSTEM = (
+        "Extract BOTH of the following from the text, in one JSON object: "
+        "(1) factual (subject, relation, object) triples for a knowledge graph - keep entity "
+        "names canonical and short; (2) source-backed memory claims - proof_atom must be a "
+        "verbatim span from the text; do not answer questions and do not infer beyond the "
+        "text. Reply ONLY as JSON: {\"triples\": [{\"src\":..,\"relation\":..,\"dst\":..,"
+        "\"fact\":..}], \"claims\":[{\"claim_type\":\"state|quantity|event|interval|table|"
+        "preference\",\"subject\":...,\"predicate\":...,\"object\":...,\"value\":...,"
+        "\"unit\":...,\"proof_atom\":...}]}. Empty lists if none."
+    )
+
+    def extract_edges_and_claims_bounded(
+            self, text: str, *, max_windows: int = 0) -> tuple[list[dict], list[dict]]:
+        """ONE call per window returning both extraction channels (EXTRACT_COMBINED): every
+        window previously paid twice - once for edges, once for claims - over the identical
+        text. The same truncation-resilient parsers read the combined payload (their field
+        filters disambiguate mixed salvage), so a truncated response degrades per channel
+        instead of aborting; moderation skips yield empty channels for that window."""
+        s = self.settings
+        windows = [text[:6000]]
+        if s.extract_chunking_enabled and len(text) > 6000:
+            windows = chunk_text(text, s.extract_chunk_chars, s.extract_chunk_overlap)
+            if max_windows > 0:
+                windows = windows[:max_windows]
+        model = s.salience_model if s.extract_light_enabled else s.extract_model
+        triples: list[dict] = []
+        claims: list[dict] = []
+        for w in windows:
+            try:
+                raw = self._cached_extract_chat(model, self._COMBINED_SYSTEM, w,
+                                                max_tokens=4096)
+            except ModelCallError as e:
+                if _is_content_moderation(str(e)):
+                    continue
+                raise
+            for t in _parse_triples(raw):
+                if t.get("src") and t.get("relation") and t.get("dst"):
+                    triples.append({
+                        "src": str(t["src"]).strip(),
+                        "relation": str(t["relation"]).strip(),
+                        "dst": str(t["dst"]).strip(),
+                        "fact": str(t.get("fact", f"{t['src']} {t['relation']} {t['dst']}")).strip(),
+                    })
+            claims.extend(_parse_claims(raw))
+        return dedupe_triples(triples), dedupe_claim_dicts(claims)
 
     def _extract_edges_window(self, window: str) -> list[dict[str, str]]:
         """One extraction call over an already-prepared text window (no re-truncation).

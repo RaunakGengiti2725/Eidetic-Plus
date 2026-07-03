@@ -778,6 +778,12 @@ class Settings:
     verify_nli_cache_size: int = field(
         default_factory=lambda: _get_int("VERIFY_NLI_CACHE_SIZE", 2048)
     )
+    # One extraction call per window feeding BOTH the edges and claims channels (halves
+    # write-path extraction calls). Default OFF: the combined-prompt output quality needs a
+    # live A/B before any profile adopts it.
+    extract_combined_enabled: bool = field(
+        default_factory=lambda: _get_bool("EXTRACT_COMBINED", "0")
+    )
 
     # Prod-only (Alibaba Cloud)
     oss_bucket: str = field(default_factory=lambda: _get("OSS_BUCKET"))

@@ -1477,10 +1477,17 @@ class Engine:
                     claims_on = self.settings.claim_extraction_enabled
                     claim_bounded = getattr(self.client, "extract_claims_bounded", None) if claims_on else None
                     claim_extract = getattr(self.client, "extract_claims", None) if claims_on else None
+                    combined = (getattr(self.client, "extract_edges_and_claims_bounded", None)
+                                if claims_on and self.settings.extract_combined_enabled else None)
                     allow = window_allowance.get(rec.memory_id, 0)
                     if allow <= 0:
                         triples = []
                         extracted_claims = []
+                    elif callable(combined):
+                        # EXTRACT_COMBINED: one call per window feeds BOTH channels.
+                        t2, c2 = combined(rec.text, max_windows=allow if window_cap_per_record else 0)
+                        triples.extend(t2)
+                        extracted_claims.extend(c2)
                     elif window_cap_per_record and callable(bounded):
                         triples.extend(bounded(rec.text, max_windows=allow))
                         if callable(claim_bounded):
