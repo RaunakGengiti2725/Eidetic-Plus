@@ -108,3 +108,27 @@ def test_deferred_reembed_enqueue_and_drain(fresh_settings):
     assert e.brain_log.by_type(BrainEventType.REEMBED_DEFERRED)
     # a second drain is a clean no-op.
     assert e.drain_reembed_queue()["reembedded"] == 0
+
+
+# ---- reader ordering guidance ----------------------------------------------------------------
+def test_reader_prompt_anchors_event_order_questions(monkeypatch):
+    """Ordering questions get an explicit date-anchoring instruction: an answer that merely
+    echoes the question's event phrases is unprovable; dates make the ordering checkable."""
+    c = DashScopeClient(replace(get_settings(), reader_cot_enabled=True))
+    seen = {}
+
+    def fake_chat_json(model, system, user, **kw):
+        seen["system"] = system
+        return {"answer": "ok"}
+
+    monkeypatch.setattr(c, "chat_json", fake_chat_json)
+    c.generate_answer(
+        "Which three events happened in the order from first to last: the fair, the recital, "
+        "and the workshop?",
+        ["[2024-02-05] the fair", "[2024-03-01] the recital"],
+    )
+    assert "chronological" in seen["system"].lower()
+    assert "date" in seen["system"].lower()
+
+    c.generate_answer("What color is my bike?", ["the bike is red"])
+    assert "chronological" not in seen["system"].lower()

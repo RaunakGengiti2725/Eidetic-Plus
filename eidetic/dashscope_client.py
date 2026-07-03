@@ -821,11 +821,26 @@ class DashScopeClient:
         return [(int(r["index"]), float(r["relevance_score"])) for r in results]
 
     # ---- Component 6: answer generation ----------------------------------
+    _EVENT_ORDER_QUESTION_RE = re.compile(
+        r"\border\s+from\s+first\b|\bfirst\s+to\s+last\b|\bhappened\s+first\b|"
+        r"\bin\s+(?:what|which)\s+order\b|\bchronological\b",
+        re.I,
+    )
+
     def generate_answer(self, question: str, context_blocks: list[str],
                         model: Optional[str] = None) -> str:
         """Answer strictly grounded in retrieved memory. `model` selects the cascade tier
         (qwen-flash / qwen-plus / qwen3-max); defaults to the configured gen model."""
         ctx = "\n\n".join(f"[S{i}] {b[:3000]}" for i, b in enumerate(context_blocks))
+        # An ordering answer that merely echoes the question's event phrases is unprovable;
+        # anchoring each event to its source date makes the ordering checkable.
+        order_hint = ""
+        if self._EVENT_ORDER_QUESTION_RE.search(question or ""):
+            order_hint = (
+                " For questions about the order or timing of events, list the events in "
+                "chronological order and anchor EACH event to its date from the sources, "
+                "e.g. [2023-02-05] <event>."
+            )
         if self.settings.reader_cot_enabled:
             data = self.chat_json(
                 model or self.settings.gen_model,
@@ -834,7 +849,8 @@ class DashScopeClient:
                 "Reply ONLY as JSON: {\"notes\":[{\"source\":\"S0\",\"relevant\":true,"
                 "\"note\":\"...\"}],\"answer\":\"...\"}. The answer must cite sources inline "
                 "as [S0], [S1]. If the sources do not contain the answer, set answer to "
-                "\"I do not have that in memory.\" Never invent facts beyond the sources.",
+                "\"I do not have that in memory.\" Never invent facts beyond the sources."
+                + order_hint,
                 f"Question: {question}\n\nSources:\n{ctx}",
                 temperature=0.1, max_tokens=1536,
             )
@@ -846,7 +862,8 @@ class DashScopeClient:
             model or self.settings.gen_model,
             "You are a memory agent. Answer ONLY from the provided sources. Cite sources "
             "inline as [S0], [S1]. If the sources do not contain the answer, say you do "
-            "not have that in memory. Never invent facts beyond the sources.",
+            "not have that in memory. Never invent facts beyond the sources."
+            + order_hint,
             f"Question: {question}\n\nSources:\n{ctx}",
             temperature=0.1, max_tokens=1024,
         )
