@@ -4417,3 +4417,42 @@ def test_deterministic_claims_destructure_enjoy_statements(tmp_path):
                    valid_at=1_700_000_200)
     for c in claims_for_record(rec2):
         assert c.subject.lower() not in {"remember", "simply", "anyway"}
+
+
+def test_malformed_enumerations_are_refused_even_when_nli_entails(tmp_path):
+    """Live probe shipped 'Nike and Under Armour, these make me, basketball, a blast...' as a
+    VERIFIED answer - the NLI entailed fragment soup against a long premise. A non-credible
+    enumeration from a non-computed op is malformed regardless of entailment: verification
+    refuses it outright (fail closed to the reader), on every producer path."""
+    from eidetic.models import NLILabel
+
+    class _AlwaysEntail(_Retriever):
+        def verify(self, premise, hypothesis):
+            return (NLILabel.ENTAILMENT, 0.99)
+
+        def verify_citation(self, rec, hypothesis):
+            return (NLILabel.ENTAILMENT, 0.99)
+
+    store = RecordStore(tmp_path / "malformed-enum.sqlite")
+    scope = Scope(namespace="malformed-enum")
+    a = _record("User: Nike and Under Armour make great gear.", scope=scope, valid_at=1.0)
+    b = _record("User: these make me happy, what a blast.", scope=scope, valid_at=2.0)
+    store.upsert_record(a)
+    store.upsert_record(b)
+    result = StructuredAnswerResult(
+        answer="Nike and Under Armour, these make me, basketball, a blast, big games",
+        op="open_inference",
+        backend="claim",
+        supports=[
+            StructuredSupport(memory_id=a.memory_id, proof_atom="Nike and Under Armour"),
+            StructuredSupport(memory_id=b.memory_id, proof_atom="a blast"),
+        ],
+        note="smqe:open_inference:claim",
+    )
+
+    ans = answer_from_result(
+        _AlwaysEntail(store),
+        "What sports does John like besides basketball?",
+        result, verify=True,
+    )
+    assert ans is None

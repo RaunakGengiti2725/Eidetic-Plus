@@ -57,8 +57,9 @@ _ENUM_ITEM_JUNK = {
     "ok", "okay", "really", "similarly", "sure", "thank you", "thanks", "well", "wow", "yes",
 }
 _ENUM_ITEM_HEAD_STOP = {
-    "at", "he", "her", "his", "i", "in", "it", "my", "on", "our", "she", "that", "their",
-    "they", "this", "we", "you", "your",
+    "at", "he", "her", "his", "i", "in", "it", "like", "my", "on", "our",
+    "she", "that", "their", "these", "they", "this", "those", "to", "we", "what",
+    "you", "your",
 }
 
 
@@ -128,6 +129,18 @@ def _atom_anchor_allowed(query: str, result: StructuredAnswerResult) -> bool:
 def answer_from_result(retriever, query: str, result: StructuredAnswerResult,
                        *, verify: bool = True) -> Answer | None:
     if result is None or not result.answer or not result.supports:
+        return None
+    # Answer-FORM refusal: a non-credible enumeration from a non-computed op is malformed
+    # regardless of entailment - live NLI was observed entailing fragment soup against a long
+    # premise, shipping it verified. Deterministic refusal here covers EVERY producer path
+    # (the dispatch decline only guards the first helper chain).
+    if (verify
+            and _ENUMERATED_ANSWER_RE.match(result.answer or "")
+            and result.op not in _COMPUTED_OPS
+            and result.op != "preference_synth"
+            and not _enumeration_items_credible(result.answer)):
+        # preference_synth keeps the same carve-out as the anchor rule: suggestion output is
+        # context fragments by design and provenance-gated upstream.
         return None
     citations: list[Citation] = []
     entailed = 0
