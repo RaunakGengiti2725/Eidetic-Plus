@@ -160,6 +160,52 @@ context on a corpus that already fits. Regions are a SCALE feature; a mixed 24-s
 ablation (12 LongMemEval haystacks + 12 LoCoMo, stratified) is in flight to measure the region
 gate in its operating regime. No thresholds were changed to force this gate.
 
+### Mixed-24 five-role dev ablation, wave-F network-outage roles replayed clean: 4/5 gates PASS
+
+Artifact: `artifacts/holdout_dominance_20260701_codex/ablation_report_mixed24_wave_f.json`
+(12 LongMemEval dev + 12 LoCoMo dev, stratified, one run per role, `dev_ablation_mixed24_wave_f/`).
+
+The original wave-F run hit a real DashScope connectivity outage mid-run: 4 roles
+(`metabolism_off` partial, `regions_off`/`forgetting_off`/`affect_off` in full) died with
+`ConnectionError` during consolidation. This was infrastructure, not a code or accuracy defect --
+confirmed by replaying only those four roles from their exact recorded `run_specs` env (same
+samples file, same flags) with a hardened governor (`DASHSCOPE_MAX_CONCURRENCY=4`,
+`DASHSCOPE_RPM=60`, `DASHSCOPE_SLOT_TIMEOUT_SEC=600`, `DASHSCOPE_MAX_RETRIES=12`,
+`DASHSCOPE_BACKOFF_MAX=120`; none of these are score-affecting manifest keys). All four replayed
+with **zero errors**, and `full` (which had already completed cleanly in the original run) was
+left untouched, so this is a true five-role comparison, not a composite of mismatched runs.
+
+| gate | required | measured |
+|---|---:|---:|
+| metabolism_delta_pp (verified) | >= 5.0 | **+29.2 PASS** |
+| region_delta_pp (verified) | >= 2.0 | **+4.2 PASS** |
+| forgetting_cost_ratio (mean tokens) | >= 1.05 | **1.077 PASS** |
+| forgetting_accuracy_regression_pp | <= 1.0 | **0.0 PASS** |
+| affect_delta_pp (verified) | >= 2.0 | **0.0 FAIL** |
+
+| role | acc | verified | median tokens | mean tokens |
+|---|---:|---:|---:|---:|
+| full | 0.750 | 0.750 | 6,970 | 4,948 |
+| metabolism_off | 0.542 | 0.458 | 7,987 | 4,648 |
+| regions_off | 0.708 | 0.708 | 6,266 | 4,857 |
+| forgetting_off | 0.750 | 0.750 | 7,990 | 5,328 |
+| affect_off | 0.750 | 0.750 | 6,080 | 4,842 |
+
+This is the strongest reading yet: metabolism, regions, and forgetting all clear their gates on
+a genuine mixed LME+LoCoMo slice with zero infra noise. `affect_delta_pp` is exactly 0.0 --
+`full` and `affect_off` are tied 18/24 verified, with exactly one paired flip each way
+(`longmemeval/58bf7951` "What play did I attend at the local community theater?" answered by
+`full`/missed by `affect_off`; `longmemeval/d7c942c3` "Is my mom using the same grocery list
+method as me?" answered by `affect_off`/missed by `full`). This is a single-row coin-flip at
+n=24, not evidence that sleep-time affect salience is inert -- the LoCoMo-20 clean run already
+showed affect earning +5.0pp verified with zero flips against it. The next lever is generic:
+either raise n (more dev samples so a 1-row swing stops deciding the gate) or find a
+non-benchmark-shaped reason `58bf7951` needs affect-boosted salience to retrieve while
+`d7c942c3` does not, and fix the general mechanism -- not tune to these two sample IDs.
+
+No thresholds changed. No holdout spent. Full suite and all rotating sidecars remain green as of
+the last full-suite run (commit `3bcf43d`); no code changed since then for this artifact.
+
 ## UPDATE 2026-07-01 (Dominance proof attempt): honest failure taxonomy
 
 Result: **FAIL closed**. No dominance, SOTA, or "best memory agent" wording is supported by this
