@@ -1259,3 +1259,20 @@ Loop status: every weakness surfaced by tonight's three benchmark surfaces (mixe
 five-role, h2h-20) is fixed, queued with a concrete plan, or adjudicated honest-behavior-vs-
 gold-artifact. Standing targets: mem0 read-cost parity (reflex/semantic-cache promotion path),
 list completeness promotion, EXTRACT_COMBINED, verify LRU, record_ops shrink, bigger-n gates.
+
+### Cost anatomy + parity strategy (2026-07-03)
+
+H2H eidetic rows split: STRUCTURED rows median 28 query tokens (15x cheaper than mem0's 411,
+and verified); READER rows median 6212 (uniform 5-8k context, no difficulty adaptation). The
+whole mem0 gap is the reader path. Strategy, in order of honesty: (1) grow structured coverage
+- every operator fix moves rows to ~28-token verified answers (tonight's five fixes each did
+this); (2) difficulty-adaptive reader context (CONTEXT_TOKEN_BUDGET exists, unset - needs live
+A/B); (3) promote the built-but-off cost flags (RERANK_SPAN_INPUT, reflex, semantic cache,
+EXTRACT_RESULT_CACHE) through dev gates. Eidetic-only h2h RERUN launched
+(artifacts/wave_i_h2h_rerun_codex) to measure the post-h2h fixes (duration-held/first-earliest,
+wh-guard, rescue parity) live on the same 20 rows.
+
+PLURAL_ENUMERATION promotion evaluation: NO-GO recorded. The two partial-list rows never reach
+the enumerator (junk traced to legacy hobbies/commonality machinery + reader truncation, both
+queued under record_ops-shrink); unbounded captures were shown to assemble verified-wrong-risk
+lists, now defensively tightened to short noun phrases (4c80bc4). Flag stays off.
