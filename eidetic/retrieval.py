@@ -4679,18 +4679,22 @@ class Retriever:
                 return True
         return False
 
-    def _quoted_span_anchors(self, candidates: list[RetrievalCandidate],
-                             sentence: str) -> Optional[tuple[list["Citation"], int]]:
+    def _quoted_span_anchors(self, candidates: list[RetrievalCandidate], sentence: str, *,
+                             scope: Optional[Scope] = None,
+                             at: Optional[float] = None) -> Optional[tuple[list["Citation"], int]]:
         """Extractive grounding for a sentence built from verbatim QUOTED spans.
 
         Returns (citations, entailed_count) when the sentence carries at least two quoted
         spans (>=8 chars each) and EVERY span appears verbatim (whitespace/case-normalized) in
-        some candidate's source text; None otherwise. The quotes are the anchors: each cited
-        record carries its own quoted span as the snippet."""
+        a source record; None otherwise. Candidates are searched first; a span whose record
+        fell outside the retrieval shortlist is still provable against the scoped ACTIVE store
+        - extractive proof against the immutable record is the verification contract, and
+        retrieval rank is not part of it. One unfound quote fails the whole sentence."""
         spans = [s.strip() for s in re.findall(r"['\"‘’“”]([^'\"‘’“”]{8,120})['\"‘’“”]", sentence)]
         spans = [s for s in spans if len(s) >= 8]
         if len(spans) < 2:
             return None
+        store_records: Optional[list] = None
         citations: list[Citation] = []
         seen: set[str] = set()
         for span in spans:
@@ -4701,6 +4705,15 @@ class Retriever:
                 if norm in premise:
                     hit = c.record
                     break
+            if hit is None and scope is not None:
+                if store_records is None:
+                    store_records = self.store.active_records_at(
+                        at if at is not None else now(), scope)
+                for rec in store_records:
+                    premise = re.sub(r"\s+", " ", (rec.text or rec.summary or "").lower())
+                    if norm in premise:
+                        hit = rec
+                        break
             if hit is None:
                 return None                      # one unfound quote fails the whole sentence
             if hit.memory_id in seen:
@@ -4853,7 +4866,7 @@ class Retriever:
                 # quoted span is found verbatim in some candidate, the sentence is grounded
                 # extractively across those records - deterministic, zero model calls.
                 if rescue is None:
-                    quoted = self._quoted_span_anchors(candidates, cl)
+                    quoted = self._quoted_span_anchors(candidates, cl, scope=scope, at=at)
                     if quoted is not None:
                         rescue = quoted
                         continue

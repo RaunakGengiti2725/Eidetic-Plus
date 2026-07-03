@@ -241,3 +241,44 @@ def test_rescue_grounds_sentence_of_verbatim_quotes_across_records(fresh_setting
     assert not ans.note.startswith("abstained")
     assert ans.verified is True
     assert any(c.nli_label == NLILabel.ENTAILMENT for c in ans.citations)
+
+
+def test_quoted_anchor_falls_back_to_store_when_record_outside_shortlist(fresh_settings):
+    """A quoted span whose source record fell outside the retrieval shortlist is still
+    provable against the scoped active store - retrieval rank is not part of the
+    verification contract."""
+    from dataclasses import replace as _replace
+
+    from eidetic.graph import KnowledgeGraph
+    from eidetic.models import MemoryRecord, RetrievalCandidate, Scope
+    from eidetic.retrieval import Retriever
+    from eidetic.store import RecordStore
+
+    s = _replace(fresh_settings, rerank_enabled=False)
+    store = RecordStore(s.sqlite_path)
+    scope = Scope(namespace="quote-store")
+    in_short = MemoryRecord(memory_id="m1", content_hash="h1",
+                            text="Rowan went hiking with colleagues from the trail club.",
+                            scope=scope, valid_at=1.0)
+    out_short = MemoryRecord(memory_id="m2", content_hash="h2",
+                             text="Rowan grabbed lunch with friends from the chess league.",
+                             scope=scope, valid_at=2.0)
+    store.upsert_record(in_short)
+    store.upsert_record(out_short)
+    class _Sub:
+        def get(self, h):
+            raise KeyError(h)          # -> _ground_truth falls back to rec.text
+
+    r = Retriever(store, object(), KnowledgeGraph(store), _Sub(), object(), s)
+
+    sentence = ("Rowan mentions 'colleagues from the trail club' and "
+                "'friends from the chess league' regularly.")
+    only_first = [RetrievalCandidate(record=in_short, fused_score=1.0)]
+    out = r._quoted_span_anchors(only_first, sentence, scope=scope, at=10.0)
+    assert out is not None
+    citations, entailed = out
+    assert entailed == 2
+    assert {c.memory_id for c in citations} == {"m1", "m2"}
+
+    # without scope (no store fallback) the missing span fails the sentence
+    assert r._quoted_span_anchors(only_first, sentence) is None
