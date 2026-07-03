@@ -1116,3 +1116,40 @@ repeats).
 Suite 1256 green, leakage 1670/0. Still open from the audit: unit 8 EXTRACT_COMBINED (needs
 live A/B for combined-prompt quality), unit 10 verify_citation LRU, deferred 13/15/16/17/19,
 bridge-entity two-hop join, ordinal-list reference, record_ops tier-1 shrink.
+
+---
+
+## Wave I LIVE measurement - 2026-07-03 mixed-24 full profile (fresh ingest, wave-F env)
+
+First live numbers on the wave G/H/I build, exact wave-F full-role environment + samples
+(artifacts/wave_i_mixed24_full_codex, manifest-inherited env, fresh DATA_DIR):
+
+| metric | wave_f full | wave_i full | delta |
+|---|---|---|---|
+| correct | 18/24 (75.0%) | **22/24 (91.7%)** | **+16.7pp** |
+| verified-correct | 18/24 (75.0%) | **21/24 (87.5%)** | **+12.5pp** |
+| abstained | 3 | 1 | -2 |
+| errors | 0 | 0 | = |
+| median query tokens | 6970 | 6596 | **-5.4%** |
+| total write tokens | 1,683,006 | 1,683,006 | = |
+
+Accuracy and cost improved together. Row-level: FIVE wave-G targets flipped to
+verified-correct live (preference advice-grounding, grocery yes/no proposition op, smoker
+temporal delta, Go-Jon row, Maria May-3 dinner). Two regressions + one persistent miss, each
+root-caused the same night and fixed with on-store offline proof:
+
+- 58bf7951 (VC->abstain): claim literally restated the answer ('The play I attended was
+  actually a production of The Glass Menagerie') but open_inference had no copular slot
+  extractor -> new wh-head copular TitleCase extraction; both stores now answer the exact gold
+  (2be4dff).
+- c3_q0 (VC->correct-unverified): correct 'Likely yes' synthesis never whole-answer-entails -
+  likelihood questions now join the sentence-level grounding rescue (e480087).
+- gpt4_f49edff3 (miss in both waves): reader persistently echoes the question order UNDATED;
+  _event_order_answer now COMPOSES the dated timeline (anchor every listed phrase family-aware,
+  sort, '[date] phrase' output, anchor-verified computed op); replays produce the gold order
+  with real dates on both stores (87f64fc).
+
+All 22 rotating sidecars PASS fresh random seeds into the run dir; leakage 1670/0; suite 1261
+green. A focused 3-sample live probe of the three fixes is running
+(artifacts/wave_i_fixprobe_codex). n=24 caveat stands: +-1 row = 4.2pp; five-role gate deltas
+and holdout h2h remain the promotion wall.
