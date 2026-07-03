@@ -1586,3 +1586,18 @@ strictly under the 0.4 threshold) now answer in-process instead of paying contex
 assembly + a 5-7s reader call the coverage gate discards anyway. Trade: forfeits the
 rare NLI rescue of a low-coverage draft -- default OFF, promotion needs A/B at n>=40.
 ABSTENTION_V2 precedence preserved. Suite 1286.
+
+### Wave L (2026-07-03): rotation infrastructure + two miss-class kills (offline-proven)
+- bench/rotating_holdout.py (184d7fb1): rotating, category-stratified, digest-ledgered
+  slices over the test split; never reuses a window; epoch rollover recorded. Slice 1 drawn
+  (epoch 0 window 0, digest d96875..) and a release-grade h2h (eidetic-full vs mem0,
+  --holdout-profile holdout, unpromoted flags OFF) is RUNNING on it now.
+- reader 'what other X' scaffold (a2930da6): question-text-only exclusion instruction;
+  kills the c4_q53 shape (reader echoed the current routine instead of the additions).
+- option-choice form floor (7b65db38): verified-wrong class DEAD -- fragment answers that
+  name neither option are refused across ops; two false-positive guards added from the red
+  suite run (computed ops, non-choice wh-heads).
+- Wave-J miss replay with current code: c7_q4 now '2010' (exact gold); junk-enum rows all
+  FORM-refused; c9_q12 residual (2023-05-15 vs 'last week of May'); c4_q16 delta fails
+  closed (reader off-by-one remains); recall-gap abstentions (c3_q14, c6_q17, c6_q1,
+  c6_q33, c7_q36) are the enumerator/retrieval frontier.
