@@ -270,6 +270,12 @@ class EideticFullSystem(EideticSystem):
         text = answer_with_fixed_reader(question, blocks)
         declined = bool(_DECLINE_RE.search(text or ""))
         citations, entailed = r._verify_candidates(cands, text, True, query=question, at=as_of)
+        # Verification-policy rescue (advice/likelihood restatement + quoted-span anchors) is
+        # part of the verify+abstain honesty layer, applied to the SAME fixed-reader text -
+        # not a stronger reader. Without it here, verified flags flap with reader phrasing.
+        if not declined:
+            citations, entailed, _rescued = r.rescue_grounding(
+                question, text, cands, citations, entailed, verify=True, scope=scope, at=as_of)
         verified = entailed > 0 and not declined
         coverage = max((c.dense_score for c in cands), default=0.0)
         conf = None

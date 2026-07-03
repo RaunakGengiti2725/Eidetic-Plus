@@ -1500,3 +1500,34 @@ def test_eidetic_full_wired_into_make_system():
     from bench.run import make_system
     assert make_system("eidetic-full").name == "eidetic-plus-full"
     assert make_system("eidetic-plus-full").name == "eidetic-plus-full"
+
+
+class _QuotedSynthReader(_FakeReader):
+    def chat(self, model, system, user, **kw):
+        self.reader_models.append(model)
+        return ("Likely yes. Rowan mentions hiking with 'colleagues from the trail club' and "
+                "grabbing lunch with 'friends from the chess league' regularly.")
+
+    def nli(self, premise, hypothesis):
+        return ("neutral", 0.2)                 # grounding must come from quoted anchors
+
+
+def test_eidetic_full_applies_rescue_grounding_to_fixed_reader_answers(tmp_path, monkeypatch):
+    """The rescue layer (advice/likelihood restatement + quoted-span anchors) is VERIFICATION
+    policy, not reader strength - it must apply to the neutral fixed-reader path exactly as it
+    does in retriever.answer(), or verified flags flap with reader phrasing run to run."""
+    client = _QuotedSynthReader(get_settings().embed_dim)
+    e = _engine_with_client(tmp_path, monkeypatch, client)
+    sys = EideticFullSystem(engine=e)
+    sys.reset("ns")
+    sys.ingest_session("ns", "s0", [
+        {"role": "user", "content": "Rowan went hiking with colleagues from the trail club again."},
+        {"role": "user", "content": "Rowan grabbed lunch with friends from the chess league."},
+    ])
+    sys.consolidate("ns")
+
+    ar = sys.answer("ns", "Is it likely that Rowan has friends besides his sister?")
+
+    assert not ar.abstained
+    assert "trail club" in ar.answer
+    assert ar.extra["verified"] is True

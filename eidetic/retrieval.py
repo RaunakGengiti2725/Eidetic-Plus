@@ -4679,6 +4679,50 @@ class Retriever:
                 return True
         return False
 
+    def rescue_grounding(self, query: str, text: str, candidates: list[RetrievalCandidate],
+                         citations: list["Citation"], entailed: int, *, verify: bool = True,
+                         scope: Optional[Scope] = None,
+                         at: Optional[float] = None) -> tuple[list["Citation"], int, bool]:
+        """Verification-policy rescue for synthesis answers, shared by retriever.answer() AND
+        the neutral fixed-reader bench adapter (it is honesty policy over the SAME answer text,
+        not reader strength - leaving it off one surface makes verified flags flap with reader
+        phrasing).
+
+        A recommendation or 'is it likely that X' answer is synthesis by design: fresh
+        suggestions and inference markers never whole-answer-entail. The verifiable core is the
+        answer's restatement of stored premises: quoted verbatim spans ground extractively
+        across records (zero model calls); otherwise sentences verify individually (bounded)
+        and the answer grounds on an entailed restatement. Any CONTRADICTION kills the rescue.
+        Mirrors the SMQE anchor rule where a derived answer verifies on its cited premise.
+        Returns (citations, entailed, rescued)."""
+        from .smqe.qa_ops import _ADVICE_REQUEST_RE, _LIKELY_INFERENCE_RE
+        if not (verify and entailed == 0 and (
+                _ADVICE_REQUEST_RE.search(query or "")
+                or _LIKELY_INFERENCE_RE.search(query or "")
+                or re.search(r"^\s*is\s+it\s+likely\b", query or "", re.I))):
+            return citations, entailed, False
+        sentence_claims = [cl for cl in _sentences(text)
+                           if len(cl) >= self.settings.span_nli_min_chars][:5]
+        rescue: Optional[tuple[list[Citation], int]] = None
+        rescue_contradicted = False
+        for cl in sentence_claims:
+            if rescue is None:
+                quoted = self._quoted_span_anchors(candidates, cl, scope=scope, at=at)
+                if quoted is not None:
+                    rescue = quoted
+                    continue
+            cl_citations, cl_entailed = self._verify_candidates(
+                candidates, cl, True, query=query, at=at)
+            if any(c.nli_label == NLILabel.CONTRADICTION for c in cl_citations):
+                rescue_contradicted = True
+                break
+            if cl_entailed and rescue is None:
+                rescue = (cl_citations, cl_entailed)
+        if rescue is not None and not rescue_contradicted:
+            new_citations, new_entailed = rescue
+            return new_citations, new_entailed, True
+        return citations, entailed, False
+
     def _quoted_span_anchors(self, candidates: list[RetrievalCandidate], sentence: str, *,
                              scope: Optional[Scope] = None,
                              at: Optional[float] = None) -> Optional[tuple[list["Citation"], int]]:
@@ -4842,44 +4886,8 @@ class Retriever:
             text = self.client.generate_answer(query, blocks, model=model)
             citations, entailed = self._verify_candidates(candidates, text, verify, query=query, at=at)
 
-        # Advice/likelihood grounding: a recommendation or 'is it likely that X' answer is
-        # synthesis by design -- fresh suggestions and inference markers are never entailed by
-        # memory as a whole answer, so whole-answer NLI abstained on every correctly grounded
-        # reply. The verifiable core is the answer's restatement of stored premises. Verify
-        # sentences individually (bounded) and ground the answer on an entailed restatement;
-        # any CONTRADICTION kills the rescue. Mirrors the SMQE anchor rule where a derived
-        # answer verifies on its cited premise (option choices and likely-inference already
-        # carry the same exemption there).
-        from .smqe.qa_ops import _ADVICE_REQUEST_RE, _LIKELY_INFERENCE_RE
-        advice_anchor = False
-        if verify and entailed == 0 and (
-                _ADVICE_REQUEST_RE.search(query or "")
-                or _LIKELY_INFERENCE_RE.search(query or "")
-                or re.search(r"^\s*is\s+it\s+likely\b", query or "", re.I)):
-            sentence_claims = [cl for cl in _sentences(text)
-                               if len(cl) >= self.settings.span_nli_min_chars][:5]
-            rescue: Optional[tuple[list[Citation], int]] = None
-            rescue_contradicted = False
-            for cl in sentence_claims:
-                # A synthesis sentence citing MULTIPLE verbatim quoted spans from different
-                # records never single-record-entails, but the quotes ARE anchors: when every
-                # quoted span is found verbatim in some candidate, the sentence is grounded
-                # extractively across those records - deterministic, zero model calls.
-                if rescue is None:
-                    quoted = self._quoted_span_anchors(candidates, cl, scope=scope, at=at)
-                    if quoted is not None:
-                        rescue = quoted
-                        continue
-                cl_citations, cl_entailed = self._verify_candidates(
-                    candidates, cl, True, query=query, at=at)
-                if any(c.nli_label == NLILabel.CONTRADICTION for c in cl_citations):
-                    rescue_contradicted = True
-                    break
-                if cl_entailed and rescue is None:
-                    rescue = (cl_citations, cl_entailed)
-            if rescue is not None and not rescue_contradicted:
-                citations, entailed = rescue
-                advice_anchor = True
+        citations, entailed, advice_anchor = self.rescue_grounding(
+            query, text, candidates, citations, entailed, verify=verify, scope=scope, at=at)
 
         # CoVe (Chain-of-Verification): factored fact-check of a grounded draft. Plan independent
         # verification questions, answer each ONLY from the retrieved blocks (factored -> the model
