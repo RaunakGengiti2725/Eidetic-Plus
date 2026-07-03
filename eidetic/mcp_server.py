@@ -373,6 +373,15 @@ def sync_health(namespace: Optional[str] = None, agent_id: Optional[str] = None,
 
 
 @_threaded_tool
+def repair() -> dict:
+    """Rebuild the derived retrieval surfaces (vector index, reflex index) from the source of
+    truth (raw substrate + SQLite records) -- the fix sync_health names when a surface is
+    behind or corrupt. No data loss: raw records are never touched. COSTS embedding calls
+    (re-embeds every record's text), so run it on sync_health's advice, not routinely."""
+    return engine().rebuild_index_from_store()
+
+
+@_threaded_tool
 def consolidate(namespace: Optional[str] = None, agent_id: Optional[str] = None,
                 project_id: Optional[str] = None) -> dict:
     """Run the unified sleep cycle for a scope: consolidate_pending (so pending fast writes flow

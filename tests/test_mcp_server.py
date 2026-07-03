@@ -82,7 +82,7 @@ def test_server_lists_all_expected_tools():
     tools = asyncio.run(mcp_server.mcp.list_tools())
     names = {t.name for t in tools}
     assert {"remember", "recall", "consolidate", "list_memories", "get_raw",
-            "forget", "reawaken", "stats"} <= names
+            "forget", "reawaken", "stats", "repair", "sync_health"} <= names
 
 
 def test_tool_schemas_mark_required_fields():
@@ -367,3 +367,13 @@ def test_async_wrapper_round_trip_through_tool_manager(mcp_engine):
                                              "namespace": "asyncproj"})
     res = asyncio.run(_roundtrip())
     assert "window" in str(res).lower()
+
+
+def test_repair_rebuilds_derived_surfaces_from_store(mcp_engine):
+    """sync_health names rebuild_index_from_store as the repair; the MCP surface must let a
+    user actually run it. Wipes the vector index files and rebuilds them from the raw
+    store -- record count preserved, recall works again."""
+    mcp_server.remember(content="The greenhouse thermostat is set to 18C.")
+    out = mcp_server.repair()
+    assert out == {"rebuilt": 1}
+    assert mcp_server.list_memories()["total"] == 1
