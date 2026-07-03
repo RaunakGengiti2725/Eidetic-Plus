@@ -1409,3 +1409,14 @@ still emitting; tier-1-claims replacement remains the structural fix), EXTRACT_C
 cost-flag promotion runs (ADAPTIVE_CONTEXT profile flip, RERANK_SPAN_INPUT, EXTRACT_RESULT_CACHE,
 VERIFY_NLI_CACHE), Tokyo cross-sentence association, reader partial lists, bigger-n/holdout
 gates.
+
+### Wave K continued - EXTRACT_COMBINED lands; audit plan complete (2026-07-03)
+
+EXTRACT_COMBINED (1d37bf8, default off): one call per consolidation window feeds BOTH the
+edges and claims channels through the existing truncation-resilient parsers (field filters
+disambiguate mixed salvage); composes with EXTRACT_RESULT_CACHE. With this, ALL TWELVE units
+of the adversarially-confirmed audit plan are implemented (waves I-K), plus deferred items
+14/18 and the recall-gap operators. Write-cost stack A/B launched
+(artifacts/wave_k_writecost_ab_codex: EXTRACT_COMBINED + EXTRACT_RESULT_CACHE +
+ADAPTIVE_CONTEXT on the 20-row slice) - promotion criteria: accuracy holds vs the 15/15/14
+band, write tokens materially down, no extraction-quality regressions in the store.
