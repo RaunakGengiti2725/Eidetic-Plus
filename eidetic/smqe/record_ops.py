@@ -2159,9 +2159,73 @@ def _extreme_atom_negated(text: str) -> bool:
     ))
 
 
-def _extreme_label_from_atom(query: str, text: str, start: int, end: int) -> str:
+_TIME_WH_NOUNS = {
+    "afternoon", "date", "day", "evening", "month", "morning", "night", "season",
+    "time", "week", "weekday", "weekend", "year",
+}
+_PERSON_WH_NOUNS = {
+    "aunt", "brother", "child", "colleague", "cousin", "coworker", "dad", "father",
+    "friend", "grandma", "grandpa", "guest", "kid", "mentor", "mom", "mother",
+    "neighbor", "neighbour", "nephew", "niece", "partner", "person", "player",
+    "roommate", "runner", "sibling", "sister", "student", "teammate", "uncle",
+}
+_SUBJECT_LABEL_STOP = {
+    "a", "an", "at", "he", "her", "his", "i", "in", "it", "its", "last", "my", "next",
+    "on", "our", "she", "the", "their", "they", "this", "we", "you", "your",
+}
+_KIN_NOUN_RE = (
+    r"(?:friend|cousin|brother|sister|colleague|coworker|neighbor|neighbour|aunt|uncle|"
+    r"mom|dad|mother|father|roommate|partner|teammate|mentor|niece|nephew|grandma|grandpa)"
+)
+_MEASURE_VERB_RE = (
+    r"(?:ran|walked|hiked|rode|biked|drove|swam|read|revised|completed|visited|scored|"
+    r"earned|logged|clocked|finished|lifted|threw|jumped|cycled|rowed|climbed|covered)"
+)
+
+
+def _extreme_wh_head(query: str) -> tuple[str, str]:
+    """('who', '') for who/whose questions; ('which', noun) for which-<noun>; ('', '')."""
+    q = query or ""
+    if re.search(r"^\s*(?:who|whose)\b|\bwho\s+(?:ran|had|has|scored|earned|walked|drove|read)\b", q, re.I):
+        return "who", ""
+    m = re.search(r"\bwhich\s+([a-z][a-z'-]*)\b", q, re.I)
+    if m:
+        return "which", m.group(1).lower()
+    return "", ""
+
+
+def _extreme_subject_label(text: str, start: int) -> str:
+    """The SUBJECT of the measurement clause ('My friend Jonas ran 9 miles' -> 'Jonas').
+    Weekday/month tokens and pronoun/article junk never qualify; first-person clauses have
+    no third-party subject and return ''."""
+    seg = (text or "")[:start]
+    # a leading time adverbial must not shadow the subject ("On Wednesday, Jonas ran ...")
+    seg = re.sub(r"^\s*(?:on|in|at|last|this|every)\s+[A-Za-z]+\s*,\s*", "", seg, flags=re.I)
+    candidates: list[str] = []
+    m = re.search(rf"\bmy\s+{_KIN_NOUN_RE}\s+([A-Z][\w'-]+)", seg)
+    if m:
+        candidates.append(m.group(1))
+    m = re.search(rf"\b([A-Z][\w'-]+(?:\s+[A-Z][\w'-]+)?)(?:'s\s+\w+)?\s+{_MEASURE_VERB_RE}\b", seg)
+    if m:
+        candidates.append(m.group(1))
+    m = re.search(r"\b([A-Z][\w'-]+)'s\b", seg)
+    if m:
+        candidates.append(m.group(1))
+    for raw in candidates:
+        label = _clean(raw)
+        low = label.lower()
+        if not label or low in _SUBJECT_LABEL_STOP:
+            continue
+        if _WEEKDAY_RE.fullmatch(label) or low in {m.lower() for m in calendar.month_name if m}:
+            continue
+        return label
+    return ""
+
+
+def _extreme_label_from_atom(query: str, text: str, start: int, end: int,
+                             *, allow_after: bool = True) -> str:
     before = _clean((text or "")[:start])
-    after = _clean((text or "")[end:])
+    after = _clean((text or "")[end:]) if allow_after else ""
     for pat in (
         r"\b(?:i|we|he|she|they)\s+(?:ran|walked|hiked|rode|biked|drove|swam|read|revised|completed|visited)\s+(?:the\s+)?(.+?)\s+(?:for|in|over|at)$",
         r"\b(?:score|rating|grade)\s+(?:in|for|on)\s+(.+?)\s+(?:was|is)?$",
@@ -2211,8 +2275,23 @@ def _numeric_extreme_answer(query: str, atoms: list[tuple[float, object, str]]) 
     value, _unit, raw, _target_hits, score, item, atom, start, end = winner
     text = _strip_role(atom)
     measurement = _format_measurement(value, unit, raw)
-    label = _extreme_label_from_atom(query, text, start, end)
-    answer = f"{label} ({measurement})" if label and re.search(r"\bwhich\b", query or "", re.I) else measurement
+    wh_kind, wh_noun = _extreme_wh_head(query)
+    if wh_kind == "who" or (wh_kind == "which" and wh_noun in _PERSON_WH_NOUNS):
+        # The question asks WHO/WHICH-<person>: the answer must name the winning clause's
+        # SUBJECT. An adjacent time adverbial is quotable but names the wrong thing
+        # ("Wednesday" is not a friend) and a bare measurement is shape-wrong; with no
+        # extractable subject, fail closed to the reader.
+        subject = _extreme_subject_label(text, start)
+        if not subject:
+            return "", []
+        answer = f"{subject} ({measurement})"
+    else:
+        # Object labels come from the clause BEFORE the measurement; the after-text temporal
+        # fallback ("on Wednesday") only ever names a time, so it is reserved for time-word
+        # wh-heads ("which day").
+        allow_temporal = wh_kind != "which" or not wh_noun or wh_noun in _TIME_WH_NOUNS
+        label = _extreme_label_from_atom(query, text, start, end, allow_after=allow_temporal)
+        answer = f"{label} ({measurement})" if label and re.search(r"\b(?:which|who|whose)\b", query or "", re.I) else measurement
     selected: list[tuple[float, object, str]] = [(score, item, atom)]
     seen = {_group_key(item)}
     for _value, _unit, _raw, _hits, other_score, other_item, other_atom, _start, _end in comparable[1:]:

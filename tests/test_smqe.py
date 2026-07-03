@@ -2420,6 +2420,49 @@ def test_structured_answer_randomized_temporal_delta_single_anchor_distractors(t
         assert decoy_action not in proof
 
 
+def test_numeric_extreme_who_which_answers_name_the_subject():
+    """A who/which-<entity> superlative must name the SUBJECT of the winning measurement.
+    Labeling the adjacent time adverbial ('Wednesday (9 miles)' as the friend) is a
+    verified-wrong machine; a bare measurement for a who-question is shape-wrong."""
+    from eidetic.smqe.record_ops import _numeric_extreme_answer
+
+    def rec(i):
+        return type("R", (), {"valid_at": float(i), "memory_id": f"m{i}"})()
+
+    atoms = [
+        (1.0, rec(1), "My friend Jonas ran 9 miles on Wednesday."),
+        (0.9, rec(2), "My friend Priya ran 6 miles on Saturday."),
+    ]
+    ans, sel = _numeric_extreme_answer("Which friend ran the longest distance?", atoms)
+    assert "Jonas" in ans and "Wednesday" not in ans
+
+    ans2, _ = _numeric_extreme_answer("Who ran the longest distance among my friends?", atoms)
+    assert "Jonas" in ans2
+
+    # leading time adverbial must not shadow the subject
+    atoms3 = [
+        (1.0, rec(1), "On Wednesday, Jonas ran 9 miles."),
+        (0.9, rec(2), "Priya ran 6 miles."),
+    ]
+    ans3, _ = _numeric_extreme_answer("Which friend ran the longest distance?", atoms3)
+    assert ans3 == "" or ("Jonas" in ans3 and "Wednesday" not in ans3)
+
+    # first-person atoms cannot name a third-party subject -> fail closed, never a bare guess
+    atoms4 = [
+        (1.0, rec(1), "I ran 9 miles on Wednesday."),
+        (0.9, rec(2), "I ran 6 miles on Saturday."),
+    ]
+    ans4, sel4 = _numeric_extreme_answer("Which friend ran the longest distance?", atoms4)
+    assert (ans4, sel4) == ("", [])
+
+    # time-word wh-heads keep the temporal label
+    ans5, _ = _numeric_extreme_answer("Which day did I run the longest distance?", [
+        (1.0, rec(1), "I ran the longest distance, 9 miles, on Wednesday."),
+        (0.9, rec(2), "I ran a distance of 6 miles on Saturday."),
+    ])
+    assert ans5 == "" or "Wednesday" in ans5
+
+
 def test_count_answer_never_reads_calendar_clock_or_money_tokens():
     """A count extractor that returns a year, clock time, or price as a cardinality is a
     verified-wrong machine: the atom is quotable so the wrong number verifies."""
