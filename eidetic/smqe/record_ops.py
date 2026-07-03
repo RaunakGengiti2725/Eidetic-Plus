@@ -362,7 +362,7 @@ def _support(memory_id: str, atom: str, *, claim_id: Optional[str] = None,
 
 
 def _result(answer: str, plan: ExecutionPlan, backend: str, supports: list[StructuredSupport],
-            confidence: float = 1.0) -> Optional[StructuredAnswerResult]:
+            confidence: float = 1.0, *, note_suffix: str = "") -> Optional[StructuredAnswerResult]:
     answer = _clean(answer)
     if not answer or not supports:
         return None
@@ -373,7 +373,7 @@ def _result(answer: str, plan: ExecutionPlan, backend: str, supports: list[Struc
         supports=supports,
         verified=False,
         confidence=confidence,
-        note=f"smqe:{plan.op}:{backend}",
+        note=f"smqe:{plan.op}:{backend}{note_suffix}",
     )
 
 
@@ -4812,8 +4812,17 @@ def _execute_atoms(plan: ExecutionPlan, query: str,
 
     # latest_value and generic slot lookup. A question naming an explicit calendar day must
     # anchor on atoms datable to that day (opt-in: only this consumer treats explicit dates
-    # as hard windows).
+    # as hard windows). When that filter actually applied, every surviving atom's event date
+    # was PROVEN in-window deterministically - the answer is date-anchored, and verification
+    # may trust the verbatim anchor instead of asking NLI to re-derive the date link (the
+    # re-derivation is exactly what flapped run to run).
+    date_anchored_suffix = ""
     if op == "latest_value":
+        # EXPLICIT calendar-day windows only: a relative window ("recently") proves membership,
+        # not the ordering the question asks about, so it earns no verification shortcut.
+        if len(_query_temporal_windows(plan, include_explicit=True)) > len(
+                _query_temporal_windows(plan)):
+            date_anchored_suffix = ":date_anchored"
         atoms = _filter_atoms_to_query_windows(plan, atoms, include_explicit=True)
         if not atoms:
             return None
@@ -4872,7 +4881,8 @@ def _execute_atoms(plan: ExecutionPlan, query: str,
                 return None
         specific_hits.sort(key=lambda x: (-x[0], -x[1], -x[2], -x[3]))
         _entity_hits, _target_hits, _valid_at, score, item, atom, answer = specific_hits[0]
-        return _result(answer, plan, backend, [sup(item, atom, score)])
+        return _result(answer, plan, backend, [sup(item, atom, score)],
+                       note_suffix=date_anchored_suffix)
     answer, selected = _open_or_preference_answer(query, atoms)
     if answer and selected:
         return result_from(answer, selected, confidence=0.85)
@@ -4895,7 +4905,8 @@ def _execute_atoms(plan: ExecutionPlan, query: str,
         else:
             answer = _action_object_phrase(query, atom) or _answer_value(query, atom, item)
         if answer:
-            return _result(answer, plan, backend, [sup(item, atom, score)])
+            return _result(answer, plan, backend, [sup(item, atom, score)],
+                           note_suffix=date_anchored_suffix)
     return None
 
 

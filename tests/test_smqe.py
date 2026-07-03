@@ -4113,3 +4113,41 @@ def test_fact_shaped_like_questions_do_not_route_to_advice_synthesis(tmp_path):
     # genuine advice requests keep the synthesis route
     assert plan_query("Can you suggest a dessert I should bake this weekend?").op == "preference_synth"
     assert plan_query("What should I serve for dinner with my garden ingredients?").op == "preference_synth"
+
+
+def test_date_anchored_latest_value_verifies_on_the_anchor(tmp_path):
+    """An explicit-date lookup whose winning atom was PROVEN in-window by the date filter must
+    verify on the verbatim anchor - asking NLI to re-derive the 'last night' -> May 3 link is
+    what flapped identical runs between verified and unverified."""
+    from eidetic.models import NLILabel
+
+    class _NeverEntailRetriever(_Retriever):
+        """Strict-hypothesis NLI that never entails: only the anchor rule can verify."""
+
+        def verify(self, premise, hypothesis):
+            return (NLILabel.NEUTRAL, 0.2)
+
+        def verify_citation(self, rec, hypothesis):
+            return (NLILabel.NEUTRAL, 0.2)
+
+    from eidetic.smqe.claim_extraction import claims_for_record
+
+    store = RecordStore(tmp_path / "date-anchor-verify.sqlite")
+    scope = Scope(namespace="date-anchor-verify")
+    rec = _record(
+        "Rhea: My mom and I made some dinner together last night!",
+        scope=scope, valid_at=datetime(2023, 5, 4, 22, 0).timestamp(),
+    )
+    store.upsert_record(rec)
+    store.add_claims(claims_for_record(rec))
+
+    ans = structured_answer(
+        _NeverEntailRetriever(store),
+        "Who did Rhea have dinner with on May 3, 2023?",
+        at=datetime(2023, 8, 16, 12, 0).timestamp(), scope=scope,
+    )
+
+    assert ans is not None
+    assert "mom" in ans.answer.lower()
+    assert ans.verified is True
+    assert ":date_anchored" in ans.note

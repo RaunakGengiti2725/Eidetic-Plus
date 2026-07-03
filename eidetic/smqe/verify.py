@@ -72,6 +72,12 @@ def _atom_anchor_allowed(query: str, result: StructuredAnswerResult) -> bool:
         if any(_query_tie_hits(query, s.proof_atom or s.answer_atom or "") >= 2
                for s in result.supports):
             return True
+    if ":date_anchored" in (result.note or ""):
+        # The explicit-date window filter already PROVED the winning atom's event date matches
+        # the queried day deterministically; asking NLI to re-derive that date link is what
+        # flapped run to run. The verbatim anchor plus the deterministic date proof is the
+        # honest standard here.
+        return True
     if result.op in _COMPUTED_OPS:
         return True
     if _OPTION_CHOICE_RE.search(query or ""):
