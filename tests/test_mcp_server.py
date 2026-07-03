@@ -307,3 +307,33 @@ def test_get_raw_paged_reads_stay_utf8_across_multibyte_boundaries(mcp_engine):
     # returned text must reassemble against the source at the ADJUSTED offset
     start = page["raw_offset"]
     assert raw[start:start + page["raw_returned_bytes"]].decode("utf-8") == page["raw"]
+
+
+def test_remember_file_round_trips_bytes_with_provenance(mcp_engine):
+    """Write-path parity with get_raw: an MCP host can persist a non-chat artifact and read
+    back the identical bytes with provenance."""
+    import base64 as b64
+    payload = "# Design notes\nThe cache keys rotate per namespace version.\n".encode("utf-8")
+    out = mcp_server.remember_file(
+        content_base64=b64.b64encode(payload).decode("ascii"),
+        filename="design-notes.md",
+        namespace="files",
+        valid_at=1_650_000_000.0,
+    )
+    assert out["ok"] and out["memory_id"]
+    rec = mcp_engine.store.get_record(out["memory_id"])
+    assert rec.valid_at == 1_650_000_000.0
+    raw = mcp_server.get_raw(out["memory_id"], namespace="files")
+    assert raw["raw_encoding"] == "utf-8"
+    assert "cache keys rotate" in raw["raw"]
+    assert raw["verified_against_self"] is True
+
+
+def test_remember_file_rejects_oversize_and_bad_base64(mcp_engine):
+    import base64 as b64
+    with pytest.raises(RuntimeError):
+        mcp_server.remember_file(content_base64="!!!not-base64!!!", filename="x.txt",
+                                 namespace="files")
+    big = b64.b64encode(b"x" * (mcp_server._MAX_RAW_BYTES + 1)).decode("ascii")
+    with pytest.raises(RuntimeError):
+        mcp_server.remember_file(content_base64=big, filename="big.txt", namespace="files")

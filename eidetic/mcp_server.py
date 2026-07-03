@@ -190,6 +190,45 @@ def remember(content: str, namespace: Optional[str] = None, agent_id: Optional[s
 
 
 @mcp.tool()
+def remember_file(content_base64: str, filename: str, namespace: Optional[str] = None,
+                  agent_id: Optional[str] = None, project_id: Optional[str] = None,
+                  source: Optional[str] = None, valid_at: Optional[float] = None,
+                  consolidate_now: bool = False) -> dict:
+    """Store a FILE (PDF, image, screenshot, document, code) as a lossless memory: base64 bytes
+    + filename in, modality-aware ingestion (OCR/description for images, text extraction for
+    documents), immutable raw bytes retrievable byte-identical via get_raw. `valid_at` backdates
+    the event time for bi-temporal reads. Write-path twin of get_raw. Max
+    2,000,000 bytes decoded. Needs DASHSCOPE_API_KEY."""
+    filename = _text_arg(filename, "filename", max_chars=512)
+    encoded = _text_arg(content_base64, "content_base64", max_chars=(_MAX_RAW_BYTES * 4) // 3 + 8)
+    try:
+        data = base64.b64decode(encoded, validate=True)
+    except Exception as e:
+        raise RuntimeError(f"content_base64 is not valid base64: {e}")
+    if not data:
+        raise RuntimeError("decoded file is empty")
+    if len(data) > _MAX_RAW_BYTES:
+        raise RuntimeError(f"decoded file is too large ({len(data)} bytes; max {_MAX_RAW_BYTES})")
+    scope = _scope(namespace, agent_id, project_id)
+    try:
+        eng = engine()
+        rec = eng.ingest_bytes(data, filename, source=source or filename,
+                               valid_at=valid_at, scope=scope,
+                               consolidate_now=consolidate_now)
+        return {
+            "ok": True,
+            "memory_id": rec.memory_id,
+            "pending_consolidation": bool(rec.metadata.get("pending_consolidation")),
+            **_brief(rec),
+        }
+    except ModelCallError as e:
+        raise RuntimeError(
+            f"remember_file needs the model and no result was fabricated: {e}. "
+            "Set DASHSCOPE_API_KEY to enable it."
+        )
+
+
+@mcp.tool()
 def recall(query: str, namespace: Optional[str] = None, agent_id: Optional[str] = None,
            project_id: Optional[str] = None, limit: int = 10, verify: bool = True,
            prove: bool = False, as_of: Optional[float] = None) -> dict:
