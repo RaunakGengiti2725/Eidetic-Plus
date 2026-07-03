@@ -757,6 +757,16 @@ class Settings:
     extract_result_cache_enabled: bool = field(
         default_factory=lambda: _get_bool("EXTRACT_RESULT_CACHE", "0")
     )
+    # Difficulty-adaptive reader context: the token budget scales with deterministic query
+    # difficulty (easy single-hop questions stop paying the full multi-hop context). Floor is
+    # the fraction of the budget an easiest question keeps. Default OFF - promotion needs a
+    # live A/B showing accuracy holds while median query tokens drop.
+    adaptive_context_enabled: bool = field(
+        default_factory=lambda: _get_bool("ADAPTIVE_CONTEXT", "0")
+    )
+    adaptive_context_floor: float = field(
+        default_factory=lambda: float(_get("ADAPTIVE_CONTEXT_FLOOR", "0.45"))
+    )
 
     # Prod-only (Alibaba Cloud)
     oss_bucket: str = field(default_factory=lambda: _get("OSS_BUCKET"))

@@ -323,3 +323,45 @@ def test_rerank_span_input_flag(fresh_settings, monkeypatch):
     r2 = Retriever(store, object(), KnowledgeGraph(store), _FakeSub(), _RerankClient(), s_off)
     r2._finalize("when does the fern need watering", [cand()])
     assert seen["docs"][0] == long_text
+
+
+def test_adaptive_context_scales_budget_with_difficulty(fresh_settings, monkeypatch):
+    """ADAPTIVE_CONTEXT: an easy single-hop question gets the floor fraction of the token
+    budget; a hard multi-hop question keeps the full budget. Flag off: byte-identical."""
+    from dataclasses import replace as _replace
+
+    import eidetic.retrieval as retrieval_mod
+    from eidetic.models import Scope as _Scope
+
+    captured = {}
+    real_budget = retrieval_mod._budget_blocks
+
+    def spy(blocks, budget):
+        captured["budget"] = budget
+        return real_budget(blocks, budget)
+
+    monkeypatch.setattr(retrieval_mod, "_budget_blocks", spy)
+
+    def build(settings):
+        store = RecordStore(settings.sqlite_path)
+        return Retriever(store, object(), KnowledgeGraph(store), _FakeSub(), object(), settings)
+
+    easy_q = "What color is the bike?"
+    hard_q = ("Which of the three trips that Rowan and Priya planned together after the "
+              "spring festival happened before the harvest market weekend in Lisbon?")
+
+    s_on = _replace(fresh_settings, adaptive_context_enabled=True, adaptive_context_floor=0.45,
+                    context_token_budget=8000)
+    r = build(s_on)
+    r.assemble_context(easy_q, [], at=2.0, scope=_Scope(namespace="ac"))
+    easy_budget = captured["budget"]
+    r.assemble_context(hard_q, [], at=2.0, scope=_Scope(namespace="ac"))
+    hard_budget = captured["budget"]
+    assert easy_budget < hard_budget
+    assert easy_budget <= 8000 * 0.6
+    assert hard_budget >= 8000 * 0.8
+
+    s_off = _replace(fresh_settings, adaptive_context_enabled=False, context_token_budget=8000)
+    r2 = build(s_off)
+    r2.assemble_context(easy_q, [], at=2.0, scope=_Scope(namespace="ac"))
+    assert captured["budget"] == 8000

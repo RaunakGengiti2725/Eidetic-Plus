@@ -4360,13 +4360,22 @@ class Retriever:
         # Budget on the PRIORITY order first, then edge-place the survivors. Edge-placing first
         # then budgeting truncated from the tail, which is where edge_place puts the 2nd-highest
         # priority block, so a high-priority block was dropped before lower-priority raw chunks.
+        token_budget = self.settings.context_token_budget
+        if self.settings.adaptive_context_enabled:
+            # Difficulty-adaptive budget: easy single-hop questions stop paying the full
+            # multi-hop context. Deterministic difficulty (no model call); the floor keeps
+            # every question a usable minimum. Budgeting drops the LOWEST-priority blocks
+            # (raw-chunk tail) first, so the precision channels survive the cut.
+            floor = min(1.0, max(0.1, float(self.settings.adaptive_context_floor)))
+            token_budget = int(round(token_budget * (
+                floor + (1.0 - floor) * self._query_difficulty(query))))
         budgeted = _budget_blocks(
             (question_time_blocks
              + resolver_blocks + active_fact_blocks + bridge_blocks + user_blocks + assistant_blocks
              + region_blocks + temporal_blocks + temporal_anchor_blocks + list_blocks + scratchpad_blocks
              + event_blocks + chain_blocks + audit_blocks + pref_blocks
              + raw_blocks),
-            self.settings.context_token_budget)
+            token_budget)
         return edge_place(budgeted)
 
     def _hopfield_order(self, candidates: list[RetrievalCandidate]) -> list[RetrievalCandidate]:
