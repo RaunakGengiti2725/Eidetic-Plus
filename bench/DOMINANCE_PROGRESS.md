@@ -1153,3 +1153,20 @@ All 22 rotating sidecars PASS fresh random seeds into the run dir; leakage 1670/
 green. A focused 3-sample live probe of the three fixes is running
 (artifacts/wave_i_fixprobe_codex). n=24 caveat stands: +-1 row = 4.2pp; five-role gate deltas
 and holdout h2h remain the promotion wall.
+
+### Wave I fix probe - LIVE confirmation (2026-07-03)
+
+3-sample fresh-ingest probe of the three wave-I misses (artifacts/wave_i_fixprobe_codex):
+
+- 58bf7951: **verified-correct** - 'The Glass Menagerie' exact, STRUCTURED (copular extractor
+  answered from the claim; no reader dependence). Was abstain.
+- gpt4_f49edff3: **verified-correct** - composed dated timeline passed the judge. First pass
+  on this row across every wave.
+- c3_q0: correct, judge-passing 'Likely yes' synthesis; still unverified in the probe because
+  the reader bundles five verbatim quoted premises in one sentence (no single record entails
+  the composite). Fixed same night: quoted-span extractive anchoring (a3dd976) - >=2 verbatim
+  quotes each found in some record ground the sentence deterministically, zero model calls.
+  Single-row live re-probe running.
+
+Mixed-24 dev picture after fixes (row-equivalent): 24/24 correct, 23-24/24 verified expected;
+the definitive number belongs to the next full five-role gate run. Suite 1262 green.
