@@ -117,6 +117,8 @@ def _cove_retriever(settings, sub_entailed):
         return (cit, 1) if state["n"] == 1 else (cit, sub_entailed)
 
     r._verify_candidates = fake_verify
+    # per-sub-claim grounding goes through the early-stop seam now
+    r._claim_grounded = lambda cands, claim, **_kw: bool(sub_entailed)
     r._try_conflict_resolver = lambda *a, **k: None
     r.assemble_context = lambda *a, **k: ["[S0] Mel moved from Sweden"]
     return r, [cand]
@@ -196,7 +198,12 @@ def _span_retriever(settings, claim_entailed_for):
             return (cit, 1)                     # whole-answer entails
         return (cit, 1 if claim_entailed_for(text) else 0)   # per-claim
 
+    def fake_grounded(cands, claim, **_kw):
+        state["calls"] += 1
+        return bool(claim_entailed_for(claim))
+
     r._verify_candidates = fake_verify
+    r._claim_grounded = fake_grounded
     r._try_conflict_resolver = lambda *a, **k: None
     r.assemble_context = lambda *a, **k: ["[S0] Mel reads and runs"]
     # The reader returns a TWO-sentence answer, one of which is ungrounded.
@@ -1890,3 +1897,76 @@ def test_product_structured_recall_answers_colleague_connection_preference(fresh
     assert "interest-based groups" in answer_lower
     assert ans.verified is True
     assert ans.note.startswith("smqe:")
+
+
+# ---- sub-claim grounding early stop ---------------------------------------------------------
+def _grounding_retriever(settings, labels_by_id):
+    """A real retriever whose client counts NLI calls; labels_by_id maps memory_id -> label."""
+    class _NliClient(_CoveClient):
+        def __init__(self):
+            super().__init__()
+            self.nli_calls = 0
+            self.batch_calls = 0
+
+        def nli(self, premise, hypothesis):
+            self.nli_calls += 1
+            for mid, label in labels_by_id.items():
+                if f"fact-{mid}" in premise:
+                    return (label, 0.9)
+            return ("neutral", 0.2)
+
+        def nli_batch(self, pairs):
+            self.batch_calls += 1
+            out = []
+            for premise, _h in pairs:
+                lab = "neutral"
+                for mid, label in labels_by_id.items():
+                    if f"fact-{mid}" in premise:
+                        lab = label
+                        break
+                out.append((lab, 0.9))
+            return out
+
+    client = _NliClient()
+    r = _retriever(settings, client)
+    cands = [
+        RetrievalCandidate(
+            record=MemoryRecord(memory_id=f"m{i}", content_hash=f"h{i}",
+                                text=f"fact-m{i} content", scope=Scope(), valid_at=1.0),
+            fused_score=1.0 - 0.01 * i,
+        )
+        for i in range(5)
+    ]
+    return r, cands, client
+
+
+def test_claim_grounded_serial_stops_at_first_entailment(fresh_settings):
+    s = replace(fresh_settings, batch_nli_enabled=False)
+    labels = {"m0": "neutral", "m1": "neutral", "m2": "entailment", "m3": "neutral",
+              "m4": "neutral"}
+    r, cands, client = _grounding_retriever(s, labels)
+    assert r._claim_grounded(cands, "the claim under test") is True
+    assert client.nli_calls == 3               # stopped at m2; m3/m4 never paid
+
+    # zero entailment must consult the FULL set before demoting
+    r2, cands2, client2 = _grounding_retriever(s, {f"m{i}": "neutral" for i in range(5)})
+    assert r2._claim_grounded(cands2, "the claim under test") is False
+    assert client2.nli_calls == 5
+
+
+def test_claim_grounded_prefers_whole_answer_entailed_sources(fresh_settings):
+    s = replace(fresh_settings, batch_nli_enabled=False)
+    labels = {"m0": "neutral", "m1": "neutral", "m2": "neutral", "m3": "entailment",
+              "m4": "neutral"}
+    r, cands, client = _grounding_retriever(s, labels)
+    assert r._claim_grounded(cands, "the claim under test", prefer_ids={"m3"}) is True
+    assert client.nli_calls == 1               # the whole-answer source was tried first
+
+
+def test_claim_grounded_batch_mode_is_one_round_trip(fresh_settings):
+    s = replace(fresh_settings, batch_nli_enabled=True)
+    labels = {f"m{i}": "neutral" for i in range(5)}
+    r, cands, client = _grounding_retriever(s, labels)
+    assert r._claim_grounded(cands, "the claim under test") is False
+    assert client.batch_calls == 1
+    assert client.nli_calls == 0

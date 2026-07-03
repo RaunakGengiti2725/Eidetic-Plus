@@ -731,6 +731,12 @@ class Settings:
     sleep_score_importance: bool = field(
         default_factory=lambda: _get_bool("SLEEP_SCORE_IMPORTANCE", "1")
     )
+    # Kill-switch for the sub-claim grounding early stop (CoVe/span per-claim checks stop at
+    # the first grounding candidate instead of verifying the full set). Output-identical by
+    # construction; '0' restores the full-width per-claim verify for one release.
+    claim_grounding_early_stop: bool = field(
+        default_factory=lambda: _get_bool("CLAIM_GROUNDING_EARLY_STOP", "1")
+    )
 
     # Prod-only (Alibaba Cloud)
     oss_bucket: str = field(default_factory=lambda: _get("OSS_BUCKET"))

@@ -4581,6 +4581,52 @@ class Retriever:
                 entailed = sum(1 for c in citations if c.nli_label == NLILabel.ENTAILMENT)
         return citations, entailed
 
+    def _claim_grounded(self, candidates: list[RetrievalCandidate], claim: str, *,
+                        query: str = "", at: Optional[float] = None,
+                        prefer_ids: Optional[set[str]] = None) -> bool:
+        """Existence check: does ANY candidate ground this sub-claim?
+
+        The CoVe/span demotion loops only need a yes/no, so verifying the full candidate set
+        per claim (and building citations that are discarded) pays for verdicts that cannot
+        change the outcome. Free local proofs run first (deterministic aggregation proof,
+        extractive entailment), then model NLI over candidates ordered
+        whole-answer-entailed-first by fused score, stopping at the first entailment. A False
+        return still consulted every candidate, so the demotion decision is exactly as strict
+        as the full-width check."""
+        prefer = prefer_ids or set()
+        if query and self._aggregation_proof_support(query, candidates, claim, at):
+            return True
+        ordered = sorted(
+            candidates,
+            key=lambda c: (c.record.memory_id not in prefer, -float(c.fused_score or 0.0)),
+        )
+        remaining: list[RetrievalCandidate] = []
+        for c in ordered:
+            if c.record.modality == Modality.IMAGE:
+                remaining.append(c)
+                continue
+            if _extractive_entailment(self._ground_truth(c.record), claim, c.record.valid_at):
+                return True
+            remaining.append(c)
+        if self.settings.batch_nli_enabled:
+            text_pairs = [(self._bounded_proof_premise(c.record, claim), claim)
+                          for c in remaining if c.record.modality != Modality.IMAGE]
+            if text_pairs:
+                for lab, _conf in self.client.nli_batch(text_pairs):
+                    if NLILabel(lab) == NLILabel.ENTAILMENT:
+                        return True
+            for c in remaining:
+                if c.record.modality == Modality.IMAGE:
+                    lab, _conf = self.verify_citation(c.record, claim)
+                    if lab == NLILabel.ENTAILMENT:
+                        return True
+            return False
+        for c in remaining:
+            lab, _conf = self.verify_citation(c.record, claim)
+            if lab == NLILabel.ENTAILMENT:
+                return True
+        return False
+
     def _abstention_confidence(self, candidates: list[RetrievalCandidate],
                                citations: list[Citation]) -> tuple[float, dict]:
         """Blend the four abstention signals into a confidence score (Phase 2). Two are structural
@@ -4727,14 +4773,27 @@ class Retriever:
         # over-claims -> drop entailment so the abstention/unverified path below takes over. Real
         # LLM calls, hence gated (COVE, default OFF). Lives in answer() -> the engine.ask product
         # path only; the neutral fixed-reader rows do not call this.
+        # Sub-claim checks below need a yes/no per claim, not a citation list. The early-stop
+        # helper stops at the first grounding candidate (whole-answer-entailed sources first);
+        # a demotion still consulted the full set. Kill-switch: CLAIM_GROUNDING_EARLY_STOP=0
+        # restores the full-width per-claim verify for one release.
+        entailed_ids = {c.memory_id for c in citations if c.nli_label == NLILabel.ENTAILMENT}
+        early_stop = getattr(self.settings, "claim_grounding_early_stop", True)
+
+        def _sub_claim_grounded(sub_claim: str) -> bool:
+            if early_stop:
+                return self._claim_grounded(candidates, sub_claim, query=query, at=at,
+                                            prefer_ids=entailed_ids)
+            _c, n = self._verify_candidates(candidates, sub_claim, True, query=query, at=at)
+            return n > 0
+
         cove_failed = False
         if self.settings.cove_enabled and verify and entailed > 0 and not advice_anchor:
             try:                              # best-effort: a failed CoVe call must never abort
                 qs = self.client.plan_verification_questions(text, n=self.settings.cove_questions)
                 for q in qs:
                     check = self.client.generate_answer(q, blocks, model=self.settings.verify_model)
-                    _c, sub_entailed = self._verify_candidates(candidates, check, True, query=query, at=at)
-                    if sub_entailed == 0:
+                    if not _sub_claim_grounded(check):
                         entailed = 0      # factored check failed -> treat the draft as unverified
                         cove_failed = True
                         break
@@ -4749,8 +4808,7 @@ class Retriever:
             claims = [c for c in _sentences(text) if len(c) >= self.settings.span_nli_min_chars]
             if len(claims) > 1:
                 for claim in claims:
-                    _c, claim_entailed = self._verify_candidates(candidates, claim, True, query=query, at=at)
-                    if claim_entailed == 0:
+                    if not _sub_claim_grounded(claim):
                         entailed = 0      # an ungrounded claim demotes the whole answer
                         span_failed = True
                         break
