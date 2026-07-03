@@ -4482,3 +4482,48 @@ def test_compound_wh_questions_fail_closed_to_the_reader(tmp_path):
     if ans is not None:
         low = ans.answer.lower()
         assert ("august" in low or "9" in low) and "aurora" in low
+
+
+def test_option_choice_answer_must_name_an_option(tmp_path):
+    """'Would Dave prefer a Dodge Charger or a Subaru Forester?' is answered by NAMING one.
+    The option-choice anchor exemption let a verbatim-but-irrelevant fragment ("ten, I've
+    been fascinated with how machines work") ship VERIFIED at n=40 because the atom quoted
+    the source while answering neither option. Deterministic form floor: exact-token overlap
+    with an option segment, every op, preference_synth included."""
+    store = RecordStore(tmp_path / "option-form.sqlite")
+    scope = Scope(namespace="option-form")
+    rec = _record("Dave: Since I was ten, I've been fascinated with how machines work. "
+                  "Muscle cars are my passion - I'd take a Dodge Charger any day.",
+                  scope=scope, valid_at=1.0)
+    store.upsert_record(rec)
+    query = "Would Dave prefer working on a Dodge Charger or a Subaru Forester?"
+
+    junk = StructuredAnswerResult(
+        answer="ten, I've been fascinated with how machines work",
+        op="preference_synth", backend="claim",
+        supports=[StructuredSupport(memory_id=rec.memory_id,
+                                    proof_atom="ten, I've been fascinated with how machines work")],
+        note="smqe:preference_synth:claim",
+    )
+    assert answer_from_result(_Retriever(store), query, junk, verify=True) is None
+
+    named = StructuredAnswerResult(
+        answer="Dodge Charger",
+        op="preference_synth", backend="claim",
+        supports=[StructuredSupport(memory_id=rec.memory_id,
+                                    proof_atom="I'd take a Dodge Charger any day")],
+        note="smqe:preference_synth:claim",
+    )
+    ans = answer_from_result(_Retriever(store), query, named, verify=True)
+    assert ans is not None and ans.answer == "Dodge Charger"
+
+    # non-option-choice queries are untouched by the rule
+    plain = StructuredAnswerResult(
+        answer="fixing cars",
+        op="latest_value", backend="claim",
+        supports=[StructuredSupport(memory_id=rec.memory_id,
+                                    proof_atom="Muscle cars are my passion")],
+        note="smqe:latest_value:claim",
+    )
+    assert answer_from_result(_Retriever(store), "What is Dave's passion?", plain,
+                              verify=True) is not None

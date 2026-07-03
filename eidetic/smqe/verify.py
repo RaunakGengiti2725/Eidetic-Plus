@@ -63,6 +63,38 @@ _ENUM_ITEM_HEAD_STOP = {
 }
 
 
+_OPTION_SPLIT_RE = re.compile(
+    r"\b(?:would|prefer|rather|choose|pick|enjoy)\b([^.?!]*?)\bor\b([^.?!]*)", re.I)
+# 'How many items do I need to pick up or return' is a COUNT question wearing an 'or': the
+# disjunction joins verb phrases, not answer options. A non-choice wh-head fixes the answer
+# type to something no option name can satisfy, so the form floor must not apply.
+_NON_CHOICE_WH_RE = re.compile(r"^\s*(?:how\s+(?:many|much|long|often)|when|where|who|why)\b", re.I)
+
+
+def _option_terms(segment: str) -> set[str]:
+    return {t for t in re.findall(r"[a-z0-9][a-z0-9'-]{2,}", (segment or "").lower())
+            if t not in _QUERY_TIE_STOP}
+
+
+def _option_choice_answer_names_option(query: str, answer: str) -> bool:
+    """An 'A or B?' question is answered by NAMING one of the options. The option-choice
+    anchor exemption lets executor logic over preference evidence skip the strict hypothesis,
+    which shipped a verbatim-but-irrelevant fragment verified ('ten, I've been fascinated with
+    how machines work' for 'Dodge Charger or Subaru Forester?'). Exact-token overlap with
+    either option segment is the deterministic form floor; answers naming neither fall back
+    to the reader. Exact match on purpose -- prefix tolerance would let 'work' claim
+    'working on'."""
+    if _NON_CHOICE_WH_RE.match(query or ""):
+        return True
+    m = _OPTION_SPLIT_RE.search(query or "")
+    if not m:
+        return True
+    opts = _option_terms(m.group(1)) | _option_terms(m.group(2))
+    if not opts:
+        return True
+    return bool(_option_terms(answer) & opts)
+
+
 def _enumeration_items_credible(answer: str) -> bool:
     """Every comma item of an assembled list must be a short content noun phrase.
 
@@ -141,6 +173,13 @@ def answer_from_result(retriever, query: str, result: StructuredAnswerResult,
             and not _enumeration_items_credible(result.answer)):
         # preference_synth keeps the same carve-out as the anchor rule: suggestion output is
         # context fragments by design and provenance-gated upstream.
+        return None
+    # Option-choice FORM refusal: 'A or B?' is answered by naming an option. Applies across
+    # ops (preference_synth included -- its fragment carve-out is for suggestion synthesis,
+    # not for dodging the question's own option set); computed ops are exempt because their
+    # answers are derived values (counts, deltas) whose form the operator already fixes.
+    if (verify and result.op not in _COMPUTED_OPS
+            and not _option_choice_answer_names_option(query, result.answer)):
         return None
     citations: list[Citation] = []
     entailed = 0
