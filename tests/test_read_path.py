@@ -180,3 +180,71 @@ def test_ask_saves_index_only_when_reconsolidation_mutated_it(fresh_settings, mo
     ans2 = e2.ask("which circuit runs the orchard pump", scope=scope2)
     assert ans2.citations
     assert saves2["n"] >= 1
+
+
+# ---- FAST_VERIFY under BATCH_NLI: wave batching ----------------------------------------------
+class _WaveClient:
+    """nli_batch client that labels by premise marker and counts round trips."""
+
+    def __init__(self, labels_by_id):
+        self.labels_by_id = labels_by_id
+        self.batches: list[int] = []
+
+    def nli_batch(self, pairs):
+        self.batches.append(len(pairs))
+        out = []
+        for premise, _h in pairs:
+            lab = "neutral"
+            for mid, label in self.labels_by_id.items():
+                if f"fact {mid[1:]}" in premise:
+                    lab = label
+                    break
+            out.append((lab, 0.9))
+        return out
+
+
+def _wave_retriever(fresh_settings, labels_by_id, cap=2):
+    s = replace(fresh_settings, batch_nli_enabled=True, fast_verify_enabled=True,
+                verify_citation_cap=cap)
+    store = RecordStore(s.sqlite_path)
+    client = _WaveClient(labels_by_id)
+    r = Retriever(store, object(), KnowledgeGraph(store), _FakeSub(), client, s)
+    return r, client
+
+
+def test_batch_fast_verify_caps_first_wave(fresh_settings):
+    """Both flags on (the shipping profile): wave 1 batches only the top verify_citation_cap
+    candidates; an entailment there leaves the tail NEUTRAL and unpaid."""
+    labels = {f"m{i}": ("entailment" if i == 0 else "neutral") for i in range(8)}
+    r, client = _wave_retriever(fresh_settings, labels, cap=2)
+    cits, entailed = r._verify_candidates(_cands(8), "ans", verify=True)
+    assert entailed >= 1
+    assert client.batches == [2]                  # one wave, cap-sized -- 6 pairs never paid
+    assert len(cits) == 8
+
+def test_batch_fast_verify_escalates_on_zero_entailment(fresh_settings):
+    """Zero entailments in wave 1 -> the remainder is batched before deciding: the abstention
+    decision is computed over the full set, exactly as wide as before."""
+    labels = {f"m{i}": ("entailment" if i == 7 else "neutral") for i in range(8)}
+    r, client = _wave_retriever(fresh_settings, labels, cap=2)
+    cits, entailed = r._verify_candidates(_cands(8), "ans", verify=True)
+    assert entailed == 1                          # the tail entailment was found in wave 2
+    assert client.batches == [2, 6]
+
+def test_batch_fast_verify_escalates_on_contradiction(fresh_settings):
+    """A contradiction in wave 1 forces the full picture even when an entailment was found:
+    the advice-rescue kill and reconsolidation lapse need every contradicting source."""
+    labels = {"m0": "entailment", "m1": "contradiction",
+              **{f"m{i}": "neutral" for i in range(2, 8)}}
+    r, client = _wave_retriever(fresh_settings, labels, cap=2)
+    cits, entailed = r._verify_candidates(_cands(8), "ans", verify=True)
+    assert client.batches == [2, 6]
+    assert any(c.nli_label == NLILabel.CONTRADICTION for c in cits)
+
+def test_batch_without_fast_verify_stays_full_width(fresh_settings):
+    s = replace(fresh_settings, batch_nli_enabled=True, fast_verify_enabled=False)
+    store = RecordStore(s.sqlite_path)
+    client = _WaveClient({f"m{i}": "neutral" for i in range(8)})
+    r = Retriever(store, object(), KnowledgeGraph(store), _FakeSub(), client, s)
+    r._verify_candidates(_cands(8), "ans", verify=True)
+    assert client.batches == [8]                  # unchanged: one full-width batch

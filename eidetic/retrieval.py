@@ -4523,20 +4523,48 @@ class Retriever:
                 # Text sources judged together in ONE call; image sources judged against pixels.
                 text_idx = [i for i, c in enumerate(candidates)
                             if c.record.modality != Modality.IMAGE]
-                pairs: list[tuple[str, str]] = []
-                pair_idx: list[int] = []
+                need_model: list[int] = []
                 for i in text_idx:
                     premise = self._ground_truth(candidates[i].record)
                     if _extractive_entailment(premise, text, candidates[i].record.valid_at):
                         labels[i] = (NLILabel.ENTAILMENT, 1.0)
                     else:
-                        pairs.append((self._bounded_proof_premise(candidates[i].record, text), text))
-                        pair_idx.append(i)
-                batch = self.client.nli_batch(pairs) if pairs else []
-                for j, i in enumerate(pair_idx):
-                    if j < len(batch):
-                        lab, conf = batch[j]
-                        labels[i] = (NLILabel(lab), conf)
+                        need_model.append(i)
+
+                def _run_batch(idx: list[int]) -> None:
+                    pairs = [(self._bounded_proof_premise(candidates[i].record, text), text)
+                             for i in idx]
+                    batch = self.client.nli_batch(pairs) if pairs else []
+                    for j, i in enumerate(idx):
+                        if j < len(batch):
+                            lab, conf = batch[j]
+                            labels[i] = (NLILabel(lab), conf)
+
+                if s.fast_verify_enabled:
+                    # FAST_VERIFY semantics under batching: wave 1 covers only the top
+                    # verify_citation_cap candidates by fused score; an entailment there leaves
+                    # the tail NEUTRAL and unpaid (exactly the serial short-circuit contract).
+                    # Zero entailments -> the remainder is batched before deciding, so the
+                    # abstention decision is computed over the FULL set; any contradiction in
+                    # wave 1 also forces the full picture (the advice-rescue kill and
+                    # reconsolidation lapse need every contradicting source).
+                    cap = max(1, int(s.verify_citation_cap))
+                    ordered = sorted(
+                        need_model,
+                        key=lambda i: -float(candidates[i].fused_score or 0.0))
+                    extractive_hits = sum(
+                        1 for i in text_idx if labels[i][0] == NLILabel.ENTAILMENT)
+                    wave1 = ordered[:cap] if extractive_hits < cap else []
+                    _run_batch(wave1)
+                    found = extractive_hits + sum(
+                        1 for i in wave1 if labels[i][0] == NLILabel.ENTAILMENT)
+                    contradicted = any(
+                        labels[i][0] == NLILabel.CONTRADICTION for i in wave1)
+                    remainder = ordered[len(wave1):]
+                    if remainder and (found == 0 or contradicted):
+                        _run_batch(remainder)
+                else:
+                    _run_batch(need_model)
                 for i, c in enumerate(candidates):
                     if c.record.modality == Modality.IMAGE:
                         labels[i] = self.verify_citation(c.record, text)
