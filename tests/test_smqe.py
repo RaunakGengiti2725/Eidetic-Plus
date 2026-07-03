@@ -4456,3 +4456,29 @@ def test_malformed_enumerations_are_refused_even_when_nli_entails(tmp_path):
         result, verify=True,
     )
     assert ans is None
+
+
+def test_compound_wh_questions_fail_closed_to_the_reader(tmp_path):
+    """'When AND where is X?' answered only the venue, verified - a half answer. Compound
+    interrogatives need both facets composed; single-slot structured ops decline them."""
+    from eidetic.smqe.claim_extraction import claims_for_record
+
+    store = RecordStore(tmp_path / "compound-wh.sqlite")
+    scope = Scope(namespace="compound-wh")
+    rec = _record(
+        "User: Lily's first violin recital is on August 9th at the Aurora Hall.",
+        scope=scope, valid_at=1_700_000_100,
+    )
+    store.upsert_record(rec)
+    store.add_claims(claims_for_record(rec))
+
+    ans = structured_answer(
+        _Retriever(store),
+        "When and where is Lily's recital?",
+        at=1_800_000_000, scope=scope,
+    )
+
+    # either both facets present, or fail closed (reader composes them) - never a verified half
+    if ans is not None:
+        low = ans.answer.lower()
+        assert ("august" in low or "9" in low) and "aurora" in low

@@ -4455,11 +4455,22 @@ def _open_or_preference_answer(query: str, atoms: list[tuple[float, object, str]
         return answer, selected
     return "", []
 
+_COMPOUND_WH_RE = re.compile(
+    r"\b(?:when|where|who|what)\b[^.?]{0,40}\band\b[^.?]{0,40}\b(?:when|where|who|what)\b", re.I)
+
+
 def _execute_atoms(plan: ExecutionPlan, query: str,
                    atoms: list[tuple[float, object, str]], backend: str) -> Optional[StructuredAnswerResult]:
     if not atoms:
         return None
     op = plan.op
+    # Compound interrogatives ('when AND where is X?') need BOTH facets composed; every
+    # structured op here answers one slot, so a verified half-answer ships ('Aurora Hall'
+    # for when-and-where - a real user disappointment caught in the MCP UX exercise).
+    # Fail closed to the reader, which composes facets naturally.
+    if _COMPOUND_WH_RE.search(query or "") and op in {"latest_value", "relative_temporal",
+                                                      "open_inference"}:
+        return None
 
     def sup(item, atom: str, score: float) -> StructuredSupport:
         if isinstance(item, ClaimRecord):

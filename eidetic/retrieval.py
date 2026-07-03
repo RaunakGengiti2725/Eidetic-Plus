@@ -5025,6 +5025,11 @@ class Retriever:
 
         if verified:
             citations = [c for c in citations if c.nli_label == NLILabel.ENTAILMENT] or citations
+        if abstained:
+            # 'I don't have enough verified evidence' followed by a source list reads as a
+            # contradiction to the caller (MCP UX finding). Abstentions ship no citations;
+            # the considered candidates remain in retrieval telemetry.
+            citations = []
 
         return Answer(
             question=query, answer=text, verified=verified, confidence=confidence,

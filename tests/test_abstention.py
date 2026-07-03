@@ -282,3 +282,41 @@ def test_quoted_anchor_falls_back_to_store_when_record_outside_shortlist(fresh_s
 
     # without scope (no store fallback) the missing span fails the sentence
     assert r._quoted_span_anchors(only_first, sentence) is None
+
+
+def test_abstentions_never_ship_citations_as_support(fresh_settings):
+    """'I don't have enough verified evidence' followed by a source list reads as a
+    contradiction (MCP UX exercise finding: abstention carried 4 citations). Abstained
+    answers ship an empty citation list; the considered sources stay in telemetry."""
+    from dataclasses import replace as _replace
+
+    from eidetic.graph import KnowledgeGraph
+    from eidetic.models import MemoryRecord, RetrievalCandidate, Scope
+    from eidetic.retrieval import Retriever
+    from eidetic.store import RecordStore
+
+    class _NeutralClient:
+        def generate_answer(self, q, blocks, model=None):
+            return "Something unrelated to any source."
+
+        def nli(self, premise, hypothesis):
+            return ("neutral", 0.2)
+
+    s = _replace(fresh_settings, rerank_enabled=False, abstention_threshold=1.0,
+                 cascade_enabled=False)
+    store = RecordStore(s.sqlite_path)
+
+    class _Sub:
+        def get(self, h):
+            raise KeyError(h)
+
+    r = Retriever(store, object(), KnowledgeGraph(store), _Sub(), _NeutralClient(), s)
+    cands = [RetrievalCandidate(record=MemoryRecord(
+        memory_id=f"m{i}", content_hash=f"h{i}", text=f"fact {i}",
+        scope=Scope(), valid_at=1.0), dense_score=0.1) for i in range(4)]
+    r._try_conflict_resolver = lambda *a, **k: None
+    r.assemble_context = lambda *a, **k: ["[S0] fact"]
+
+    ans = r.answer("what is my blood type", verify=True, precomputed=cands)
+    assert ans.note.startswith("abstained")
+    assert ans.citations == []
