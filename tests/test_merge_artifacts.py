@@ -597,6 +597,16 @@ def _write_source(path: Path, *, dataset: str, category: str, sample_id: str,
         "case_type_counts": {"paraphrase_slot": 6, "entity_guard": 6,
                              "advice_deferral": 6, "unrelated_guard": 6},
     }))
+    (path / "smqe_lacuna_invariant.json").write_text(json.dumps({
+        "pass": True,
+        "seed": 454545,
+        "seed_mode": "random",
+        "cases": 24,
+        "correct": 24,
+        "failures": [],
+        "case_type_counts": {"positive_confirmation": 6, "negative_assertion": 6,
+                             "retraction_order": 6, "absent_proposition": 6},
+    }))
     (path / "crystal_demotion_invariant.json").write_text(json.dumps({
         "pass": True,
         "seed": 444444,

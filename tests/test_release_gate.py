@@ -622,6 +622,16 @@ def _write_artifacts(path: Path, *, split: str = "test", runs: int = 2) -> None:
         "case_type_counts": {"paraphrase_slot": 6, "entity_guard": 6,
                              "advice_deferral": 6, "unrelated_guard": 6},
     }))
+    (path / "smqe_lacuna_invariant.json").write_text(json.dumps({
+        "pass": True,
+        "seed": 454545,
+        "seed_mode": "random",
+        "cases": 24,
+        "correct": 24,
+        "failures": [],
+        "case_type_counts": {"positive_confirmation": 6, "negative_assertion": 6,
+                             "retraction_order": 6, "absent_proposition": 6},
+    }))
     (path / "crystal_demotion_invariant.json").write_text(json.dumps({
         "pass": True,
         "seed": 444444,
@@ -1380,6 +1390,7 @@ def test_release_gate_rejects_fixed_seed_for_every_rotating_sidecar(tmp_path):
         ("smqe_time_invariant.json", "smqe_time:evidence"),
         ("smqe_invalidation_invariant.json", "smqe_invalidation:evidence"),
         ("smqe_dialogue_invariant.json", "smqe_dialogue:evidence"),
+        ("smqe_lacuna_invariant.json", "smqe_lacuna:evidence"),
         ("crystal_demotion_invariant.json", "crystal_demotion:evidence"),
     ]
     for idx, (filename, check_name) in enumerate(sidecars):

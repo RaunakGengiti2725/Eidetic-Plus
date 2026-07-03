@@ -626,6 +626,7 @@ _ROTATING_SIDECARS = (
     "smqe_time_invariant.json",
     "smqe_invalidation_invariant.json",
     "smqe_dialogue_invariant.json",
+    "smqe_lacuna_invariant.json",
     "crystal_demotion_invariant.json",
 )
 
@@ -2360,6 +2361,44 @@ def _write_composite_smqe_dialogue(out: Path, sources: list[Path]) -> Path:
     return path
 
 
+def _write_composite_smqe_lacuna(out: Path, sources: list[Path]) -> Path:
+    source_rows: list[dict] = []
+    case_type_counts: Counter[str] = Counter()
+    failures: list[dict] = []
+    total_cases = 0
+    total_correct = 0
+    ok = True
+    for src in sources:
+        data, error = _load_sidecar(src, "smqe_lacuna_invariant.json")
+        if error:
+            ok = False
+            source_rows.append({"path": str(src), "pass": False, "reason": error})
+            continue
+        cases = int(data.get("cases", 0) or 0)
+        correct = int(data.get("correct", 0) or 0)
+        total_cases += cases
+        total_correct += correct
+        case_type_counts.update({str(k): int(v or 0) for k, v in (data.get("case_type_counts") or {}).items()})
+        child_failures = data.get("failures") or []
+        if isinstance(child_failures, list):
+            failures.extend(item if isinstance(item, dict) else {"failure": str(item)} for item in child_failures)
+        passed = bool(data.get("pass")) and cases > 0 and correct == cases and not child_failures
+        ok = ok and passed
+        source_rows.append({"path": str(src), "pass": passed, "cases": cases, "correct": correct})
+    path = out / "smqe_lacuna_invariant.json"
+    path.write_text(json.dumps({
+        "pass": ok and total_cases > 0 and total_correct == total_cases and not failures,
+        "artifact_kind": "composite",
+        "seed_mode": _composite_seed_mode_for_sources(sources, path.name),
+        "cases": total_cases,
+        "correct": total_correct,
+        "failures": failures[:50],
+        "case_type_counts": dict(sorted(case_type_counts.items())),
+        "sources": source_rows,
+    }, indent=2) + "\n")
+    return path
+
+
 def _write_composite_crystal_demotion(out: Path, sources: list[Path]) -> Path:
     source_rows: list[dict] = []
     failures: list[dict] = []
@@ -2512,6 +2551,7 @@ def _build_composite(
     _write_composite_smqe_time(out, sources)
     _write_composite_smqe_invalidation(out, sources)
     _write_composite_smqe_dialogue(out, sources)
+    _write_composite_smqe_lacuna(out, sources)
     _write_composite_crystal_demotion(out, sources)
     _fail_nonrandom_composite_sidecars(out)
     systems = sorted({str(row.get("system", "")) for row in all_rows if row.get("system")})

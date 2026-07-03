@@ -149,6 +149,9 @@ run_sidecar smqe_invalidation_invariant python -m bench.smqe_invalidation_invari
 run_sidecar smqe_dialogue_invariant python -m bench.smqe_dialogue_invariant \
   --cases "${SMQE_DIALOGUE_CASES:-24}" \
   --out "$OUT/smqe_dialogue_invariant.json"
+run_sidecar smqe_lacuna_invariant python -m bench.smqe_lacuna_invariant \
+  --cases "${SMQE_LACUNA_CASES:-24}" \
+  --out "$OUT/smqe_lacuna_invariant.json"
 run_sidecar crystal_demotion_invariant python -m bench.crystal_demotion_invariant \
   --cases "${CRYSTAL_DEMOTION_CASES:-20}" \
   --out "$OUT/crystal_demotion_invariant.json"

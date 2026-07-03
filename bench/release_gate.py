@@ -2543,6 +2543,9 @@ def run_release_gate(
     require_smqe_dialogue_invariant: bool = True,
     smqe_dialogue_report: str = "smqe_dialogue_invariant.json",
     min_smqe_dialogue_cases: int = 24,
+    require_smqe_lacuna_invariant: bool = True,
+    smqe_lacuna_report: str = "smqe_lacuna_invariant.json",
+    min_smqe_lacuna_cases: int = 24,
     require_crystal_demotion_invariant: bool = True,
     crystal_demotion_report: str = "crystal_demotion_invariant.json",
     min_crystal_demotion_cases: int = 20,
@@ -3264,6 +3267,19 @@ def run_release_gate(
         _append(checks, "smqe_dialogue:evidence", dlg_ok,
                 f"{dialogue_report.get('correct', 0)}/{dialogue_report.get('cases', 0)} dialogue "
                 f"Q->A crystal checks, seed_mode:{dialogue_report.get('seed_mode', '<missing>')}")
+    if require_smqe_lacuna_invariant:
+        lacuna_report, lacuna_error = _load_json_report(out_dir / smqe_lacuna_report)
+        _append(checks, "smqe_lacuna:valid_json",
+                not lacuna_error, "valid" if not lacuna_error else lacuna_error)
+        lac_ok = (
+            bool(lacuna_report.get("pass"))
+            and int(lacuna_report.get("cases", 0) or 0) >= min_smqe_lacuna_cases
+            and str(lacuna_report.get("seed_mode", "")) == "random"
+        )
+        _append(checks, "smqe_lacuna:evidence", lac_ok,
+                f"{lacuna_report.get('correct', 0)}/{lacuna_report.get('cases', 0)} lacuna "
+                f"polarity/retraction/absence checks, "
+                f"seed_mode:{lacuna_report.get('seed_mode', '<missing>')}")
     if require_crystal_demotion_invariant:
         demotion_report, demotion_error = _load_json_report(out_dir / crystal_demotion_report)
         _append(checks, "crystal_demotion:valid_json",
@@ -3978,6 +3994,9 @@ def run_release_gate(
             "require_smqe_dialogue_invariant": require_smqe_dialogue_invariant,
             "smqe_dialogue_report": smqe_dialogue_report,
             "min_smqe_dialogue_cases": min_smqe_dialogue_cases,
+            "require_smqe_lacuna_invariant": require_smqe_lacuna_invariant,
+            "smqe_lacuna_report": smqe_lacuna_report,
+            "min_smqe_lacuna_cases": min_smqe_lacuna_cases,
             "require_crystal_demotion_invariant": require_crystal_demotion_invariant,
             "crystal_demotion_report": crystal_demotion_report,
             "min_crystal_demotion_cases": min_crystal_demotion_cases,
