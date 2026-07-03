@@ -1435,3 +1435,13 @@ write-cost comparison measured a proxy. Counting-mock tests prove the halving (1
 per window); real-dollar write accounting needs API-usage instrumentation in the harness.
 Queued alongside bigger-n gates as the evaluation-infra items. EXTRACT_COMBINED stays
 default-off pending claim-coverage assessment.
+
+### Real spend accounting lands (2026-07-03)
+
+8fc3f16: the client accumulates the API's own usage numbers (input/output tokens + calls) at
+the Generation/TextEmbedding call sites; the bench adapter deltas them around consolidation
+(per row under extra['consolidate'].model_usage) and around each fixed-reader answer
+(extra.model_usage). Cost claims measure dollars-shaped tokens from the next run onward; the
+write_tokens column is retained as the content-volume metric it always was. The next
+measurement run can now express verified-understanding-per-model-token directly - the goal's
+own unit. EXTRACT_COMBINED's halving becomes measurable rather than mock-proven.
