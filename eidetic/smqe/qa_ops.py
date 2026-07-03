@@ -276,7 +276,15 @@ def _plural_enumeration_answer(query: str, atoms: list[tuple[float, object, str]
             # category-term check on the value itself (unlike the count machinery).
             phrase = _ENUM_VALUE_STOP_RE.split(m.group(1), maxsplit=1)[0]
             phrase = ro._clean(phrase)
-            if phrase and not phrase.isdigit():
+            # An enumerable VALUE is a short noun phrase, not a clause: promotion evaluation
+            # showed unbounded captures assemble verified-wrong junk lists ("you know the
+            # movie well"). <=4 words, no pronoun/verb-ish head, no trailing preposition.
+            words = phrase.split()
+            if (phrase and not phrase.isdigit() and 1 <= len(words) <= 4
+                    and words[0].lower() not in {
+                        "you", "i", "we", "he", "she", "they", "it", "even", "know",
+                        "getting", "being", "trying", "going"}
+                    and words[-1].lower() not in {"of", "in", "on", "at", "to", "with"}):
                 value = phrase
                 break
         if not value:
