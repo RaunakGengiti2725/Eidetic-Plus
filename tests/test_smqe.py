@@ -4073,3 +4073,33 @@ def test_event_order_three_events_fails_closed_when_one_unanchored(tmp_path):
     )
 
     assert ans is None or "parrot" not in ans.answer
+
+
+def test_relative_temporal_duration_held_and_first_prefers_earliest(tmp_path):
+    """'When did X get his FIRST two turtles?' must resolve 'I've had them for 3 years now'
+    (session-dated) to session-minus-3-years and prefer the EARLIEST resolved date over a
+    later higher-scoring acquisition mention."""
+    from eidetic.smqe.claim_extraction import claims_for_record
+
+    store = RecordStore(tmp_path / "first-earliest.sqlite")
+    scope = Scope(namespace="first-earliest")
+    rows = [
+        ("Nate: My two turtles are doing great. I've had my turtles for 3 years now and they "
+         "bring me tons of joy!", datetime(2022, 1, 23, 12, 0)),
+        ("Nate: I saw another turtle at a pet store and just had to get him - a third turtle "
+         "this year!", datetime(2022, 11, 9, 12, 0)),
+    ]
+    for text, dt in rows:
+        rec = _record(text, scope=scope, valid_at=dt.timestamp())
+        store.upsert_record(rec)
+        store.add_claims(claims_for_record(rec))
+
+    ans = structured_answer(
+        _Retriever(store),
+        "When did Nate get his first two turtles?",
+        at=datetime(2022, 12, 1, 12, 0).timestamp(), scope=scope,
+    )
+
+    assert ans is not None
+    assert "2019" in ans.answer
+    assert "2022-11" not in ans.answer

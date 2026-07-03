@@ -727,6 +727,25 @@ def _relative_date_from_atom(rec: object, atom: str, query: str = "") -> str:
             return str(shifted.year) if re.search(r"\byear\b", q) else shifted.isoformat()
     if re.search(r"\b(?:a\s+)?fortnight\s+ago\b", low):
         return (ref - timedelta(days=14)).isoformat()
+    # Duration-held: 'I've HAD them FOR 3 years (now)' dates the acquisition N units before
+    # the session - the ago-form above never fires on possession phrasing.
+    m = re.search(
+        rf"\b(?:had|have|has|owned|kept)\b[^.;!?]{{0,40}}\bfor\s+(?:about\s+|over\s+|nearly\s+|almost\s+)?({number})\s+(days?|weeks?|months?|years?)\b",
+        low,
+        re.I,
+    )
+    if m:
+        n = _num_value(m.group(1)) or 0
+        unit = m.group(2).lower()
+        if unit.startswith("day"):
+            return (ref - timedelta(days=n)).isoformat()
+        if unit.startswith("week"):
+            return (ref - timedelta(days=7 * n)).isoformat()
+        if unit.startswith("month"):
+            return _shift_months(ref, -n).isoformat()
+        if unit.startswith("year"):
+            shifted = _shift_months(ref, -12 * n)
+            return str(shifted.year) if re.search(r"\bwhen\b|\byear\b", q) else shifted.isoformat()
     m = re.search(rf"\b(?:in|after)\s+({number})\s+(days?|weeks?|months?|years?)\b", low, re.I)
     if m:
         n = _num_value(m.group(1)) or 0
@@ -4661,6 +4680,27 @@ def _execute_atoms(plan: ExecutionPlan, query: str,
                     if not candidates:
                         return None
                 candidates.sort(key=lambda row: (-row[0], -row[1], -row[2]))
+                # Ordinal-first semantics: 'when did X get his FIRST ...' asks for the EARLIEST
+                # qualifying date - the default sort is score-biased toward recency, which
+                # verified-wrong'd a later re-acquisition as the answer. Among the candidates
+                # that survived the target/entity gates, prefer the earliest parseable answer
+                # date (bare years count).
+                if re.search(r"\b(?:first|originally|initially)\b", query or "", re.I):
+                    def _answer_sort_date(ans_text: str):
+                        m2 = re.search(r"\b(20\d{2})-(\d{2})-(\d{2})\b", ans_text)
+                        if m2:
+                            return (int(m2.group(1)), int(m2.group(2)), int(m2.group(3)))
+                        m2 = re.search(r"\b(19|20)(\d{2})\b", ans_text)
+                        if m2:
+                            return (int(m2.group(1) + m2.group(2)), 0, 0)
+                        return None
+                    dated = [(d, row) for row in candidates
+                             for d in [_answer_sort_date(row[5])] if d is not None]
+                    if dated:
+                        dated.sort(key=lambda pair: pair[0])
+                        candidates = [pair[1] for pair in dated] + \
+                                     [row for row in candidates
+                                      if _answer_sort_date(row[5]) is None]
                 _target_hits, _entity_hits, score, item, atom, answer = candidates[0]
                 return _result(answer, plan, backend, [sup(item, atom, score)])
         else:
