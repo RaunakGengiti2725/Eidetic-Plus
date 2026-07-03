@@ -134,15 +134,21 @@ def _brief(rec) -> dict:
 @mcp.tool()
 def remember(content: str, namespace: Optional[str] = None, agent_id: Optional[str] = None,
              project_id: Optional[str] = None, metadata: Optional[dict] = None,
-             consolidate_now: bool = False) -> dict:
+             consolidate_now: bool = False, valid_at: Optional[float] = None,
+             source: Optional[str] = None) -> dict:
     """Store a durable memory in the given scope. Use this for facts worth keeping across
     conversations. The text is stored losslessly in the immutable record store; returns the
-    stored memory id plus provenance. Needs DASHSCOPE_API_KEY (it embeds the text)."""
+    stored memory id plus provenance. `valid_at` (unix seconds) backdates the EVENT time the
+    fact became true - set it when importing history so bi-temporal reads (recall as_of,
+    value_as_of, fact_history, truth_ledger) report correct validity windows; omitted means
+    now. `source` labels provenance (default "user"). Needs DASHSCOPE_API_KEY (it embeds the
+    text)."""
     content = _text_arg(content, "content", max_chars=_MAX_CONTENT_CHARS)
     scope = _scope(namespace, agent_id, project_id)
     try:
         eng = engine()
-        rec = eng.ingest_text(content, scope=scope, consolidate_now=consolidate_now)
+        rec = eng.ingest_text(content, scope=scope, consolidate_now=consolidate_now,
+                              valid_at=valid_at, source=source or "user")
         if metadata:
             eng.set_metadata(rec.memory_id, metadata, scope=scope)
         return {
@@ -162,15 +168,18 @@ def remember(content: str, namespace: Optional[str] = None, agent_id: Optional[s
 @mcp.tool()
 def recall(query: str, namespace: Optional[str] = None, agent_id: Optional[str] = None,
            project_id: Optional[str] = None, limit: int = 10, verify: bool = True,
-           prove: bool = False) -> dict:
+           prove: bool = False, as_of: Optional[float] = None) -> dict:
     """Retrieve relevant prior memories for a query within a scope. Returns a verified answer
     plus the cited immutable sources (hash, timestamp, NLI label, score) so the calling app can
     cite them, or an explicit abstention. Set prove=True to also return a machine-readable proof
-    tree. Never confabulates. Needs DASHSCOPE_API_KEY."""
+    tree. `as_of` (unix seconds) answers AS OF that past moment using the bi-temporal store:
+    facts not yet valid then are invisible, superseded facts current then answer - verified
+    time travel, not an LLM guess. Never confabulates. Needs DASHSCOPE_API_KEY."""
     try:
         query = _text_arg(query, "query", max_chars=_MAX_QUERY_CHARS)
         limit = _bounded_int(limit, default=10, minimum=1, maximum=_MAX_CITATION_LIMIT)
-        ans = engine().ask(query, verify=verify, scope=_scope(namespace, agent_id, project_id))
+        ans = engine().ask(query, verify=verify, as_of=as_of,
+                           scope=_scope(namespace, agent_id, project_id))
         out = ans.model_dump()
         if isinstance(out.get("citations"), list):
             out["citations"] = out["citations"][:limit]
@@ -240,7 +249,8 @@ def structured_recall(query: str, namespace: Optional[str] = None, agent_id: Opt
 
 @mcp.tool()
 def truth_ledger(query: str, namespace: Optional[str] = None, agent_id: Optional[str] = None,
-                 project_id: Optional[str] = None, verify: bool = True) -> dict:
+                 project_id: Optional[str] = None, verify: bool = True,
+                 as_of: Optional[float] = None) -> dict:
     """Answer `query` and return its full TRUTH LEDGER: the complete chain from raw bytes to current
     truth. Each cited source carries its immutable hash/snippet, NLI grounding, bi-temporal validity
     window, whether it is still current, and the supersession chain of any fact it sourced (oldest
@@ -249,7 +259,7 @@ def truth_ledger(query: str, namespace: Optional[str] = None, agent_id: Optional
     query = _text_arg(query, "query", max_chars=_MAX_QUERY_CHARS)
     scope = _scope(namespace, agent_id, project_id)
     try:
-        ans = engine().ask(query, verify=verify, scope=scope)
+        ans = engine().ask(query, verify=verify, as_of=as_of, scope=scope)
         return engine().truth_ledger(ans, scope=scope)
     except ModelCallError as e:
         raise RuntimeError(

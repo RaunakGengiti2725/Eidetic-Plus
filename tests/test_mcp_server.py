@@ -256,3 +256,32 @@ def test_main_entry_point_runs_http_transport(monkeypatch):
     monkeypatch.setattr("sys.argv", ["eidetic-plus", "--transport", "http"])
     mcp_server.main()
     assert called["t"] == "streamable-http"
+
+
+# ---- bitemporal write/read parity over MCP --------------------------------------------------
+def test_remember_backdates_valid_at_and_source(mcp_engine):
+    """A backfilled fact must carry its EVENT time, not ingest time: bitemporal time travel
+    (value_as_of / fact_history / truth_ledger windows) is wrong otherwise."""
+    event_t = 1_600_000_000.0  # 2020-09-13, long before any test wall clock
+    out = mcp_server.remember(
+        "Historical note: the archive migration finished successfully.",
+        namespace="hist", valid_at=event_t, source="import",
+    )
+    assert out["ok"]
+    rec = mcp_engine.store.get_record(out["memory_id"])
+    assert rec.valid_at == event_t
+    assert rec.source == "import"
+    assert out["valid_at"] == event_t
+
+
+def test_recall_accepts_as_of_time_travel(mcp_engine):
+    """as_of on the flagship recall tool: a memory valid only AFTER as_of must not answer."""
+    mcp_server.remember("The rotation lead is Priya.", namespace="tt",
+                        valid_at=1_700_000_000.0)
+    # ask BEFORE the fact became valid -> no verified answer from it
+    before = mcp_server.recall("who is the rotation lead", namespace="tt",
+                               as_of=1_600_000_000.0)
+    assert "priya" not in (before["answer"] or "").lower()
+    after = mcp_server.recall("who is the rotation lead", namespace="tt",
+                              as_of=1_800_000_000.0)
+    assert "priya" in (after["answer"] or "").lower()
