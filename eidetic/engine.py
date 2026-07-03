@@ -71,6 +71,10 @@ class Engine:
         # drained on the idle/sleep cadence (the embed runs OFF the write lock).
         self._reembed_queue: set[str] = set()
         self._reembed_lock = threading.Lock()
+        # Last COMPLETED traced ask, published for cross-thread introspection surfaces; the
+        # retriever's thread-local remains the in-flight isolation mechanism.
+        self._last_completed_trace: Optional[RecallTrace] = None
+        self._trace_snapshot_lock = threading.Lock()
         self._ingest_since_save = 0          # S2 debounced-save counter (guarded by the write lock)
         self.substrate = make_substrate(self.settings)
         self.store = RecordStore(self.settings.sqlite_path)
@@ -1118,6 +1122,15 @@ class Engine:
         self.lifecycle.after_recall(ans, scope)
         if use_cache:
             self.cache.put(sk, query, qvec, ans, version=cache_ver)
+        # Publish the completed trace for cross-thread introspection (MCP recall_trace,
+        # /api/recall_trace run on their own worker threads and cannot see this thread's
+        # thread-local). Written once per completed ask under a lock; in-flight concurrent asks
+        # still isolate via the retriever's thread-local, so no mid-flight clobbering.
+        if self.settings.recall_trace_enabled:
+            completed = self.retriever.last_trace
+            if completed is not None:
+                with self._trace_snapshot_lock:
+                    self._last_completed_trace = completed
         return ans
 
     def link_coactivated(
@@ -2237,8 +2250,14 @@ class Engine:
 
     def recall_trace(self) -> Optional[RecallTrace]:
         """The RecallTrace from the most recent traced retrieve (None unless RECALL_TRACE is on).
-        Explains why the last read found/missed what it did."""
-        return self.retriever.last_trace
+        Explains why the last read found/missed what it did. Prefers the calling thread's own
+        trace (same-thread flows keep exact semantics); falls back to the last COMPLETED ask's
+        published snapshot so introspection surfaces on other worker threads still see it."""
+        own = self.retriever.last_trace
+        if own is not None:
+            return own
+        with self._trace_snapshot_lock:
+            return self._last_completed_trace
 
     @staticmethod
     def _claim_status(answer) -> str:

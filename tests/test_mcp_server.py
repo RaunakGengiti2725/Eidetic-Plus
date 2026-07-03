@@ -337,3 +337,33 @@ def test_remember_file_rejects_oversize_and_bad_base64(mcp_engine):
     big = b64.b64encode(b"x" * (mcp_server._MAX_RAW_BYTES + 1)).decode("ascii")
     with pytest.raises(RuntimeError):
         mcp_server.remember_file(content_base64=big, filename="big.txt", namespace="files")
+
+
+def test_registered_tools_are_async_offloaded(mcp_engine):
+    """Shared-HTTP mode: a slow model-backed tool must not freeze the event loop for every
+    session. Every registered tool is an async wrapper that offloads the sync body to a worker
+    thread; the module-level names stay plain sync callables for direct use."""
+    import inspect
+
+    tools = asyncio.run(mcp_server.mcp.list_tools())
+    tm = mcp_server.mcp._tool_manager
+    for t in tools:
+        fn = tm.get_tool(t.name).fn
+        assert inspect.iscoroutinefunction(fn), f"tool {t.name} runs inline on the event loop"
+    # direct (non-MCP) call path unchanged: sync function, sync result
+    assert not inspect.iscoroutinefunction(mcp_server.stats)
+    out = mcp_server.stats(namespace="A")
+    assert isinstance(out, dict)
+
+
+def test_async_wrapper_round_trip_through_tool_manager(mcp_engine):
+    """Calling through the MCP tool manager (as a host would) still round-trips remember ->
+    recall with citations."""
+    async def _roundtrip():
+        tm = mcp_server.mcp._tool_manager
+        await tm.call_tool("remember", {"content": "Nova prefers window seats on trains",
+                                        "namespace": "asyncproj"})
+        return await tm.call_tool("recall", {"query": "what seats does Nova prefer",
+                                             "namespace": "asyncproj"})
+    res = asyncio.run(_roundtrip())
+    assert "window" in str(res).lower()

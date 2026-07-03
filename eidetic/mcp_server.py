@@ -25,10 +25,12 @@ from __future__ import annotations
 
 import argparse
 import base64
+import functools
 import os
 import threading
 from typing import Optional
 
+import anyio.to_thread
 from mcp.server.fastmcp import FastMCP
 
 from .dashscope_client import ModelCallError
@@ -141,6 +143,24 @@ def _bounded_raw(raw: bytes, *, offset: int, max_bytes: int) -> tuple[bytes, dic
     }
 
 
+def _threaded_tool(fn):
+    """Register `fn` as an MCP tool that runs on a WORKER THREAD, not the event loop.
+
+    FastMCP executes sync tools inline on the asyncio loop thread, so in the shared HTTP mode
+    one multi-second model-backed call (recall, remember, truth_ledger, preflight) freezes
+    every session: no other client's request, no key-free read-only tool, no protocol ping is
+    serviced until it returns. The wrapper offloads via anyio.to_thread (the Engine is already
+    exercised multithreaded by the HTTP API). Each tool body runs whole on ONE worker thread,
+    so same-call thread-local flows (ask -> prove trace splicing) keep exact semantics; the
+    cross-call recall_trace surface reads the engine's published completed-trace snapshot.
+    Returns the ORIGINAL sync function so direct in-process calls keep their signature."""
+    @functools.wraps(fn)
+    async def _async_tool(*args, **kwargs):
+        return await anyio.to_thread.run_sync(functools.partial(fn, *args, **kwargs))
+    mcp.tool()(_async_tool)
+    return fn
+
+
 def _brief(rec) -> dict:
     return {
         "memory_id": rec.memory_id,
@@ -155,7 +175,7 @@ def _brief(rec) -> dict:
     }
 
 
-@mcp.tool()
+@_threaded_tool
 def remember(content: str, namespace: Optional[str] = None, agent_id: Optional[str] = None,
              project_id: Optional[str] = None, metadata: Optional[dict] = None,
              consolidate_now: bool = False, valid_at: Optional[float] = None,
@@ -189,7 +209,7 @@ def remember(content: str, namespace: Optional[str] = None, agent_id: Optional[s
         )
 
 
-@mcp.tool()
+@_threaded_tool
 def remember_file(content_base64: str, filename: str, namespace: Optional[str] = None,
                   agent_id: Optional[str] = None, project_id: Optional[str] = None,
                   source: Optional[str] = None, valid_at: Optional[float] = None,
@@ -228,7 +248,7 @@ def remember_file(content_base64: str, filename: str, namespace: Optional[str] =
         )
 
 
-@mcp.tool()
+@_threaded_tool
 def recall(query: str, namespace: Optional[str] = None, agent_id: Optional[str] = None,
            project_id: Optional[str] = None, limit: int = 10, verify: bool = True,
            prove: bool = False, as_of: Optional[float] = None) -> dict:
@@ -258,7 +278,7 @@ def recall(query: str, namespace: Optional[str] = None, agent_id: Optional[str] 
         )
 
 
-@mcp.tool()
+@_threaded_tool
 def reflex_recall(query: str, namespace: Optional[str] = None, agent_id: Optional[str] = None,
                   project_id: Optional[str] = None, as_of: Optional[float] = None) -> dict:
     """LOCAL recall: the candidate memories a query activates, with their provenance (content hash,
@@ -275,7 +295,7 @@ def reflex_recall(query: str, namespace: Optional[str] = None, agent_id: Optiona
     return packet.public_dict()
 
 
-@mcp.tool()
+@_threaded_tool
 def region_hints(query: str, namespace: Optional[str] = None, agent_id: Optional[str] = None,
                  project_id: Optional[str] = None, as_of: Optional[float] = None,
                  limit: int = 3, member_limit: int = 6) -> dict:
@@ -294,7 +314,7 @@ def region_hints(query: str, namespace: Optional[str] = None, agent_id: Optional
     )
 
 
-@mcp.tool()
+@_threaded_tool
 def structured_recall(query: str, namespace: Optional[str] = None, agent_id: Optional[str] = None,
                       project_id: Optional[str] = None, as_of: Optional[float] = None,
                       verify: bool = True) -> dict:
@@ -310,7 +330,7 @@ def structured_recall(query: str, namespace: Optional[str] = None, agent_id: Opt
     )
 
 
-@mcp.tool()
+@_threaded_tool
 def truth_ledger(query: str, namespace: Optional[str] = None, agent_id: Optional[str] = None,
                  project_id: Optional[str] = None, verify: bool = True,
                  as_of: Optional[float] = None) -> dict:
@@ -330,7 +350,7 @@ def truth_ledger(query: str, namespace: Optional[str] = None, agent_id: Optional
             "Set DASHSCOPE_API_KEY to enable it.")
 
 
-@mcp.tool()
+@_threaded_tool
 def sync_health(namespace: Optional[str] = None, agent_id: Optional[str] = None,
                 project_id: Optional[str] = None) -> dict:
     """Track 2 synchronization report for a scope: whether the rebuildable surfaces (vector index,
@@ -340,7 +360,7 @@ def sync_health(namespace: Optional[str] = None, agent_id: Optional[str] = None,
     return engine().sync_health(scope=_scope(namespace, agent_id, project_id))
 
 
-@mcp.tool()
+@_threaded_tool
 def consolidate(namespace: Optional[str] = None, agent_id: Optional[str] = None,
                 project_id: Optional[str] = None) -> dict:
     """Run the unified sleep cycle for a scope: consolidate_pending (so pending fast writes flow
@@ -350,7 +370,7 @@ def consolidate(namespace: Optional[str] = None, agent_id: Optional[str] = None,
     return engine().sleep(scope=_scope(namespace, agent_id, project_id))
 
 
-@mcp.tool()
+@_threaded_tool
 def list_memories(namespace: Optional[str] = None, agent_id: Optional[str] = None,
                   project_id: Optional[str] = None, limit: int = 50, offset: int = 0) -> dict:
     """List stored memories within a scope (newest first), paginated. Read-only; works without a
@@ -364,7 +384,7 @@ def list_memories(namespace: Optional[str] = None, agent_id: Optional[str] = Non
             "memories": [_brief(r) for r in page]}
 
 
-@mcp.tool()
+@_threaded_tool
 def get_raw(memory_id: str, namespace: Optional[str] = None, agent_id: Optional[str] = None,
             project_id: Optional[str] = None, max_bytes: int = _DEFAULT_RAW_MAX_BYTES,
             offset: int = 0) -> dict:
@@ -399,7 +419,7 @@ def get_raw(memory_id: str, namespace: Optional[str] = None, agent_id: Optional[
     }
 
 
-@mcp.tool()
+@_threaded_tool
 def forget(memory_id: str, namespace: Optional[str] = None, agent_id: Optional[str] = None,
            project_id: Optional[str] = None) -> dict:
     """Lower a memory's retrieval PRIORITY via the FSRS forgetting path. This is priority decay,
@@ -412,7 +432,7 @@ def forget(memory_id: str, namespace: Optional[str] = None, agent_id: Optional[s
     return {"ok": True, "note": "priority decayed; raw record NOT deleted", **_brief(rec)}
 
 
-@mcp.tool()
+@_threaded_tool
 def reawaken(memory_id: str, namespace: Optional[str] = None, agent_id: Optional[str] = None,
              project_id: Optional[str] = None) -> dict:
     """Re-promote a down-weighted memory (reset retrievability, boost stability). The inverse of
@@ -424,7 +444,7 @@ def reawaken(memory_id: str, namespace: Optional[str] = None, agent_id: Optional
     return {"ok": True, **_brief(rec)}
 
 
-@mcp.tool()
+@_threaded_tool
 def stats(namespace: Optional[str] = None, agent_id: Optional[str] = None,
           project_id: Optional[str] = None) -> dict:
     """Scope-level counts: number of memories, edges, indexed vectors, backend, key presence.
@@ -432,7 +452,7 @@ def stats(namespace: Optional[str] = None, agent_id: Optional[str] = None,
     return engine().stats(scope=_scope(namespace, agent_id, project_id))
 
 
-@mcp.tool()
+@_threaded_tool
 def health_report(namespace: Optional[str] = None, agent_id: Optional[str] = None,
                   project_id: Optional[str] = None) -> dict:
     """Read-only self-diagnosis of a scope: coverage, contradiction load, low-confidence and
@@ -441,7 +461,7 @@ def health_report(namespace: Optional[str] = None, agent_id: Optional[str] = Non
     return engine().memory_health_report(scope=_scope(namespace, agent_id, project_id))
 
 
-@mcp.tool()
+@_threaded_tool
 def value_as_of(entity: str, relation: str, as_of: Optional[float] = None,
                 namespace: Optional[str] = None, agent_id: Optional[str] = None,
                 project_id: Optional[str] = None) -> dict:
@@ -453,7 +473,7 @@ def value_as_of(entity: str, relation: str, as_of: Optional[float] = None,
     return out if out is not None else {"value": None, "note": "no fact valid as of that time"}
 
 
-@mcp.tool()
+@_threaded_tool
 def fact_history(entity: str, relation: str, namespace: Optional[str] = None,
                  agent_id: Optional[str] = None, project_id: Optional[str] = None) -> dict:
     """C2 current-vs-historical: the full superseded chain for (entity, relation), oldest first,
@@ -462,7 +482,7 @@ def fact_history(entity: str, relation: str, namespace: Optional[str] = None,
                                              scope=_scope(namespace, agent_id, project_id))}
 
 
-@mcp.tool()
+@_threaded_tool
 def integrity_report(namespace: Optional[str] = None, agent_id: Optional[str] = None,
                      project_id: Optional[str] = None) -> dict:
     """C1 operation-level integrity: fabrication / abstention / verified rates + conflict load,
@@ -470,7 +490,7 @@ def integrity_report(namespace: Optional[str] = None, agent_id: Optional[str] = 
     return engine().integrity_report(scope=_scope(namespace, agent_id, project_id))
 
 
-@mcp.tool()
+@_threaded_tool
 def scratchpad(namespace: Optional[str] = None, agent_id: Optional[str] = None,
                project_id: Optional[str] = None) -> dict:
     """The working scratchpad for a scope: high-salience, verified, ACTIVE facts, each linked to its
@@ -479,7 +499,7 @@ def scratchpad(namespace: Optional[str] = None, agent_id: Optional[str] = None,
     return {"scratchpad": engine().build_scratchpad(scope=_scope(namespace, agent_id, project_id))}
 
 
-@mcp.tool()
+@_threaded_tool
 def preference_profile(namespace: Optional[str] = None, agent_id: Optional[str] = None,
                        project_id: Optional[str] = None, include_inactive: bool = False,
                        limit: int = 50) -> dict:
@@ -494,7 +514,7 @@ def preference_profile(namespace: Optional[str] = None, agent_id: Optional[str] 
     )
 
 
-@mcp.tool()
+@_threaded_tool
 def why_remembered(memory_id: str, namespace: Optional[str] = None, agent_id: Optional[str] = None,
                    project_id: Optional[str] = None) -> dict:
     """'Why I remember this strongly': the affect/usage components behind a memory's salience
@@ -507,7 +527,7 @@ def why_remembered(memory_id: str, namespace: Optional[str] = None, agent_id: Op
     return out
 
 
-@mcp.tool()
+@_threaded_tool
 def preflight() -> dict:
     """Run the preflight doctor: one real call per capability (embed / chat / rerank / multimodal /
     document) against the configured model IDs, reporting pass/fail + latency and telling a quota
@@ -517,7 +537,7 @@ def preflight() -> dict:
     return _preflight(engine())
 
 
-@mcp.tool()
+@_threaded_tool
 def brain_health_score(namespace: Optional[str] = None, agent_id: Optional[str] = None,
                        project_id: Optional[str] = None) -> dict:
     """A local BrainHealthScore in [0,1] for a scope plus its components (recall connectivity,
@@ -526,7 +546,7 @@ def brain_health_score(namespace: Optional[str] = None, agent_id: Optional[str] 
     return engine().brain_health_score(scope=_scope(namespace, agent_id, project_id))
 
 
-@mcp.tool()
+@_threaded_tool
 def sleep(namespace: Optional[str] = None, agent_id: Optional[str] = None,
           project_id: Optional[str] = None, llm_summaries: bool = False) -> dict:
     """Run the unified sleep cycle for a scope: consolidate_pending -> dream -> optional LLM
@@ -536,7 +556,7 @@ def sleep(namespace: Optional[str] = None, agent_id: Optional[str] = None,
                           llm_summaries=llm_summaries)
 
 
-@mcp.tool()
+@_threaded_tool
 def memory_autopsy(question: str, namespace: Optional[str] = None, agent_id: Optional[str] = None,
                    project_id: Optional[str] = None) -> dict:
     """Read-only diagnosis of WHY a question would miss in a scope (missing write, pending
@@ -546,7 +566,7 @@ def memory_autopsy(question: str, namespace: Optional[str] = None, agent_id: Opt
     return engine().memory_autopsy(question, scope=_scope(namespace, agent_id, project_id))
 
 
-@mcp.tool()
+@_threaded_tool
 def recall_trace() -> dict:
     """The RecallTrace from the most recent traced recall: which channels fired, their weights,
     fused scores, and stage latency. Returns {} unless RECALL_TRACE is enabled. Read-only, no key.
@@ -555,7 +575,7 @@ def recall_trace() -> dict:
     return t.model_dump() if t is not None else {}
 
 
-@mcp.tool()
+@_threaded_tool
 def prove_age_independence(namespace: Optional[str] = None, agent_id: Optional[str] = None,
                            project_id: Optional[str] = None, k: int = 5) -> dict:
     """Compute recall@k and p95 latency vs memory AGE on the current scope and report the slopes

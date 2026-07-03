@@ -173,3 +173,57 @@ def test_explain_candidate_from_trace(engine):
     assert ex["channel_weights"]["gist"] == 0.4
     assert ex["via_gist"] == "g1" and ex["selected"] is True
     assert engine.explain_candidate("not_in_trace") is None
+
+
+def test_recall_trace_visible_across_threads_after_ask(fresh_settings, tmp_path):
+    """The retriever trace is thread-local (concurrent asks must not clobber each other), but
+    the ENGINE accessor must still serve 'the most recent traced recall' to introspection
+    surfaces (MCP recall_trace, /api/recall_trace) that run on a different worker thread."""
+    import hashlib
+    import re as _re
+    import threading
+
+    from eidetic.engine import Engine
+
+    class _Client:
+        def __init__(self, dim):
+            self.dim = dim
+
+        def _e(self, t):
+            v = np.zeros(self.dim, np.float32)
+            for tok in _re.findall(r"[a-z0-9]+", (t or "").lower()):
+                v[int(hashlib.md5(tok.encode()).hexdigest(), 16) % self.dim] += 1.0
+            n = np.linalg.norm(v)
+            return v / n if n > 0 else v
+
+        def embed_text(self, t):
+            return self._e(t)
+
+        def embed_texts(self, ts):
+            return (np.stack([self._e(t) for t in ts])
+                    if ts else np.zeros((0, self.dim), np.float32))
+
+        def extract_edges(self, text):
+            return []
+
+        def generate_answer(self, q, blocks, model=None):
+            return blocks[0][:200] if blocks else "I do not have that in memory."
+
+        def nli(self, premise, hypothesis):
+            return ("entailment", 0.9)
+
+    s = replace(fresh_settings, rerank_enabled=False, recall_trace_enabled=True)
+    e = Engine(s, client=_Client(s.embed_dim))
+    scope = Scope(namespace="xthread")
+    e.ingest_text("The berry harvest starts in June.", scope=scope, consolidate_now=False)
+
+    def _ask():
+        e.ask("when does the berry harvest start", scope=scope)
+
+    t = threading.Thread(target=_ask)
+    t.start()
+    t.join()
+
+    trace = e.recall_trace()               # main thread: worker's thread-local is invisible
+    assert trace is not None
+    assert "berry" in trace.query
