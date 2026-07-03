@@ -2858,8 +2858,8 @@ def _speaker_fact_value(text: str) -> str:
         # complement-clause subject.
         r"\b(?:i|we|he|she|they)\s+(?:told|asked|reminded|informed)\s+"
         r"(?:me|him|her|them|us|you|[A-Z][\w'-]+)\s+(?:that\s+|to\s+)?(.+)",
-        r"\b(?:i|we|he|she|they)\s+(?:said|told|mentioned|asked|answered|replied|discussed|talked\s+about)\s+(?:that\s+)?(.+)",
-        r"\b(?:said|told|mentioned|asked|answered|replied|discussed|talked\s+about)\s+(?:that\s+)?(.+)",
+        r"\b(?:i|we|he|she|they)\s+(?:said|told|mentioned|asked|answered|replied|discussed|talked\s+about)\s+(.+)",
+        r"\b(?:said|told|mentioned|asked|answered|replied|discussed|talked\s+about)\s+(.+)",
     ):
         m = re.search(pat, text, re.I)
         if m:
