@@ -1210,3 +1210,35 @@ retriever.answer() - the neutral bench adapter never ran it, so bench-surface ve
 depended on reader phrasing luck. rescue_grounding() is now one shared verification-policy
 method on both surfaces (same fixed-reader text; declines never rescue; adapter test locks the
 contract with an NLI-neutral client). Suite 1264 green.
+
+---
+
+## Wave I head-to-head - 2026-07-03 LoCoMo dev-20 stratified (artifacts/wave_i_h2h_locomo20_codex)
+
+| system | correct | verified-correct | abstained | median qtok | write tok |
+|---|---|---|---|---|---|
+| eidetic-plus-full | 13/20 (65%) | **13/20 (65%)** | 3 | 5423 | 376k |
+| mem0 | 13/20 (65%) | 0/20 | 0 | **411** | 376k |
+| rag-full | 12/20 (60%) | 0/20 | 0 | 19199 | 376k |
+| rag-vector | 12/20 (60%) | 0/20 | 0 | 1905 | 376k |
+
+HONEST READING: a harder stratified draw than wave-B's (every system clustered 60-65%; wave-B's
+draw had eidetic at 90%). Integrity won outright - every eidetic correct answer is verified with
+citations; no baseline verifies anything - and eidetic beats rag-full at 28% of its read cost.
+But the goal's bar ('more correct answers at the lowest sustainable cost') is NOT met against
+mem0 on this slice: tied on correct, 13x mem0's read tokens. Recorded as the standing target.
+
+Miss taxonomy (7) -> fixes landed the same morning:
+- c3_q8 VERIFIED-WRONG (first-two-turtles answered a later re-acquisition date): duration-held
+  dating ('had them FOR 3 years' -> session-minus-3y) + ordinal-first prefers the earliest
+  resolved date (4275bbf). H2H-store replay: exactly '2019'.
+- c4_q11 VERIFIED-WRONG (advice chatter as the sports answer): planner wh-guard now tolerates
+  interleaved nouns; fact-shaped like-questions leave the synthesis route (b722f6f). Junk dead.
+- c3_q1 + c4_q74 (partial lists, 1-of-2 / 2-of-3 items): plural/list completeness class - the
+  PLURAL_ENUMERATION operator's exact target; promotion evaluation next.
+- c4_q16 + c6_q17 (abstentions with evidence likely present): retrieval/anchor misses, next in
+  queue.
+- c7_q36 ('How old is Jolene?' - no stated age): honest abstention, defensible; gold itself is
+  an inference ('likely no more than 30').
+
+Suite 1266 green. Rescue-layer parity fix (686fc30) applies to all future runs.
