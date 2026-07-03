@@ -248,18 +248,20 @@ async def structured_recall(body: StructuredRecallIn):
 
 @app.get("/api/truth_ledger")
 async def truth_ledger(query: str, namespace: str = "default", agent_id: Optional[str] = None,
-                       project_id: Optional[str] = None, verify: bool = True):
+                       project_id: Optional[str] = None, verify: bool = True,
+                       as_of: Optional[float] = None):
     """Answer `query` and return its full TRUTH LEDGER: the proof tree enriched with each
     citation's validity window, current-ness, supersession chains, and the final claim_status
-    (verified / contradicted / abstained / unverified). Needs DASHSCOPE_API_KEY (it answers).
-    Mirrors the MCP `truth_ledger` tool."""
+    (verified / contradicted / abstained / unverified). `as_of` answers as of a past unix time
+    (is_current in the ledger stays relative to the present). Needs DASHSCOPE_API_KEY (it
+    answers). Mirrors the MCP `truth_ledger` tool."""
     scope = _scope(namespace, agent_id, project_id)
 
     def _answer_and_prove():
         # ONE threadpool thread: truth_ledger(with_paths) reads the retriever's THREAD-LOCAL
         # last_trace, so ask + truth_ledger must run on the same thread or the recall-paths splice
         # silently sees a foreign/None trace and drops the paths.
-        ans = _guard(engine().ask, query, verify=verify, scope=scope)
+        ans = _guard(engine().ask, query, verify=verify, as_of=as_of, scope=scope)
         return engine().truth_ledger(ans, scope=scope)
 
     return await run_in_threadpool(_answer_and_prove)

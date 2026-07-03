@@ -4125,13 +4125,25 @@ class Retriever:
         pref_blocks = _preference_profile_blocks(
             query, _visible_profile_entries(self.store, scope, at), limit=8
         )
+        # The five audit channels below each need the same active-record snapshot; recomputing
+        # the O(corpus) scan per channel paid five store sweeps per reader-path ask in the full
+        # profile. One lazy snapshot (no scan when every channel is off); no mutation happens
+        # between the call sites, so a single snapshot is byte-identical.
+        _active_snapshot: list = []
+
+        def _active_records():
+            if not _active_snapshot:
+                _active_snapshot.append(
+                    self.store.active_records_at(at if at is not None else now(), scope))
+            return _active_snapshot[0]
+
         # Phase 6: a working scratchpad of high-salience verified ACTIVE facts as a context channel
         # (gated; each entry links to a raw source hash, superseded facts expire via the active
         # filter). Off -> context is unchanged.
         scratchpad_blocks: list[str] = []
         if self.settings.scratchpad_enabled:
             from .scratchpad import select_scratchpad
-            active = self.store.active_records_at(at if at is not None else now(), scope)
+            active = _active_records()
             entries = select_scratchpad(active, top_k=self.settings.scratchpad_topk,
                                         min_salience=self.settings.scratchpad_min_salience,
                                         activation=activation,
@@ -4181,7 +4193,7 @@ class Retriever:
         question_time_blocks = _question_time_context_block(query, at)
         user_blocks: list[str] = []
         if self.settings.user_evidence_context_enabled:
-            active = self.store.active_records_at(at if at is not None else now(), scope)
+            active = _active_records()
             matches = _user_evidence_matches(
                 query, active, at, limit=self.settings.user_evidence_topk)
             if matches:
@@ -4194,7 +4206,7 @@ class Retriever:
                 ]
         assistant_blocks: list[str] = []
         if self.settings.assistant_evidence_context_enabled:
-            active = self.store.active_records_at(at if at is not None else now(), scope)
+            active = _active_records()
             matches = _assistant_evidence_matches(
                 query, active, at, limit=self.settings.assistant_evidence_topk)
             if matches:
@@ -4209,7 +4221,7 @@ class Retriever:
         temporal_blocks: list[str] = []
         temporal_anchor_blocks: list[str] = []
         if self.settings.temporal_evidence_audit_enabled:
-            active = self.store.active_records_at(at if at is not None else now(), scope)
+            active = _active_records()
             matches = _temporal_evidence_matches(
                 query, parsed, active, at, limit=self.settings.temporal_evidence_topk)
             if matches:
@@ -4235,7 +4247,7 @@ class Retriever:
 
         list_blocks: list[str] = []
         if self.settings.list_audit_enabled:
-            active = self.store.active_records_at(at if at is not None else now(), scope)
+            active = _active_records()
             matches = _list_matches(
                 query, parsed, active, at, limit=self.settings.list_evidence_topk)
             if matches:

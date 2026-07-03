@@ -248,3 +248,43 @@ def test_batch_without_fast_verify_stays_full_width(fresh_settings):
     r = Retriever(store, object(), KnowledgeGraph(store), _FakeSub(), client, s)
     r._verify_candidates(_cands(8), "ans", verify=True)
     assert client.batches == [8]                  # unchanged: one full-width batch
+
+
+def test_assemble_context_scans_active_records_once(fresh_settings, monkeypatch):
+    """Five audit channels share one active-record snapshot: the O(corpus) store scan must run
+    at most once per assemble_context, and not at all when every channel is off."""
+    from dataclasses import replace as _replace
+
+    s = _replace(fresh_settings, scratchpad_enabled=True, user_evidence_context_enabled=True,
+                 assistant_evidence_context_enabled=True, temporal_evidence_audit_enabled=True,
+                 list_audit_enabled=True, active_fact_context_enabled=False,
+                 graph_bridge_context_enabled=False, gist_channel_enabled=False)
+    store = RecordStore(s.sqlite_path)
+    from eidetic.models import Scope as _Scope
+    scope = _Scope(namespace="hoist")
+    store.upsert_record(MemoryRecord(memory_id="m1", content_hash="h1",
+                                     text="user: the fern needs weekly watering",
+                                     scope=scope, valid_at=1.0, source="user"))
+    r = Retriever(store, object(), KnowledgeGraph(store), _FakeSub(), object(), s)
+    calls = {"n": 0}
+    real = store.active_records_at
+
+    def counting(at=None, scope=None, **kw):
+        calls["n"] += 1
+        return real(at, scope, **kw)
+
+    monkeypatch.setattr(store, "active_records_at", counting)
+    r.assemble_context("when does the fern need watering",
+                       _cands(0) or [], at=2.0, scope=scope)
+    assert calls["n"] == 1
+
+    s_off = _replace(fresh_settings, scratchpad_enabled=False,
+                     user_evidence_context_enabled=False,
+                     assistant_evidence_context_enabled=False,
+                     temporal_evidence_audit_enabled=False, list_audit_enabled=False,
+                     active_fact_context_enabled=False, graph_bridge_context_enabled=False,
+                     gist_channel_enabled=False)
+    r2 = Retriever(store, object(), KnowledgeGraph(store), _FakeSub(), object(), s_off)
+    calls["n"] = 0
+    r2.assemble_context("when does the fern need watering", [], at=2.0, scope=scope)
+    assert calls["n"] == 0
