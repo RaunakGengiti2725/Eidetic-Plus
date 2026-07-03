@@ -13,6 +13,7 @@ from .qa_ops import (
     _dialogue_answer_match,
     _named_recommendation_answer,
     _premise_affinity_answer,
+    _proposition_confirmation_answer,
     _verb_base_forms,
 )
 
@@ -4274,6 +4275,9 @@ def _execute_atoms(plan: ExecutionPlan, query: str,
         answer, selected = _dialogue_answer_match(query, atoms)
         if answer and selected:
             return result_from(answer, selected, confidence=0.95)
+        answer, selected = _proposition_confirmation_answer(query, atoms)
+        if answer and selected:
+            return result_from(answer, selected, confidence=0.9)
         answer, selected = _named_recommendation_answer(query, atoms)
         if answer and selected:
             return result_from(answer, selected, confidence=0.9)

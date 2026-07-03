@@ -2420,6 +2420,59 @@ def test_structured_answer_randomized_temporal_delta_single_anchor_distractors(t
         assert decoy_action not in proof
 
 
+def test_structured_answer_yes_no_proposition_confirmation(tmp_path):
+    """A yes/no question whose proposition is literally stated in memory answers
+    'Yes - <premise>' anchored on the stating atom, instead of failing to the reader."""
+    store = RecordStore(tmp_path / "yesno-confirmation.sqlite")
+    scope = Scope(namespace="yesno-confirmation")
+    store.upsert_record(_record(
+        "User: By the way, my aunt is actually using the same meal planning app as me now, "
+        "so we can share templates.",
+        scope=scope,
+        valid_at=1_700_000_100,
+    ))
+    store.upsert_record(_record(
+        "User: I reorganized the pantry shelves over the weekend.",
+        scope=scope,
+        valid_at=1_700_000_200,
+    ))
+
+    ans = structured_answer(
+        _Retriever(store),
+        "Is my aunt using the same meal planning method as me?",
+        at=1_700_000_900,
+        scope=scope,
+    )
+
+    assert ans is not None
+    assert ans.answer.lower().startswith("yes")
+    assert ans.verified is True
+    proof = " ".join(c.snippet for c in ans.citations)
+    assert "meal planning app" in proof
+
+
+def test_structured_answer_yes_no_confirmation_needs_stated_proposition(tmp_path):
+    """No stored assertion covers the proposition -> no structured yes (falls to the reader);
+    a negated assertion must never surface as 'Yes'."""
+    store = RecordStore(tmp_path / "yesno-no-proposition.sqlite")
+    scope = Scope(namespace="yesno-no-proposition")
+    store.upsert_record(_record(
+        "User: My aunt is not using the shared meal planning app anymore.",
+        scope=scope,
+        valid_at=1_700_000_100,
+    ))
+
+    ans = structured_answer(
+        _Retriever(store),
+        "Is my aunt using the same meal planning method as me?",
+        at=1_700_000_900,
+        scope=scope,
+    )
+
+    if ans is not None:
+        assert not ans.answer.lower().startswith("yes")
+
+
 def test_structured_answer_latest_value_explicit_date_uses_last_night(tmp_path):
     """A question naming an explicit calendar day must anchor on the atom datable to that day:
     'last night' said in a May 4 session resolves to May 3, while undatable or other-day

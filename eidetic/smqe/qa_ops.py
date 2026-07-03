@@ -102,6 +102,56 @@ def _dialogue_answer_match(query: str, atoms: list[tuple[float, object, str]]) -
     return value, [(score, item, atom)]
 
 
+_YESNO_HEAD_RE = re.compile(
+    r"^\s*(?:is|are|was|were|am|do|does|did|has|have|had)\b(?!\s+you\b)", re.I)
+_PROP_NEGATION_RE = re.compile(
+    r"\b(?:not|no\s+longer|never|stopped|quit|isn't|aren't|wasn't|weren't|don't|doesn't|"
+    r"didn't|hasn't|haven't|hadn't|anymore)\b",
+    re.I,
+)
+_PROP_QUERY_STOP = {
+    "actually", "anymore", "currently", "ever", "just", "now", "really", "same", "still",
+}
+
+
+def _proposition_confirmation_answer(query: str, atoms: list[tuple[float, object, str]]) -> tuple[str, list[tuple[float, object, str]]]:
+    """A yes/no question whose proposition a memory literally asserts ('Is my mom using the same
+    grocery list method as me?' <- 'my mom is actually using the same grocery list app as me now')
+    answers 'Yes - <premise>' anchored on the asserting atom.
+
+    Positive confirmations only: a negated or absent assertion produces no answer here (the
+    reader keeps polarity judgment), and the embedded premise makes the strict query-aware
+    verification hypothesis self-evident against the source record."""
+    q = query or ""
+    if not _YESNO_HEAD_RE.match(q) or " or " in q.lower():
+        return "", []
+    if _ADVICE_REQUEST_RE.search(q) or _PROP_NEGATION_RE.search(q):
+        return "", []
+    ro = _ro()
+    prop_terms = {
+        ro._count_term_key(t) for t in ro._query_terms(q)
+        if t not in _PROP_QUERY_STOP and not t.isdigit()
+    }
+    if len(prop_terms) < 3:
+        return "", []
+    required = max(2, (len(prop_terms) + 1) // 2)
+    best: tuple[int, float, object, str] | None = None
+    for score, item, atom in atoms[:30]:
+        text = ro._strip_role(atom)
+        if _PROP_NEGATION_RE.search(text):
+            continue
+        atom_keys = {ro._count_term_key(t) for t in ro._expanded_terms(text)}
+        hits = len(prop_terms & atom_keys)
+        if hits < required:
+            continue
+        if best is None or (hits, score) > (best[0], best[1]):
+            best = (hits, score, item, atom)
+    if best is None:
+        return "", []
+    _hits, score, item, atom = best
+    return f"Yes - {ro._clean(ro._strip_role(atom))}", [(score, item, atom)]
+
+
 _REMIND_NAME_RE = re.compile(
     r"\b(?:remind\s+me|what\s+was\s+the\s+name\s+of|the\s+name\s+of\s+(?:that|the))\b", re.I)
 _NAME_HEAD_RE = re.compile(
