@@ -1101,3 +1101,18 @@ line-aligned chunker (sequenced after 8). Rejected-with-refutation: stale-truth 
 revalidation and plan-keyed SMQE caching (both verified-wrong channels), procedural recall
 tier as a fix-sized change (needs its own design; exact-hash cache already covers verbatim
 repeats).
+
+### Wave I final additions
+
+- Speaker-attribution fixes (083063a, face7561): ditransitive dative skip ('I told MAYA that
+  X' answers X, not 'Maya'; non-ditransitives untouched after the paraphrase sidecar caught an
+  over-reach - leading complementizers preserved); aux-less 'Who told me X?' routes to
+  speaker_fact and answers the role-prefix speaker (generic roles fail closed).
+- EXTRACT_RESULT_CACHE (d3e59ea, default off): persistent extraction-result cache keyed by
+  model + prompt-hash + window; re-ingesting identical content stops re-paying temp-0
+  extraction (~120k write tokens per long-haystack row on reruns). Errors/moderation never
+  cached; edges/claims prompts key separately; bench manifest registered.
+
+Suite 1256 green, leakage 1670/0. Still open from the audit: unit 8 EXTRACT_COMBINED (needs
+live A/B for combined-prompt quality), unit 10 verify_citation LRU, deferred 13/15/16/17/19,
+bridge-entity two-hop join, ordinal-list reference, record_ops tier-1 shrink.
