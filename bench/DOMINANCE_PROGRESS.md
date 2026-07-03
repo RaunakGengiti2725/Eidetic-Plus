@@ -1276,3 +1276,23 @@ PLURAL_ENUMERATION promotion evaluation: NO-GO recorded. The two partial-list ro
 the enumerator (junk traced to legacy hobbies/commonality machinery + reader truncation, both
 queued under record_ops-shrink); unbounded captures were shown to assemble verified-wrong-risk
 lists, now defensively tightened to short noun phrases (4c80bc4). Flag stays off.
+
+### Post-fix h2h rerun - 2026-07-03 (artifacts/wave_i_h2h_rerun_codex)
+
+Same 20 stratified LoCoMo dev rows, fresh ingest, current build:
+
+| system | correct | verified-correct | median qtok |
+|---|---|---|---|
+| **eidetic-plus-full (post-fix)** | **15/20 (75%)** | **15/20 (75%)** | 5586 |
+| eidetic-plus-full (pre-fix) | 13/20 | 13/20 | 5423 |
+| mem0 | 13/20 | 0/20 | 411 |
+| rag-full | 12/20 | 0/20 | 19199 |
+| rag-vector | 12/20 | 0/20 | 1905 |
+
+Flips: c3_q8 X->VC ('2019' exact - duration-held + ordinal-first live), c4_q11 X->honest
+abstention (verified-wrong dead), c4_q74 X->VC (complete three-item list). On this slice the
+build now leads every baseline on correctness AND is the only system with verification at all
+(15 verified vs 0). The read-cost axis vs mem0 (5586 vs 411 median qtok) is the remaining open
+front - strategy recorded above (structured-coverage growth, adaptive context, cost-flag
+promotions). Caveats stand: n=20 dev slice, single run, baselines not rerun post-fix (their
+code was untouched).
