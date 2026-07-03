@@ -1079,3 +1079,25 @@ as_of, prove citation refs, /api/memories paging, ingest_many exposure after ded
 assemble_context scan hoist, line-aligned chunker). Rejected findings documented with
 refutations in the audit output (notably: two cache proposals rejected as verified-wrong
 channels - stale-truth revalidation and plan-keyed SMQE caching).
+
+### Wave I completion status
+
+Landed after the checkpoint: unit 4 (plural-enumeration operator, PLURAL_ENUMERATION default
+off, with the whole-atom catch-all failing closed for plural heads under the flag), unit 11
+(rerank on query-centered spans, RERANK_SPAN_INPUT default off), deferred #14
+(/api/truth_ledger as_of) and #18 (one lazy active-record snapshot feeds all five audit
+channels in assemble_context - was five O(corpus) scans per reader-path ask).
+
+Suite 1250 green. Leakage audit 1670 needles / 0 findings. record_ops.py 4764 lines (+~100 vs
+wave F from the two verified-wrong fixes and enumeration guard - the tier-1-claims shrink
+remains open and owed).
+
+Next-wave backlog (all specced in the audit synthesis, none lost): unit 8 combined
+edges+claims extraction call (EXTRACT_COMBINED, halves write calls), unit 9 persistent
+extraction-result cache keyed by prompt-hash (EXTRACT_RESULT_CACHE, kills ~120k-token
+re-ingestion), unit 10 verify_citation LRU memo, deferred 13 repair-tool exposure, 15
+prove-citation refs, 16 /api/memories paging, 17 ingest_many exposure after dedup fix, 19
+line-aligned chunker (sequenced after 8). Rejected-with-refutation: stale-truth cache
+revalidation and plan-keyed SMQE caching (both verified-wrong channels), procedural recall
+tier as a fix-sized change (needs its own design; exact-hash cache already covers verbatim
+repeats).
