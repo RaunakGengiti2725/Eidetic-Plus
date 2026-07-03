@@ -2825,6 +2825,41 @@ def _is_future_intent_atom(atom: str) -> bool:
     ))
 
 
+def _is_future_polarity_atom(atom: str) -> bool:
+    """Statements that mark the referenced event as NOT yet happened when spoken: anticipation
+    markers ('upcoming', 'excited for', 'can't wait') on top of the plain future intents."""
+    return _is_future_intent_atom(atom) or bool(re.search(
+        r"\bupcoming\b|\bexcited\s+for\b|\bcan'?t\s+wait\b|\blooking\s+forward\s+to\b",
+        atom or "",
+        re.I,
+    ))
+
+
+# Small general-English event-noun synonym families for SAME-EVENT identification. A future
+# statement contradicts a derived past date only when it provably describes the same event;
+# 'my upcoming performance in Tokyo' and 'the concert in Tokyo' are one event, while 'going
+# to Tokyo next month' (a trip) must never floor a concert date.
+_EVENT_SYNONYM_FAMILIES: tuple[frozenset[str], ...] = (
+    frozenset({"concert", "show", "gig", "performance", "recital"}),
+    frozenset({"trip", "visit", "journey", "travel", "vacation"}),
+    frozenset({"wedding", "marriage", "ceremony"}),
+    frozenset({"game", "match", "tournament"}),
+    frozenset({"talk", "presentation", "speech", "lecture"}),
+)
+
+
+def _event_term_hit(term: str, atom_terms: set[str]) -> bool:
+    """Direct hit, plural-stripped hit, or same-synonym-family hit."""
+    base = term[:-1] if len(term) > 3 and term.endswith("s") else term
+    stripped = {t[:-1] if len(t) > 3 and t.endswith("s") else t for t in atom_terms}
+    if base in stripped:
+        return True
+    for family in _EVENT_SYNONYM_FAMILIES:
+        if base in family and stripped & family:
+            return True
+    return False
+
+
 _SPEECH_VERBS = {
     "answer", "answered", "ask", "asked", "discuss", "discussed", "mention", "mentioned",
     "reply", "replied", "said", "say", "talk", "talked", "tell", "told",
@@ -4728,6 +4763,46 @@ def _execute_atoms(plan: ExecutionPlan, query: str,
                     continue
                 if answer:
                     candidates.append((target_hits, _entity_hit_count(entity_terms, match_text), score, item, atom, answer))
+            if candidates and past_question:
+                # FUTURE-POLARITY CONTRADICTION: an event some target-matching atom still calls
+                # upcoming at its statement date cannot have happened on or before that date
+                # ('took that pic in Tokyo last night' dated a concert 05-15 while 'my upcoming
+                # performance in Tokyo this month', spoken 05-16, proves it had not happened
+                # yet). Candidates whose derived ISO date falls on or before the latest such
+                # statement are contradicted, not evidence; losing all of them fails closed.
+                future_floor = None
+                # Same-event gate: EVERY non-entity target term must hit the future atom
+                # (directly, plural-stripped, or via an event-synonym family). The speaker
+                # entity is implicit in first-person dialog ('my upcoming performance'), so
+                # entity terms are excluded from the requirement rather than relaxed.
+                non_entity_terms = {t for t in target_terms if t not in entity_terms}
+                if non_entity_terms:
+                    for _score, item, atom in atoms:
+                        if not _is_future_polarity_atom(atom):
+                            continue
+                        atom_terms = _expanded_terms(_item_match_text(item, atom))
+                        if not all(_event_term_hit(t, atom_terms) for t in non_entity_terms):
+                            continue
+                        try:
+                            said = datetime.fromtimestamp(getattr(item, "valid_at")).date()
+                        except (OSError, OverflowError, ValueError, TypeError):
+                            continue
+                        if future_floor is None or said > future_floor:
+                            future_floor = said
+                if future_floor is not None:
+                    def _cand_iso_date(ans_text: str) -> Optional[date]:
+                        m2 = re.search(r"\b(20\d{2})-(\d{2})-(\d{2})\b", ans_text or "")
+                        if not m2:
+                            return None
+                        try:
+                            return date(int(m2.group(1)), int(m2.group(2)), int(m2.group(3)))
+                        except ValueError:
+                            return None
+                    candidates = [row for row in candidates
+                                  for d in [_cand_iso_date(row[5])]
+                                  if d is None or d > future_floor]
+                    if not candidates:
+                        return None
             if candidates:
                 if entity_terms:
                     candidates = [row for row in candidates if row[1]]

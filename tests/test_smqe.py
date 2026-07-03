@@ -4527,3 +4527,42 @@ def test_option_choice_answer_must_name_an_option(tmp_path):
     )
     assert answer_from_result(_Retriever(store), "What is Dave's passion?", plain,
                               verify=True) is not None
+
+
+def test_future_polarity_atom_floors_earlier_derived_dates(tmp_path):
+    """'I took that pic in Tokyo last night' (05-16) dated the concert 05-15 while 'my
+    upcoming performance in Tokyo this month', spoken the same day, proves the event had
+    not happened yet. A same-event future-polarity statement floors derived dates: earlier
+    candidates are contradicted, and losing all of them fails closed (reader takes over).
+    Same-event needs EVERY non-entity target term matched (event-synonym families count);
+    a mere trip mention must never floor a concert date."""
+    from datetime import datetime as _dt
+
+    store = RecordStore(tmp_path / "future-floor.sqlite")
+    scope = Scope(namespace="future-floor")
+    rows = [
+        ("Calvin: I took that pic in Tokyo last night.", _dt(2023, 5, 16, 12, 0)),
+        ("Calvin: Super excited for my upcoming performance in Tokyo this month.",
+         _dt(2023, 5, 16, 12, 0)),
+        ("Calvin: I'm actually going to Tokyo next month after the tour ends.",
+         _dt(2023, 10, 19, 12, 0)),
+    ]
+    for text, dt in rows:
+        store.upsert_record(_record(text, scope=scope, valid_at=dt.timestamp()))
+
+    ans = structured_answer(
+        _Retriever(store), "When was Calvin's concert in Tokyo?",
+        at=_dt(2023, 11, 1, 12, 0).timestamp(), scope=scope,
+    )
+    # the 05-15 pic date is floored by the 05-16 future statement -> fail closed
+    assert ans is None or "05-15" not in (ans.answer or "")
+
+    # a LATER dated same-event atom survives the floor
+    store.upsert_record(_record(
+        "Calvin: The concert in Tokyo on May 28, 2023 was unreal -- the crowd was insane.",
+        scope=scope, valid_at=_dt(2023, 6, 1, 12, 0).timestamp()))
+    ans2 = structured_answer(
+        _Retriever(store), "When was Calvin's concert in Tokyo?",
+        at=_dt(2023, 11, 1, 12, 0).timestamp(), scope=scope,
+    )
+    assert ans2 is not None and ("2023-05-28" in ans2.answer or "May 28" in ans2.answer)
