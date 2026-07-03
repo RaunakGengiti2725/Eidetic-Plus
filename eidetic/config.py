@@ -744,6 +744,12 @@ class Settings:
     plural_enumeration_enabled: bool = field(
         default_factory=lambda: _get_bool("PLURAL_ENUMERATION", "0")
     )
+    # Rerank on query-centered spans instead of full record texts (ranking-only token cut; the
+    # verification premises are untouched). Default OFF until the dev-split recall gate passes.
+    rerank_span_input_enabled: bool = field(
+        default_factory=lambda: _get_bool("RERANK_SPAN_INPUT", "0")
+    )
+    rerank_span_chars: int = field(default_factory=lambda: _get_int("RERANK_SPAN_CHARS", 1400))
 
     # Prod-only (Alibaba Cloud)
     oss_bucket: str = field(default_factory=lambda: _get("OSS_BUCKET"))

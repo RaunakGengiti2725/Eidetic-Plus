@@ -4029,6 +4029,18 @@ class Retriever:
         if s.rerank_enabled and not skip_rerank and not margin_skip and ranked:
             shortlist = ranked[: max(s.rerank_depth, s.final_topk)]
             docs = [c.record.text or c.record.summary or "" for c in shortlist]
+            if s.rerank_span_input_enabled:
+                # Ranking-only token cut: the cross-encoder sees a query-centered span per doc
+                # instead of the full text (the largest read-path stream at ~50 x 4000 chars).
+                # long_threshold_chars tracks max_chars so the cut actually materializes on
+                # mid-sized docs; verification premises are untouched.
+                span_cap = max(200, int(s.rerank_span_chars))
+                docs = [
+                    _raw_query_centered_span(d, query, long_threshold_chars=span_cap,
+                                             max_chars=span_cap)
+                    if len(d) > span_cap else d
+                    for d in docs
+                ]
             try:
                 reranked = []
                 for orig_idx, score in self.client.rerank(query, docs, rerank_topn):

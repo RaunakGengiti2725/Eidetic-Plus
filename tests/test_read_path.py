@@ -288,3 +288,38 @@ def test_assemble_context_scans_active_records_once(fresh_settings, monkeypatch)
     calls["n"] = 0
     r2.assemble_context("when does the fern need watering", [], at=2.0, scope=scope)
     assert calls["n"] == 0
+
+
+def test_rerank_span_input_flag(fresh_settings, monkeypatch):
+    """RERANK_SPAN_INPUT: on -> the cross-encoder sees bounded query-centered spans; off ->
+    byte-identical full texts."""
+    from dataclasses import replace as _replace
+
+    long_text = ("filler sentence about nothing in particular.\n" * 120
+                 + "the fern needs weekly watering.\n"
+                 + "more filler trailing away.\n" * 120)
+    seen = {}
+
+    class _RerankClient:
+        def rerank(self, query, documents, top_n):
+            seen["docs"] = list(documents)
+            return [(i, 1.0 - 0.01 * i) for i in range(min(top_n, len(documents)))]
+
+    def cand():
+        return RetrievalCandidate(record=MemoryRecord(
+            memory_id="m0", content_hash="h0", text=long_text,
+            scope=Scope(), valid_at=1.0), fused_score=1.0)
+
+    s_on = _replace(fresh_settings, rerank_enabled=True, rerank_span_input_enabled=True,
+                    rerank_span_chars=800, rerank_skip_margin=0.0)
+    store = RecordStore(s_on.sqlite_path)
+    r = Retriever(store, object(), KnowledgeGraph(store), _FakeSub(), _RerankClient(), s_on)
+    r._finalize("when does the fern need watering", [cand()])
+    assert len(seen["docs"][0]) <= 1000
+    assert "fern needs weekly watering" in seen["docs"][0]
+
+    s_off = _replace(fresh_settings, rerank_enabled=True, rerank_span_input_enabled=False,
+                     rerank_skip_margin=0.0)
+    r2 = Retriever(store, object(), KnowledgeGraph(store), _FakeSub(), _RerankClient(), s_off)
+    r2._finalize("when does the fern need watering", [cand()])
+    assert seen["docs"][0] == long_text
