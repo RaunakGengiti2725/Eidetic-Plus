@@ -8,6 +8,8 @@ from typing import Iterable, Optional
 
 from eidetic.models import ClaimRecord, ExecutionPlan, MemoryRecord, StructuredAnswerResult, StructuredSupport
 
+from .verify import _ENUMERATED_ANSWER_RE as _verify_enum_re
+from .verify import _enumeration_items_credible as _verify_items_credible
 from .qa_ops import (
     _ORDINAL_ANCHOR_RE as _ORDINAL_SLOT_QUERY_RE,
     _action_location_phrase,
@@ -4479,6 +4481,13 @@ def _execute_atoms(plan: ExecutionPlan, query: str,
     ):
         answer, selected = helper(query, atoms)
         if answer and selected:
+            # A non-credible enumeration DECLINES here instead of shipping: the executor takes
+            # the first backend's result, so claim-pass junk that verification would kill was
+            # SHADOWING legit record-backend answers behind it. Declining lets the next helper,
+            # the record backend, and the reader compete.
+            if (_verify_enum_re.match(answer)
+                    and not _verify_items_credible(answer)):
+                continue
             return result_from(answer, selected)
     if op == "event_order" or _is_event_order_query(query):
         return None

@@ -4319,3 +4319,38 @@ def test_past_when_questions_never_answer_from_future_intent_atoms(tmp_path):
     assert ans is not None
     assert "March 2023" in ans.answer or "2023-03" in ans.answer
     assert "November" not in ans.answer
+
+
+def test_junk_claim_enumeration_does_not_shadow_record_backend(tmp_path):
+    """The executor takes the CLAIM backend's result even when it is a junk enumeration that
+    verification will kill - shadowing a legit RECORD-backend answer behind it. Non-credible
+    enumerations must decline at dispatch so downstream backends get their chance."""
+    from eidetic.models import ClaimRecord
+
+    store = RecordStore(tmp_path / "junk-shadow.sqlite")
+    scope = Scope(namespace="junk-shadow")
+    rec = _record(
+        "Andrew: Besides hiking, my hobbies are rock climbing and fishing these days.",
+        scope=scope, valid_at=1_700_000_100,
+    )
+    store.upsert_record(rec)
+    # hand-crafted junk claims that trip the hobbies collector into a fragment list
+    for frag in ("doing great", "Ok", "you get", "in the park"):
+        store.add_claim(ClaimRecord(
+            claim_type="state", scope=scope, subject="Andrew",
+            predicate="enjoy", object=frag,
+            value=f"Andrew: I also enjoy {frag}!",
+            proof_atom=f"Andrew: I also enjoy {frag}!",
+            source_memory_id=rec.memory_id, valid_at=1_700_000_100,
+        ))
+
+    ans = structured_answer(
+        _Retriever(store),
+        "What are Andrew's hobbies and interests these days?",
+        at=1_800_000_000, scope=scope,
+    )
+
+    assert ans is not None                      # the record backend must get its chance
+    low = ans.answer.lower()
+    assert "you get" not in low and "doing great" not in low
+    assert "rock climbing" in low or "fishing" in low
