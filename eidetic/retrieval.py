@@ -366,6 +366,8 @@ _FACT_TERM_EXPANSIONS = {
     "local": {"community", "neighborhood", "town", "city"},
     "mortgage": {"pre-approved", "preapproved", "pre-approval", "preapproval", "house", "home", "loan"},
     "education": {"career", "careers", "school", "study", "studies", "studying", "degree"},
+    "study": {"studies", "studied", "studying", "school", "class", "classes", "classmates"},
+    "studied": {"study", "studies", "studying", "school", "class", "classes", "classmates"},
     "adoption": {"adopt", "adopts", "adopted", "adopting"},
     "based": {"base", "located", "live", "lives", "living", "reside", "resides"},
     "bought": {"buy", "buys", "buying", "purchase", "purchased", "purchases", "purchasing"},
