@@ -1514,3 +1514,44 @@ provenance-gated carve-out; both live junk shapes refuse, five legit list format
 
 Standing lesson recorded: NLI is not a form arbiter. Malformed answers must die on
 deterministic policy, not probabilistic entailment. Suite 1280.
+
+---
+
+## Six-dimension weakness catalog (2026-07-03, evidence-based)
+
+**INTEGRITY** - strongest dimension. Ten verified-wrong classes killed this cycle (counts,
+superlative labels, temporal instances x3, affiliation, junk enumerations x2 incl. the
+NLI-entails-fragment-soup class, future-intent). Standing: every correct answer in every run
+this cycle carried verification; deterministic form policy now guards where NLI cannot.
+Residual: Tokyo pic-vs-show cross-sentence instance; enumerator claim-noise ceiling.
+
+**ACCURACY** - leads all measured baselines (25/40 vs mem0 18/40, rag 12/20-class) on dev
+LoCoMo; mixed-24 at 22-24/24. Residual: reader partial-lists (c4_q53/c6_q40 class), compound
+coverage now fixed, run-to-run noise +-1-2 rows dominates at n<=40. NOT yet shown: held-out
+rotating adversarial evaluation at scale - the promotion wall stands unbuilt (bigger-n gates).
+
+**COST** - read: median qtok -28% (twice-reproduced) via ADAPTIVE_CONTEXT; structured rows ~28
+tokens and coverage rising (9/20 live). REAL spend now measured (~7.2k in-tok/question read;
+417k in / 546 calls write for LoCoMo-40) after exposing the content-volume proxy. Residual:
+mem0's raw read price remains ~10x lower (unverified answers); parity path = structured
+coverage growth + reflex pre-gate + cost-flag promotions (EXTRACT_COMBINED case solid).
+
+**LATENCY** - UX exercise measured: local tools 0-4ms; structured recall ~30ms;
+reader-path 3.8-7.2s with the WORST path being abstention (full pipeline to say "don't
+know"). Residual: reflex no-coverage pre-gate to cheapen abstentions; event-loop offload
+landed wave-H; answer-path index save gated.
+
+**TRUST/TRANSPARENCY** - citations with hash/validity/NLI labels on every verified answer;
+truth ledger with supersession chains; recall traces scope-guarded; abstentions no longer
+ship contradictory citation lists (fd9bcd3). Residual: prove citation refs (deferred #15),
+mem0-asymmetry documented not solved (their spend/verification unmeasurable).
+
+**UX** - FIRST end-to-end exercise run this cycle (12 tools, real key): carrier-switch
+contradiction demo + as_of time travel answered each era correctly verified; compound-facet
+and abstention-citation defects found AND fixed same hour; bitemporal write/read, files,
+paging all exercised. Residual: no external-user feedback loop; /api/memories paging
+(deferred #16); repair-tool exposure (deferred #13); latency spread felt on reader paths.
+
+Standing queue by leverage: reader partial-lists -> reflex abstention pre-gate -> enumerator
+coverage on cleaned claims (fresh-ingest measurement) -> legacy deletion wave -> promotion
+A/Bs w/ spend metric -> bigger-n/holdout gates -> Tokyo cross-sentence -> deferred 13/15/16.
