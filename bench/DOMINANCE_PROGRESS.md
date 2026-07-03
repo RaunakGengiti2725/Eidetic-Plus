@@ -1445,3 +1445,39 @@ the Generation/TextEmbedding call sites; the bench adapter deltas them around co
 write_tokens column is retained as the content-volume metric it always was. The next
 measurement run can now express verified-understanding-per-model-token directly - the goal's
 own unit. EXTRACT_COMBINED's halving becomes measurable rather than mock-proven.
+
+---
+
+## Collector rewrite - executable design (2026-07-03)
+
+Target: the record_ops legacy list collectors (_done_activity_answer, _hobbies_answer,
+_goals_answer, the suggestion phrase pack, the commonality region) - the junk factories now
+double-contained (dispatch decline + verify credibility) but still emitting, and the cap on
+28-token structured coverage growth.
+
+Principle: enumerations come from TIER-1 CLAIMS, not per-query regex re-parsing of raw text.
+A typed claim already carries subject + predicate + object + a verbatim proof_atom extracted
+once at write time; an enumeration answer is a SELECT: claims WHERE subject matches the
+question's person AND predicate is in the family of the question's verb -> distinct objects,
+each item carrying its own proof atom (per-item verification for free; the witness and
+enum-credibility rules already gate the composition).
+
+Steps:
+1. qa_ops._claim_enumeration_answer: ClaimRecords only; person-subject match via role/subject;
+   predicate family via _verb_variants + action families of the question verb (enjoy/like/do
+   families); objects pass the shared noun-phrase credibility gate; >=2 distinct values ->
+   joined list with per-claim supports (distinct records where available).
+2. Dispatch: claim pass tries the claim enumerator BEFORE the legacy collectors; legacy
+   remains as record-backend fallback during the transition.
+3. Deletion wave (the actual shrink): once the enumerator holds on sidecars + store replays +
+   one live probe, DELETE the legacy collectors (~400-600 lines of record_ops) - those shapes
+   fall to the reader on the record backend, which handled them at wave-B accuracy.
+4. Dependency: claim extraction quality gates everything - assess the EXTRACT_COMBINED claim
+   composition shift (-8% claims / +20% edges) with the claim-coverage sidecar BEFORE relying
+   on claims for enumeration coverage.
+5. Validation ladder: smqe_claim_coverage sidecar extension (enumeration case type), wave-F +
+   40-row store replays, one live 20-row probe, then the deletion commit.
+
+This plan replaces regex-shape accumulation (162 helpers) with the write-time typed-claim
+surface as the single enumeration source - the record_ops shrink the audit prescribed, staged
+to never trade integrity for line count.
