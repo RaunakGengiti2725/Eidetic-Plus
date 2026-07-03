@@ -4713,3 +4713,49 @@ def test_bare_day_of_month_resolves_against_session_date(tmp_path):
     )
     assert ans is not None and ans.answer == "2023-08-17"
     assert "on the 17th" in ans.citations[0].snippet
+
+
+def test_ordinal_kth_event_interpolates_between_numbered_anchors(tmp_path):
+    """Fresh-holdout c3_q26 shape: 'when did Nate win his THIRD tourney?' shipped a late
+    unrelated mention verified -- the generic loop has no counting semantics. The kth
+    instance is the earliest unnumbered same-event atom strictly between the (k-1)th and
+    (k+1)th anchors ('my second' 05-02, 'my fourth' 07-10 bound the 06-04 'another regional
+    win last week'); with no k-1 anchor the op fails CLOSED."""
+    from datetime import datetime as _dt
+
+    store = RecordStore(tmp_path / "ordinal-k.sqlite")
+    scope = Scope(namespace="ordinal-k")
+    rows = [
+        ("Nate: I won my first video game tournament last week - so exciting!",
+         _dt(2022, 1, 22, 12, 0)),
+        ("Nate: Last week I won my second tournament!", _dt(2022, 5, 2, 12, 0)),
+        ("Nate: I've been doing great - I just won another regional video game tournament "
+         "last week!", _dt(2022, 6, 4, 12, 0)),
+        ("Nate: I won my fourth video game tournament on Friday!", _dt(2022, 7, 10, 12, 0)),
+        ("Nate: My game tournament got pushed back, so I tried out some cooking.",
+         _dt(2022, 11, 10, 12, 0)),
+    ]
+    for text, dt in rows:
+        store.upsert_record(_record(text, scope=scope, valid_at=dt.timestamp()))
+
+    ans = structured_answer(
+        _Retriever(store), "When did Nate win his third tourney?",
+        at=_dt(2022, 12, 1, 12, 0).timestamp(), scope=scope,
+    )
+    assert ans is not None
+    assert ans.answer == "the week of 2022-05-28 to 2022-06-03"
+    assert "another regional" in ans.citations[0].snippet
+
+    # an explicit ordinal atom anchors directly
+    ans2 = structured_answer(
+        _Retriever(store), "When did Nate win his second tourney?",
+        at=_dt(2022, 12, 1, 12, 0).timestamp(), scope=scope,
+    )
+    assert ans2 is not None and "2022-04" in ans2.answer  # 'last week' of 05-02
+
+    # no (k-1) anchor -> fail closed, never the generic junk
+    ans3 = structured_answer(
+        _Retriever(store), "When did Nate win his seventh tourney?",
+        at=_dt(2022, 12, 1, 12, 0).timestamp(), scope=scope,
+    )
+    assert ans3 is None

@@ -2859,8 +2859,12 @@ _EVENT_SYNONYM_FAMILIES: tuple[frozenset[str], ...] = (
     frozenset({"concert", "show", "gig", "performance", "recital"}),
     frozenset({"trip", "visit", "journey", "travel", "vacation"}),
     frozenset({"wedding", "marriage", "ceremony"}),
-    frozenset({"game", "match", "tournament"}),
+    frozenset({"game", "match", "tournament", "tourney"}),
     frozenset({"talk", "presentation", "speech", "lecture"}),
+    # irregular verb forms morphology can't bridge
+    frozenset({"win", "won", "winning", "wins"}),
+    frozenset({"buy", "bought", "buying", "buys"}),
+    frozenset({"meet", "met", "meeting", "meets"}),
 )
 
 
@@ -2898,6 +2902,76 @@ def _activity_phrase_from_atom(atom: str) -> str:
     if not m:
         return ""
     return (m.group(1) or m.group(2) or "").lower()
+
+
+_ORDINAL_WORDS = {"first": 1, "second": 2, "third": 3, "fourth": 4, "fifth": 5,
+                  "sixth": 6, "seventh": 7, "eighth": 8, "ninth": 9, "tenth": 10}
+_QUERY_ORDINAL_RE = re.compile(
+    r"\b(?:his|her|their|my)\s+(first|second|third|fourth|fifth|sixth|seventh|eighth|"
+    r"ninth|tenth|\d{1,2}(?:st|nd|rd|th))\s+\w+", re.I)
+
+
+def _ordinal_value(word: str) -> Optional[int]:
+    w = (word or "").lower()
+    if w in _ORDINAL_WORDS:
+        return _ORDINAL_WORDS[w]
+    m = re.match(r"(\d{1,2})(?:st|nd|rd|th)$", w)
+    return int(m.group(1)) if m else None
+
+
+def _query_event_ordinal(query: str) -> Optional[int]:
+    m = _QUERY_ORDINAL_RE.search(query or "")
+    return _ordinal_value(m.group(1)) if m else None
+
+
+def _ordinal_kth_event_result(plan, query: str, atoms, backend: str, k: int, *,
+                              target_terms: set[str], entity_terms: set[str], sup):
+    """'When did X win his THIRD tourney?' when no atom says 'third': explicit ordinal
+    atoms anchor directly; otherwise the kth instance is interpolated -- the earliest
+    unnumbered same-event atom dated strictly after the (k-1)th anchor and before the
+    (k+1)th. Anything less determined fails closed; the generic candidate loop has no
+    counting semantics and shipped a late unrelated mention as a 'third' win."""
+    non_entity = {t for t in target_terms
+                  if t not in entity_terms and _ordinal_value(t) is None
+                  and t not in _STOP and t not in {"his", "her", "hers"}}
+    if not non_entity:
+        return None
+    events: list[tuple[date, Optional[int], object, str, float]] = []
+    for score, item, atom in atoms:
+        atom_terms = _expanded_terms(_item_match_text(item, atom))
+        if not all(_event_term_hit(t, atom_terms) for t in non_entity):
+            continue
+        if _is_future_polarity_atom(atom):
+            continue
+        d = _event_date(item, atom)
+        if d is None:
+            continue
+        m = re.search(r"\b(?:my|his|her|their)\s+(first|second|third|fourth|fifth|sixth|"
+                      r"seventh|eighth|ninth|tenth|\d{1,2}(?:st|nd|rd|th))\b",
+                      _strip_role(atom), re.I)
+        events.append((d, _ordinal_value(m.group(1)) if m else None, item, atom, score))
+    if not events:
+        return None
+    events.sort(key=lambda e: e[0])
+
+    def _answer_for(ev):
+        d, _n, item, atom, score = ev
+        phrase = _relative_date_from_atom(item, atom, query)
+        return _result(phrase or d.isoformat(), plan, backend, [sup(item, atom, score)])
+
+    explicit = [e for e in events if e[1] == k]
+    if explicit:
+        return _answer_for(explicit[0])
+    lower = [e[0] for e in events if e[1] == k - 1]
+    if not lower:
+        return None
+    lo = max(lower)
+    upper = [e[0] for e in events if e[1] is not None and e[1] > k]
+    hi = min(upper) if upper else None
+    between = [e for e in events if e[1] is None and e[0] > lo and (hi is None or e[0] < hi)]
+    if between:
+        return _answer_for(between[0])
+    return None
 
 
 def _event_term_hit(term: str, atom_terms: set[str]) -> bool:
@@ -4780,6 +4854,15 @@ def _execute_atoms(plan: ExecutionPlan, query: str,
             entity_terms = _subject_entity_terms(query)
             target_terms = _relative_temporal_target_terms(query)
             threshold = _target_threshold(target_terms)
+            # Ordinal event instances ('when did X win his THIRD tourney?') have counting
+            # semantics no generic candidate loop can honor -- the fresh holdout shipped a
+            # late unrelated mention verified. Answer by explicit ordinal atoms or by
+            # interpolation between the (k-1)th and (k+1)th anchors; otherwise fail CLOSED.
+            k = _query_event_ordinal(query)
+            if k is not None and k >= 2:
+                return _ordinal_kth_event_result(
+                    plan, query, atoms, backend, k,
+                    target_terms=target_terms, entity_terms=entity_terms, sup=sup)
             month_names = {name.lower(): i for i, name in enumerate(calendar.month_name) if i}
             month_names.update({name.lower(): i for i, name in enumerate(calendar.month_abbr) if i})
             query_months = {num for name, num in month_names.items() if re.search(rf"\b{re.escape(name)}\b", query or "", re.I)}
