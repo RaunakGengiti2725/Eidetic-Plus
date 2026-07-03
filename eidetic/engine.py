@@ -1087,7 +1087,12 @@ class Engine:
             # Memory linking by co-activation: co-confirmed memories gain a strengthened edge.
             if len(confirmed) >= 2:
                 self.graph.link_memories(confirmed, scope=scope, valid_at=read_at)
-            if confirmed:
+            # Persist the index only when THIS ask mutated it (inline re-embeds applied above).
+            # The save is an O(corpus) disk write under the write lock; with DEFER_REEMBED the
+            # refresh is queued for the idle drain and the index is unchanged here, so saving
+            # would serialize concurrent asks behind IO that grows with corpus size. FSRS/graph
+            # durability is unaffected (sqlite writes above); a re-embed refresh is recomputable.
+            if reembed:
                 self.index.save()
         if self.settings.feedback_enabled and precomputed is not None:
             self._emit_feedback(scope, query, qvec, precomputed, confirmed)

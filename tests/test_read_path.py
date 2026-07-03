@@ -132,3 +132,51 @@ def test_reader_prompt_anchors_event_order_questions(monkeypatch):
 
     c.generate_answer("What color is my bike?", ["the bike is red"])
     assert "chronological" not in seen["system"].lower()
+
+
+# ---- answer-path index save gating -----------------------------------------------------------
+def test_ask_saves_index_only_when_reconsolidation_mutated_it(fresh_settings, monkeypatch):
+    """The per-answer index.save() is an O(corpus) disk write under the write lock. It must run
+    only when reconsolidation actually updated a vector this ask: with DEFER_REEMBED the update
+    is queued for the idle drain, so saving an unchanged index buys nothing and serializes
+    concurrent asks behind disk IO that grows with corpus size."""
+    from dataclasses import replace as _replace
+
+    from eidetic.engine import Engine
+    from eidetic.models import Scope
+
+    class _Client(_FakeEmbed):
+        def extract_edges(self, text):
+            return []
+
+        def generate_answer(self, q, blocks, model=None):
+            return blocks[0][:200] if blocks else "I do not have that in memory."
+
+        def nli(self, premise, hypothesis):
+            return ("entailment", 0.9)
+
+    # deferred mode: the ask must NOT save (no index mutation happened on the answer path)
+    s = _replace(fresh_settings, defer_reembed_enabled=True, rerank_enabled=False)
+    e = Engine(s, client=_Client(s.embed_dim))
+    scope = Scope(namespace="savegate")
+    e.ingest_text("The greenhouse fan runs on circuit twelve.", scope=scope, consolidate_now=False)
+    saves = {"n": 0}
+    real_save = e.index.save
+    monkeypatch.setattr(e.index, "save", lambda: (saves.__setitem__("n", saves["n"] + 1),
+                                                  real_save())[1])
+    ans = e.ask("which circuit runs the greenhouse fan", scope=scope)
+    assert ans.citations
+    assert saves["n"] == 0
+
+    # inline mode: the re-embed mutates the index -> the save must still happen
+    s2 = _replace(fresh_settings, defer_reembed_enabled=False, rerank_enabled=False)
+    e2 = Engine(s2, client=_Client(s2.embed_dim))
+    scope2 = Scope(namespace="savegate2")
+    e2.ingest_text("The orchard pump runs on circuit nine.", scope=scope2, consolidate_now=False)
+    saves2 = {"n": 0}
+    real_save2 = e2.index.save
+    monkeypatch.setattr(e2.index, "save", lambda: (saves2.__setitem__("n", saves2["n"] + 1),
+                                                   real_save2())[1])
+    ans2 = e2.ask("which circuit runs the orchard pump", scope=scope2)
+    assert ans2.citations
+    assert saves2["n"] >= 1
