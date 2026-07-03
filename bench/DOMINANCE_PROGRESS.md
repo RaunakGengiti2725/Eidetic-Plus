@@ -1375,3 +1375,18 @@ shrink (the junk factories are now verify-gated but still emit).
   rows, record_ops legacy-collector shrink, cost-flag promotions, EXTRACT_COMBINED, verify LRU.
 
 Suite 1272 green; dialogue/paraphrase/lacuna/fullpath sidecars pass post-change.
+
+### Wave J close-out - future-intent guard + coverage truth (2026-07-03)
+
+- Past-tense when-questions never answer from future-intent atoms (eb9b17b): the Tokyo
+  'November 2023' verified-wrong class is dead; the row now lands a May tour-period date
+  (residual pic-vs-show instance gap = cross-sentence association, queued).
+- Coverage truth on the 40-row store: execute-layer answers 17 -> 25 after this iteration's
+  operators, BUT 6 of the 8 new ones are legacy-collector junk that the verify layer will
+  kill (single junk answers face the strict hypothesis; junk lists face the credible-items
+  rule). Honest live structured gain: +1-2 rows (Street Fighter proven). CONCLUSION recorded
+  plainly: the read-cost path now runs through the record_ops legacy-collector shrink - the
+  junk factories cap structured coverage growth, and verify-gating them (correct for
+  integrity) does not make them produce good answers. That shrink is the top structural item,
+  with EXTRACT_COMBINED / verify LRU / cost-flag promotions behind it, and bigger-n/holdout
+  gates the standing evaluation need.
