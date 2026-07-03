@@ -1656,3 +1656,29 @@ shared disaster (2/8 vs 1/8) and is exactly where today's nine kills concentrate
 pre-fix code by construction; ROTATION SLICE 2 (fresh never-touched window, current
 build) is the honest measurement of whether the mechanisms generalize. No dominance
 claim from this run.
+
+### Wave N (2026-07-03, slice-2 live catches -- fixed same hour, offline-proven)
+Slice 2 interim (n=19, PRE-these-fixes frozen code): 9/19, temporal 3/5 (up from 2/8 on
+slice 1 -- small n, directionally the wave-M kills bite), but multi-hop 0/4 and 8
+verified-wrong. New classes killed while it runs:
+- why-questions refuse enumeration-shaped answers (comma lists answer nothing causal;
+  c0_q87 shipped credible-noun soup verified) (fe5dc997b)
+- pronoun contractions never count as information ("I'm reading" for what-books)
+  (13d947139)
+- irregular pasts + offered/given passives now extract as claims ('read' was invisible
+  to the ed|t rule -- ZERO reading claims ever existed; 'been offered a deal' likewise);
+  enumerator gains media-consumption/receive families + books/deals/gifts heads; count
+  guard added from red suite run ('how many books' stays a count) (16fcd284c)
+- 'last <monthname>' resolves against statement date (c4_q58: August 2023 exact gold;
+  the week-window class root) (02cedcf96)
+- c3_q22 ordinal timeline echo now fails closed under the wave-M ordinal path (replay
+  verified)
+Also closed: MCP repair tool (deferred #13, e34ae7c46), checked citation refs
+(deferred #15, a570e327c) -- proofs now RESOLVE refs (hash re-check + snippet located)
+instead of asserting them. LoCoMo loader now includes photo captions -- 21% of turns
+carried silently dropped evidence (9e6fe7d24; slices 1-2 ran caption-less, comparable to
+each other; slice 3+ measures enriched capture). Leakage guard caught a benchmark entity
+in a draft comment -- guard working as designed.
+Open slice-2 classes (need full-run taxonomy): enumeration teasers ('gotten some cool
+deals'), joint-participation precision (extra items), reason-specificity (verbose
+category answers vs specific gold).
