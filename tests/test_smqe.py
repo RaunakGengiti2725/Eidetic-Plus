@@ -4231,3 +4231,62 @@ def test_relative_temporal_extracts_bare_year_from_atom(tmp_path):
     assert ans is not None
     assert "2010" in ans.answer
     assert "2022" not in ans.answer
+
+
+def test_ordinal_anchor_slot_answers_from_the_labeled_occurrence(tmp_path):
+    """'What game was the SECOND tournament based on?' - the source self-labels ordinals
+    ('I won my second tournament!') and states the slot value in the same record; the answer
+    is the TitleCase phrase modifying the anchor noun there, never a value from a different
+    occurrence's record."""
+    from eidetic.smqe.claim_extraction import claims_for_record
+
+    store = RecordStore(tmp_path / "ordinal-slot.sqlite")
+    scope = Scope(namespace="ordinal-slot")
+    rows = [
+        ("Nate: I won my first video game tournament last week - so exciting! It was a "
+         "Tetris Masters tournament downtown.", datetime(2022, 1, 21, 12, 0)),
+        ("Nate: Last week I won my second tournament!\n"
+         "Joanna: Wow, congrats! What game were you playing?\n"
+         "Nate: I usually play chess online, but I tried my hand at the local Street Brawler "
+         "tournament this time and turns out I'm really good!", datetime(2022, 5, 2, 12, 0)),
+    ]
+    for text, dt in rows:
+        rec = _record(text, scope=scope, valid_at=dt.timestamp())
+        store.upsert_record(rec)
+        store.add_claims(claims_for_record(rec))
+
+    ans = structured_answer(
+        _Retriever(store),
+        "What game was the second tournament that Nate won based on?",
+        at=datetime(2022, 12, 1, 12, 0).timestamp(), scope=scope,
+    )
+
+    assert ans is not None
+    assert "Street Brawler" in ans.answer
+    assert "Tetris" not in ans.answer
+    assert ans.verified is True
+
+
+def test_dialogue_crystals_respect_wh_class_and_reject_pleasantries(tmp_path):
+    """A recorded 'How did X go?' crystal must not answer a 'What game was X?' question
+    (wh-class mismatch), and greeting-only crystal answers ('Hey Joanna, thanks!') are never
+    served as answers to anything."""
+    from eidetic.smqe.claim_extraction import claims_for_record
+
+    store = RecordStore(tmp_path / "crystal-wh.sqlite")
+    scope = Scope(namespace="crystal-wh")
+    rec = _record(
+        "Joanna: How did the last game tournament go?\n"
+        "Nate: Hey Joanna, thanks! It went really well overall.",
+        scope=scope, valid_at=1_700_000_100,
+    )
+    store.upsert_record(rec)
+    store.add_claims(claims_for_record(rec))
+
+    ans = structured_answer(
+        _Retriever(store),
+        "What game was the second tournament that Nate won based on?",
+        at=1_800_000_000, scope=scope,
+    )
+
+    assert ans is None or "Hey Joanna" not in ans.answer

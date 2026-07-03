@@ -56,6 +56,19 @@ _ADVICE_REQUEST_RE = re.compile(
     r"suggest|recommend|what\s+should\s+i|how\s+should\s+i|ways\s+to|help\s+me)\b",
     re.I,
 )
+_PLEASANTRY_ANSWER_RE = re.compile(
+    r"^\s*(?:hey|hi|hello|thanks|thank\s+you|wow|congrats|congratulations|awesome|great|"
+    r"cool|nice|yeah|yes|no|ok|okay)\b[\s,!.]*(?:[A-Z][\w'-]+[\s,!.]*)?(?:thanks|thank\s+you)?[\s,!.]*$",
+    re.I,
+)
+
+
+def _wh_class(text: str) -> str:
+    m = re.search(r"\b(what|which|who|whose|where|when|why|how)\b", text or "", re.I)
+    if not m:
+        return ""
+    w = m.group(1).lower()
+    return {"which": "what", "whose": "who"}.get(w, w)
 
 
 def _dialogue_answer_match(query: str, atoms: list[tuple[float, object, str]]) -> tuple[str, list[tuple[float, object, str]]]:
@@ -80,6 +93,12 @@ def _dialogue_answer_match(query: str, atoms: list[tuple[float, object, str]]) -
         recorded_q = str(item.filters.get("question") or "")
         if not recorded_q:
             continue
+        # A crystal only answers a question of the SAME wh-class: 'How did the tournament GO?'
+        # shares content words with 'WHAT game was the tournament?' but its recorded answer
+        # addresses a different slot entirely.
+        q_wh, rq_wh = _wh_class(query), _wh_class(recorded_q)
+        if q_wh and rq_wh and q_wh != rq_wh:
+            continue
         rq_keys = {ro._count_term_key(t) for t in ro._query_terms(recorded_q)} - entity_keys
         if not rq_keys:
             continue
@@ -97,7 +116,8 @@ def _dialogue_answer_match(query: str, atoms: list[tuple[float, object, str]]) -
         return "", []
     _overlap, score, item, atom = best
     value = ro._answer_value(query, atom, item) or ro._clean(ro._strip_role(atom))
-    if not value:
+    if not value or _PLEASANTRY_ANSWER_RE.match(value):
+        # A greeting-only crystal ('Hey Joanna, thanks!') answers nothing.
         return "", []
     return value, [(score, item, atom)]
 
@@ -304,6 +324,55 @@ def _plural_enumeration_answer(query: str, atoms: list[tuple[float, object, str]
     if len(values) == 2:
         return f"{values[0]} and {values[1]}", selected
     return ", ".join(values[:-1]) + f", and {values[-1]}", selected
+
+
+_ORDINAL_ANCHOR_RE = re.compile(
+    r"\b(first|second|third|fourth|fifth|sixth)\s+([a-z][a-z'-]{2,})\b", re.I)
+
+
+def _ordinal_anchor_slot_answer(query: str, atoms: list[tuple[float, object, str]]) -> tuple[str, list[tuple[float, object, str]]]:
+    """'What game was the SECOND tournament based on?' - conversations self-label ordinals
+    ('Last week I won my second tournament!'), so the labeled occurrence is findable exactly,
+    and the asked slot lives in the SAME record's dialogue. Answer the TitleCase phrase that
+    directly modifies the anchor noun there ('the local Street Fighter TOURNAMENT'); no such
+    phrase in the anchor record means fail closed, never a value from another occurrence."""
+    ro = _ro()
+    q = query or ""
+    m = _ORDINAL_ANCHOR_RE.search(q)
+    wh = re.search(r"\b(?:what|which)\s+([a-z][a-z'-]{2,})\b", q, re.I)
+    if not m or not wh:
+        return "", []
+    ordinal, noun = m.group(1).lower(), m.group(2).lower()
+    noun_key = ro._count_term_key(noun)
+    anchor: tuple[float, object, str] | None = None
+    for score, item, atom in atoms[:60]:
+        low = atom.lower()
+        if ordinal in low and noun_key in {ro._count_term_key(t) for t in ro._terms(atom)}:
+            anchor = (score, item, atom)
+            break
+    if anchor is None:
+        return "", []
+    score, item, atom = anchor
+    source = str(getattr(item, "text", "") or "")
+    if not source:
+        rec_text = getattr(item, "value", "") or ""
+        source = str(rec_text)
+    # the TitleCase phrase directly modifying the anchor noun, searched over the WHOLE anchor
+    # record (the slot is often stated a turn or two after the self-labeled anchor)
+    pat = re.compile(
+        rf"((?:[A-Z][\w:'-]+)(?:\s+[A-Z][\w:'-]+){{0,3}})\s+{re.escape(noun)}", )
+    hay = source or atom
+    best = ""
+    for mm in pat.finditer(hay):
+        cand = ro._clean(mm.group(1))
+        head = cand.split()[0].lower() if cand else ""
+        if not cand or head in {"the", "a", "an", "my", "our", "his", "her", "their", "i"}:
+            continue
+        best = cand
+        break
+    if not best:
+        return "", []
+    return best, [(score, item, atom)]
 
 
 _REMIND_NAME_RE = re.compile(

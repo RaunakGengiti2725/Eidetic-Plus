@@ -9,10 +9,12 @@ from typing import Iterable, Optional
 from eidetic.models import ClaimRecord, ExecutionPlan, MemoryRecord, StructuredAnswerResult, StructuredSupport
 
 from .qa_ops import (
+    _ORDINAL_ANCHOR_RE as _ORDINAL_SLOT_QUERY_RE,
     _action_location_phrase,
     _dialogue_answer_match,
     _is_plural_enumeration_query,
     _named_recommendation_answer,
+    _ordinal_anchor_slot_answer,
     _plural_enumeration_answer,
     _premise_affinity_answer,
     _proposition_confirmation_answer,
@@ -4501,6 +4503,16 @@ def _execute_atoms(plan: ExecutionPlan, query: str,
         answer, selected = _plural_enumeration_answer(query, atoms)
         if answer and selected:
             return result_from(answer, selected, confidence=0.9)
+        answer, selected = _ordinal_anchor_slot_answer(query, atoms)
+        if answer and selected:
+            return result_from(answer, selected, confidence=0.9)
+        if _ORDINAL_SLOT_QUERY_RE.search(query or "") and re.search(
+                r"\b(?:what|which)\s+[a-z]", query or "", re.I):
+            # Ordinal-occurrence questions are OWNED by the anchor-slot op: the generic slot
+            # machinery cannot tell occurrences apart and answers from the WRONG one (the
+            # wrong-instance class). Fail this backend closed; the record backend carries the
+            # full session text the slot lives in.
+            return None
         answer, selected = _named_recommendation_answer(query, atoms)
         if answer and selected:
             return result_from(answer, selected, confidence=0.9)
