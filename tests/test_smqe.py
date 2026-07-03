@@ -4354,3 +4354,45 @@ def test_junk_claim_enumeration_does_not_shadow_record_backend(tmp_path):
     low = ans.answer.lower()
     assert "you get" not in low and "doing great" not in low
     assert "rock climbing" in low or "fishing" in low
+
+
+def test_claim_enumeration_answers_from_tier1_claims(tmp_path):
+    """Collector-rewrite step 1: enumerations come from typed CLAIMS (subject + predicate
+    family + object with its own proof atom), not per-query regex re-parsing of raw text.
+    Junk-fragment claims never qualify; fewer than two credible objects falls through."""
+    from eidetic.models import ClaimRecord
+
+    store = RecordStore(tmp_path / "claim-enum.sqlite")
+    scope = Scope(namespace="claim-enum")
+    rows = [
+        ("preference", "Dave", "enjoys", "hiking in the hills",
+         "Dave: I really enjoy hiking in the hills."),
+        ("preference", "Dave", "loves", "film photography",
+         "Dave: I love film photography on weekends."),
+        ("preference", "Dave", "likes", "live concerts",
+         "Dave: I like going to live concerts."),
+        ("preference", "Dave", "enjoys", "you get",          # junk fragment - must not qualify
+         "Dave: you get the idea!"),
+        ("preference", "Mira", "enjoys", "rock climbing",    # wrong person - must not qualify
+         "Mira: I enjoy rock climbing."),
+    ]
+    for i, (ctype, subj, pred, obj, atom) in enumerate(rows):
+        rec = _record(atom, scope=scope, valid_at=1_700_000_100 + i)
+        store.upsert_record(rec)
+        store.add_claim(ClaimRecord(
+            claim_type=ctype, scope=scope, subject=subj, predicate=pred, object=obj,
+            value=atom, proof_atom=atom, source_memory_id=rec.memory_id,
+            valid_at=1_700_000_100 + i,
+        ))
+
+    ans = structured_answer(
+        _Retriever(store),
+        "What hobbies does Dave enjoy these days?",
+        at=1_800_000_000, scope=scope,
+    )
+
+    assert ans is not None
+    low = ans.answer.lower()
+    assert "hiking" in low and "photography" in low and "concerts" in low
+    assert "you get" not in low and "rock climbing" not in low
+    assert ans.verified is True

@@ -326,6 +326,75 @@ def _plural_enumeration_answer(query: str, atoms: list[tuple[float, object, str]
     return ", ".join(values[:-1]) + f", and {values[-1]}", selected
 
 
+_ENUM_QUERY_VERB_RE = re.compile(
+    r"\b(?:enjoy|enjoys|like|likes|love|loves|do|does|done|has|have|pursue|pursues|"
+    r"practice|practices|play|plays)\b", re.I)
+_ENUM_QUERY_HEAD_RE = re.compile(
+    r"\b(?:hobbies|interests|activities|sports|games|pastimes|passions)\b", re.I)
+_ENUM_VERB_FAMILY = {
+    "enjoy", "enjoys", "enjoyed", "like", "likes", "liked", "love", "loves", "loved",
+    "into", "practice", "practices", "practiced", "play", "plays", "played", "pursue",
+    "pursues", "pursued", "do", "does", "did", "done",
+}
+_ENUM_OBJECT_HEAD_STOP = {
+    "at", "he", "her", "his", "i", "in", "it", "my", "on", "our", "she", "that", "their",
+    "they", "this", "we", "you", "your",
+}
+_ENUM_OBJECT_JUNK = {
+    "awesome", "cool", "definitely", "fine", "good", "great", "great job", "nice", "no",
+    "ok", "okay", "really", "similarly", "sure", "thank you", "thanks", "well", "wow", "yes",
+}
+
+
+def _claim_enumeration_answer(query: str, atoms: list[tuple[float, object, str]]) -> tuple[str, list[tuple[float, object, str]]]:
+    """Collector-rewrite step 1: enumeration answers come from TIER-1 CLAIMS.
+
+    A typed claim already carries subject + predicate + object + a verbatim proof atom
+    extracted once at write time; 'what hobbies does Dave enjoy?' is a SELECT over claims
+    whose subject matches the question's person and whose predicate sits in the question
+    verb's family - each returned object carries its own proof atom, so the composition
+    verifies per item. Replaces per-query regex re-parsing of raw text (the junk factories).
+    Fewer than two credible objects falls through to the legacy path."""
+    ro = _ro()
+    q = query or ""
+    if not (_ENUM_QUERY_HEAD_RE.search(q) and _ENUM_QUERY_VERB_RE.search(q)):
+        return "", []
+    people = ro._query_people(q)
+    person_terms = {t.lower() for t in ro._terms(people[0])} if people else set()
+    values: list[str] = []
+    selected: list[tuple[float, object, str]] = []
+    seen_vals: set[str] = set()
+    for score, item, atom in atoms[:80]:
+        if not isinstance(item, ClaimRecord):
+            continue
+        pred = str(getattr(item, "predicate", "") or "").lower()
+        if not ({w for w in re.findall(r"[a-z']+", pred)} & _ENUM_VERB_FAMILY):
+            continue
+        subject = str(getattr(item, "subject", "") or "").lower()
+        if person_terms and not (person_terms & {t.lower() for t in ro._terms(subject)}):
+            continue
+        obj = ro._clean(str(getattr(item, "object", "") or ""))
+        words = obj.split()
+        low = obj.lower()
+        if (not obj or len(obj) < 4 or len(words) > 5
+                or low in _ENUM_OBJECT_JUNK
+                or words[0].lower() in _ENUM_OBJECT_HEAD_STOP):
+            continue
+        key = ro._norm_key(obj)
+        if key in seen_vals:
+            continue
+        seen_vals.add(key)
+        values.append(obj)
+        selected.append((score, item, atom))
+        if len(values) >= 8:
+            break
+    if len(values) < 2:
+        return "", []
+    if len(values) == 2:
+        return f"{values[0]} and {values[1]}", selected
+    return ", ".join(values[:-1]) + f", and {values[-1]}", selected
+
+
 _ORDINAL_ANCHOR_RE = re.compile(
     r"\b(first|second|third|fourth|fifth|sixth)\s+([a-z][a-z'-]{2,})\b", re.I)
 

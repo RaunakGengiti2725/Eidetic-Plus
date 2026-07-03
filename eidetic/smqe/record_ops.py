@@ -13,6 +13,7 @@ from .verify import _enumeration_items_credible as _verify_items_credible
 from .qa_ops import (
     _ORDINAL_ANCHOR_RE as _ORDINAL_SLOT_QUERY_RE,
     _action_location_phrase,
+    _claim_enumeration_answer,
     _dialogue_answer_match,
     _is_plural_enumeration_query,
     _named_recommendation_answer,
@@ -4468,6 +4469,12 @@ def _execute_atoms(plan: ExecutionPlan, query: str,
     def result_from(answer: str, selected: list[tuple[float, object, str]], confidence: float = 1.0):
         return _result(answer, plan, backend, [sup(item, atom, score) for score, item, atom in selected[:6]], confidence)
 
+    # Collector rewrite step 1: tier-1 claim enumeration runs BEFORE the legacy collectors -
+    # typed claims are the single enumeration source; the regex collectors remain as a
+    # record-backend fallback during the transition.
+    answer, selected = _claim_enumeration_answer(query, atoms)
+    if answer and selected:
+        return result_from(answer, selected, confidence=0.9)
     for helper in (
         _before_event_time_answer,
         _event_order_answer,
