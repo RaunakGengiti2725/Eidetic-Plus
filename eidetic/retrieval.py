@@ -4793,15 +4793,20 @@ class Retriever:
             text = self.client.generate_answer(query, blocks, model=model)
             citations, entailed = self._verify_candidates(candidates, text, verify, query=query, at=at)
 
-        # Advice grounding: a recommendation answer is synthesis by design -- fresh suggestions
-        # are never entailed by memory as a whole answer, so whole-answer NLI abstains on every
-        # correctly tailored advice reply. The verifiable core is the answer's restatement of the
-        # user's stored context/preferences. Verify sentences individually (bounded) and ground
-        # the answer on an entailed restatement; any CONTRADICTION kills the rescue. Mirrors the
-        # SMQE anchor rule where a derived answer verifies on its cited premise.
-        from .smqe.qa_ops import _ADVICE_REQUEST_RE
+        # Advice/likelihood grounding: a recommendation or 'is it likely that X' answer is
+        # synthesis by design -- fresh suggestions and inference markers are never entailed by
+        # memory as a whole answer, so whole-answer NLI abstained on every correctly grounded
+        # reply. The verifiable core is the answer's restatement of stored premises. Verify
+        # sentences individually (bounded) and ground the answer on an entailed restatement;
+        # any CONTRADICTION kills the rescue. Mirrors the SMQE anchor rule where a derived
+        # answer verifies on its cited premise (option choices and likely-inference already
+        # carry the same exemption there).
+        from .smqe.qa_ops import _ADVICE_REQUEST_RE, _LIKELY_INFERENCE_RE
         advice_anchor = False
-        if verify and entailed == 0 and _ADVICE_REQUEST_RE.search(query or ""):
+        if verify and entailed == 0 and (
+                _ADVICE_REQUEST_RE.search(query or "")
+                or _LIKELY_INFERENCE_RE.search(query or "")
+                or re.search(r"^\s*is\s+it\s+likely\b", query or "", re.I)):
             sentence_claims = [cl for cl in _sentences(text)
                                if len(cl) >= self.settings.span_nli_min_chars][:5]
             rescue: Optional[tuple[list[Citation], int]] = None

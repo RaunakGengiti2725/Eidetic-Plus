@@ -125,3 +125,61 @@ def test_advice_answer_grounds_on_context_restatement(fresh_settings):
     assert "workshops" in ans.answer            # the synthesis is delivered, not swallowed
     assert ans.verified is True                 # grounded on the entailed restatement
     assert any(c.nli_label == NLILabel.ENTAILMENT for c in ans.citations)
+
+
+def test_likely_inference_answer_grounds_on_premise_restatement(fresh_settings):
+    """'Is it likely that X?' answers are labeled inference over cited premises - the same
+    structural shape as advice: the yes/no marker never whole-answer-entails, so a correct
+    synthesis died unverified. The sentence-level rescue must cover likelihood questions."""
+    import hashlib
+    import re as _re
+
+    import numpy as np
+
+    from eidetic.engine import Engine
+    from eidetic.models import NLILabel, Scope
+
+    class _LikelyClient:
+        def __init__(self, dim):
+            self.dim = dim
+
+        def _e(self, t):
+            v = np.zeros(self.dim, np.float32)
+            for tok in _re.findall(r"[a-z0-9]+", (t or "").lower()):
+                v[int(hashlib.md5(tok.encode()).hexdigest(), 16) % self.dim] += 1.0
+            n = np.linalg.norm(v)
+            return v / n if n > 0 else v
+
+        def embed_text(self, t):
+            return self._e(t)
+
+        def embed_texts(self, ts):
+            return (np.stack([self._e(t) for t in ts])
+                    if ts else np.zeros((0, self.dim), np.float32))
+
+        def extract_edges(self, text):
+            return []
+
+        def generate_answer(self, q, blocks, model=None):
+            return ("Likely yes. Rowan mentions hiking with colleagues from the trail club. "
+                    "That suggests an active social circle beyond his sister.")
+
+        def nli(self, premise, hypothesis):
+            hyp = (hypothesis or "").lower()
+            if "trail club" in hyp and "suggests" not in hyp:
+                return ("entailment", 0.9)     # the premise restatement grounds
+            return ("neutral", 0.2)            # the inference marker never entails
+
+    from dataclasses import replace as _replace
+    s = _replace(fresh_settings, rerank_enabled=False)
+    e = Engine(s, client=_LikelyClient(s.embed_dim))
+    ns = Scope(namespace="likely-ground")
+    e.ingest_text("User: Rowan went hiking with colleagues from the trail club again.",
+                  scope=ns, consolidate_now=False)
+    e.consolidate_pending(scope=ns, score_importance=False)
+
+    ans = e.ask("Is it likely that Rowan has friends besides his sister?", scope=ns)
+
+    assert not ans.note.startswith("abstained")
+    assert ans.verified is True
+    assert any(c.nli_label == NLILabel.ENTAILMENT for c in ans.citations)
