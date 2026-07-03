@@ -803,6 +803,17 @@ def _relative_date_from_atom(rec: object, atom: str, query: str = "") -> str:
             month = 12
             year -= 1
         return f"{calendar.month_name[month]} {year:04d}"
+    # 'last August' names the most recent August strictly before the statement month --
+    # the strongest possible relative month form, previously unresolvable ('Last August I
+    # told you about the contest', spoken in December, dates the event to August of the
+    # same year).
+    m = re.search(
+        r"\blast\s+(january|february|march|april|may|june|july|august|september|october|"
+        r"november|december)\b", low)
+    if m:
+        num = list(calendar.month_name).index(m.group(1).capitalize())
+        year = ref.year if num < ref.month else ref.year - 1
+        return f"{calendar.month_name[num]} {year:04d}"
     if "last year" in low:
         return str(ref.year - 1)
     # Bare day-of-month: 'I bought it ON THE 17TH' (spoken Aug 19) names Aug 17 -- the

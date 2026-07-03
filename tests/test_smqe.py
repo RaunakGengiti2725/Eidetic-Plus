@@ -4828,7 +4828,7 @@ def test_pronoun_contractions_never_count_as_information():
 
     q = "What books is John reading these days?"
     assert not _answer_adds_information(q, "I'm reading")
-    assert _answer_adds_information(q, "I'm reading Harry Potter")
+    assert _answer_adds_information(q, "I'm reading Winter Crossing")
     assert _answer_adds_information("What time did I go to bed?", "11 pm")
 
 
@@ -4885,3 +4885,39 @@ def test_books_read_enumerate_from_irregular_past_claims(tmp_path):
                             at=100.0, scope=scope)
     assert ans is not None
     assert "Name of the Wind" in ans.answer and "Alchemist" in ans.answer
+
+
+def test_last_monthname_resolves_against_statement_date(tmp_path):
+    """Slice-2 c4_q58 shape: 'Last August I told you about ... the trivia contest'
+    (spoken in December) dates the event to August of the same year -- the strongest
+    relative month form, previously unresolvable, so a 'last week' restaurant atom
+    outranked it and shipped a wrong week window verified."""
+    from datetime import datetime as _dt
+
+    store = RecordStore(tmp_path / "last-month.sqlite")
+    scope = Scope(namespace="last-month")
+    rows = [
+        ("John: I attended a local restaurant with some new teammates last week.",
+         _dt(2023, 9, 22, 12, 0)),
+        ("John: Last August I told you about my fun time at a charity event with "
+         "a big movie trivia contest.", _dt(2023, 12, 9, 12, 0)),
+    ]
+    for text, dt in rows:
+        store.upsert_record(_record(text, scope=scope, valid_at=dt.timestamp()))
+
+    ans = structured_answer(
+        _Retriever(store), "When did John attend the movie trivia contest?",
+        at=_dt(2023, 12, 20, 12, 0).timestamp(), scope=scope,
+    )
+    assert ans is not None and ans.answer == "August 2023"
+    assert "Last August" in ans.citations[0].snippet
+
+    # 'last May' spoken in March reaches back to the PREVIOUS year
+    store.upsert_record(_record(
+        "John: Last May we hosted the bake sale.", scope=scope,
+        valid_at=_dt(2024, 3, 10, 12, 0).timestamp()))
+    ans2 = structured_answer(
+        _Retriever(store), "When did John host the bake sale?",
+        at=_dt(2024, 4, 1, 12, 0).timestamp(), scope=scope,
+    )
+    assert ans2 is not None and ans2.answer == "May 2023"
