@@ -67,3 +67,61 @@ def test_strong_evidence_answers_thin_evidence_abstains(fresh_settings):
                          nli_label=NLILabel.NEUTRAL, nli_score=0.2)]
     conf_thin, _ = r._abstention_confidence(thin_c, thin_cit)
     assert conf_thin < s.abstention_v2_tau             # thin, unentailed, unproven -> abstain
+
+
+def test_advice_answer_grounds_on_context_restatement(fresh_settings):
+    """A recommendation answer is synthesis by design: fresh suggestions are never entailed by
+    memory as a whole answer. The verifiable core is the answer's restatement of the user's
+    stored context; sentence-level verification must ground the answer on that restatement
+    instead of abstaining on entail=0."""
+    import hashlib
+    import re as _re
+
+    import numpy as np
+
+    from eidetic.engine import Engine
+    from eidetic.models import NLILabel, Scope
+
+    class _AdviceClient:
+        def __init__(self, dim):
+            self.dim = dim
+
+        def _e(self, t):
+            v = np.zeros(self.dim, np.float32)
+            for tok in _re.findall(r"[a-z0-9]+", (t or "").lower()):
+                v[int(hashlib.md5(tok.encode()).hexdigest(), 16) % self.dim] += 1.0
+            n = np.linalg.norm(v)
+            return v / n if n > 0 else v
+
+        def embed_text(self, t):
+            return self._e(t)
+
+        def embed_texts(self, ts):
+            return np.stack([self._e(t) for t in ts]) if ts else np.zeros((0, self.dim), np.float32)
+
+        def extract_edges(self, text):
+            return []
+
+        def generate_answer(self, q, blocks, model=None):
+            return ("You are learning advanced glazing techniques with the kiln at home. "
+                    "For next steps, try community studio workshops and mineral pigment guides.")
+
+        def nli(self, premise, hypothesis):
+            hyp = (hypothesis or "").lower()
+            if "glazing" in hyp and "workshops" not in hyp:
+                return ("entailment", 0.9)     # the context restatement grounds in memory
+            return ("neutral", 0.2)            # fresh suggestions never entail
+
+    s = replace(fresh_settings, rerank_enabled=False)
+    e = Engine(s, client=_AdviceClient(s.embed_dim))
+    ns = Scope(namespace="advice-ground")
+    e.ingest_text("User: I'm trying to learn advanced glazing techniques with my kiln at home.",
+                  scope=ns, consolidate_now=False)
+    e.consolidate_pending(scope=ns, score_importance=False)
+
+    ans = e.ask("Can you suggest some resources to learn more about pottery glazing?", scope=ns)
+
+    assert not ans.note.startswith("abstained")
+    assert "workshops" in ans.answer            # the synthesis is delivered, not swallowed
+    assert ans.verified is True                 # grounded on the entailed restatement
+    assert any(c.nli_label == NLILabel.ENTAILMENT for c in ans.citations)

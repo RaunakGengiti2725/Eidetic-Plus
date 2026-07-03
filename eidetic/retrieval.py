@@ -4695,6 +4695,31 @@ class Retriever:
             text = self.client.generate_answer(query, blocks, model=model)
             citations, entailed = self._verify_candidates(candidates, text, verify, query=query, at=at)
 
+        # Advice grounding: a recommendation answer is synthesis by design -- fresh suggestions
+        # are never entailed by memory as a whole answer, so whole-answer NLI abstains on every
+        # correctly tailored advice reply. The verifiable core is the answer's restatement of the
+        # user's stored context/preferences. Verify sentences individually (bounded) and ground
+        # the answer on an entailed restatement; any CONTRADICTION kills the rescue. Mirrors the
+        # SMQE anchor rule where a derived answer verifies on its cited premise.
+        from .smqe.qa_ops import _ADVICE_REQUEST_RE
+        advice_anchor = False
+        if verify and entailed == 0 and _ADVICE_REQUEST_RE.search(query or ""):
+            sentence_claims = [cl for cl in _sentences(text)
+                               if len(cl) >= self.settings.span_nli_min_chars][:5]
+            rescue: Optional[tuple[list[Citation], int]] = None
+            rescue_contradicted = False
+            for cl in sentence_claims:
+                cl_citations, cl_entailed = self._verify_candidates(
+                    candidates, cl, True, query=query, at=at)
+                if any(c.nli_label == NLILabel.CONTRADICTION for c in cl_citations):
+                    rescue_contradicted = True
+                    break
+                if cl_entailed and rescue is None:
+                    rescue = (cl_citations, cl_entailed)
+            if rescue is not None and not rescue_contradicted:
+                citations, entailed = rescue
+                advice_anchor = True
+
         # CoVe (Chain-of-Verification): factored fact-check of a grounded draft. Plan independent
         # verification questions, answer each ONLY from the retrieved blocks (factored -> the model
         # cannot copy its own hallucination), and re-verify the sub-answer against the candidates.
@@ -4703,7 +4728,7 @@ class Retriever:
         # LLM calls, hence gated (COVE, default OFF). Lives in answer() -> the engine.ask product
         # path only; the neutral fixed-reader rows do not call this.
         cove_failed = False
-        if self.settings.cove_enabled and verify and entailed > 0:
+        if self.settings.cove_enabled and verify and entailed > 0 and not advice_anchor:
             try:                              # best-effort: a failed CoVe call must never abort
                 qs = self.client.plan_verification_questions(text, n=self.settings.cove_questions)
                 for q in qs:
@@ -4720,7 +4745,7 @@ class Retriever:
         # partly-grounded answer can't ride one entailed sentence. One unentailed claim -> demote.
         # Whole-answer NLI already covers a single-sentence answer, so only multi-claim answers run.
         span_failed = False
-        if self.settings.span_nli_enabled and verify and entailed > 0:
+        if self.settings.span_nli_enabled and verify and entailed > 0 and not advice_anchor:
             claims = [c for c in _sentences(text) if len(c) >= self.settings.span_nli_min_chars]
             if len(claims) > 1:
                 for claim in claims:
@@ -4772,6 +4797,8 @@ class Retriever:
         elif verify and not verified:
             note = _unverified_reason
             unverified = [text]
+        if verified and advice_anchor and not note:
+            note = "verified: advice grounded on context restatement (sentence-level)"
 
         top_rerank = max((c.rerank_score for c in candidates), default=0.0)
         if abstained:
