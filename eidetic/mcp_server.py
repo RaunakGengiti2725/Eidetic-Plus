@@ -45,13 +45,25 @@ mcp = FastMCP(
     host=_HOST,
     port=_PORT,
     instructions=(
-        "Persistent, lossless, verifiable long-term memory for AI agents. Every tool takes a "
-        "optional `namespace` plus optional `agent_id` / `project_id`; omitted scope values use "
-        "EIDETIC_NAMESPACE / EIDETIC_AGENT_ID / EIDETIC_PROJECT_ID, then the safe global "
-        "default. Reads never cross namespaces, so use a stable namespace per project or agent. "
-        "Use `remember` for "
-        "durable facts worth keeping, `recall` to retrieve prior context with cited sources, "
-        "and `get_raw` to verify a source against the immutable record."
+        "Persistent, lossless, VERIFIABLE long-term memory for AI agents. Answers are "
+        "verify-or-abstain: every recall is NLI-checked against immutable stored sources and "
+        "returns citations (content hash, validity window, entailment label) or an explicit "
+        "abstention - never a confabulation. The store is bi-temporal: `remember` accepts "
+        "`valid_at` to backdate a fact's EVENT time, and `recall`/`truth_ledger` accept "
+        "`as_of` to answer as of any past moment (superseded facts answer for their era; "
+        "later facts are invisible). Retractions are first-class: a negated assertion "
+        "answers 'No - <premise>' with its source, and the latest assertion wins. "
+        "Tool guide: `remember` durable facts (backdate imports with valid_at); "
+        "`remember_file` PDFs/images/documents losslessly; `recall` the verified cited "
+        "answer (prove=True adds a machine-checkable proof tree); `truth_ledger` the full "
+        "raw-bytes-to-current-truth chain with supersession history; `structured_recall` "
+        "the deterministic typed-claim path (no generation); `reflex_recall` sub-second "
+        "candidate recall with no model call; `get_raw` byte-identical source bytes; "
+        "`value_as_of`/`fact_history` deterministic entity-relation time travel; `forget`/"
+        "`reawaken` reversible priority decay (never deletion). Every tool takes an optional "
+        "`namespace` (+ `agent_id`/`project_id`); omitted values use EIDETIC_NAMESPACE / "
+        "EIDETIC_AGENT_ID / EIDETIC_PROJECT_ID, then the global default. Reads never cross "
+        "namespaces - use a stable namespace per project or agent."
     ),
 )
 
