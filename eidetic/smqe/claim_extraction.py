@@ -266,6 +266,11 @@ def _action_object_claims_from_atom(rec: MemoryRecord, atom: str) -> list[ClaimR
     patterns = (
         r"\b(?:i|we)\s+(?P<verb>[a-z][a-z'-]{2,}(?:ed|t))\s+(?P<object>[^.;!?]{3,90}?)(?=\s+(?:last|this|recently|because|while|when|where|which|that|so|together|again|alone|yesterday|today)\b|[.;!?]|$)",
         r"\b(?:i|we)\s+(?P<verb>[a-z][a-z'-]{2,}(?:ed|t))\s+(?:at|in|to|from)\s+(?P<object>[^.;!?]{3,90}?)(?=\s+(?:last|this|recently|because|while|when|where|which|that|so)\b|[.;!?]|$)",
+        # Irregular pasts the ed|t suffix rule can never see (\'I read The Alchemist\',
+        # \'we saw Hamilton\'), clitic-tolerant; and the offered/given passive (\'I\'ve been
+        # offered a deal with Nike\') whose object is the enumerable fact.
+        r"\b(?:i|we)(?:\'ve|\'d)?\s+(?:just\s+|also\s+|recently\s+|finally\s+)?(?P<verb>read|reread|wrote|saw|met|took)\s+(?P<object>[A-Z][^.;!?]{2,90}?)(?=\s+(?:last|this|recently|because|while|when|and|so|together|again|yesterday|today)\b|[.;!?]|$)",
+        r"\b(?:i|we)(?:\'ve|\'d)?\s+been\s+(?P<verb>offered|given|promised)\s+(?P<object>[^.;!?]{3,90}?)(?=\s+(?:last|this|recently|because|while|when|so|by)\b|[.;!?]|$)",
     )
     for pat in patterns:
         for m in re.finditer(pat, text, re.I):

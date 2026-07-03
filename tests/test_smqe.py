@@ -4861,3 +4861,27 @@ def test_why_questions_refuse_enumeration_shaped_answers(tmp_path):
         note="smqe:open_inference:claim",
     )
     assert answer_from_result(_Retriever(store), q, reasoned, verify=True) is not None
+
+
+def test_books_read_enumerate_from_irregular_past_claims(tmp_path):
+    """Slice-2 c4_q4 shape: 'What books has Tim read?' shipped \"I'm reading\" -- 'read' is
+    an irregular past invisible to the ed|t suffix rule, so no claims existed to enumerate.
+    Irregular-past pattern + books head noun + read family: the enumerator now composes
+    the titles, each with its own proof atom."""
+    from eidetic.smqe.claim_extraction import claims_for_record
+
+    store = RecordStore(tmp_path / "books.sqlite")
+    scope = Scope(namespace="books")
+    texts = [
+        "Tim: I read The Name of the Wind this month, it was fantastic.",
+        "Tim: I've read The Alchemist recently. Highly recommend.",
+    ]
+    for i, t in enumerate(texts):
+        rec = _record(t, scope=scope, valid_at=float(i + 1))
+        store.upsert_record(rec)
+        store.add_claims(claims_for_record(rec))
+
+    ans = structured_answer(_Retriever(store), "What books has Tim read?",
+                            at=100.0, scope=scope)
+    assert ans is not None
+    assert "Name of the Wind" in ans.answer and "Alchemist" in ans.answer

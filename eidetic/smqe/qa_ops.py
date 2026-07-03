@@ -328,10 +328,11 @@ def _plural_enumeration_answer(query: str, atoms: list[tuple[float, object, str]
 
 _ENUM_QUERY_VERB_RE = re.compile(
     r"\b(?:enjoy|enjoys|like|likes|love|loves|do|does|done|has|have|pursue|pursues|"
-    r"practice|practices|play|plays|visit|visited|been|traveled|travelled|know|knows)\b", re.I)
+    r"practice|practices|play|plays|visit|visited|been|traveled|travelled|know|knows|"
+    r"read|reads|offered|received|given)\b", re.I)
 _ENUM_QUERY_HEAD_RE = re.compile(
     r"\b(?:hobbies|interests|activities|sports|games|pastimes|passions|cities|countries|"
-    r"places|towns|tricks|skills)\b", re.I)
+    r"places|towns|tricks|skills|books|novels|deals|endorsements|gifts|presents)\b", re.I)
 # Query verb -> the claim-predicate family that answers it: 'which cities has Jon VISITED'
 # selects visit-family claims, never like-family ones. Query verbs outside every family
 # (do/does/has) fall back to the flat union.
@@ -343,6 +344,8 @@ _ENUM_VERB_FAMILIES: tuple[frozenset, ...] = (
     frozenset({"visit", "visits", "visited", "been", "travel", "travels", "traveled",
                "travelled", "went", "toured"}),
     frozenset({"know", "knows", "knew", "taught", "teach", "learned", "learnt"}),
+    frozenset({"read", "reads", "reread", "saw", "seen", "watched", "wrote", "written"}),
+    frozenset({"offered", "received", "given", "gotten", "promised", "awarded"}),
 )
 _ENUM_VERB_FAMILY = frozenset().union(*_ENUM_VERB_FAMILIES) | {"do", "does", "did", "done"}
 
@@ -377,6 +380,10 @@ def _claim_enumeration_answer(query: str, atoms: list[tuple[float, object, str]]
     ro = _ro()
     q = query or ""
     if not (_ENUM_QUERY_HEAD_RE.search(q) and _ENUM_QUERY_VERB_RE.search(q)):
+        return "", []
+    if re.match(r"\s*how\s+(?:many|much)\b", q, re.I):
+        # A count question owns its own operator; enumerating the members here would
+        # answer 'how many books' with the titles instead of the number.
         return "", []
     people = ro._query_people(q)
     person_terms = {t.lower() for t in ro._terms(people[0])} if people else set()
