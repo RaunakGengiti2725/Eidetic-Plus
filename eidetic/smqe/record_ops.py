@@ -881,10 +881,25 @@ def _temporal_anchor_required(terms: set[str]) -> int:
     return 2
 
 
+def _anchor_match_sets(anchor_terms: set[str]) -> list[set[str]]:
+    """Per-anchor-term match sets: each query anchor term matches its own morphology plus its
+    action-family synonyms, so 'buy' anchors on 'got a <thing>' without literal overlap."""
+    match_sets: list[set[str]] = []
+    for term in anchor_terms:
+        exp = {term} | _verb_variants(term)
+        for families in (_COUNT_ACTION_FAMILIES, _SUM_ACTION_FAMILIES):
+            for base, members in families.items():
+                if term == base or term in members:
+                    exp |= members
+        match_sets.append({_temporal_term_key(t) for t in exp})
+    return match_sets
+
+
 def _temporal_anchor_hit_score(anchor_terms: set[str], atom: str) -> int:
     if not anchor_terms:
         return 0
-    hits = len(anchor_terms & _temporal_anchor_terms(atom))
+    atom_keys = _temporal_anchor_terms(atom)
+    hits = sum(1 for match_set in _anchor_match_sets(anchor_terms) if match_set & atom_keys)
     return hits if hits >= _temporal_anchor_required(anchor_terms) else 0
 
 
@@ -946,14 +961,16 @@ def _single_anchor_delta_answer(
     except (OSError, OverflowError, ValueError, TypeError):
         return "", []
     qterms = _temporal_anchor_terms(query)
+    # Coarse retrieval scores reward operator words ("days", "ago") that appear in unrelated
+    # atoms, so the true anchor can rank far down the list; the anchor-hit gate below is the
+    # real precision filter, and it needs a deep enough window to reach the anchor at all.
     candidates: list[tuple[int, float, date, object, str]] = []
-    for score, item, atom in atoms[:20]:
+    for score, item, atom in atoms[:200]:
         d = _event_date(item, atom)
         if d is None:
             continue
-        atom_terms = _temporal_anchor_terms(atom)
-        hit_count = len(qterms & atom_terms)
-        if qterms and hit_count < _temporal_anchor_required(qterms):
+        hit_count = _temporal_anchor_hit_score(qterms, atom)
+        if qterms and hit_count == 0:
             continue
         candidates.append((hit_count, score, d, item, atom))
     if not candidates:
@@ -2898,10 +2915,16 @@ def _is_affiliation_query(query: str) -> bool:
     q = query or ""
     if not re.search(r"\b(?:which|what)\b", q, re.I):
         return False
-    return bool(
-        re.search(_AFFILIATION_ACTION_RE, q, re.I)
-        or re.search(r"\b" + _AFFILIATION_NOUN_RE + r"\b", q, re.I)
-    )
+    if re.search(_AFFILIATION_ACTION_RE, q, re.I):
+        return True
+    # Without a join/sign/accept action, the affiliation noun must be the interrogative TARGET
+    # ("which research cohort ...?"), not an incidental mention elsewhere in the question
+    # ("what kind of routine did Vera's TEAM perform?").
+    return bool(re.search(
+        r"\b(?:which|what)\s+(?:new\s+)?(?:[a-z][a-z'/-]*\s+){0,2}" + _AFFILIATION_NOUN_RE + r"\b",
+        q,
+        re.I,
+    ))
 
 
 def _clean_affiliation_value(value: str) -> str:
@@ -4456,33 +4479,11 @@ def _execute_atoms(plan: ExecutionPlan, query: str,
             answer, selected = _single_anchor_delta_answer(query, atoms, plan.unit or "days", plan.as_of)
             if answer and selected:
                 return result_from(answer, selected)
-            anchors = []
-            for score, item, atom in atoms[:12]:
-                if getattr(item, "valid_at", None) is None:
-                    continue
-                d = _event_date(item, atom)
-                if d is not None:
-                    anchors.append((score, d, item, atom))
-            if len(anchors) >= 2:
-                anchors = sorted(anchors, key=lambda x: (-x[0], x[1]))[:2]
-                days = abs((anchors[1][1] - anchors[0][1]).days)
-                return _result(
-                    _elapsed_value(days, plan.unit or "days", with_unit=(plan.unit or "").lower().startswith("day") and "ago" not in query.lower()), plan, backend,
-                    [sup(anchors[0][2], anchors[0][3], anchors[0][0]),
-                     sup(anchors[1][2], anchors[1][3], anchors[1][0])],
-                )
-            if anchors and plan.as_of is not None:
-                try:
-                    qdate = datetime.fromtimestamp(plan.as_of).date()
-                except (OSError, OverflowError, ValueError):
-                    qdate = None
-                if qdate is not None:
-                    days = abs((qdate - anchors[0][1]).days)
-                    return _result(
-                        _elapsed_value(days, plan.unit or "days", with_unit=(plan.unit or "").lower().startswith("day") and "ago" not in query.lower()),
-                        plan,
-                        backend,
-                                   [sup(anchors[0][2], anchors[0][3], anchors[0][0])])
+            # No atom matched the queried event. Computing a delta between arbitrary dated atoms
+            # ships a verified-wrong number (the anchors are quotable even when the arithmetic
+            # answers nothing), and the generic slot tail below cannot answer an elapsed-time
+            # question either. Fail closed.
+            return None
 
     if op == "table_lookup":
         answer, selected = _table_lookup_answer(query, atoms)

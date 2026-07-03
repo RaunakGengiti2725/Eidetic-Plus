@@ -837,6 +837,31 @@ def test_structured_answer_affiliation_followup_is_not_team_specific(tmp_path):
     assert "Brass Ledger" not in proof
 
 
+def test_structured_answer_affiliation_requires_wh_target_or_action(tmp_path):
+    """A what-question that merely CONTAINS an affiliation noun ('...did Vera's team perform...')
+    is not an affiliation lookup: the cheer 'Go Dara!' must never surface as a verified answer."""
+    store = RecordStore(tmp_path / "affiliation-wh-target.sqlite")
+    scope = Scope(namespace="affiliation-wh-target")
+    rows = [
+        "Vera: My fav memory was when my team won first place at regionals.\n"
+        "Vera: We just did a lyrical routine called Quiet Thunder.",
+        "Vera: Go Dara!\nVera: I just got accepted for a textile internship!",
+    ]
+    for idx, text in enumerate(rows):
+        store.upsert_record(_record(text, scope=scope, valid_at=1_700_000_500 + idx))
+
+    ans = structured_answer(
+        _Retriever(store),
+        "What kind of routine did Vera's team perform to win first place?",
+        at=1_700_000_900,
+        scope=scope,
+    )
+
+    if ans is not None:
+        assert "Go Dara" not in ans.answer
+        assert "internship" not in ans.answer
+
+
 def test_structured_answer_beverage_event_suggestion_uses_generic_context(tmp_path):
     store = RecordStore(tmp_path / "beverage-suggestion.sqlite")
     scope = Scope(namespace="beverage-suggestion")
@@ -2292,6 +2317,69 @@ def test_structured_answer_temporal_delta_single_anchor_uses_question_time(tmp_p
     proof = " ".join(c.snippet for c in ans.citations)
     assert "picked up the ceramic kit" in proof
     assert "cleaned the ceramic kit" not in proof
+
+
+def test_structured_answer_temporal_delta_single_anchor_verb_family(tmp_path):
+    """'How many days ago did I BUY X?' must anchor on 'I just GOT X today' (acquisition
+    synonym family), even when higher-scoring atoms match only operator words like 'days'."""
+    store = RecordStore(tmp_path / "temporal-verb-family.sqlite")
+    scope = Scope(namespace="temporal-verb-family")
+    event_day = datetime(2024, 3, 5, 12, 0)
+    question_day = datetime(2024, 3, 15, 12, 0)
+    store.upsert_record(_record(
+        "User: I just got a kiln today and I'm excited to try slow firing.",
+        scope=scope,
+        valid_at=event_day.timestamp(),
+    ))
+    distractors = [
+        "User: We rented a cabin and spent two days hiking in the hills.",
+        "User: I've been into photography lately, especially since I got my new tripod last month.",
+        "User: I want to buy a good quality duffel bag that will last a long time.",
+        "User: I'll adjust my bedtime by fifteen minutes every few days.",
+        "User: I was buying groceries when the rain started, days of drizzle ahead.",
+    ]
+    for idx, text in enumerate(distractors):
+        store.upsert_record(_record(text, scope=scope, valid_at=event_day.timestamp() + (idx + 1) * 86_400))
+
+    ans = structured_answer(
+        _Retriever(store),
+        "How many days ago did I buy a kiln?",
+        at=question_day.timestamp(),
+        scope=scope,
+    )
+
+    assert ans is not None
+    assert ans.answer == "10"
+    proof = " ".join(c.snippet for c in ans.citations)
+    assert "kiln" in proof
+    assert "tripod" not in proof
+    assert "hiking" not in proof
+
+
+def test_structured_answer_temporal_delta_abstains_without_topical_anchor(tmp_path):
+    """No memory mentions the queried action/object -> abstain. Never compute a delta between
+    two arbitrary dated atoms and ship it with citations."""
+    store = RecordStore(tmp_path / "temporal-no-anchor.sqlite")
+    scope = Scope(namespace="temporal-no-anchor")
+    store.upsert_record(_record(
+        "User: We spent two days repainting the porch.",
+        scope=scope,
+        valid_at=datetime(2024, 5, 1, 9, 0).timestamp(),
+    ))
+    store.upsert_record(_record(
+        "User: I'll stretch every few days after the morning run.",
+        scope=scope,
+        valid_at=datetime(2024, 5, 3, 15, 0).timestamp(),
+    ))
+
+    ans = structured_answer(
+        _Retriever(store),
+        "How many days ago did I submit the transfer form?",
+        at=datetime(2024, 5, 9, 12, 0).timestamp(),
+        scope=scope,
+    )
+
+    assert ans is None
 
 
 def test_structured_answer_randomized_temporal_delta_single_anchor_distractors(tmp_path):
