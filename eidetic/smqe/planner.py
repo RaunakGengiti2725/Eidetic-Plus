@@ -120,9 +120,10 @@ def plan_query(query: str, at: Optional[float] = None) -> ExecutionPlan:
         low,
     ) and not re.search(r"\b(?:where|when|who|what|which)\s+(?:did|do|does)\b", low):
         op, reason, requires_synthesis = "preference_synth", "preference/suggestion question", True
-    elif re.search(r"\b(?:what|where|when|which|who)\s+(?:did|do|does|was|were)\b", low) and re.search(
-        r"\b(?:say|tell|mention|ask|answer|reply|discuss|talk)\b", low
-    ):
+    elif (
+        re.search(r"\b(?:what|where|when|which|who)\s+(?:did|do|does|was|were)\b", low)
+        and re.search(r"\b(?:say|tell|mention|ask|answer|reply|discuss|talk)\b", low)
+    ) or re.search(r"^\s*who\s+(?:said|told|mentioned|asked|answered|replied)\b", low):
         op, reason = "speaker_fact", "speaker-attributed recall"
     elif re.search(
         r"\b(?:degree|graduat|research(?:ed|ing)?|look(?:ed|ing)?\s+into|relationship status|marital status|identity|fields?|career|remind me|name of)\b",

@@ -1516,7 +1516,9 @@ def test_structured_answer_source_location_respects_temporal_window_with_pronoun
             ans = structured_answer(_Retriever(store), question, at=ref.timestamp(), scope=scope)
 
             assert ans is not None
-            assert ans.note == f"smqe:latest_value:{backend}"
+            # the op may be latest_value or speaker_fact depending on the verb ("who told me"
+            # routes to speaker-attributed recall); the BACKEND pin is what this test owns
+            assert ans.note.startswith("smqe:") and ans.note.endswith(f":{backend}")
             assert ans.verified is True
             assert ans.answer == "Cedar Market"
             proof = " ".join(c.snippet for c in ans.citations)
@@ -1598,7 +1600,9 @@ def test_structured_answer_who_attribution_returns_actor_and_skips_negated_distr
             ans = structured_answer(_Retriever(store), question, at=1_800_000_000, scope=scope)
 
             assert ans is not None
-            assert ans.note == f"smqe:latest_value:{backend}"
+            # the op may be latest_value or speaker_fact depending on the verb ("who told me"
+            # routes to speaker-attributed recall); the BACKEND pin is what this test owns
+            assert ans.note.startswith("smqe:") and ans.note.endswith(f":{backend}")
             assert ans.verified is True
             assert ans.answer == expected
             proof = " ".join(c.snippet for c in ans.citations)
@@ -3872,6 +3876,43 @@ def test_smqe_source_has_no_fixed_slice_answer_literals():
 
     for needle in forbidden:
         assert needle not in source
+
+
+def test_speaker_fact_skips_dative_addressee():
+    """'I told Maya that X' answers X, never the addressee 'Maya'; complement-clause subjects
+    after non-ditransitive verbs are untouched ('said Tom's party was fun')."""
+    from eidetic.smqe.record_ops import _speaker_fact_value
+
+    assert "deadline" in _speaker_fact_value(
+        "User: I told Maya that the project deadline moved to Friday.")
+    assert "Maya" not in _speaker_fact_value(
+        "User: I told Maya that the project deadline moved to Friday.")
+    assert _speaker_fact_value("She said Tom's party was fun.").startswith("Tom")
+    assert "review" in _speaker_fact_value("User: I asked Priya to review the draft contract.")
+
+
+def test_who_told_me_answers_the_speaker(tmp_path):
+    """'Who told me X?' answers the SPEAKER from the role prefix, not the content."""
+    store = RecordStore(tmp_path / "who-told.sqlite")
+    scope = Scope(namespace="who-told")
+    store.upsert_record(_record(
+        "Maya: The venue books up three months in advance.",
+        scope=scope, valid_at=1_700_000_100,
+    ))
+    store.upsert_record(_record(
+        "User: I should start planning the reception soon.",
+        scope=scope, valid_at=1_700_000_200,
+    ))
+
+    ans = structured_answer(
+        _Retriever(store),
+        "Who told me the venue books up three months in advance?",
+        at=1_800_000_000, scope=scope,
+    )
+
+    assert ans is not None
+    assert "maya" in ans.answer.lower()
+    assert "books up" not in ans.answer.lower()
 
 
 def test_plural_enumeration_lists_distinct_values_across_records(tmp_path, fresh_settings, monkeypatch):

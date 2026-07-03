@@ -2852,8 +2852,14 @@ def _atom_role_terms(item: object, atom: str) -> set[str]:
 def _speaker_fact_value(text: str) -> str:
     text = _strip_role(text)
     for pat in (
-        r"\b(?:i|we|he|she|they)\s+(?:said|told|mentioned|asked|answered|replied|discussed|talked\s+about)\s+(.+)",
-        r"\b(?:said|told|mentioned|asked|answered|replied|discussed|talked\s+about)\s+(.+)",
+        # Ditransitive speech verbs take a dative addressee before the message ("told MAYA that
+        # the deadline moved"): skip the addressee NP so the MESSAGE is the fact, never the
+        # addressee. Restricted to ditransitives - "said Tom's party was fun" must keep the
+        # complement-clause subject.
+        r"\b(?:i|we|he|she|they)\s+(?:told|asked|reminded|informed)\s+"
+        r"(?:me|him|her|them|us|you|[A-Z][\w'-]+)\s+(?:that\s+|to\s+)?(.+)",
+        r"\b(?:i|we|he|she|they)\s+(?:said|told|mentioned|asked|answered|replied|discussed|talked\s+about)\s+(?:that\s+)?(.+)",
+        r"\b(?:said|told|mentioned|asked|answered|replied|discussed|talked\s+about)\s+(?:that\s+)?(.+)",
     ):
         m = re.search(pat, text, re.I)
         if m:
@@ -2861,9 +2867,36 @@ def _speaker_fact_value(text: str) -> str:
     return _clean(text)
 
 
+_WHO_SPEAKER_RE = re.compile(
+    r"^\s*who\s+(?:said|told|mentioned|asked|answered|replied)\b", re.I)
+_GENERIC_ROLES = {"ai", "assistant", "bot", "human", "system", "user"}
+
+
 def _speaker_fact_answer(query: str, atoms: list[tuple[float, object, str]]) -> tuple[str, list[tuple[float, object, str]]]:
     if not re.search(r"\b(?:say|tell|told|mention|ask|answer|reply|discuss|talk)\b", query or "", re.I):
         return "", []
+    # Inverse attribution: 'Who told me X?' asks for the SPEAKER. Match the topic against atom
+    # bodies and answer with the role-prefix name; a generic role (user/assistant) is not a
+    # nameable speaker, so those fail closed to the reader.
+    if _WHO_SPEAKER_RE.match(query or ""):
+        _sp, topic_terms, _fp, _req = _speaker_query_parts(query)
+        if not topic_terms:
+            return "", []
+        needed = len(topic_terms) if len(topic_terms) <= 2 else max(2, len(topic_terms) - 1)
+        best: tuple[int, float, object, str, str] | None = None
+        for score, item, atom in atoms[:40]:
+            m = re.match(r"\s*([A-Za-z][A-Za-z'_-]{1,32})\s*:", atom or "")
+            if not m or m.group(1).lower() in _GENERIC_ROLES:
+                continue
+            hits = len(topic_terms & _expanded_terms(atom))
+            if hits < needed:
+                continue
+            if best is None or (hits, score) > (best[0], best[1]):
+                best = (hits, score, item, atom, m.group(1))
+        if best is None:
+            return "", []
+        _hits, score, item, atom, name = best
+        return name, [(score, item, atom)]
     speaker_terms, topic_terms, _first_person, required_topic_terms = _speaker_query_parts(query)
     if not speaker_terms and not topic_terms:
         return "", []
