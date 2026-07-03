@@ -1620,7 +1620,16 @@ class Engine:
                         scope=rec.scope,
                     )
                     rec.metadata["type"] = "preference"
-            if score_importance:
+            # The affect scorer below returns importance too, fully overwriting this value and
+            # salience: paying the separate importance call for a record the affect branch will
+            # score is one wasted flash call per record. Skip it here; the affect block restores
+            # baseline scoring when the scorer fails or omits the importance key.
+            affect_will_score = (
+                self.settings.affect_salience_enabled
+                and "arousal" not in rec.metadata
+                and callable(getattr(self.client, "score_affect", None))
+            )
+            if score_importance and not affect_will_score:
                 rec.importance = self.client.score_importance(rec.text)   # real qwen-flash
                 rec.salience = max(0.0, min(1.0, 0.45 * rec.surprise + 0.55 * rec.importance))
             rec.entities = entities
@@ -1659,7 +1668,12 @@ class Engine:
                         aff = scorer(rec.text)
                         emph = salience_mod.emphasis_score(rec.text)
                         s = self.settings
-                        rec.importance = float(aff.get("importance", rec.importance))
+                        if "importance" in aff:
+                            rec.importance = float(aff["importance"])
+                        elif score_importance:
+                            # affect result carries no importance: the baseline scoring that
+                            # was skipped above still owes this record its importance value.
+                            rec.importance = self.client.score_importance(rec.text)
                         rec.salience = salience_mod.affect_salience(
                             float(aff.get("arousal", 0.3)), rec.importance, rec.surprise, emph, 0.0,
                             w_arousal=s.affect_w_arousal, w_importance=s.affect_w_importance,
@@ -1671,9 +1685,13 @@ class Engine:
                             "emphasis": emph,
                         })
                     except Exception:
-                        # Consolidation must not die on one affect-scoring failure; the record
-                        # keeps its surprise-derived salience.
-                        pass
+                        # Consolidation must not die on one affect-scoring failure. Restore the
+                        # baseline importance scoring that was skipped in favor of this branch,
+                        # so a failed affect call never silently drops importance scoring.
+                        if score_importance:
+                            rec.importance = self.client.score_importance(rec.text)
+                            rec.salience = max(
+                                0.0, min(1.0, 0.45 * rec.surprise + 0.55 * rec.importance))
             self.store.upsert_record(rec)
             self.retriever.index_lexical(rec, save=False)
 

@@ -67,7 +67,10 @@ class LifecycleController:
         """The one sleep path: consolidate_pending -> dream -> optional LLM summaries. Returns a
         per-phase report. Free + offline when nothing is pending and llm_summaries is False."""
         scope = scope or Scope()
-        out: dict = {"consolidate_pending": self.engine.consolidate_pending(scope=scope)}
+        out: dict = {"consolidate_pending": self.engine.consolidate_pending(
+            scope=scope,
+            score_importance=bool(getattr(self.engine.settings, "sleep_score_importance", True)),
+        )}
         out["dream"] = self.engine.dream(scope=scope)
         if llm_summaries:
             out["consolidate"] = self.engine.consolidate(scope=scope)

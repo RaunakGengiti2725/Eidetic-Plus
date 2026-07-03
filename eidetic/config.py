@@ -724,6 +724,13 @@ class Settings:
     host_auto_sleep_score_importance: bool = field(
         default_factory=lambda: _get_bool("HOST_AUTO_SLEEP_SCORE_IMPORTANCE", "0")
     )
+    # Whether the explicit sleep()/consolidate lifecycle path scores per-record importance
+    # (one flash call per pending record). Default '1' = today's behavior; flipping to '0' is
+    # a forgetting-side input change (FSRS initial stability, salience pruning) that needs its
+    # own A/B before any profile adopts it.
+    sleep_score_importance: bool = field(
+        default_factory=lambda: _get_bool("SLEEP_SCORE_IMPORTANCE", "1")
+    )
 
     # Prod-only (Alibaba Cloud)
     oss_bucket: str = field(default_factory=lambda: _get("OSS_BUCKET"))

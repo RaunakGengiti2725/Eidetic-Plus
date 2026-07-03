@@ -144,3 +144,82 @@ def test_claim_extraction_flag_off_makes_no_claim_calls(fresh_settings):
                      source="s0", scope=scope2, consolidate_now=False)
     eng2.consolidate_pending(scope=scope2, score_importance=False)
     assert calls2["claims"] >= 1           # flag on -> claim extraction still runs
+
+
+class _CountingAffectClient(_FakeClient):
+    def __init__(self, dim, *, affect_result=None, affect_raises=False):
+        super().__init__(dim)
+        self.importance_calls = 0
+        self._affect_result = affect_result
+        self._affect_raises = affect_raises
+
+    def score_importance(self, text):
+        self.importance_calls += 1
+        return 0.8
+
+    def score_affect(self, text):
+        self.affect_calls += 1
+        if self._affect_raises:
+            raise RuntimeError("affect scorer down")
+        return dict(self._affect_result)
+
+
+def _affect_engine(settings, client):
+    s = replace(settings, vector_backend="numpy", rerank_enabled=False,
+                semantic_cache_enabled=False, affect_salience_enabled=True)
+    return Engine(s, client=client)
+
+
+def test_affect_scoring_skips_redundant_importance_call(fresh_settings):
+    """When the affect scorer will score the record anyway, the separate importance call is
+    paid and then fully overwritten - one wasted flash call per record in every product sleep."""
+    client = _CountingAffectClient(fresh_settings.embed_dim,
+                                   affect_result={"arousal": 0.9, "importance": 0.7, "valence": 0.2})
+    eng = _affect_engine(fresh_settings, client)
+    scope = Scope(namespace="affect-dedup")
+    eng.ingest_text("user: The recital went wonderfully!", source="s0", scope=scope,
+                    consolidate_now=False)
+    eng.consolidate_pending(scope=scope, score_importance=True)
+    rec = eng.store.active_records_at(2_000_000_000, scope)[0]
+    assert client.affect_calls == 1
+    assert client.importance_calls == 0          # the affect result carries importance
+    assert rec.importance == 0.7
+
+
+def test_affect_failure_falls_back_to_importance_scoring(fresh_settings):
+    client = _CountingAffectClient(fresh_settings.embed_dim, affect_raises=True)
+    eng = _affect_engine(fresh_settings, client)
+    scope = Scope(namespace="affect-fallback")
+    eng.ingest_text("user: The recital went wonderfully!", source="s0", scope=scope,
+                    consolidate_now=False)
+    eng.consolidate_pending(scope=scope, score_importance=True)
+    rec = eng.store.active_records_at(2_000_000_000, scope)[0]
+    assert client.importance_calls == 1          # baseline scoring restored on failure
+    assert rec.importance == 0.8
+    assert 0.0 <= rec.salience <= 1.0
+
+
+def test_affect_without_importance_key_still_scores_importance(fresh_settings):
+    client = _CountingAffectClient(fresh_settings.embed_dim,
+                                   affect_result={"arousal": 0.9, "valence": 0.2})
+    eng = _affect_engine(fresh_settings, client)
+    scope = Scope(namespace="affect-nokey")
+    eng.ingest_text("user: The recital went wonderfully!", source="s0", scope=scope,
+                    consolidate_now=False)
+    eng.consolidate_pending(scope=scope, score_importance=True)
+    rec = eng.store.active_records_at(2_000_000_000, scope)[0]
+    assert client.importance_calls == 1
+    assert rec.importance == 0.8
+
+
+def test_sleep_score_importance_flag_gates_lifecycle_sleep(fresh_settings):
+    client = _CountingAffectClient(fresh_settings.embed_dim,
+                                   affect_result={"arousal": 0.9, "importance": 0.7, "valence": 0.2})
+    s = replace(fresh_settings, vector_backend="numpy", rerank_enabled=False,
+                semantic_cache_enabled=False, sleep_score_importance=False)
+    eng = Engine(s, client=client)
+    scope = Scope(namespace="sleep-flag")
+    eng.ingest_text("user: I filed the annual report today.", source="s0", scope=scope,
+                    consolidate_now=False)
+    eng.sleep(scope=scope)
+    assert client.importance_calls == 0          # flag '0' -> sleep skips importance scoring
