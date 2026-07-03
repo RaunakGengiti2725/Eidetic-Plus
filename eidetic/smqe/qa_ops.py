@@ -328,14 +328,33 @@ def _plural_enumeration_answer(query: str, atoms: list[tuple[float, object, str]
 
 _ENUM_QUERY_VERB_RE = re.compile(
     r"\b(?:enjoy|enjoys|like|likes|love|loves|do|does|done|has|have|pursue|pursues|"
-    r"practice|practices|play|plays)\b", re.I)
+    r"practice|practices|play|plays|visit|visited|been|traveled|travelled|know|knows)\b", re.I)
 _ENUM_QUERY_HEAD_RE = re.compile(
-    r"\b(?:hobbies|interests|activities|sports|games|pastimes|passions)\b", re.I)
-_ENUM_VERB_FAMILY = {
-    "enjoy", "enjoys", "enjoyed", "like", "likes", "liked", "love", "loves", "loved",
-    "into", "practice", "practices", "practiced", "play", "plays", "played", "pursue",
-    "pursues", "pursued", "do", "does", "did", "done",
-}
+    r"\b(?:hobbies|interests|activities|sports|games|pastimes|passions|cities|countries|"
+    r"places|towns|tricks|skills)\b", re.I)
+# Query verb -> the claim-predicate family that answers it: 'which cities has Jon VISITED'
+# selects visit-family claims, never like-family ones. Query verbs outside every family
+# (do/does/has) fall back to the flat union.
+_ENUM_VERB_FAMILIES: tuple[frozenset, ...] = (
+    frozenset({"enjoy", "enjoys", "enjoyed", "like", "likes", "liked", "love", "loves",
+               "loved", "into"}),
+    frozenset({"practice", "practices", "practiced", "play", "plays", "played",
+               "pursue", "pursues", "pursued"}),
+    frozenset({"visit", "visits", "visited", "been", "travel", "travels", "traveled",
+               "travelled", "went", "toured"}),
+    frozenset({"know", "knows", "knew", "taught", "teach", "learned", "learnt"}),
+)
+_ENUM_VERB_FAMILY = frozenset().union(*_ENUM_VERB_FAMILIES) | {"do", "does", "did", "done"}
+
+
+def _enum_predicate_family_for_query(query: str) -> frozenset:
+    """Union of families whose verbs appear in the query; empty -> flat fallback."""
+    qverbs = set(re.findall(r"[a-z']+", (query or "").lower()))
+    allowed: set = set()
+    for family in _ENUM_VERB_FAMILIES:
+        if qverbs & family:
+            allowed |= family
+    return frozenset(allowed)
 _ENUM_OBJECT_HEAD_STOP = {
     "at", "he", "her", "his", "i", "in", "it", "my", "on", "our", "she", "that", "their",
     "they", "this", "we", "you", "your",
@@ -361,6 +380,7 @@ def _claim_enumeration_answer(query: str, atoms: list[tuple[float, object, str]]
         return "", []
     people = ro._query_people(q)
     person_terms = {t.lower() for t in ro._terms(people[0])} if people else set()
+    allowed_preds = _enum_predicate_family_for_query(q) or _ENUM_VERB_FAMILY
     values: list[str] = []
     selected: list[tuple[float, object, str]] = []
     seen_vals: set[str] = set()
@@ -368,7 +388,7 @@ def _claim_enumeration_answer(query: str, atoms: list[tuple[float, object, str]]
         if not isinstance(item, ClaimRecord):
             continue
         pred = str(getattr(item, "predicate", "") or "").lower()
-        if not ({w for w in re.findall(r"[a-z']+", pred)} & _ENUM_VERB_FAMILY):
+        if not ({w for w in re.findall(r"[a-z']+", pred)} & allowed_preds):
             continue
         subject = str(getattr(item, "subject", "") or "").lower()
         if person_terms and not (person_terms & {t.lower() for t in ro._terms(subject)}):

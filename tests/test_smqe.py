@@ -4788,3 +4788,32 @@ def test_favorite_category_noun_gates_preference_atoms(tmp_path):
     ans2 = structured_answer(_Retriever(store2), "What is Evan's favorite food?",
                              at=100.0, scope=scope2)
     assert ans2 is None or "sunset" not in (ans2.answer or "")
+
+
+def test_visited_cities_enumerate_from_claims_end_to_end(tmp_path):
+    """Fresh-holdout c1_q29 shape: 'Which cities has Jon visited?' had ZERO travel claims
+    ('I've been to Paris' -- the clitic 've and the verb 'been' were both outside the
+    extraction patterns) and the enumerator's head/verb gates only knew hobby nouns. Write
+    path now extracts been/visited-to-X events with clean objects (terminators strip
+    'together'/'yesterday'); the enumerator selects by the QUERY VERB'S family, so a
+    visited-question reads visit-family claims and never like-family ones."""
+    from eidetic.smqe.claim_extraction import claims_for_record
+
+    store = RecordStore(tmp_path / "cities.sqlite")
+    scope = Scope(namespace="cities")
+    texts = [
+        "Jon: Oh, I've been to Paris yesterday. The croissants were divine.",
+        "Jon: Last spring we visited Rome together. The Colosseum was breathtaking.",
+        "Jon: My sister loves gardening and painting.",
+    ]
+    for i, t in enumerate(texts):
+        rec = _record(t, scope=scope, valid_at=float(i + 1))
+        store.upsert_record(rec)
+        store.add_claims(claims_for_record(rec))
+
+    ans = structured_answer(_Retriever(store), "Which cities has Jon visited?",
+                            at=100.0, scope=scope)
+    assert ans is not None
+    assert set(ans.answer.replace(" and ", ", ").split(", ")) == {"Paris", "Rome"}
+    # the like-family claim (gardening/painting) never leaks into a visited-question
+    assert "gardening" not in ans.answer and "painting" not in ans.answer

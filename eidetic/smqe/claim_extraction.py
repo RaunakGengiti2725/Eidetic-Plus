@@ -264,7 +264,7 @@ def _action_object_claims_from_atom(rec: MemoryRecord, atom: str) -> list[ClaimR
         return []
     out: list[ClaimRecord] = []
     patterns = (
-        r"\b(?:i|we)\s+(?P<verb>[a-z][a-z'-]{2,}(?:ed|t))\s+(?P<object>[^.;!?]{3,90}?)(?=\s+(?:last|this|recently|because|while|when|where|which|that|so)\b|[.;!?]|$)",
+        r"\b(?:i|we)\s+(?P<verb>[a-z][a-z'-]{2,}(?:ed|t))\s+(?P<object>[^.;!?]{3,90}?)(?=\s+(?:last|this|recently|because|while|when|where|which|that|so|together|again|alone|yesterday|today)\b|[.;!?]|$)",
         r"\b(?:i|we)\s+(?P<verb>[a-z][a-z'-]{2,}(?:ed|t))\s+(?:at|in|to|from)\s+(?P<object>[^.;!?]{3,90}?)(?=\s+(?:last|this|recently|because|while|when|where|which|that|so)\b|[.;!?]|$)",
     )
     for pat in patterns:
@@ -291,7 +291,7 @@ def _action_location_claims_from_atom(rec: MemoryRecord, atom: str) -> list[Clai
     out: list[ClaimRecord] = []
     patterns = (
         r"\b(?:i|we)\s+(?:(?:just|also|even|then|recently|finally|actually)\s+){0,4}(?P<activity>[a-z][a-z'-]{2,}(?:ed|t|ing))\s+(?:at|in|from)\s+(?P<object>[^.;!?]{3,90}?)(?=\s+(?:last|this|recently|because|while|when|where|which|that|so|with|and)\b|[.;!?]|$)",
-        r"\b(?:i|we)\s+(?:(?:just|also|even|then|recently|finally|actually)\s+){0,4}(?P<activity>went|go|gone|traveled|travelled|drove|drive|walked|hiked|visited|moved)\s+to\s+(?P<object>[^.;!?]{3,90}?)(?=\s+(?:last|this|recently|because|while|when|where|which|that|so|with|and)\b|[.;!?]|$)",
+        r"\b(?:i|we)(?:'ve|'d)?\s+(?:(?:just|also|even|then|recently|finally|actually)\s+){0,4}(?P<activity>went|go|gone|been|traveled|travelled|drove|drive|walked|hiked|visited|moved)\s+to\s+(?P<object>[^.;!?]{3,90}?)(?=\s+(?:last|this|recently|because|while|when|where|which|that|so|with|and|together|again|alone|yesterday|today)\b|[.;!?]|$)",
         r"\b(?:i|we)\s+(?:(?:just|also|even|then|recently|finally|actually)\s+){0,4}(?:went|go|gone|took|take|had|have)\b[^.;!?]{0,70}?\b(?P<activity>[a-z][a-z'-]{2,}ing)(?:\s+(?:trip|outing|session|visit|hike|walk|run|ride|day|weekend|vacation)){0,2}\s+(?:at|in|from)\s+(?P<object>[^.;!?]{3,90}?)(?=\s+(?:last|this|recently|because|while|when|where|which|that|so|with|and)\b|[.;!?]|$)",
         r"\b(?:my|our|his|her|their|the|this|that)\s+(?:[a-z][a-z'-]{2,}\s+){0,4}?(?P<activity>[a-z][a-z'-]{2,}ing)(?:\s+(?:trip|outing|session|visit|hike|walk|run|ride|day|weekend|vacation)){0,2}\s+(?:at|in|from)\s+(?P<object>[^.;!?]{3,90}?)(?=\s+(?:last|this|recently|because|while|when|where|which|that|so|with|and)\b|[.;!?]|$)",
     )
