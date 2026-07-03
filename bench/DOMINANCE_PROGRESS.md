@@ -1499,3 +1499,18 @@ baseline arm quantifies the halving live. ADAPTIVE_CONTEXT: both 40-row arms car
 n=40 isolated evidence is the wave-J arm itself. VERIFY_NLI_CACHE: no comparative call metric
 exists from pre-metric arms; next A/B carries it. Honest asymmetry note: mem0's 411
 query_tokens is the same proxy - its true spend is internal and unmeasured.
+
+### Claim-quality probe + form-refusal (2026-07-03)
+
+artifacts/wave_k_claimq_probe_codex (fresh ingest, cleaned claim generator + cost stack):
+structured coverage 9/20 (was 7-8) with turtle/Street-Fighter/Maria all STRUCTURED LIVE for
+the first time; 13/20 correct (low edge of the noise band). The probe caught the next
+verified-wrong class within the hour: two junk lists shipped VERIFIED because live NLI
+entailed fragment soup against long premises - the anchor-denial only forced the strict
+hypothesis, and the model passed it. Fixed at the root (86e6bc8): answer FORM is now
+deterministic policy at the verify entry - a non-credible enumeration from a non-computed op
+is refused on every producer path, entailment irrelevant; preference_synth keeps its
+provenance-gated carve-out; both live junk shapes refuse, five legit list formats pass.
+
+Standing lesson recorded: NLI is not a form arbiter. Malformed answers must die on
+deterministic policy, not probabilistic entailment. Suite 1280.
