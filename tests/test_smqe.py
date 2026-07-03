@@ -3368,6 +3368,83 @@ def test_smqe_verification_requires_support_records_to_exist(tmp_path):
     assert ans is None
 
 
+class _StrictRetriever(_Retriever):
+    """Claim-backend strict-hypothesis retriever: exposes .verify so answer_from_result takes
+    the query-aware path; entailment is substring-only, like the base test retriever."""
+
+    def verify(self, premise, hypothesis):
+        return self.verify_citation(
+            type("R", (), {"text": premise, "summary": ""})(), hypothesis)
+
+
+def test_smqe_multi_support_anchor_exemption_needs_independent_witnesses(tmp_path):
+    """Witness rule: the multi-support anchor-level verification exemption requires two
+    INDEPENDENT source records. Two quotable atoms from the SAME record must not smuggle a
+    derived answer past the strict query-aware hypothesis."""
+    store = RecordStore(tmp_path / "witness-same-record.sqlite")
+    scope = Scope(namespace="witness-same-record")
+    rec = _record(
+        "Vera: I just got accepted for a textile internship!\nVera: Go Dara!",
+        scope=scope,
+    )
+    store.upsert_record(rec)
+    result = StructuredAnswerResult(
+        answer="Go Dara",
+        op="open_inference",
+        backend="claim",
+        confidence=0.9,
+        supports=[
+            StructuredSupport(memory_id=rec.memory_id,
+                              proof_atom="I just got accepted for a textile internship!"),
+            StructuredSupport(memory_id=rec.memory_id, proof_atom="Go Dara!"),
+        ],
+        note="smqe:open_inference:claim",
+    )
+
+    ans = answer_from_result(
+        _StrictRetriever(store),
+        "What kind of routine did Vera's team perform to win first place?",
+        result,
+        verify=True,
+    )
+
+    assert ans is None
+
+
+def test_smqe_multi_support_anchor_exemption_holds_for_independent_witnesses(tmp_path):
+    """Two distinct source records each carrying a verbatim anchor keep the composed answer
+    verifiable at anchor level (the honest standard for derived multi-support answers)."""
+    store = RecordStore(tmp_path / "witness-independent.sqlite")
+    scope = Scope(namespace="witness-independent")
+    first = _record("User: I filed the garden permit on Monday.", scope=scope, valid_at=1_700_000_100)
+    second = _record("User: I mailed the fee cheque on Thursday.", scope=scope, valid_at=1_700_050_000)
+    store.upsert_record(first)
+    store.upsert_record(second)
+    result = StructuredAnswerResult(
+        answer="the permit was filed before the cheque was mailed",
+        op="open_inference",
+        backend="claim",
+        confidence=0.9,
+        supports=[
+            StructuredSupport(memory_id=first.memory_id,
+                              proof_atom="I filed the garden permit on Monday."),
+            StructuredSupport(memory_id=second.memory_id,
+                              proof_atom="I mailed the fee cheque on Thursday."),
+        ],
+        note="smqe:open_inference:claim",
+    )
+
+    ans = answer_from_result(
+        _StrictRetriever(store),
+        "Did I file the garden permit before mailing the fee cheque?",
+        result,
+        verify=True,
+    )
+
+    assert ans is not None
+    assert ans.verified is True
+
+
 def test_smqe_verify_false_returns_unverified_compatibility_answer(tmp_path):
     store = RecordStore(tmp_path / "mem.sqlite")
     scope = Scope(namespace="verify-false-compat")

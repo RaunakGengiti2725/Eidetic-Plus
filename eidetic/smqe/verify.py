@@ -28,13 +28,50 @@ def _norm_ws(text: str) -> str:
     return re.sub(r"\s+", " ", (text or "").lower()).strip()
 
 
+_QUERY_TIE_STOP = {
+    "about", "after", "before", "could", "did", "does", "ever", "from", "have", "into",
+    "many", "should", "that", "their", "them", "there", "these", "they", "this", "were",
+    "what", "when", "where", "which", "will", "with", "would", "your",
+}
+
+
+def _query_tie_hits(query: str, atom: str) -> int:
+    """Content-word overlap between the query and a support atom, prefix-tolerant so
+    inflection ('sign'/'signed') still ties."""
+    qterms = {t for t in re.findall(r"[a-z0-9][a-z0-9'-]{2,}", (query or "").lower())
+              if t not in _QUERY_TIE_STOP}
+    aterms = {t for t in re.findall(r"[a-z0-9][a-z0-9'-]{2,}", (atom or "").lower())
+              if t not in _QUERY_TIE_STOP}
+    hits = 0
+    for q in qterms:
+        for a in aterms:
+            if q == a or (min(len(q), len(a)) >= 4 and (q.startswith(a) or a.startswith(q))):
+                hits += 1
+                break
+    return hits
+
+
 def _atom_anchor_allowed(query: str, result: StructuredAnswerResult) -> bool:
     """Anchor-level verification is the honest standard when the answer is DERIVED rather than
     quoted: multi-support composition (joins/orderings), computed operators (arithmetic over
     anchors), and option choices (executor logic over preference evidence). Everything else must
     survive the strict query-aware hypothesis."""
     if len(result.supports) > 1:
-        return True
+        # Witness rule: INDEPENDENT witnesses (distinct records) earn the exemption outright.
+        # Two quotable atoms from the SAME record are one source wearing two hats; they keep the
+        # exemption only when the composition is query-tied - some support atom must share real
+        # content terms with the question. Untied same-record pairs fall through to the other
+        # exemptions (computed ops, option choices) or the strict hypothesis.
+        if len({s.memory_id for s in result.supports}) > 1:
+            return True
+        if result.op == "preference_synth":
+            # Suggestion synthesis picks advice atoms that rarely echo the question's words;
+            # the suggestion machinery's own gates (advice-evidence provenance, deferral)
+            # bound what can be composed here.
+            return True
+        if any(_query_tie_hits(query, s.proof_atom or s.answer_atom or "") >= 2
+               for s in result.supports):
+            return True
     if result.op in _COMPUTED_OPS:
         return True
     if _OPTION_CHOICE_RE.search(query or ""):
