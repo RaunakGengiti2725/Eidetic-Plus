@@ -134,6 +134,28 @@ def test_reader_prompt_anchors_event_order_questions(monkeypatch):
     assert "chronological" not in seen["system"].lower()
 
 
+def test_reader_prompt_excludes_established_items_on_other_questions(monkeypatch):
+    """'What OTHER exercises ...' asks for items beyond the established ones; without the
+    exclusion instruction the reader echoes the subject's current routine (observed live:
+    strength-training/yoga returned where the asked-for additions were in the sources)."""
+    c = DashScopeClient(replace(get_settings(), reader_cot_enabled=True))
+    seen = {}
+
+    def fake_chat_json(model, system, user, **kw):
+        seen["system"] = system
+        return {"answer": "ok"}
+
+    monkeypatch.setattr(c, "chat_json", fake_chat_json)
+    for q in ("What other exercises can help John with his basketball performance?",
+              "Besides painting, what hobbies does Maya have?",
+              "What else did she pack apart from the tent?"):
+        c.generate_answer(q, ["[S0] ctx"])
+        assert "ADDITIONAL" in seen["system"], q
+
+    c.generate_answer("What color is my bike?", ["the bike is red"])
+    assert "ADDITIONAL" not in seen["system"]
+
+
 # ---- answer-path index save gating -----------------------------------------------------------
 def test_ask_saves_index_only_when_reconsolidation_mutated_it(fresh_settings, monkeypatch):
     """The per-answer index.save() is an O(corpus) disk write under the write lock. It must run

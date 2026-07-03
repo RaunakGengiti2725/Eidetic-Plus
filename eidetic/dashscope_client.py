@@ -929,6 +929,14 @@ class DashScopeClient:
         r"\bin\s+(?:what|which)\s+order\b|\bchronological\b",
         re.I,
     )
+    # "What OTHER exercises ..." asks for items BEYOND the established ones; a reader that
+    # echoes the subject's current routine answers the wrong set (observed live: current
+    # strength-training/yoga returned where the asked-for additions were in the sources).
+    _OTHER_EXCLUSION_QUESTION_RE = re.compile(
+        r"\b(?:what|which|any)\s+other\b|\bother\s+than\b|\bbesides\b|\bapart\s+from\b|"
+        r"\bwhat\s+else\b",
+        re.I,
+    )
 
     def generate_answer(self, question: str, context_blocks: list[str],
                         model: Optional[str] = None) -> str:
@@ -943,6 +951,13 @@ class DashScopeClient:
                 " For questions about the order or timing of events, list the events in "
                 "chronological order and anchor EACH event to its date from the sources, "
                 "e.g. [2023-02-05] <event>."
+            )
+        if self._OTHER_EXCLUSION_QUESTION_RE.search(question or ""):
+            order_hint += (
+                " A question asking for OTHER/additional items ('what other X', 'besides Y') "
+                "excludes what is already established as the person's current or mentioned "
+                "items -- those are the baseline, not the answer. Answer with the ADDITIONAL "
+                "items the sources mention, and include every one you find."
             )
         if self.settings.reader_cot_enabled:
             data = self.chat_json(
