@@ -1481,3 +1481,21 @@ Steps:
 This plan replaces regex-shape accumulation (162 helpers) with the write-time typed-claim
 surface as the single enumeration source - the record_ops shrink the audit prescribed, staged
 to never trade integrity for line count.
+
+### Stack-40 measurement - first dollars-shaped numbers (2026-07-03)
+
+artifacts/wave_k_stack40_codex (EXTRACT_COMBINED + EXTRACT_RESULT_CACHE + ADAPTIVE_CONTEXT +
+VERIFY_NLI_CACHE, LoCoMo-40): accuracy 24/40 all-verified - noise-band with the 25/40
+non-combined arm. FIRST real spend figures: read ~7,220 input tokens/question (288.8k in /
+9.4k out / 65 calls over 40 questions) - the query_tokens proxy (4,030) undercounted true
+read spend by ~44%; write 416.9k in / 97.0k out / 546 calls for the corpus. Combined-prompt
+claim yield at n=40: 24,173 vs 24,231 (-0.24%, noise - the 20-row -8% was sampling), edges
++30%, claim-coverage sidecar PASS.
+
+Promotion ledger: EXTRACT_COMBINED case is now solid (accuracy noise-band at two n's, claim
+yield preserved, richer edges, call-halving mock-proven and measurable from the next
+baseline-arm run) - profile recommendation; config default stays off until a spend-metric
+baseline arm quantifies the halving live. ADAPTIVE_CONTEXT: both 40-row arms carried it; its
+n=40 isolated evidence is the wave-J arm itself. VERIFY_NLI_CACHE: no comparative call metric
+exists from pre-metric arms; next A/B carries it. Honest asymmetry note: mem0's 411
+query_tokens is the same proxy - its true spend is internal and unmeasured.
