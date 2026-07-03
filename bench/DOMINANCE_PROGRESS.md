@@ -1182,3 +1182,31 @@ anchors). Row-equivalent mixed-24 on the current build: 24/24 correct, 24/24 ver
 number is the five-role gate ablation now running at
 artifacts/wave_i_ablation_mixed24_codex (wave-F profile + samples, fresh data dirs, gates
 +5pp/+2pp/+2pp/>=1.05x/<=1pp). Suite 1263 green.
+
+---
+
+## Wave I five-role gate ablation - 2026-07-03 (artifacts/wave_i_ablation_mixed24_codex)
+
+| role | correct | verified-correct | median qtok |
+|---|---|---|---|
+| **full** | 23/24 | **22/24 (91.7%)** | 5896 |
+| metabolism_off | 18/24 | 16/24 | 3750 |
+| regions_off | 23/24 | 23/24 | 5827 |
+| forgetting_off | 24/24 | 24/24 | 7986 |
+| affect_off | 23/24 | 23/24 | 5876 |
+
+Gates: **2/5 PASS** (metabolism +25pp PASS; forgetting cost ratio 1.098x PASS) - region -4.2pp
+FAIL, affect -4.2pp FAIL, forgetting regression +8.3pp FAIL. HONEST READING: the failures are a
+CEILING artifact, not features hurting. The wave G-I general layer answers 23-24/24 in every
+role that keeps claims (the ablated roles ride the same operator fixes), so a single feature
+cannot show +2pp at n=24 - full's entire headroom is two rows, and those two rows were
+run-to-run verification flapping, not knowledge gaps. Metabolism (claims off) remains the only
+ablation with room to differentiate, and it does (+25pp). Gate design needs bigger n or holdout
+differentiation; recorded as an evaluation-design weakness, not a feature win.
+
+Material weakness EXPOSED and fixed the same hour (686fc30): the flapping rows (8a2466db
+VC<->ab, c3_q0 VC<->c across runs) traced to the rescue layer existing ONLY in
+retriever.answer() - the neutral bench adapter never ran it, so bench-surface verified flags
+depended on reader phrasing luck. rescue_grounding() is now one shared verification-policy
+method on both surfaces (same fixed-reader text; declines never rescue; adapter test locks the
+contract with an NLI-neutral client). Suite 1264 green.
