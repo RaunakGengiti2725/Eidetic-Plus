@@ -1170,3 +1170,15 @@ and holdout h2h remain the promotion wall.
 
 Mixed-24 dev picture after fixes (row-equivalent): 24/24 correct, 23-24/24 verified expected;
 the definitive number belongs to the next full five-role gate run. Suite 1262 green.
+
+### c3_q0 verified LIVE + five-role gate run launched
+
+Single-row fresh-ingest re-probe after the store-fallback fix (719c0c0): c3_q0 now correct AND
+verified (entail 0.99) via quoted-span extractive anchoring. All three wave-I misses are
+confirmed fixed with live probes: 58bf7951 verified-correct (structured, exact gold),
+gpt4_f49edff3 verified-correct (composed dated timeline), c3_q0 verified-correct (quoted
+anchors). Row-equivalent mixed-24 on the current build: 24/24 correct, 24/24 verified-correct
+- measured across one 24-row run + three fix probes, NOT one unified run; the definitive
+number is the five-role gate ablation now running at
+artifacts/wave_i_ablation_mixed24_codex (wave-F profile + samples, fresh data dirs, gates
++5pp/+2pp/+2pp/>=1.05x/<=1pp). Suite 1263 green.
