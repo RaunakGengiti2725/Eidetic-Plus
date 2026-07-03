@@ -4817,3 +4817,16 @@ def test_visited_cities_enumerate_from_claims_end_to_end(tmp_path):
     assert set(ans.answer.replace(" and ", ", ").split(", ")) == {"Paris", "Rome"}
     # the like-family claim (gardening/painting) never leaks into a visited-question
     assert "gardening" not in ans.answer and "painting" not in ans.answer
+
+
+def test_pronoun_contractions_never_count_as_information():
+    """Slice-2 live catch: \"I'm reading\" shipped verified for a what-books question --
+    the contraction token defeated the zero-information rule. Pronoun contractions are
+    speaker scaffolding; an answer whose only non-query content is scaffolding is refused,
+    while unevaluable empty-token answers (clock times) stay fail-open."""
+    from eidetic.smqe.verify import _answer_adds_information
+
+    q = "What books is John reading these days?"
+    assert not _answer_adds_information(q, "I'm reading")
+    assert _answer_adds_information(q, "I'm reading Harry Potter")
+    assert _answer_adds_information("What time did I go to bed?", "11 pm")

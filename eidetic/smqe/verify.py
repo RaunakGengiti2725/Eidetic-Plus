@@ -76,14 +76,23 @@ def _option_terms(segment: str) -> set[str]:
             if t not in _QUERY_TIE_STOP}
 
 
+_FIRST_PERSON_TOKENS = frozenset({
+    "i'm", "i've", "i'd", "i'll", "we're", "we've", "we'd", "we'll", "she's", "he's",
+    "it's", "they're", "they've", "that's", "there's",
+})
+
+
 def _answer_adds_information(query: str, answer: str) -> bool:
     """False when every content token of the answer already appears in the question (exact
-    or prefix-tolerant) -- such an answer restates the question rather than answering it."""
-    ans_terms = _option_terms(answer)
+    or prefix-tolerant) -- such an answer restates the question rather than answering it.
+    Pronoun contractions are speaker scaffolding, not information ('I'm reading' answers a
+    what-books question with nothing), so they never count as new content."""
+    ans_terms = _option_terms(answer) - _FIRST_PERSON_TOKENS
     if not ans_terms:
         # Clock times and bare numbers ('11 pm') tokenize to nothing here; an empty set is
-        # unevaluable, not uninformative -- fail open.
-        return True
+        # unevaluable, not uninformative -- fail open. A pronoun-only answer is different:
+        # it HAD content tokens and every one was scaffolding.
+        return not _option_terms(answer)
     qterms = _option_terms(query)
     for a in ans_terms:
         if a in qterms:
