@@ -4103,3 +4103,13 @@ def test_relative_temporal_duration_held_and_first_prefers_earliest(tmp_path):
     assert ans is not None
     assert "2019" in ans.answer
     assert "2022-11" not in ans.answer
+
+
+def test_fact_shaped_like_questions_do_not_route_to_advice_synthesis(tmp_path):
+    """'What sports does John like besides basketball?' is a slot/list FACT question - routing
+    it to preference/advice synthesis returned brand chatter as a verified answer."""
+    assert plan_query("What sports does John like besides basketball?").op != "preference_synth"
+    assert plan_query("Which desserts does Mira enjoy most?").op != "preference_synth"
+    # genuine advice requests keep the synthesis route
+    assert plan_query("Can you suggest a dessert I should bake this weekend?").op == "preference_synth"
+    assert plan_query("What should I serve for dinner with my garden ingredients?").op == "preference_synth"

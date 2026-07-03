@@ -118,7 +118,10 @@ def plan_query(query: str, at: Optional[float] = None) -> ExecutionPlan:
     elif re.search(
         r"\b(?:prefer|preference|favorite|favourite|like|suggest(?:ions?)?|recommend(?:ations?)?|advice|tips?|ideas?|should\s+i|what\s+should|what\s+can|how\s+should|rather|choose|pick)\b",
         low,
-    ) and not re.search(r"\b(?:where|when|who|what|which)\s+(?:did|do|does)\b", low):
+    ) and not re.search(r"\b(?:where|when|who|what|which)\s+(?:\w+\s+){0,2}(?:did|do|does)\b", low):
+        # The wh-guard tolerates interleaved nouns: 'what SPORTS does John like' is a slot/list
+        # FACT question, not an advice request - routing it to synthesis returned suggestion
+        # chatter as a verified answer.
         op, reason, requires_synthesis = "preference_synth", "preference/suggestion question", True
     elif (
         re.search(r"\b(?:what|where|when|which|who)\s+(?:did|do|does|was|were)\b", low)
