@@ -772,18 +772,19 @@ _QUERY_WINDOW_EXPR_RE = re.compile(
 )
 
 
-def _query_temporal_windows(plan: ExecutionPlan) -> list[tuple[date, date]]:
+def _query_temporal_windows(plan: ExecutionPlan, *,
+                            include_explicit: bool = False) -> list[tuple[date, date]]:
     raw_ranges = (plan.filters or {}).get("date_ranges") or []
     windows: list[tuple[date, date]] = []
     for item in raw_ranges:
         if not isinstance(item, dict):
             continue
         expr = re.sub(r"\s+", " ", str(item.get("expr") or "").strip().lower())
-        # Two window shapes are trusted: relative-window phrases ("past few months") and
-        # explicit calendar dates ("May 3, 2023"). An explicit date names the day the answer
-        # must be datable to; anything longer than a month stays advisory-only because parse
-        # spans get unreliable there.
-        explicit = bool(_DATE_RE.search(expr))
+        # Relative-window phrases ("past few months") are always trusted. Explicit calendar
+        # dates ("May 3, 2023") are trusted ONLY where the caller opts in (the latest_value
+        # date-anchored lookup): leaking them into the list/count consumers changes their
+        # semantics for every question that merely mentions a date.
+        explicit = include_explicit and bool(_DATE_RE.search(expr))
         if not explicit and not _QUERY_WINDOW_EXPR_RE.search(expr):
             continue
         try:
@@ -801,8 +802,10 @@ def _query_temporal_windows(plan: ExecutionPlan) -> list[tuple[date, date]]:
 def _filter_atoms_to_query_windows(
     plan: ExecutionPlan,
     atoms: list[tuple[float, object, str]],
+    *,
+    include_explicit: bool = False,
 ) -> list[tuple[float, object, str]]:
-    windows = _query_temporal_windows(plan)
+    windows = _query_temporal_windows(plan, include_explicit=include_explicit)
     if not windows:
         return atoms
     filtered: list[tuple[float, object, str]] = []
@@ -4556,9 +4559,11 @@ def _execute_atoms(plan: ExecutionPlan, query: str,
     if _numeric_extreme_direction(query):
         return None
 
-    # latest_value and generic slot lookup.
+    # latest_value and generic slot lookup. A question naming an explicit calendar day must
+    # anchor on atoms datable to that day (opt-in: only this consumer treats explicit dates
+    # as hard windows).
     if op == "latest_value":
-        atoms = _filter_atoms_to_query_windows(plan, atoms)
+        atoms = _filter_atoms_to_query_windows(plan, atoms, include_explicit=True)
         if not atoms:
             return None
     current_value_query = _is_current_value_query(query)
