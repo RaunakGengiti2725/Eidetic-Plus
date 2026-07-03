@@ -4665,6 +4665,14 @@ def _execute_atoms(plan: ExecutionPlan, query: str,
                     continue
                 answer = _relative_date_from_atom(item, atom, query)
                 if not answer:
+                    # Explicit BARE year stated with the event ('she gave it to me in 2010'):
+                    # the other extractors only know month+year/ISO/relative forms, so the
+                    # strongest possible date statement never became a candidate.
+                    m_year = re.search(r"\b(?:in|since|back\s+in)\s+((?:19|20)\d{2})\b",
+                                       _strip_role(atom))
+                    if m_year:
+                        answer = m_year.group(1)
+                if not answer:
                     answer = _answer_value_specific(query, atom, item)
                 if not answer or not re.search(r"\b(?:20\d{2}|week|month|year|today|yesterday|tomorrow|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)", answer, re.I):
                     continue

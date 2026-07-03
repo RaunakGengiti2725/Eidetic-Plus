@@ -4201,3 +4201,33 @@ def test_assembled_enumerations_never_verify_on_anchors_alone(tmp_path):
     # anchor path: proof atom is verbatim in the record
     a2 = answer_from_result(_NeverEntail(store), "Which happened first?", result2, verify=True)
     assert a2 is not None and a2.verified is True
+
+
+def test_relative_temporal_extracts_bare_year_from_atom(tmp_path):
+    """'she gave it to me in 2010' answers a when-question with the stated bare year - the
+    date extractor only knew month+year/ISO/relative forms, so the explicit-year atom never
+    became a candidate and a weaker 'last year' atom shipped verified-wrong."""
+    from eidetic.smqe.claim_extraction import claims_for_record
+
+    store = RecordStore(tmp_path / "bare-year.sqlite")
+    scope = Scope(namespace="bare-year")
+    rows = [
+        ("Jolene: This pendant reminds me of my mother, she gave me the pendant in 2010 in Paris.",
+         datetime(2023, 1, 23, 12, 0)),
+        ("Jolene: Here's me and my partner at a retreat last year - had an awesome time!",
+         datetime(2023, 1, 25, 12, 0)),
+    ]
+    for text, dt in rows:
+        rec = _record(text, scope=scope, valid_at=dt.timestamp())
+        store.upsert_record(rec)
+        store.add_claims(claims_for_record(rec))
+
+    ans = structured_answer(
+        _Retriever(store),
+        "When did Jolene's mom gift her the pendant?",
+        at=datetime(2023, 8, 1, 12, 0).timestamp(), scope=scope,
+    )
+
+    assert ans is not None
+    assert "2010" in ans.answer
+    assert "2022" not in ans.answer
