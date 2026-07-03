@@ -4396,3 +4396,24 @@ def test_claim_enumeration_answers_from_tier1_claims(tmp_path):
     assert "hiking" in low and "photography" in low and "concerts" in low
     assert "you get" not in low and "rock climbing" not in low
     assert ans.verified is True
+
+
+def test_deterministic_claims_destructure_enjoy_statements(tmp_path):
+    """Claim quality gates the enumerator: 'I really enjoy hiking in the hills' must yield a
+    claim with the SPEAKER subject, an enjoy-family predicate, and the activity as the object -
+    and sentence-initial adverbs/imperatives ('Remember', 'Simply') are never subjects."""
+    from eidetic.smqe.claim_extraction import claims_for_record
+
+    scope = Scope(namespace="claimq")
+    rec = _record("Nate: I really enjoy hiking in the hills.", scope=scope,
+                  valid_at=1_700_000_100)
+    claims = claims_for_record(rec)
+    pref = [c for c in claims if "enjoy" in (c.predicate or "").lower()]
+    assert pref, f"no enjoy-predicate claim in {[c.predicate for c in claims]}"
+    assert pref[0].subject == "Nate"
+    assert "hiking" in (pref[0].object or "").lower()
+
+    rec2 = _record("Nate: Remember to water the fern before the trip.", scope=scope,
+                   valid_at=1_700_000_200)
+    for c in claims_for_record(rec2):
+        assert c.subject.lower() not in {"remember", "simply", "anyway"}

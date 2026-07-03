@@ -82,8 +82,17 @@ def _subject_for(atom: str, rec: MemoryRecord) -> str:
     m = re.match(r"\s*([A-Z][A-Za-z0-9'_-]+(?:\s+[A-Z][A-Za-z0-9'_-]+){0,2})\b", atom)
     if m:
         subject = m.group(1)
-        if speaker and subject.lower() in {"this", "that", "these", "those", "my", "our"}:
+        # Sentence-initial adverbs/imperatives/interjections are not subjects ('Remember to
+        # water...', 'Simply add...') - they polluted the claim tier the enumerator reads.
+        _NONSUBJECT = {
+            "also", "anyway", "congrats", "congratulations", "hello", "hey", "hi", "no",
+            "ok", "okay", "plus", "remember", "simply", "sure", "thanks", "well", "wow",
+            "yeah", "yes", "these", "those", "this", "that", "my", "our",
+        }
+        if speaker and subject.lower() in _NONSUBJECT:
             return speaker
+        if subject.lower() in _NONSUBJECT:
+            return rec.source or "memory"
         return subject
     return rec.source or "memory"
 
@@ -107,7 +116,8 @@ def _predicate_for(atom: str) -> str:
     low = atom.lower()
     for pat in (
         r"\b(?:is|was|are|were|am)\s+([a-z][a-z0-9_-]+)",
-        r"\b(?:prefer|prefers|preferred|favorite|favourite|like|likes|liked|love|loves|avoid|avoids)\b",
+        r"\b(?:prefer|prefers|preferred|favorite|favourite|like|likes|liked|love|loves|"
+        r"enjoy|enjoys|enjoyed|avoid|avoids)\b",
         r"\b(?:went|visited|met|bought|attended|finished|started|left|arrived|scheduled|called|emailed)\b",
     ):
         m = re.search(pat, low)
@@ -119,7 +129,10 @@ def _predicate_for(atom: str) -> str:
 
 def _object_for(atom: str) -> str:
     text = re.sub(r"^\s*(?:user|assistant|system|human|ai)\s*:\s*", "", atom, flags=re.I)
-    m = re.search(r"\b(?:is|was|are|were|am|prefer|prefers|preferred|like|likes|liked|love|loves|visited|bought|attended|at|in|to|from)\s+([^.;!?]+)", text, re.I)
+    m = re.search(
+        r"\b(?:is|was|are|were|am|prefer|prefers|preferred|like|likes|liked|love|loves|"
+        r"enjoy|enjoys|enjoyed|visited|bought|attended|at|in|to|from)\s+"
+        r"(?:really\s+|also\s+|just\s+|going\s+)?([^.;!?]+)", text, re.I)
     if m:
         return re.sub(r"\s+", " ", m.group(1)).strip()[:180]
     return text[:180]
