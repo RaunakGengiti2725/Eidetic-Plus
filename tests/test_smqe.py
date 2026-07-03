@@ -3978,3 +3978,48 @@ def test_plural_enumeration_stays_out_of_singular_and_counted_shapes(tmp_path, m
     finally:
         monkeypatch.delenv("PLURAL_ENUMERATION", raising=False)
         _gs.cache_clear()
+
+
+def test_open_inference_extracts_titlecase_copular_value(tmp_path):
+    """'What play did I attend?' with memory literally restating 'The play I attended was
+    actually a production of <Title>' must answer the title, not fail closed to the reader."""
+    store = RecordStore(tmp_path / "copular-title.sqlite")
+    scope = Scope(namespace="copular-title")
+    store.upsert_record(_record(
+        "User: The play I attended was actually a production of The Glass Lantern, "
+        "have you heard of it?",
+        scope=scope, valid_at=1_700_000_100,
+    ))
+    store.upsert_record(_record(
+        "User: The theater lobby smelled of fresh popcorn.",
+        scope=scope, valid_at=1_700_000_200,
+    ))
+
+    ans = structured_answer(
+        _Retriever(store),
+        "What play did I attend at the local community theater?",
+        at=1_800_000_000, scope=scope,
+    )
+
+    assert ans is not None
+    assert "Glass Lantern" in ans.answer
+    assert "popcorn" not in ans.answer
+    assert ans.verified is True
+
+
+def test_open_inference_copular_needs_titlecase_and_target(tmp_path):
+    """No TitleCase value or no target overlap -> still fails closed (no free association)."""
+    store = RecordStore(tmp_path / "copular-neg.sqlite")
+    scope = Scope(namespace="copular-neg")
+    store.upsert_record(_record(
+        "User: The evening was actually quite chilly for spring.",
+        scope=scope, valid_at=1_700_000_100,
+    ))
+
+    ans = structured_answer(
+        _Retriever(store),
+        "What play did I attend at the local community theater?",
+        at=1_800_000_000, scope=scope,
+    )
+
+    assert ans is None or "chilly" not in ans.answer

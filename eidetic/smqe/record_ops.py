@@ -660,6 +660,25 @@ def _answer_value_specific(query: str, atom: str, item: object | None = None) ->
     return ""
 
 
+_COPULAR_TITLE_RE = re.compile(
+    r"\b(?:was|is|were|are)\b[^.;!?]{0,60}?"
+    r"((?:The\s+)?[A-Z][\w'-]+(?:\s+(?:of|the|and|[A-Z][\w'-]+)){1,6})")
+
+
+def _copular_titlecase_value(atom: str) -> str:
+    """A Title-Cased proper value carried by the atom's copula ('... was actually a production
+    of The Glass Menagerie'), or ''. Sentence-initial words and pronouns never qualify."""
+    text = _strip_role(atom)
+    m = _COPULAR_TITLE_RE.search(text)
+    if not m:
+        return ""
+    value = _clean(m.group(1))
+    words = value.split()
+    if len(words) < 2 or words[0].lower() in {"i", "it", "he", "she", "they", "we"}:
+        return ""
+    return value
+
+
 def _answer_value(query: str, atom: str, item: object | None = None) -> str:
     specific = _answer_value_specific(query, atom, item)
     if specific:
@@ -4668,14 +4687,24 @@ def _execute_atoms(plan: ExecutionPlan, query: str,
             return None
         oi_target_terms = _latest_target_terms(query, plan)
         oi_threshold = _target_threshold(oi_target_terms)
+        wh_head_m = re.search(r"\b(?:what|which)\s+([a-z][a-z'-]{2,})\b", (query or "").lower())
+        wh_head_key = _count_term_key(wh_head_m.group(1)) if wh_head_m else ""
         for score, item, atom in atoms[:20]:
-            if oi_threshold and _target_hit_count(
-                _expanded_terms(_item_match_text(item, atom)), oi_target_terms
-            ) < oi_threshold:
-                continue
-            answer = _answer_value_specific(query, atom, item)
-            if answer:
-                return _result(answer, plan, backend, [sup(item, atom, score)], confidence=0.9)
+            atom_terms = _expanded_terms(_item_match_text(item, atom))
+            gated = bool(oi_threshold) and _target_hit_count(atom_terms, oi_target_terms) < oi_threshold
+            if not gated:
+                answer = _answer_value_specific(query, atom, item)
+                if answer:
+                    return _result(answer, plan, backend, [sup(item, atom, score)], confidence=0.9)
+            # Copular restatement of the asked slot ('what PLAY did I attend' <- 'The PLAY I
+            # attended was actually a production of The Glass Menagerie'): the wh-head noun
+            # echoed in the atom plus a Title-Cased proper value on the copula answers the
+            # wh-question directly, even when the fuller target gate (venue words etc.) is
+            # unmet. The TitleCase requirement keeps free-associated prose out.
+            if wh_head_key and wh_head_key in {_count_term_key(t) for t in atom_terms}:
+                answer = _copular_titlecase_value(atom)
+                if answer:
+                    return _result(answer, plan, backend, [sup(item, atom, score)], confidence=0.9)
         if op == "open_inference" and not _is_suggestion_query(query): return None
         if _needs_explicit_synthesis(query) or _requires_verified_synthesis(query):
             return None
