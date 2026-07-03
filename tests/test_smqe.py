@@ -4759,3 +4759,32 @@ def test_ordinal_kth_event_interpolates_between_numbered_anchors(tmp_path):
         at=_dt(2022, 12, 1, 12, 0).timestamp(), scope=scope,
     )
     assert ans3 is None
+
+
+def test_favorite_category_noun_gates_preference_atoms(tmp_path):
+    """Fresh-holdout c8_q14 shape: 'What is Evan's favorite FOOD?' shipped a beach-sunsets
+    favorites atom verified -- it matched on 'favorite' alone, wrong domain. The category
+    noun gates the atom pool through a general domain-family table, and the stated
+    preference OBJECT ('even though I love ginger snaps' -> 'ginger snaps') beats an atom
+    echo. Unknown category nouns stay ungated; an emptied pool fails closed."""
+    store = RecordStore(tmp_path / "fav-category.sqlite")
+    scope = Scope(namespace="fav-category")
+    rows = [
+        "Evan: Going on beach sunsets is one of my favorites - good for exercise and calming.",
+        "Evan: I'm trying to eat less processed food and sugary snacks, even though I love ginger snaps.",
+    ]
+    for i, text in enumerate(rows):
+        store.upsert_record(_record(text, scope=scope, valid_at=float(i + 1)))
+
+    ans = structured_answer(_Retriever(store), "What is Evan's favorite food?",
+                            at=100.0, scope=scope)
+    assert ans is not None and ans.answer == "ginger snaps"
+    assert "ginger snaps" in ans.citations[0].snippet
+
+    # wrong-domain-only store: fail closed rather than ship beach sunsets as a food
+    store2 = RecordStore(tmp_path / "fav-category2.sqlite")
+    scope2 = Scope(namespace="fav-category2")
+    store2.upsert_record(_record(rows[0], scope=scope2, valid_at=1.0))
+    ans2 = structured_answer(_Retriever(store2), "What is Evan's favorite food?",
+                             at=100.0, scope=scope2)
+    assert ans2 is None or "sunset" not in (ans2.answer or "")

@@ -2904,6 +2904,25 @@ def _activity_phrase_from_atom(atom: str) -> str:
     return (m.group(1) or m.group(2) or "").lower()
 
 
+# 'favorite <noun>' category families (general English): the answer must come from an atom
+# in the named domain. Keys are _count_term_key-normalized singulars.
+_PREFERENCE_CATEGORY_FAMILIES: dict[str, frozenset[str]] = {
+    "food": frozenset({"food", "foods", "eat", "eats", "ate", "eating", "dish", "dishes",
+                       "meal", "meals", "snack", "snacks", "dessert", "desserts", "cookie",
+                       "cookies", "recipe", "recipes", "cuisine", "tasty", "delicious",
+                       "breakfast", "lunch", "dinner", "bake", "baked", "cooking", "cooked"}),
+    "drink": frozenset({"drink", "drinks", "coffee", "tea", "juice", "beer", "wine",
+                        "beverage", "beverages"}),
+    "movie": frozenset({"movie", "movies", "film", "films", "watch", "watched", "cinema"}),
+    "book": frozenset({"book", "books", "read", "reading", "novel", "novels", "author"}),
+    "song": frozenset({"song", "songs", "music", "listen", "album", "albums", "band",
+                       "singer", "sing"}),
+    "game": frozenset({"game", "games", "play", "played", "playing", "gaming"}),
+    "color": frozenset({"color", "colors", "colour", "colours"}),
+}
+_PREFERENCE_CATEGORY_FAMILIES["music"] = _PREFERENCE_CATEGORY_FAMILIES["song"]
+
+
 _ORDINAL_WORDS = {"first": 1, "second": 2, "third": 3, "fourth": 4, "fifth": 5,
                   "sixth": 6, "seventh": 7, "eighth": 8, "ninth": 9, "tenth": 10}
 _QUERY_ORDINAL_RE = re.compile(
@@ -5016,6 +5035,30 @@ def _execute_atoms(plan: ExecutionPlan, query: str,
         return None
 
     if op in {"preference_synth", "open_inference"}:
+        # Category-noun agreement: 'favorite FOOD' names the answer's category; a favorites
+        # atom from another domain ('Going on beach sunsets is one of my favorites') matched
+        # on 'favorite' alone and shipped verified on the fresh holdout. Atoms must carry a
+        # category-family term; an unknown category noun stays ungated (fail open), an
+        # emptied pool fails closed to the reader.
+        fav_m = re.search(r"\bfavou?rite\s+([a-z][a-z'-]{2,})\b", (query or "").lower())
+        if fav_m:
+            family = _PREFERENCE_CATEGORY_FAMILIES.get(_count_term_key(fav_m.group(1)))
+            if family:
+                gated_atoms = [row for row in atoms
+                               if family & _expanded_terms(_item_match_text(row[1], row[2]))]
+                if not gated_atoms:
+                    return None
+                atoms = gated_atoms
+                # The stated preference OBJECT beats an atom echo: 'even though I love
+                # ginger snaps' answers with 'ginger snaps', not the whole dieting sentence.
+                for score, item, atom in atoms:
+                    m = re.search(
+                        r"\bi\s+(?:love|adore)\s+([a-z][\w' -]{2,40}?)(?:\s+(?:for|though|"
+                        r"but|because|so|and)\b|[.,!?]|$)",
+                        _strip_role(atom), re.I)
+                    if m:
+                        return _result(m.group(1).strip(), plan, backend,
+                                       [sup(item, atom, score)], confidence=0.9)
         answer, selected = _premise_affinity_answer(query, atoms)
         if answer and selected:
             return result_from(answer, selected, confidence=0.85)
