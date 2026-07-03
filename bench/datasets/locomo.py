@@ -71,6 +71,14 @@ def load(data_dir: Path = _DEFAULT_DIR, limit: Optional[int] = None,
             for t in convo[sk]:
                 spk = t.get("speaker", t.get("role", "user"))
                 txt = t.get("text", t.get("content", ""))
+                # 21% of LoCoMo turns carry a photo caption (blip_caption) that IS the
+                # evidence for photo-based questions (what the shared image shows). Dropping
+                # it silently starved every such question in every run to date; captions are
+                # part of the dataset and standard LoCoMo harnesses include them.
+                caption = str(t.get("blip_caption") or "").strip()
+                if caption:
+                    marker = f"[shares a photo: {caption}]"
+                    txt = f"{txt} {marker}".strip() if txt else marker
                 turns.append(Turn(role=spk, content=txt))
             st = _parse_time(convo.get(f"{sk}_date_time"))
             sessions.append(Session(session_id=f"c{ci}_{sk}", turns=turns, session_time=st))
