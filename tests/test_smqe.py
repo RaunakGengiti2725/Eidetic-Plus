@@ -4830,3 +4830,34 @@ def test_pronoun_contractions_never_count_as_information():
     assert not _answer_adds_information(q, "I'm reading")
     assert _answer_adds_information(q, "I'm reading Harry Potter")
     assert _answer_adds_information("What time did I go to bed?", "11 pm")
+
+
+def test_why_questions_refuse_enumeration_shaped_answers(tmp_path):
+    """Slice-2 live catch (c0_q87 shape): 'Why did Caroline choose the adoption agency?'
+    shipped 'Friday, adoption agency interviews, adoption agencies, LGBTQ, Research'
+    VERIFIED -- every item is a quotable content noun, so the credibility rule and NLI
+    anchors both pass, but a comma list answers nothing causal. Why-questions refuse
+    enumeration-shaped answers unless they carry a reason clause."""
+    store = RecordStore(tmp_path / "why-form.sqlite")
+    scope = Scope(namespace="why-form")
+    rec = _record("Caroline: On Friday I did adoption agency interviews. I liked their "
+                  "support for LGBTQ+ individuals.", scope=scope, valid_at=1.0)
+    store.upsert_record(rec)
+
+    listy = StructuredAnswerResult(
+        answer="Friday, adoption agency interviews, adoption agencies, LGBTQ, Research",
+        op="open_inference", backend="claim",
+        supports=[StructuredSupport(memory_id=rec.memory_id, proof_atom="adoption agency interviews")],
+        note="smqe:open_inference:claim",
+    )
+    q = "Why did Caroline choose the adoption agency?"
+    assert answer_from_result(_Retriever(store), q, listy, verify=True) is None
+
+    reasoned = StructuredAnswerResult(
+        answer="Because of their inclusivity, support for LGBTQ+ individuals, and warmth",
+        op="open_inference", backend="claim",
+        supports=[StructuredSupport(memory_id=rec.memory_id,
+                                    proof_atom="I liked their support for LGBTQ+ individuals")],
+        note="smqe:open_inference:claim",
+    )
+    assert answer_from_result(_Retriever(store), q, reasoned, verify=True) is not None

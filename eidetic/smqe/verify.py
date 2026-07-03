@@ -209,6 +209,16 @@ def answer_from_result(retriever, query: str, result: StructuredAnswerResult,
     if (verify and result.op not in _COMPUTED_OPS
             and not _option_choice_answer_names_option(query, result.answer)):
         return None
+    # WHY-question FORM refusal: a reason has clause shape ('because/since/to keep...'), never
+    # comma-list shape. Credible-item enumerations still answer nothing causal ('Friday,
+    # adoption agency interviews, LGBTQ, Research' shipped verified for a why-question on the
+    # fresh holdout) -- the items are quotable nouns, so NLI anchors happily. Enumerations
+    # for why-questions fall to the reader, which composes an actual reason.
+    if (verify and result.op not in _COMPUTED_OPS
+            and re.match(r"\s*why\b", query or "", re.I)
+            and _ENUMERATED_ANSWER_RE.match(result.answer or "")
+            and not re.search(r"\b(?:because|since)\b", result.answer or "", re.I)):
+        return None
     # Zero-information FORM refusal: an answer whose every content token already appears in
     # the question restates it instead of answering ('My girlfriend' for 'what places have
     # Andrew and his girlfriend checked out?' shipped verified on the fresh holdout -- the
