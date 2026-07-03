@@ -4637,7 +4637,7 @@ def test_duration_question_requires_target_named_in_the_duration_atom(tmp_path):
 
 
 def test_duration_questions_skip_hypotheticals_and_extract_stated_durations(tmp_path):
-    """Fresh-holdout c7_q33 shape: 'How long have Jolene and her partner been together?'
+    """Fresh-holdout conv7-row33 shape: 'How long have Jolene and her partner been together?'
     shipped 'one day' VERIFIED from 'Maybe one day we will be able to watch the sunrise
     together!' -- a hypothetical, but duration-shaped. Two rules: (1) elapsed-time questions
     skip future-intent atoms; (2) the stated duration ('been together FOR THREE YEARS')
@@ -4664,7 +4664,7 @@ def test_duration_questions_skip_hypotheticals_and_extract_stated_durations(tmp_
 
 
 def test_zero_information_answers_are_refused(tmp_path):
-    """Fresh-holdout c5_q3 shape: 'My girlfriend' shipped VERIFIED for 'what kind of places
+    """Fresh-holdout conv5-row3 shape: 'My girlfriend' shipped VERIFIED for 'what kind of places
     have Andrew and his girlfriend checked out?' -- every content token already sits in the
     question, so the answer restates it. Deterministic form floor; clock-time answers
     ('11 pm') tokenize to nothing and must fail OPEN."""
@@ -4689,7 +4689,7 @@ def test_zero_information_answers_are_refused(tmp_path):
 
 
 def test_bare_day_of_month_resolves_against_session_date(tmp_path):
-    """Fresh-holdout c7_q57 shape: 'I bought a console for my partner as a gift ON THE
+    """Fresh-holdout conv7-row57 shape: 'I bought a console for my partner as a gift ON THE
     17TH' (spoken Aug 19) names Aug 17, but no extractor knew the bare day-of-month form,
     so a January 'last week' console atom outscored the exact statement and shipped a wrong
     week window verified. The session month anchors the day; a day after the session date
@@ -4716,7 +4716,7 @@ def test_bare_day_of_month_resolves_against_session_date(tmp_path):
 
 
 def test_ordinal_kth_event_interpolates_between_numbered_anchors(tmp_path):
-    """Fresh-holdout c3_q26 shape: 'when did Nate win his THIRD tourney?' shipped a late
+    """Fresh-holdout conv3-row26 shape: 'when did Nate win his THIRD tourney?' shipped a late
     unrelated mention verified -- the generic loop has no counting semantics. The kth
     instance is the earliest unnumbered same-event atom strictly between the (k-1)th and
     (k+1)th anchors ('my second' 05-02, 'my fourth' 07-10 bound the 06-04 'another regional
@@ -4762,7 +4762,7 @@ def test_ordinal_kth_event_interpolates_between_numbered_anchors(tmp_path):
 
 
 def test_favorite_category_noun_gates_preference_atoms(tmp_path):
-    """Fresh-holdout c8_q14 shape: 'What is Evan's favorite FOOD?' shipped a beach-sunsets
+    """Fresh-holdout conv8-row14 shape: 'What is Evan's favorite FOOD?' shipped a beach-sunsets
     favorites atom verified -- it matched on 'favorite' alone, wrong domain. The category
     noun gates the atom pool through a general domain-family table, and the stated
     preference OBJECT ('even though I love ginger snaps' -> 'ginger snaps') beats an atom
@@ -4791,7 +4791,7 @@ def test_favorite_category_noun_gates_preference_atoms(tmp_path):
 
 
 def test_visited_cities_enumerate_from_claims_end_to_end(tmp_path):
-    """Fresh-holdout c1_q29 shape: 'Which cities has Jon visited?' had ZERO travel claims
+    """Fresh-holdout conv1-row29 shape: 'Which cities has Jon visited?' had ZERO travel claims
     ('I've been to Paris' -- the clitic 've and the verb 'been' were both outside the
     extraction patterns) and the enumerator's head/verb gates only knew hobby nouns. Write
     path now extracts been/visited-to-X events with clean objects (terminators strip
@@ -4833,7 +4833,7 @@ def test_pronoun_contractions_never_count_as_information():
 
 
 def test_why_questions_refuse_enumeration_shaped_answers(tmp_path):
-    """Slice-2 live catch (c0_q87 shape): 'Why did Caroline choose the adoption agency?'
+    """Slice-2 live catch (conv0-row87 shape): 'Why did Caroline choose the adoption agency?'
     shipped 'Friday, adoption agency interviews, adoption agencies, LGBTQ, Research'
     VERIFIED -- every item is a quotable content noun, so the credibility rule and NLI
     anchors both pass, but a comma list answers nothing causal. Why-questions refuse
@@ -4864,7 +4864,7 @@ def test_why_questions_refuse_enumeration_shaped_answers(tmp_path):
 
 
 def test_books_read_enumerate_from_irregular_past_claims(tmp_path):
-    """Slice-2 c4_q4 shape: 'What books has Tim read?' shipped \"I'm reading\" -- 'read' is
+    """Slice-2 conv4-row4 shape: 'What books has Tim read?' shipped \"I'm reading\" -- 'read' is
     an irregular past invisible to the ed|t suffix rule, so no claims existed to enumerate.
     Irregular-past pattern + books head noun + read family: the enumerator now composes
     the titles, each with its own proof atom."""
@@ -4888,7 +4888,7 @@ def test_books_read_enumerate_from_irregular_past_claims(tmp_path):
 
 
 def test_last_monthname_resolves_against_statement_date(tmp_path):
-    """Slice-2 c4_q58 shape: 'Last August I told you about ... the trivia contest'
+    """Slice-2 conv4-row58 shape: 'Last August I told you about ... the trivia contest'
     (spoken in December) dates the event to August of the same year -- the strongest
     relative month form, previously unresolvable, so a 'last week' restaurant atom
     outranked it and shipped a wrong week window verified."""

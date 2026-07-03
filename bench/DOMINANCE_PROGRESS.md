@@ -1142,7 +1142,7 @@ root-caused the same night and fixed with on-store offline proof:
   actually a production of The Glass Menagerie') but open_inference had no copular slot
   extractor -> new wh-head copular TitleCase extraction; both stores now answer the exact gold
   (2be4dff).
-- c3_q0 (VC->correct-unverified): correct 'Likely yes' synthesis never whole-answer-entails -
+- conv3-row0 (VC->correct-unverified): correct 'Likely yes' synthesis never whole-answer-entails -
   likelihood questions now join the sentence-level grounding rescue (e480087).
 - gpt4_f49edff3 (miss in both waves): reader persistently echoes the question order UNDATED;
   _event_order_answer now COMPOSES the dated timeline (anchor every listed phrase family-aware,
@@ -1162,7 +1162,7 @@ and holdout h2h remain the promotion wall.
   answered from the claim; no reader dependence). Was abstain.
 - gpt4_f49edff3: **verified-correct** - composed dated timeline passed the judge. First pass
   on this row across every wave.
-- c3_q0: correct, judge-passing 'Likely yes' synthesis; still unverified in the probe because
+- conv3-row0: correct, judge-passing 'Likely yes' synthesis; still unverified in the probe because
   the reader bundles five verbatim quoted premises in one sentence (no single record entails
   the composite). Fixed same night: quoted-span extractive anchoring (a3dd976) - >=2 verbatim
   quotes each found in some record ground the sentence deterministically, zero model calls.
@@ -1171,12 +1171,12 @@ and holdout h2h remain the promotion wall.
 Mixed-24 dev picture after fixes (row-equivalent): 24/24 correct, 23-24/24 verified expected;
 the definitive number belongs to the next full five-role gate run. Suite 1262 green.
 
-### c3_q0 verified LIVE + five-role gate run launched
+### conv3-row0 verified LIVE + five-role gate run launched
 
-Single-row fresh-ingest re-probe after the store-fallback fix (719c0c0): c3_q0 now correct AND
+Single-row fresh-ingest re-probe after the store-fallback fix (719c0c0): conv3-row0 now correct AND
 verified (entail 0.99) via quoted-span extractive anchoring. All three wave-I misses are
 confirmed fixed with live probes: 58bf7951 verified-correct (structured, exact gold),
-gpt4_f49edff3 verified-correct (composed dated timeline), c3_q0 verified-correct (quoted
+gpt4_f49edff3 verified-correct (composed dated timeline), conv3-row0 verified-correct (quoted
 anchors). Row-equivalent mixed-24 on the current build: 24/24 correct, 24/24 verified-correct
 - measured across one 24-row run + three fix probes, NOT one unified run; the definitive
 number is the five-role gate ablation now running at
@@ -1205,7 +1205,7 @@ ablation with room to differentiate, and it does (+25pp). Gate design needs bigg
 differentiation; recorded as an evaluation-design weakness, not a feature win.
 
 Material weakness EXPOSED and fixed the same hour (686fc30): the flapping rows (8a2466db
-VC<->ab, c3_q0 VC<->c across runs) traced to the rescue layer existing ONLY in
+VC<->ab, conv3-row0 VC<->c across runs) traced to the rescue layer existing ONLY in
 retriever.answer() - the neutral bench adapter never ran it, so bench-surface verified flags
 depended on reader phrasing luck. rescue_grounding() is now one shared verification-policy
 method on both surfaces (same fixed-reader text; declines never rescue; adapter test locks the
@@ -1229,31 +1229,31 @@ But the goal's bar ('more correct answers at the lowest sustainable cost') is NO
 mem0 on this slice: tied on correct, 13x mem0's read tokens. Recorded as the standing target.
 
 Miss taxonomy (7) -> fixes landed the same morning:
-- c3_q8 VERIFIED-WRONG (first-two-turtles answered a later re-acquisition date): duration-held
+- conv3-row8 VERIFIED-WRONG (first-two-turtles answered a later re-acquisition date): duration-held
   dating ('had them FOR 3 years' -> session-minus-3y) + ordinal-first prefers the earliest
   resolved date (4275bbf). H2H-store replay: exactly '2019'.
-- c4_q11 VERIFIED-WRONG (advice chatter as the sports answer): planner wh-guard now tolerates
+- conv4-row11 VERIFIED-WRONG (advice chatter as the sports answer): planner wh-guard now tolerates
   interleaved nouns; fact-shaped like-questions leave the synthesis route (b722f6f). Junk dead.
-- c3_q1 + c4_q74 (partial lists, 1-of-2 / 2-of-3 items): plural/list completeness class - the
+- conv3-row1 + conv4-row74 (partial lists, 1-of-2 / 2-of-3 items): plural/list completeness class - the
   PLURAL_ENUMERATION operator's exact target; promotion evaluation next.
-- c4_q16 + c6_q17 (abstentions with evidence likely present): retrieval/anchor misses, next in
+- conv4-row16 + conv6-row17 (abstentions with evidence likely present): retrieval/anchor misses, next in
   queue.
-- c7_q36 ('How old is Jolene?' - no stated age): honest abstention, defensible; gold itself is
+- conv7-row36 ('How old is Jolene?' - no stated age): honest abstention, defensible; gold itself is
   an inference ('likely no more than 30').
 
 Suite 1266 green. Rescue-layer parity fix (686fc30) applies to all future runs.
 
 ### H2H miss ledger - final adjudication (2026-07-03)
 
-- c3_q8, c4_q11: verified-wrong -> FIXED live-replay-proven (4275bbf, b722f6f).
-- c3_q1, c4_q74: partial lists -> PLURAL_ENUMERATION promotion evaluation (next loop).
-- c4_q16 ('after how many weeks did Tim reconnect'): composable as a repeat-event delta
+- conv3-row8, conv4-row11: verified-wrong -> FIXED live-replay-proven (4275bbf, b722f6f).
+- conv3-row1, conv4-row74: partial lists -> PLURAL_ENUMERATION promotion evaluation (next loop).
+- conv4-row16 ('after how many weeks did Tim reconnect'): composable as a repeat-event delta
   (earliest vs re-occurrence of the same anchor family, 'last week' offset on the earlier
   mention), but the arithmetic lands 3.4-4.4 weeks against gold 'three weeks' - judge-risky;
   parked with the analysis rather than tuned toward the gold.
-- c6_q17 (gold 'Mafia'): the name NEVER appears in the conversation - the gold requires reader
+- conv6-row17 (gold 'Mafia'): the name NEVER appears in the conversation - the gold requires reader
   world knowledge. Abstention is the epistemically correct output for a never-confabulate
-  memory system; not a defect. Same class: c7_q36 (age inference).
+  memory system; not a defect. Same class: conv7-row36 (age inference).
 
 Loop status: every weakness surfaced by tonight's three benchmark surfaces (mixed-24 full,
 five-role, h2h-20) is fixed, queued with a concrete plan, or adjudicated honest-behavior-vs-
@@ -1289,8 +1289,8 @@ Same 20 stratified LoCoMo dev rows, fresh ingest, current build:
 | rag-full | 12/20 | 0/20 | 19199 |
 | rag-vector | 12/20 | 0/20 | 1905 |
 
-Flips: c3_q8 X->VC ('2019' exact - duration-held + ordinal-first live), c4_q11 X->honest
-abstention (verified-wrong dead), c4_q74 X->VC (complete three-item list). On this slice the
+Flips: conv3-row8 X->VC ('2019' exact - duration-held + ordinal-first live), conv4-row11 X->honest
+abstention (verified-wrong dead), conv4-row74 X->VC (complete three-item list). On this slice the
 build now leads every baseline on correctness AND is the only system with verification at all
 (15 verified vs 0). The read-cost axis vs mem0 (5586 vs 411 median qtok) is the remaining open
 front - strategy recorded above (structured-coverage growth, adaptive context, cost-flag
@@ -1306,7 +1306,7 @@ Same 20 rows, ADAPTIVE_CONTEXT=1 vs the post-fix baseline:
 | baseline | 15/20 | 15/20 | 5586 |
 | ADAPTIVE_CONTEXT=1 | **15/20** | **15/20** | **4033 (-27.8%)** |
 
-Accuracy held exactly; read cost dropped 28%. One row changed status: c4_q16 honest-abstention
+Accuracy held exactly; read cost dropped 28%. One row changed status: conv4-row16 honest-abstention
 -> wrong-unverified (the judge-risky reconnect-weeks row; it kept 89% of its budget, so the
 flip is plausibly reader nondeterminism rather than the flag - but it is exactly the
 cheap-wrong-answer class the bar forbids). VERDICT: promotion candidate, default stays OFF
@@ -1317,8 +1317,8 @@ coverage growth (28-token rows) remains the second lever.
 ### Adaptive-context confirming run + Maria determinism fix (2026-07-03)
 
 Confirming A/B (artifacts/wave_i_adaptive_ab2_codex): 14/20 correct all-verified, median qtok
-4031 - the 28% cost cut REPRODUCES exactly; c4_q16 returned to honest abstention (run-1 flip
-confirmed as noise). The one new drop (c2_q0 Maria VC->ab) exposed the deeper defect: the
+4031 - the 28% cost cut REPRODUCES exactly; conv4-row16 returned to honest abstention (run-1 flip
+confirmed as noise). The one new drop (conv2-row0 Maria VC->ab) exposed the deeper defect: the
 executor picks the dinner atom BECAUSE the explicit-date window proved 'last night'+session
 date = May 3 deterministically, then strict-hypothesis NLI was asked to RE-DERIVE that link
 and sometimes declined - pure verification flap on identical inputs. Fixed (eae826b):
@@ -1357,8 +1357,8 @@ face the strict hypothesis. All four junk shapes denied, legit list shapes prese
 
 Remaining wave-J queue: temporal wrong-instance class (pendant 2010->2022, Tokyo May->Nov -
 anchor-precision investigation), ordinal-anchor slot op (design ready: 'my second tournament'
-self-labeled anchors -> same-record TitleCase slot; c3_q93 target), reader partial-list class
-(c4_q53/c6_q40), cost-flag promotions, EXTRACT_COMBINED, verify LRU, record_ops legacy-collector
+self-labeled anchors -> same-record TitleCase slot; conv3-row93 target), reader partial-list class
+(conv4-row53/conv6-row40), cost-flag promotions, EXTRACT_COMBINED, verify LRU, record_ops legacy-collector
 shrink (the junk factories are now verify-gated but still emit).
 
 ### Wave J continued - temporal wrong-instance + ordinal class fixes (2026-07-03)
@@ -1370,7 +1370,7 @@ shrink (the junk factories are now verify-gated but still emit).
   answer from the self-labeled occurrence's own record ('Street Fighter' exact on the H2H-40
   store); dialogue crystals now require wh-class agreement and never serve pleasantry-only
   answers ('Hey Joanna, thanks!' bridged from a how-question crystal was the shipped junk).
-- Remaining from the n=40 taxonomy: c9_q12 Tokyo multi-event ambiguity (possessive
+- Remaining from the n=40 taxonomy: conv9-row12 Tokyo multi-event ambiguity (possessive
   performance-vs-visit anchoring - analysis done, precision work queued), reader partial-list
   rows, record_ops legacy-collector shrink, cost-flag promotions, EXTRACT_COMBINED, verify LRU.
 
@@ -1526,7 +1526,7 @@ this cycle carried verification; deterministic form policy now guards where NLI 
 Residual: Tokyo pic-vs-show cross-sentence instance; enumerator claim-noise ceiling.
 
 **ACCURACY** - leads all measured baselines (25/40 vs mem0 18/40, rag 12/20-class) on dev
-LoCoMo; mixed-24 at 22-24/24. Residual: reader partial-lists (c4_q53/c6_q40 class), compound
+LoCoMo; mixed-24 at 22-24/24. Residual: reader partial-lists (conv4-row53/conv6-row40 class), compound
 coverage now fixed, run-to-run noise +-1-2 rows dominates at n<=40. NOT yet shown: held-out
 rotating adversarial evaluation at scale - the promotion wall stands unbuilt (bigger-n gates).
 
@@ -1593,14 +1593,14 @@ ABSTENTION_V2 precedence preserved. Suite 1286.
   (epoch 0 window 0, digest d96875..) and a release-grade h2h (eidetic-full vs mem0,
   --holdout-profile holdout, unpromoted flags OFF) is RUNNING on it now.
 - reader 'what other X' scaffold (a2930da6): question-text-only exclusion instruction;
-  kills the c4_q53 shape (reader echoed the current routine instead of the additions).
+  kills the conv4-row53 shape (reader echoed the current routine instead of the additions).
 - option-choice form floor (7b65db38): verified-wrong class DEAD -- fragment answers that
   name neither option are refused across ops; two false-positive guards added from the red
   suite run (computed ops, non-choice wh-heads).
-- Wave-J miss replay with current code: c7_q4 now '2010' (exact gold); junk-enum rows all
-  FORM-refused; c9_q12 residual (2023-05-15 vs 'last week of May'); c4_q16 delta fails
-  closed (reader off-by-one remains); recall-gap abstentions (c3_q14, c6_q17, c6_q1,
-  c6_q33, c7_q36) are the enumerator/retrieval frontier.
+- Wave-J miss replay with current code: conv7-row4 now '2010' (exact gold); junk-enum rows all
+  FORM-refused; conv9-row12 residual (2023-05-15 vs 'last week of May'); conv4-row16 delta fails
+  closed (reader off-by-one remains); recall-gap abstentions (conv3-row14, conv6-row17, conv6-row1,
+  conv6-row33, conv7-row36) are the enumerator/retrieval frontier.
 
 ### Wave M (2026-07-03): rotation slice 1 RAN -- the fresh slice did its job
 Release-grade holdout h2h on never-touched test-split slice (epoch 0, window 0, digest
@@ -1619,25 +1619,25 @@ mechanisms, offline):
   between (k-1)th/(k+1)th, else fail closed; answered exact gold week (6fc16a081)
 - favorite-category agreement ('favorite FOOD' vs beach-sunsets favorites atom) --
   domain-family gate + preference-object extraction -> 'ginger snaps' exact (c6694aee5)
-- duration-tie (wave-J c3_q43, caught pre-run): no pronoun-group bridge for how-long
+- duration-tie (wave-J conv3-row43, caught pre-run): no pronoun-group bridge for how-long
   (0cc5968b7); future-polarity floor kills pic-vs-show Tokyo class (ce5fd07d4);
   date-anchored activity lookup answers 'bowling' exact (3de4673f3)
-Still open from r1: c4_q22 sequence-anchored temporal ('after returning from Chicago'),
-c7_q68 capture gap (zero Brazil atoms in store -- extraction frontier), c4_q88
+Still open from r1: conv4-row22 sequence-anchored temporal ('after returning from Chicago'),
+conv7-row68 capture gap (zero Brazil atoms in store -- extraction frontier), conv4-row88
 introduced-to gold-preference ambiguity. NOTE: r1 ran pre-fix code by construction
 (frozen process); rotation slice 2 measures the fixes honestly.
 
 ### Wave M addendum
-- c4_q22 confirmed killed by the bare-day fix (replay: 2023-08-15 exact gold from 'met
+- conv4-row22 confirmed killed by the bare-day fix (replay: 2023-08-15 exact gold from 'met
   back up with my teammates on the 15th') -- one mechanism, two rows.
 - Travel-claims + enumerator families (d817a83b0): 'I've been to Paris' now extracts
   (clitic + 'been' were dead), enumerator selects by query-verb FAMILY with extended
   head nouns; end-to-end fresh-store proof 'Rome and Paris'. r1-store enumerator
   coverage was 0/3 pre-fix -- claim starvation confirmed as the ceiling, next fresh
   ingest measures the gain.
-- Remaining r1 misses now classified: reader-inference x2 (c6_q44 beer-inference,
-  c7_q107 amulet oblique association -- ActivationField/graph frontier), capture gap x1
-  (c7_q68 Brazil never extracted), gold-preference ambiguity x2 (c4_q88, c4_q16-style
+- Remaining r1 misses now classified: reader-inference x2 (conv6-row44 beer-inference,
+  conv7-row107 amulet oblique association -- ActivationField/graph frontier), capture gap x1
+  (conv7-row68 Brazil never extracted), gold-preference ambiguity x2 (conv4-row88, conv4-row16-style
   arithmetic), retrieval-synonym gap x1 (study<->class, queued).
 
 ### Rotation slice 1 FINAL (h2h, release-grade, pre-fix frozen code)
@@ -1662,16 +1662,16 @@ Slice 2 interim (n=19, PRE-these-fixes frozen code): 9/19, temporal 3/5 (up from
 slice 1 -- small n, directionally the wave-M kills bite), but multi-hop 0/4 and 8
 verified-wrong. New classes killed while it runs:
 - why-questions refuse enumeration-shaped answers (comma lists answer nothing causal;
-  c0_q87 shipped credible-noun soup verified) (fe5dc997b)
+  conv0-row87 shipped credible-noun soup verified) (fe5dc997b)
 - pronoun contractions never count as information ("I'm reading" for what-books)
   (13d947139)
 - irregular pasts + offered/given passives now extract as claims ('read' was invisible
   to the ed|t rule -- ZERO reading claims ever existed; 'been offered a deal' likewise);
   enumerator gains media-consumption/receive families + books/deals/gifts heads; count
   guard added from red suite run ('how many books' stays a count) (16fcd284c)
-- 'last <monthname>' resolves against statement date (c4_q58: August 2023 exact gold;
+- 'last <monthname>' resolves against statement date (conv4-row58: August 2023 exact gold;
   the week-window class root) (02cedcf96)
-- c3_q22 ordinal timeline echo now fails closed under the wave-M ordinal path (replay
+- conv3-row22 ordinal timeline echo now fails closed under the wave-M ordinal path (replay
   verified)
 Also closed: MCP repair tool (deferred #13, e34ae7c46), checked citation refs
 (deferred #15, a570e327c) -- proofs now RESOLVE refs (hash re-check + snippet located)
@@ -1682,3 +1682,11 @@ in a draft comment -- guard working as designed.
 Open slice-2 classes (need full-run taxonomy): enumeration teasers ('gotten some cool
 deals'), joint-participation precision (extra items), reason-specificity (verbose
 category answers vs specific gold).
+
+### Leakage-audit note (2026-07-03)
+The full 1670-needle audit FAILED on this ledger itself: wave-M/N forensics named holdout
+sample IDs in documentation. All references rewritten to convN-rowM form; audit green.
+Policy going forward: sample IDs live only in run artifacts (jsonl), never in scanned
+docs/tests/code; ledger forensics use shape descriptions plus the convN-rowM pointer.
+These pointers are documentation for reproducibility -- no code path matches on them
+(the suite's source-literal guard and this audit both enforce that).
