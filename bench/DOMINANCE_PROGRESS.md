@@ -1626,3 +1626,16 @@ Still open from r1: c4_q22 sequence-anchored temporal ('after returning from Chi
 c7_q68 capture gap (zero Brazil atoms in store -- extraction frontier), c4_q88
 introduced-to gold-preference ambiguity. NOTE: r1 ran pre-fix code by construction
 (frozen process); rotation slice 2 measures the fixes honestly.
+
+### Wave M addendum
+- c4_q22 confirmed killed by the bare-day fix (replay: 2023-08-15 exact gold from 'met
+  back up with my teammates on the 15th') -- one mechanism, two rows.
+- Travel-claims + enumerator families (d817a83b0): 'I've been to Paris' now extracts
+  (clitic + 'been' were dead), enumerator selects by query-verb FAMILY with extended
+  head nouns; end-to-end fresh-store proof 'Rome and Paris'. r1-store enumerator
+  coverage was 0/3 pre-fix -- claim starvation confirmed as the ceiling, next fresh
+  ingest measures the gain.
+- Remaining r1 misses now classified: reader-inference x2 (c6_q44 beer-inference,
+  c7_q107 amulet oblique association -- ActivationField/graph frontier), capture gap x1
+  (c7_q68 Brazil never extracted), gold-preference ambiguity x2 (c4_q88, c4_q16-style
+  arithmetic), retrieval-synonym gap x1 (study<->class, queued).
