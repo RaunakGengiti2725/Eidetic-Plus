@@ -2276,16 +2276,42 @@ class Engine:
         from .dreaming.repair import apply_proposals
         return apply_proposals(self, proposals, scope or Scope(), apply=apply)
 
-    def prove(self, answer, *, with_paths: bool = False) -> dict:
+    def prove(self, answer, *, with_paths: bool = False, check_refs: bool = False) -> dict:
         """Proof tree for an Answer (provenance as a first-class output). Read-only.
 
         with_paths=True splices in the last RecallTrace's recall-path metadata (which channels
         surfaced each cited memory, gist provenance). The trace is matched to the answer by
         question text, so a cache hit or a stale trace simply yields the legacy (pathless) proof
-        rather than misattributed paths. Default with_paths=False is byte-identical to before."""
+        rather than misattributed paths. Default with_paths=False is byte-identical to before.
+
+        check_refs=True RESOLVES every citation reference instead of asserting it: the raw
+        bytes behind content_hash are fetched and re-hashed (tamper check) and the snippet is
+        located in the cited record's text. Local reads only, no model call; additive keys."""
         from .proofs import prove_answer
         trace = self.retriever.last_trace if with_paths else None
-        return prove_answer(answer, trace)
+        out = prove_answer(answer, trace)
+        if check_refs:
+            for item in out["evidence"]:
+                checked = {"raw_resolves": False, "hash_matches": False,
+                           "snippet_in_record": False}
+                ch = item.get("content_hash") or ""
+                if ch:
+                    try:
+                        checked["raw_resolves"] = True if self.substrate.get(ch) is not None else False
+                        checked["hash_matches"] = bool(self.substrate.verify(ch))
+                    except KeyError:
+                        checked["raw_resolves"] = False
+                rec = self.store.get_record(item.get("memory_id") or "")
+                snippet = item.get("snippet") or ""
+                if rec is not None and snippet:
+                    norm = lambda s: re.sub(r"\s+", " ", s or "").strip().lower()
+                    checked["snippet_in_record"] = norm(snippet)[:300] in norm(
+                        rec.text or rec.summary or "")
+                item["refs_checked"] = checked
+            out["refs_verified"] = bool(out["evidence"]) and all(
+                i["refs_checked"]["raw_resolves"] and i["refs_checked"]["hash_matches"]
+                for i in out["evidence"])
+        return out
 
     def recall_trace(self, *, scope: Optional[Scope] = None) -> Optional[RecallTrace]:
         """The RecallTrace from the most recent traced recall IN THE GIVEN SCOPE (None unless

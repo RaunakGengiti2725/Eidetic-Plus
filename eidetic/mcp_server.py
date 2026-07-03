@@ -281,7 +281,8 @@ def recall(query: str, namespace: Optional[str] = None, agent_id: Optional[str] 
         if prove:
             # include recall-path metadata in the proof when RECALL_TRACE is on (the trace from
             # this ask is the freshest one); otherwise the legacy pathless proof.
-            out["proof"] = engine().prove(ans, with_paths=engine().settings.recall_trace_enabled)
+            out["proof"] = engine().prove(ans, with_paths=engine().settings.recall_trace_enabled,
+                                          check_refs=True)
         return out
     except ModelCallError as e:
         raise RuntimeError(

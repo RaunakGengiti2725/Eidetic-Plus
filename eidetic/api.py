@@ -197,7 +197,8 @@ async def ask(body: AskIn):
             # API proof parity with MCP recall(prove=True): include recall paths when
             # RECALL_TRACE is on.
             out["proof"] = engine().prove(
-                ans, with_paths=engine().settings.recall_trace_enabled)
+                ans, with_paths=engine().settings.recall_trace_enabled,
+                check_refs=True)
         return out
     return await run_in_threadpool(_ask_and_prove)
 

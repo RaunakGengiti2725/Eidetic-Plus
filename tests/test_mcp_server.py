@@ -377,3 +377,20 @@ def test_repair_rebuilds_derived_surfaces_from_store(mcp_engine):
     out = mcp_server.repair()
     assert out == {"rebuilt": 1}
     assert mcp_server.list_memories()["total"] == 1
+
+
+def test_prove_checks_citation_refs_against_raw_substrate(mcp_engine):
+    """Deferred #15: a proof must RESOLVE its references, not assert them. Every citation's
+    raw bytes are fetched and re-hashed (tamper check) and the snippet located in the cited
+    record; the proof carries refs_checked per item and a rolled-up refs_verified."""
+    mcp_server.remember(content="The greenhouse thermostat is set to 18C for the orchids.")
+    out = mcp_server.recall(query="What temperature is the greenhouse thermostat set to?",
+                            prove=True)
+    proof = out.get("proof")
+    assert proof is not None
+    assert proof["evidence"], "expected cited evidence"
+    for item in proof["evidence"]:
+        assert item["refs_checked"]["raw_resolves"] is True
+        assert item["refs_checked"]["hash_matches"] is True
+        assert item["refs_checked"]["snippet_in_record"] is True
+    assert proof["refs_verified"] is True
