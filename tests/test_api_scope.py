@@ -85,10 +85,14 @@ def test_http_collection_reads_default_scope_not_all_scopes(tmp_path, monkeypatc
         monkeypatch.setattr(api_mod, "_engine", eng)
         client = TestClient(api_mod.app)
 
-        default_rows = client.get("/api/memories").json()
-        tenant_rows = client.get("/api/memories?namespace=tenant").json()
-        assert [r["memory_id"] for r in default_rows] == ["default_mem"]
-        assert [r["memory_id"] for r in tenant_rows] == ["tenant_mem"]
+        default_page = client.get("/api/memories").json()
+        tenant_page = client.get("/api/memories?namespace=tenant").json()
+        assert [r["memory_id"] for r in default_page["memories"]] == ["default_mem"]
+        assert [r["memory_id"] for r in tenant_page["memories"]] == ["tenant_mem"]
+        assert default_page["total"] == 1 and tenant_page["total"] == 1
+        # paging envelope: an offset past the end returns an empty page, total intact
+        empty = client.get("/api/memories?offset=5").json()
+        assert empty["memories"] == [] and empty["total"] == 1
         assert client.get("/api/stats").json()["memories"] == 1
         assert client.get("/api/stats?namespace=tenant").json()["memories"] == 1
     finally:

@@ -279,10 +279,21 @@ async def sync_health(namespace: str = "default", agent_id: Optional[str] = None
 
 @app.get("/api/memories")
 async def list_memories(namespace: str = "default", agent_id: Optional[str] = None,
-                        project_id: Optional[str] = None):
+                        project_id: Optional[str] = None,
+                        limit: int = 100, offset: int = 0):
+    """Paged listing (newest first), enveloped like the MCP list_memories tool: a 100k-record
+    store must not serialize whole into one response, and `total` lets callers page without
+    a second count call."""
     scope = _scope(namespace, agent_id, project_id)
+    limit = max(1, min(int(limit), 1000))
+    offset = max(0, int(offset))
     recs = await run_in_threadpool(engine().list_memories, scope)
-    return [_record_brief(r) for r in recs]
+    return {
+        "total": len(recs),
+        "offset": offset,
+        "limit": limit,
+        "memories": [_record_brief(r) for r in recs[offset:offset + limit]],
+    }
 
 
 @app.get("/api/memories/{memory_id}")
