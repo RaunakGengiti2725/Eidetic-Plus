@@ -285,3 +285,25 @@ def test_recall_accepts_as_of_time_travel(mcp_engine):
     after = mcp_server.recall("who is the rotation lead", namespace="tt",
                               as_of=1_800_000_000.0)
     assert "priya" in (after["answer"] or "").lower()
+
+
+def test_get_raw_paged_reads_stay_utf8_across_multibyte_boundaries(mcp_engine):
+    """A byte slice that splits a multibyte UTF-8 character must trim to character
+    boundaries and stay readable text (with adjusted offsets), not flip the whole page
+    to base64."""
+    text = ("météo " * 40) + ("日本語テキスト" * 30) + (" fin")
+    out = mcp_server.remember(text, namespace="raw8")
+    mid = out["memory_id"]
+    # pick an offset that lands inside a multibyte sequence
+    raw = text.encode("utf-8")
+    offset = 0
+    for i in range(10, len(raw)):
+        if (raw[i] & 0b1100_0000) == 0b1000_0000:  # continuation byte
+            offset = i
+            break
+    assert offset > 0
+    page = mcp_server.get_raw(mid, namespace="raw8", offset=offset, max_bytes=101)
+    assert page["raw_encoding"] == "utf-8"
+    # returned text must reassemble against the source at the ADJUSTED offset
+    start = page["raw_offset"]
+    assert raw[start:start + page["raw_returned_bytes"]].decode("utf-8") == page["raw"]

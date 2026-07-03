@@ -107,7 +107,31 @@ def _bounded_raw(raw: bytes, *, offset: int, max_bytes: int) -> tuple[bytes, dic
     start = _bounded_int(offset, default=0, minimum=0, maximum=max(0, len(raw)))
     cap = _bounded_int(max_bytes, default=_DEFAULT_RAW_MAX_BYTES,
                        minimum=1, maximum=_MAX_RAW_BYTES)
-    chunk = raw[start:start + cap]
+    end = min(len(raw), start + cap)
+    # A byte slice may split a multibyte UTF-8 character at either edge; for text content that
+    # would flip the WHOLE page to base64. Trim up to 3 continuation bytes (0b10xxxxxx) from the
+    # leading edge and an incomplete sequence from the trailing edge, and report the ADJUSTED
+    # offsets so byte-accurate reassembly still holds. Genuinely binary content is unaffected
+    # (it fails decoding regardless and falls to base64 as before).
+    for _ in range(3):
+        if start < end and (raw[start] & 0b1100_0000) == 0b1000_0000:
+            start += 1
+        else:
+            break
+    if end < len(raw):
+        back = end - 1
+        while back > start and end - back <= 3 and (raw[back] & 0b1100_0000) == 0b1000_0000:
+            back -= 1
+        if back >= start and (raw[back] & 0b1100_0000) == 0b1100_0000:
+            lead = raw[back]
+            need = 2 if lead >= 0b1100_0000 else 0
+            if lead >= 0b1110_0000:
+                need = 3
+            if lead >= 0b1111_0000:
+                need = 4
+            if back + need > end:            # sequence incomplete inside this page: trim it
+                end = back
+    chunk = raw[start:end]
     return chunk, {
         "raw_total_bytes": len(raw),
         "raw_offset": start,
