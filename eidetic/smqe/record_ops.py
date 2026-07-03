@@ -2848,6 +2848,25 @@ _EVENT_SYNONYM_FAMILIES: tuple[frozenset[str], ...] = (
 )
 
 
+_ACTIVITY_WH_RE = re.compile(
+    r"\b(?:activity|activities|hobby|hobbies|sport|sports|exercise)\b", re.I)
+# Tight verb-form activity extraction: 'went bowling' / 'go hiking' -> the gerund names the
+# activity; 'played tennis' -> the played object. Anything looser (loves bowling, doesn't
+# like bowling) states preference, not pursuit, and stays out on purpose.
+_ACTIVITY_VERB_RE = re.compile(
+    r"\b(?:went|go|goes|going)\s+([a-z]+ing)\b|"
+    r"\bplay(?:ed|s|ing)?\s+((?!with\b|at\b|in\b|on\b|a\b|the\b)[a-z][a-z-]{2,})\b",
+    re.I,
+)
+
+
+def _activity_phrase_from_atom(atom: str) -> str:
+    m = _ACTIVITY_VERB_RE.search(_strip_role(atom))
+    if not m:
+        return ""
+    return (m.group(1) or m.group(2) or "").lower()
+
+
 def _event_term_hit(term: str, atom_terms: set[str]) -> bool:
     """Direct hit, plural-stripped hit, or same-synonym-family hit."""
     base = term[:-1] if len(term) > 3 and term.endswith("s") else term
@@ -4957,6 +4976,21 @@ def _execute_atoms(plan: ExecutionPlan, query: str,
             return None
     current_value_query = _is_current_value_query(query)
     entity_terms = _subject_entity_terms(query)
+    # Date-anchored ACTIVITY lookup: 'which activity was X pursuing on <day>?' names an
+    # abstract wh-noun ('activity') that the doing-atom never echoes ('yesterday I went
+    # bowling'), so every lexical target gate below starves. The explicit-day window IS the
+    # discriminator here -- membership was proven deterministically -- so a tight verb-form
+    # extractor may answer from any in-window atom. Entity check runs against the record
+    # text: dialog atoms are first-person, the speaker name lives on the turn prefix.
+    if op == "latest_value" and date_anchored_suffix and _ACTIVITY_WH_RE.search(query or ""):
+        for score, item, atom in atoms:
+            if entity_terms and not _entity_hit_count(
+                    entity_terms, getattr(item, "text", "") or _item_match_text(item, atom)):
+                continue
+            value = _activity_phrase_from_atom(atom)
+            if value:
+                return _result(value, plan, backend, [sup(item, atom, score)],
+                               note_suffix=date_anchored_suffix)
     target_terms = _latest_target_terms(query, plan)
     specific_target_terms = target_terms if _latest_specific_answer_needs_target_guard(query) else set()
     group_terms_by_key: dict[str, set[str]] = {}

@@ -4566,3 +4566,38 @@ def test_future_polarity_atom_floors_earlier_derived_dates(tmp_path):
         at=_dt(2023, 11, 1, 12, 0).timestamp(), scope=scope,
     )
     assert ans2 is not None and ("2023-05-28" in ans2.answer or "May 28" in ans2.answer)
+
+
+def test_date_anchored_activity_lookup_reads_verb_form_atoms(tmp_path):
+    """'Which recreational activity was James pursuing on March 16, 2022?' abstained live:
+    the doing-atom ('yesterday I went bowling') never echoes the abstract wh-noun
+    'activity', so every lexical target gate starves. Once the explicit-day window has
+    proven membership deterministically, a tight verb-form extractor (went+gerund /
+    played+object) may answer; preference statements ('I love bowling') stay out."""
+    from datetime import datetime as _dt
+
+    store = RecordStore(tmp_path / "activity-day.sqlite")
+    scope = Scope(namespace="activity-day")
+    rows = [
+        ("James: By the way, yesterday I went bowling and got 2 strikes. John: Nice!",
+         _dt(2022, 3, 17, 12, 0)),
+        ("James: I love bowling! But honestly I don't play often.",
+         _dt(2022, 4, 2, 12, 0)),
+    ]
+    for text, dt in rows:
+        store.upsert_record(_record(text, scope=scope, valid_at=dt.timestamp()))
+
+    ans = structured_answer(
+        _Retriever(store), "Which recreational activity was James pursuing on March 16, 2022?",
+        at=_dt(2022, 5, 1, 12, 0).timestamp(), scope=scope,
+    )
+    assert ans is not None and ans.answer == "bowling"
+    assert ":date_anchored" in ans.note
+    assert "went bowling" in ans.citations[0].snippet
+
+    # without the explicit day there is no window proof -> the extractor must not fire
+    ans2 = structured_answer(
+        _Retriever(store), "Which recreational activity does James pursue?",
+        at=_dt(2022, 5, 1, 12, 0).timestamp(), scope=scope,
+    )
+    assert ans2 is None or ":date_anchored" not in (ans2.note or "")
