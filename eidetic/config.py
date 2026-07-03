@@ -737,6 +737,13 @@ class Settings:
     claim_grounding_early_stop: bool = field(
         default_factory=lambda: _get_bool("CLAIM_GROUNDING_EARLY_STOP", "1")
     )
+    # Plural-enumeration SMQE operator: 'which/what <plural-noun>' questions enumerate distinct
+    # slot values across records (one support per record) instead of shipping a 1-of-N
+    # single-record atom as the verified answer. New answer channel -> default OFF until a
+    # replay + live A/B promotes it.
+    plural_enumeration_enabled: bool = field(
+        default_factory=lambda: _get_bool("PLURAL_ENUMERATION", "0")
+    )
 
     # Prod-only (Alibaba Cloud)
     oss_bucket: str = field(default_factory=lambda: _get("OSS_BUCKET"))

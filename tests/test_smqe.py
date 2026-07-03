@@ -3872,3 +3872,68 @@ def test_smqe_source_has_no_fixed_slice_answer_literals():
 
     for needle in forbidden:
         assert needle not in source
+
+
+def test_plural_enumeration_lists_distinct_values_across_records(tmp_path, fresh_settings, monkeypatch):
+    """'Which countries have I visited?' with three visits in memory must enumerate all three
+    (one support per record), not ship a 1-of-3 single-record atom as the verified answer.
+    Flag-gated: off keeps today's behavior."""
+    from dataclasses import replace as _replace
+
+    from eidetic.config import get_settings as _gs
+
+    store = RecordStore(tmp_path / "plural-enum.sqlite")
+    scope = Scope(namespace="plural-enum")
+    rows = [
+        ("User: I visited Japan in March.", 1_700_000_100),
+        ("User: I visited Peru during the fall harvest.", 1_700_050_000),
+        ("User: Last week I visited Kenya for a safari.", 1_700_090_000),
+    ]
+    for text, t in rows:
+        store.upsert_record(_record(text, scope=scope, valid_at=t))
+
+    # flag OFF: today's behavior (whatever single-support answer the tail produces)
+    off = structured_answer(_Retriever(store), "Which countries have I visited?",
+                            at=1_800_000_000, scope=scope)
+    if off is not None:
+        assert len({c.memory_id for c in off.citations}) <= 1
+
+    # flag ON: enumerate distinct values across records
+    monkeypatch.setenv("PLURAL_ENUMERATION", "1")
+    _gs.cache_clear()
+    try:
+        on = structured_answer(_Retriever(store), "Which countries have I visited?",
+                               at=1_800_000_000, scope=scope)
+        assert on is not None
+        low = on.answer.lower()
+        assert "japan" in low and "peru" in low and "kenya" in low
+        assert on.verified is True
+        assert len({c.memory_id for c in on.citations}) == 3
+    finally:
+        monkeypatch.delenv("PLURAL_ENUMERATION", raising=False)
+        _gs.cache_clear()
+
+
+def test_plural_enumeration_stays_out_of_singular_and_counted_shapes(tmp_path, monkeypatch):
+    from eidetic.config import get_settings as _gs
+
+    store = RecordStore(tmp_path / "plural-enum-neg.sqlite")
+    scope = Scope(namespace="plural-enum-neg")
+    store.upsert_record(_record("User: I visited Japan in March.", scope=scope,
+                                valid_at=1_700_000_100))
+    monkeypatch.setenv("PLURAL_ENUMERATION", "1")
+    _gs.cache_clear()
+    try:
+        # singular s-final noun ("class") must not trigger the enumerator
+        ans = structured_answer(_Retriever(store), "Which class did I enjoy most?",
+                                at=1_800_000_000, scope=scope)
+        if ans is not None:
+            assert "," not in ans.answer
+        # a single distinct value cannot enumerate -> falls through to today's paths
+        one = structured_answer(_Retriever(store), "Which countries have I visited?",
+                                at=1_800_000_000, scope=scope)
+        if one is not None:
+            assert "japan" in one.answer.lower()
+    finally:
+        monkeypatch.delenv("PLURAL_ENUMERATION", raising=False)
+        _gs.cache_clear()

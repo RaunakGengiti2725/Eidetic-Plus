@@ -11,7 +11,9 @@ from eidetic.models import ClaimRecord, ExecutionPlan, MemoryRecord, StructuredA
 from .qa_ops import (
     _action_location_phrase,
     _dialogue_answer_match,
+    _is_plural_enumeration_query,
     _named_recommendation_answer,
+    _plural_enumeration_answer,
     _premise_affinity_answer,
     _proposition_confirmation_answer,
     _verb_base_forms,
@@ -662,6 +664,11 @@ def _answer_value(query: str, atom: str, item: object | None = None) -> str:
     specific = _answer_value_specific(query, atom, item)
     if specific:
         return specific
+    # An enumeration question ('which countries ...') must never be answered by ONE record's
+    # whole atom: a 1-of-N value is not the list. Fail closed to the enumerator or the reader.
+    # (Gated inside the predicate; flag off keeps today's catch-all.)
+    if _is_plural_enumeration_query(query):
+        return ""
     text = _strip_role(atom)
     q = (query or "").lower()
     for pat in (
@@ -4374,6 +4381,9 @@ def _execute_atoms(plan: ExecutionPlan, query: str,
         if answer and selected:
             return result_from(answer, selected, confidence=0.95)
         answer, selected = _proposition_confirmation_answer(query, atoms)
+        if answer and selected:
+            return result_from(answer, selected, confidence=0.9)
+        answer, selected = _plural_enumeration_answer(query, atoms)
         if answer and selected:
             return result_from(answer, selected, confidence=0.9)
         answer, selected = _named_recommendation_answer(query, atoms)

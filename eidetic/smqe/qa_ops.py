@@ -206,6 +206,98 @@ def _proposition_confirmation_answer(query: str, atoms: list[tuple[float, object
     return f"{label} - {ro._clean(ro._strip_role(atom))}", [(score, item, atom)]
 
 
+_PLURAL_WH_RE = re.compile(r"\b(?:which|what)\s+([a-z][a-z'-]{3,})\b", re.I)
+_ENUM_SKIP_RE = re.compile(
+    r"\bhow\s+many\b|\bfirst\b|\blast\b|\bmost\b|\bleast\b|\b\w+est\b|\bnumber\s+of\b",
+    re.I,
+)
+_ENUM_VALUE_STOP_RE = re.compile(
+    r"\s+\b(?:recently|lately|in|on|at|during|before|after|because|while|when|where|"
+    r"which|that|so|this|last|past|next|for|with|and)\b",
+    re.I,
+)
+
+
+def _plural_head_noun(query: str) -> str:
+    """The plural wh-head noun of an enumeration question ('which COUNTRIES have I ...'), or
+    ''. Plurality is morphological (the count key differs from the surface form), which keeps
+    singular s-final nouns ('class', 'bus') out."""
+    m = _PLURAL_WH_RE.search(query or "")
+    if not m:
+        return ""
+    noun = m.group(1).lower()
+    ro = _ro()
+    key = ro._count_term_key(noun)
+    if key == noun or len(key) < 3:
+        return ""
+    return noun
+
+
+def _is_plural_enumeration_query(query: str) -> bool:
+    from eidetic.config import get_settings
+    if not get_settings().plural_enumeration_enabled:
+        return False
+    q = query or ""
+    if _ENUM_SKIP_RE.search(q) or _ADVICE_REQUEST_RE.search(q):
+        return False
+    return bool(_plural_head_noun(q))
+
+
+def _plural_enumeration_answer(query: str, atoms: list[tuple[float, object, str]]) -> tuple[str, list[tuple[float, object, str]]]:
+    """'Which countries have I visited?' -> enumerate DISTINCT slot values across records, one
+    support per contributing record (distinct memory_ids keep the composition verifiable under
+    the witness rule). A 1-of-N single-record atom is never the verified answer to an
+    enumeration question. Fewer than two distinct values -> fall through to today's paths."""
+    if not _is_plural_enumeration_query(query):
+        return "", []
+    ro = _ro()
+    action_terms, _target_terms = ro._count_profile(query)
+    if not action_terms:
+        return "", []
+    variants = sorted((t for t in action_terms if len(t) > 2), key=len, reverse=True)
+    values: list[str] = []
+    selected: list[tuple[float, object, str]] = []
+    seen_values: set[str] = set()
+    seen_records: set[str] = set()
+    for score, item, atom in atoms[:40]:
+        text = ro._strip_role(atom)
+        if not (ro._expanded_terms(text) & action_terms):
+            continue
+        value = ""
+        for variant in variants:
+            m = re.search(
+                rf"\b{re.escape(variant)}\b\s+(?:the\s+|a\s+|an\s+|my\s+|some\s+|new\s+)?([^.;!?]+)",
+                text,
+                re.I,
+            )
+            if not m:
+                continue
+            # The category noun names the TYPE; the value is an INSTANCE, so no
+            # category-term check on the value itself (unlike the count machinery).
+            phrase = _ENUM_VALUE_STOP_RE.split(m.group(1), maxsplit=1)[0]
+            phrase = ro._clean(phrase)
+            if phrase and not phrase.isdigit():
+                value = phrase
+                break
+        if not value:
+            continue
+        key = ro._norm_key(value)
+        rec_key = ro._group_key(item)
+        if not key or key in seen_values or rec_key in seen_records:
+            continue
+        seen_values.add(key)
+        seen_records.add(rec_key)
+        values.append(value)
+        selected.append((score, item, atom))
+        if len(values) >= 8:
+            break
+    if len(values) < 2:
+        return "", []
+    if len(values) == 2:
+        return f"{values[0]} and {values[1]}", selected
+    return ", ".join(values[:-1]) + f", and {values[-1]}", selected
+
+
 _REMIND_NAME_RE = re.compile(
     r"\b(?:remind\s+me|what\s+was\s+the\s+name\s+of|the\s+name\s+of\s+(?:that|the))\b", re.I)
 _NAME_HEAD_RE = re.compile(
