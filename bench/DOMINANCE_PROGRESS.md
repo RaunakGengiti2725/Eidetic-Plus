@@ -1420,3 +1420,18 @@ of the adversarially-confirmed audit plan are implemented (waves I-K), plus defe
 (artifacts/wave_k_writecost_ab_codex: EXTRACT_COMBINED + EXTRACT_RESULT_CACHE +
 ADAPTIVE_CONTEXT on the 20-row slice) - promotion criteria: accuracy holds vs the 15/15/14
 band, write tokens materially down, no extraction-quality regressions in the store.
+
+### Write-cost stack A/B result + instrumentation gap (2026-07-03)
+
+artifacts/wave_k_writecost_ab_codex (EXTRACT_COMBINED + EXTRACT_RESULT_CACHE + ADAPTIVE_CONTEXT):
+accuracy HOLDS (15/20 correct, vc 14 - inside the established +-1-row noise band; median qtok
+4031). Store composition under the combined prompt: claims -8%, edges +20% - a quality shift
+to assess with the claim-coverage sidecar before promotion, not obviously worse.
+
+MEASUREMENT DEFECT EXPOSED (weakness catalog, evaluation-infrastructure class): the harness's
+write_tokens metric counts ingested CONTENT volume (identical 376,300 in both arms), not
+model-call spend - extraction-call halving is invisible to it, and every historical
+write-cost comparison measured a proxy. Counting-mock tests prove the halving (1 call vs 2
+per window); real-dollar write accounting needs API-usage instrumentation in the harness.
+Queued alongside bigger-n gates as the evaluation-infra items. EXTRACT_COMBINED stays
+default-off pending claim-coverage assessment.
