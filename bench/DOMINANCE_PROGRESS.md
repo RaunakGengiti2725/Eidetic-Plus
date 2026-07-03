@@ -1313,3 +1313,21 @@ cheap-wrong-answer class the bar forbids). VERDICT: promotion candidate, default
 until a confirming run (or bigger n) shows the flip is noise. Profile recommendation recorded.
 Cost trajectory vs mem0 (411): 5586 -> 4033 median with verification intact; structured
 coverage growth (28-token rows) remains the second lever.
+
+### Adaptive-context confirming run + Maria determinism fix (2026-07-03)
+
+Confirming A/B (artifacts/wave_i_adaptive_ab2_codex): 14/20 correct all-verified, median qtok
+4031 - the 28% cost cut REPRODUCES exactly; c4_q16 returned to honest abstention (run-1 flip
+confirmed as noise). The one new drop (c2_q0 Maria VC->ab) exposed the deeper defect: the
+executor picks the dinner atom BECAUSE the explicit-date window proved 'last night'+session
+date = May 3 deterministically, then strict-hypothesis NLI was asked to RE-DERIVE that link
+and sometimes declined - pure verification flap on identical inputs. Fixed (eae826b):
+explicit-date-window latest_value answers carry :date_anchored and verify on the verbatim
+anchor + the deterministic date proof; relative windows earn no shortcut. Locked by a
+never-entail retriever test.
+
+VERDICT: ADAPTIVE_CONTEXT recommended for the bench profile (accuracy within +-1-row noise
+across three arms: 15/15/14; cost -28% twice-reproduced; no verified-wrong in any arm).
+Config default stays off until bigger-n evidence. Cross-run accuracy noise (+-1-2 rows at
+n=20) now dominates every remaining delta - the bigger-n/holdout gate need is the top
+evaluation-infrastructure item.
