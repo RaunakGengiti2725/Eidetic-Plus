@@ -4601,3 +4601,36 @@ def test_date_anchored_activity_lookup_reads_verb_form_atoms(tmp_path):
         at=_dt(2022, 5, 1, 12, 0).timestamp(), scope=scope,
     )
     assert ans2 is None or ":date_anchored" not in (ans2.note or "")
+
+
+def test_duration_question_requires_target_named_in_the_duration_atom(tmp_path):
+    """'How long did it take Joanna to finish writing her book?' pulled 'I've had THEM for
+    3 years' (pets) through the pronoun-group anaphora bridge: durations are ubiquitous, so
+    a plural pronoun tied to session-level 'book' terms shipped an unrelated tenure as a
+    writing duration. Duration questions demand the target named in the atom itself, in
+    BOTH the specific and generic lookup loops; with no tied duration atom the op fails
+    closed to the reader."""
+    from datetime import datetime as _dt
+
+    store = RecordStore(tmp_path / "duration-tie.sqlite")
+    scope = Scope(namespace="duration-tie")
+    store.upsert_record(_record(
+        "Nate: I've had them for 3 years now and they bring me tons of joy! "
+        "Joanna: That's lovely. By the way, my book is coming along.",
+        scope=scope, valid_at=_dt(2022, 5, 1, 12, 0).timestamp()))
+
+    ans = structured_answer(
+        _Retriever(store), "How long did it take for Joanna to finish writing her book?",
+        at=_dt(2022, 12, 1, 12, 0).timestamp(), scope=scope,
+    )
+    assert ans is None or "3 years" not in (ans.answer or "")
+
+    # a duration atom that NAMES the target answers normally
+    store.upsert_record(_record(
+        "Joanna: Writing the book took me four months in the end.",
+        scope=scope, valid_at=_dt(2022, 10, 6, 12, 0).timestamp()))
+    ans2 = structured_answer(
+        _Retriever(store), "How long did it take for Joanna to finish writing her book?",
+        at=_dt(2022, 12, 1, 12, 0).timestamp(), scope=scope,
+    )
+    assert ans2 is not None and "four months" in ans2.answer

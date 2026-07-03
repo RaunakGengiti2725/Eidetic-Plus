@@ -5025,7 +5025,14 @@ def _execute_atoms(plan: ExecutionPlan, query: str,
             # number ("Congratulations on your pre-approval") is not a value.
             if scalar_amount_query and not (_MONEY_RE.search(answer) or re.search(r"\d", answer)):
                 continue
-            target_hits = _latest_atom_target_hit(specific_target_terms, _item_match_text(item, atom), group_terms_by_key.get(_group_key(item)))
+            # Duration questions get NO pronoun-group fallback: durations are ubiquitous
+            # ('I've had THEM for 3 years' -- pets) and the anaphora bridge happily ties a
+            # plural pronoun to a singular target discussed elsewhere in the session, which
+            # shipped an unrelated tenure as a book-writing duration. The duration atom must
+            # name the target itself.
+            target_hits = _latest_atom_target_hit(
+                specific_target_terms, _item_match_text(item, atom),
+                None if duration_value_query else group_terms_by_key.get(_group_key(item)))
             if specific_target_terms and target_hits == 0:
                 continue
             specific_hits.append((
@@ -5056,8 +5063,15 @@ def _execute_atoms(plan: ExecutionPlan, query: str,
             continue
         if entity_terms and _entity_hit_count(entity_terms, _item_match_text(item, atom)) == 0:
             continue
-        target_hit = _latest_atom_target_hit(target_terms, atom, group_terms_by_key.get(_group_key(item)))
-        if target_terms and not (target_hit or (isinstance(item, ClaimRecord) and _target_hit_count(group_terms_by_key.get(_group_key(item), set()), target_terms) >= _target_threshold(target_terms))):
+        # Same no-pronoun-bridge rule as the specific loop: a duration atom must name the
+        # target itself ('had THEM for 3 years' must never date a book-writing question).
+        target_hit = _latest_atom_target_hit(
+            target_terms, atom,
+            None if duration_value_query else group_terms_by_key.get(_group_key(item)))
+        if target_terms and not (target_hit or (not duration_value_query
+                and isinstance(item, ClaimRecord)
+                and _target_hit_count(group_terms_by_key.get(_group_key(item), set()),
+                                      target_terms) >= _target_threshold(target_terms))):
             continue
         if re.search(r"\bwhere\b", query or "", re.I):
             continue
@@ -5068,6 +5082,13 @@ def _execute_atoms(plan: ExecutionPlan, query: str,
         else:
             answer = _action_object_phrase(query, atom) or _answer_value(query, atom, item)
         if answer:
+            # 'How long ...' needs a duration-shaped answer here exactly as in the specific
+            # loop above; without the gate this tail shipped an event fragment ('I finished
+            # up my writing for my book') as an elapsed time.
+            if duration_value_query and not (
+                    _DURATION_RE.search(answer)
+                    or re.search(r"\btimes?\s+a\s+(?:day|week|month|year)\b", answer, re.I)):
+                continue
             return _result(answer, plan, backend, [sup(item, atom, score)],
                            note_suffix=date_anchored_suffix)
     return None
