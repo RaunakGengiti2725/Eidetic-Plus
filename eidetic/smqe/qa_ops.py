@@ -117,10 +117,13 @@ _PROP_QUERY_STOP = {
 def _proposition_confirmation_answer(query: str, atoms: list[tuple[float, object, str]]) -> tuple[str, list[tuple[float, object, str]]]:
     """A yes/no question whose proposition a memory literally asserts ('Is my mom using the same
     grocery list method as me?' <- 'my mom is actually using the same grocery list app as me now')
-    answers 'Yes - <premise>' anchored on the asserting atom.
+    answers 'Yes - <premise>' anchored on the asserting atom. A stored NEGATED assertion of the
+    proposition ('I've never been to a jazz festival') is antimemory and answers 'No - <premise>'
+    the same way. When both polarities are asserted (a retraction or a re-assertion), the LATEST
+    assertion wins.
 
-    Positive confirmations only: a negated or absent assertion produces no answer here (the
-    reader keeps polarity judgment), and the embedded premise makes the strict query-aware
+    Absence stays closed: no matching assertion of either polarity produces no answer here (the
+    reader keeps closed-world judgment), and the embedded premise makes the strict query-aware
     verification hypothesis self-evident against the source record."""
     q = query or ""
     if not _YESNO_HEAD_RE.match(q) or " or " in q.lower():
@@ -128,28 +131,79 @@ def _proposition_confirmation_answer(query: str, atoms: list[tuple[float, object
     if _ADVICE_REQUEST_RE.search(q) or _PROP_NEGATION_RE.search(q):
         return "", []
     ro = _ro()
-    prop_terms = {
-        ro._count_term_key(t) for t in ro._query_terms(q)
-        if t not in _PROP_QUERY_STOP and not t.isdigit()
+    # The leading auxiliary is the interrogative marker, not proposition content. Raw morphology
+    # only (_terms): the _query_terms topical packs would inject unrelated expansion words into
+    # the proposition and inflate the coverage requirement.
+    q_body = _YESNO_HEAD_RE.sub("", q, count=1)
+    raw_terms = {
+        t for t in ro._terms(q_body)
+        if len(t) > 2 and t not in _PROP_QUERY_STOP and not t.isdigit()
     }
-    if len(prop_terms) < 3:
+    # One matchable UNIT per content word: morphological duplicates from term expansion
+    # ("taking" also yields "tak") collapse into the unit, and verbs match family-wide
+    # (take/takes/took/taken) so inflection never breaks proposition coverage.
+    units: list[set[str]] = []
+    for term in sorted(raw_terms, key=len, reverse=True):
+        key = ro._count_term_key(term)
+        if any(term in unit or key in unit for unit in units):
+            continue
+        exp = {term, key}
+        for base in _verb_base_forms(term):
+            exp |= ro._verb_variants(base)
+        unit = {ro._count_term_key(x) for x in exp if len(x) > 2}
+        if unit:
+            units.append(unit)
+    if len(units) < 2:
         return "", []
-    required = max(2, (len(prop_terms) + 1) // 2)
-    best: tuple[int, float, object, str] | None = None
+    # A two-unit proposition must hit BOTH units; longer ones must hit at least half.
+    required = max(2, (len(units) + 1) // 2)
+
+    def unit_index(token: str) -> Optional[int]:
+        key = ro._count_term_key(re.sub(r"'s$", "", token))
+        for pos, unit in enumerate(units):
+            if key in unit or token in unit:
+                return pos
+        return None
+
+    # Textually adjacent modifier+head content pairs ("botanical garden"): an atom that matches
+    # the head but not its modifier refers to a DIFFERENT thing ("sculpture garden") and must
+    # not confirm the proposition. Progressive verbs are not modifiers ("taking pottery").
+    token_seq = re.findall(r"[a-z0-9][a-z0-9'-]*", q_body.lower())
+    modifier_pairs: list[tuple[int, int]] = []
+    for tok_a, tok_b in zip(token_seq, token_seq[1:]):
+        if tok_a.endswith("ing"):
+            continue
+        ua, ub = unit_index(tok_a), unit_index(tok_b)
+        if ua is not None and ub is not None and ua != ub:
+            modifier_pairs.append((ua, ub))
+    best: dict[str, tuple[int, float, float, object, str]] = {}
     for score, item, atom in atoms[:30]:
         text = ro._strip_role(atom)
-        if _PROP_NEGATION_RE.search(text):
-            continue
-        atom_keys = {ro._count_term_key(t) for t in ro._expanded_terms(text)}
-        hits = len(prop_terms & atom_keys)
+        # Unit coverage sees the speaker/subject (a question naming the speaker must match the
+        # atom they said); polarity is judged on the stripped assertion text itself.
+        atom_keys = {ro._count_term_key(t)
+                     for t in ro._expanded_terms(ro._item_match_text(item, atom))}
+        matched = {pos for pos, unit in enumerate(units) if unit & atom_keys}
+        hits = len(matched)
         if hits < required:
             continue
-        if best is None or (hits, score) > (best[0], best[1]):
-            best = (hits, score, item, atom)
-    if best is None:
+        if any(head in matched and mod not in matched for mod, head in modifier_pairs):
+            continue
+        polarity = "no" if _PROP_NEGATION_RE.search(text) else "yes"
+        valid_at = float(getattr(item, "valid_at", 0.0) or 0.0)
+        prev = best.get(polarity)
+        if prev is None or (hits, score) > (prev[0], prev[1]):
+            best[polarity] = (hits, score, valid_at, item, atom)
+    if not best:
         return "", []
-    _hits, score, item, atom = best
-    return f"Yes - {ro._clean(ro._strip_role(atom))}", [(score, item, atom)]
+    # Retraction rule: with both polarities asserted, the latest assertion is the current truth.
+    if len(best) == 2:
+        polarity = max(best, key=lambda p: best[p][2])
+    else:
+        polarity = next(iter(best))
+    _hits, score, _valid_at, item, atom = best[polarity]
+    label = "Yes" if polarity == "yes" else "No"
+    return f"{label} - {ro._clean(ro._strip_role(atom))}", [(score, item, atom)]
 
 
 _REMIND_NAME_RE = re.compile(

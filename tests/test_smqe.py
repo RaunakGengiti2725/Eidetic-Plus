@@ -2473,6 +2473,85 @@ def test_structured_answer_yes_no_confirmation_needs_stated_proposition(tmp_path
         assert not ans.answer.lower().startswith("yes")
 
 
+def test_structured_answer_yes_no_negative_assertion_answers_no(tmp_path):
+    """Antimemory: a stored NEGATED assertion of the proposition answers 'No - <premise>'
+    anchored on the negating atom, instead of falling to the reader."""
+    store = RecordStore(tmp_path / "yesno-negative.sqlite")
+    scope = Scope(namespace="yesno-negative")
+    store.upsert_record(_record(
+        "User: I've never been to a jazz festival, honestly.",
+        scope=scope,
+        valid_at=1_700_000_100,
+    ))
+
+    ans = structured_answer(
+        _Retriever(store),
+        "Have I ever been to a jazz festival?",
+        at=1_700_000_900,
+        scope=scope,
+    )
+
+    assert ans is not None
+    assert ans.answer.lower().startswith("no")
+    assert ans.verified is True
+    proof = " ".join(c.snippet for c in ans.citations)
+    assert "jazz festival" in proof
+
+
+def test_structured_answer_yes_no_retraction_latest_assertion_wins(tmp_path):
+    """Retraction: when a proposition is asserted and later negated, the LATEST assertion wins;
+    a later re-assertion flips it back."""
+    store = RecordStore(tmp_path / "yesno-retraction.sqlite")
+    scope = Scope(namespace="yesno-retraction")
+    store.upsert_record(_record(
+        "User: I signed up for weekly pottery lessons at the studio.",
+        scope=scope,
+        valid_at=1_700_000_100,
+    ))
+    store.upsert_record(_record(
+        "User: I dropped the pottery lessons, not doing them anymore.",
+        scope=scope,
+        valid_at=1_700_050_000,
+    ))
+
+    ans = structured_answer(
+        _Retriever(store),
+        "Am I taking pottery lessons?",
+        at=1_700_099_000,
+        scope=scope,
+    )
+
+    assert ans is not None
+    assert ans.answer.lower().startswith("no")
+    proof = " ".join(c.snippet for c in ans.citations)
+    assert "dropped the pottery lessons" in proof
+
+    store2 = RecordStore(tmp_path / "yesno-retraction2.sqlite")
+    scope2 = Scope(namespace="yesno-retraction2")
+    store2.upsert_record(_record(
+        "User: I dropped the pottery lessons, not doing them anymore.",
+        scope=scope2,
+        valid_at=1_700_000_100,
+    ))
+    store2.upsert_record(_record(
+        "User: Good news - I restarted my weekly pottery lessons at the studio.",
+        scope=scope2,
+        valid_at=1_700_050_000,
+    ))
+
+    ans2 = structured_answer(
+        _Retriever(store2),
+        "Am I taking pottery lessons?",
+        at=1_700_099_000,
+        scope=scope2,
+    )
+
+    assert ans2 is not None
+    assert ans2.answer.lower().startswith("yes")
+    proof2 = " ".join(c.snippet for c in ans2.citations)
+    assert "restarted" in proof2
+
+
 def test_structured_answer_latest_value_explicit_date_uses_last_night(tmp_path):
     """A question naming an explicit calendar day must anchor on the atom datable to that day:
     'last night' said in a May 4 session resolves to May 3, while undatable or other-day
