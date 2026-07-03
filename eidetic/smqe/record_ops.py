@@ -702,9 +702,9 @@ def _relative_date_from_atom(rec: object, atom: str, query: str = "") -> str:
         if unit.startswith("year"):
             shifted = _shift_months(ref, 12 * n)
             return str(shifted.year) if re.search(r"\byear\b", q) else shifted.isoformat()
-    if re.search(r"\btoday\b|\bthis\s+(?:morning|afternoon|evening|weekend)\b", low):
+    if re.search(r"\btoday\b|\btonight\b|\bthis\s+(?:morning|afternoon|evening|weekend)\b", low):
         return ref.isoformat()
-    if "yesterday" in low:
+    if "yesterday" in low or re.search(r"\blast\s+night\b", low):
         return (ref - timedelta(days=1)).isoformat()
     if "tomorrow" in low:
         return (ref + timedelta(days=1)).isoformat()
@@ -778,7 +778,12 @@ def _query_temporal_windows(plan: ExecutionPlan) -> list[tuple[date, date]]:
         if not isinstance(item, dict):
             continue
         expr = re.sub(r"\s+", " ", str(item.get("expr") or "").strip().lower())
-        if not _QUERY_WINDOW_EXPR_RE.search(expr):
+        # Two window shapes are trusted: relative-window phrases ("past few months") and
+        # explicit calendar dates ("May 3, 2023"). An explicit date names the day the answer
+        # must be datable to; anything longer than a month stays advisory-only because parse
+        # spans get unreliable there.
+        explicit = bool(_DATE_RE.search(expr))
+        if not explicit and not _QUERY_WINDOW_EXPR_RE.search(expr):
             continue
         try:
             start = datetime.fromisoformat(str(item.get("start"))).date()
@@ -786,6 +791,8 @@ def _query_temporal_windows(plan: ExecutionPlan) -> list[tuple[date, date]]:
         except ValueError:
             continue
         lo, hi = (start, end) if start <= end else (end, start)
+        if explicit and (hi - lo).days > 31:
+            continue
         windows.append((lo, hi))
     return windows
 

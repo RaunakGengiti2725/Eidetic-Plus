@@ -2420,6 +2420,64 @@ def test_structured_answer_randomized_temporal_delta_single_anchor_distractors(t
         assert decoy_action not in proof
 
 
+def test_structured_answer_latest_value_explicit_date_uses_last_night(tmp_path):
+    """A question naming an explicit calendar day must anchor on the atom datable to that day:
+    'last night' said in a May 4 session resolves to May 3, while undatable or other-day
+    chatter is filtered out instead of feeding the slot extractor."""
+    store = RecordStore(tmp_path / "explicit-date-last-night.sqlite")
+    scope = Scope(namespace="explicit-date-last-night")
+    store.upsert_record(_record(
+        "Rhea: My mom and I made some dinner together last night!",
+        scope=scope,
+        valid_at=datetime(2023, 5, 4, 22, 0).timestamp(),
+    ))
+    store.upsert_record(_record(
+        "Rhea: When I was younger, my family and I went on a road trip to Halden.",
+        scope=scope,
+        valid_at=datetime(2023, 6, 12, 9, 0).timestamp(),
+    ))
+    store.upsert_record(_record(
+        "Rhea: I'm off to have dinner with some friends from the gym.",
+        scope=scope,
+        valid_at=datetime(2023, 7, 8, 18, 0).timestamp(),
+    ))
+
+    ans = structured_answer(
+        _Retriever(store),
+        "Who did Rhea have dinner with on May 3, 2023?",
+        at=datetime(2023, 8, 16, 12, 0).timestamp(),
+        scope=scope,
+    )
+
+    assert ans is not None
+    assert "mom" in ans.answer.lower()
+    proof = " ".join(c.snippet for c in ans.citations)
+    assert "dinner together last night" in proof
+    assert "road trip" not in proof
+    assert "friends from the gym" not in proof
+
+
+def test_structured_answer_latest_value_explicit_date_no_match_abstains(tmp_path):
+    """An explicit-date question with no atom datable to that day must abstain, not answer
+    from an atom on a different day."""
+    store = RecordStore(tmp_path / "explicit-date-no-match.sqlite")
+    scope = Scope(namespace="explicit-date-no-match")
+    store.upsert_record(_record(
+        "Rhea: I'm off to have dinner with some friends from the gym.",
+        scope=scope,
+        valid_at=datetime(2023, 7, 8, 18, 0).timestamp(),
+    ))
+
+    ans = structured_answer(
+        _Retriever(store),
+        "Who did Rhea have dinner with on May 3, 2023?",
+        at=datetime(2023, 8, 16, 12, 0).timestamp(),
+        scope=scope,
+    )
+
+    assert ans is None
+
+
 def test_structured_answer_latest_value_matches_named_subject(tmp_path):
     store = RecordStore(tmp_path / "latest-subject-distractor.sqlite")
     scope = Scope(namespace="latest-subject-distractor")
