@@ -1242,3 +1242,20 @@ Miss taxonomy (7) -> fixes landed the same morning:
   an inference ('likely no more than 30').
 
 Suite 1266 green. Rescue-layer parity fix (686fc30) applies to all future runs.
+
+### H2H miss ledger - final adjudication (2026-07-03)
+
+- c3_q8, c4_q11: verified-wrong -> FIXED live-replay-proven (4275bbf, b722f6f).
+- c3_q1, c4_q74: partial lists -> PLURAL_ENUMERATION promotion evaluation (next loop).
+- c4_q16 ('after how many weeks did Tim reconnect'): composable as a repeat-event delta
+  (earliest vs re-occurrence of the same anchor family, 'last week' offset on the earlier
+  mention), but the arithmetic lands 3.4-4.4 weeks against gold 'three weeks' - judge-risky;
+  parked with the analysis rather than tuned toward the gold.
+- c6_q17 (gold 'Mafia'): the name NEVER appears in the conversation - the gold requires reader
+  world knowledge. Abstention is the epistemically correct output for a never-confabulate
+  memory system; not a defect. Same class: c7_q36 (age inference).
+
+Loop status: every weakness surfaced by tonight's three benchmark surfaces (mixed-24 full,
+five-role, h2h-20) is fixed, queued with a concrete plan, or adjudicated honest-behavior-vs-
+gold-artifact. Standing targets: mem0 read-cost parity (reflex/semantic-cache promotion path),
+list completeness promotion, EXTRACT_COMBINED, verify LRU, record_ops shrink, bigger-n gates.
