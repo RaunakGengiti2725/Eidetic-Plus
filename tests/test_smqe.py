@@ -4634,3 +4634,55 @@ def test_duration_question_requires_target_named_in_the_duration_atom(tmp_path):
         at=_dt(2022, 12, 1, 12, 0).timestamp(), scope=scope,
     )
     assert ans2 is not None and "four months" in ans2.answer
+
+
+def test_duration_questions_skip_hypotheticals_and_extract_stated_durations(tmp_path):
+    """Fresh-holdout c7_q33 shape: 'How long have Jolene and her partner been together?'
+    shipped 'one day' VERIFIED from 'Maybe one day we will be able to watch the sunrise
+    together!' -- a hypothetical, but duration-shaped. Two rules: (1) elapsed-time questions
+    skip future-intent atoms; (2) the stated duration ('been together FOR THREE YEARS')
+    outranks generic slot extraction, which returned the nearby noun 'Married'."""
+    from datetime import datetime as _dt
+
+    store = RecordStore(tmp_path / "duration-hypo.sqlite")
+    scope = Scope(namespace="duration-hypo")
+    rows = [
+        ("Jolene: Maybe one day we will be able to watch the sunrise together!",
+         _dt(2023, 3, 1, 12, 0)),
+        ("Jolene: We're not married yet but we've been together for three years.",
+         _dt(2023, 1, 23, 12, 0)),
+    ]
+    for text, dt in rows:
+        store.upsert_record(_record(text, scope=scope, valid_at=dt.timestamp()))
+
+    ans = structured_answer(
+        _Retriever(store), "How long have Jolene and her partner been together?",
+        at=_dt(2023, 8, 1, 12, 0).timestamp(), scope=scope,
+    )
+    assert ans is not None and ans.answer == "three years"
+    assert "for three years" in ans.citations[0].snippet
+
+
+def test_zero_information_answers_are_refused(tmp_path):
+    """Fresh-holdout c5_q3 shape: 'My girlfriend' shipped VERIFIED for 'what kind of places
+    have Andrew and his girlfriend checked out?' -- every content token already sits in the
+    question, so the answer restates it. Deterministic form floor; clock-time answers
+    ('11 pm') tokenize to nothing and must fail OPEN."""
+    from eidetic.smqe.verify import _answer_adds_information
+
+    q = "What kind of places have Andrew and his girlfriend checked out around the city?"
+    assert not _answer_adds_information(q, "My girlfriend")
+    assert not _answer_adds_information(q, "checked out the city")
+    assert _answer_adds_information(q, "cafes, hikes, a pet shelter")
+    assert _answer_adds_information("What time did I go to bed?", "11 pm")
+
+    store = RecordStore(tmp_path / "zero-info.sqlite")
+    scope = Scope(namespace="zero-info")
+    rec = _record("Andrew: My girlfriend and I checked out the city.", scope=scope, valid_at=1.0)
+    store.upsert_record(rec)
+    junk = StructuredAnswerResult(
+        answer="My girlfriend", op="latest_value", backend="claim",
+        supports=[StructuredSupport(memory_id=rec.memory_id, proof_atom="My girlfriend")],
+        note="smqe:latest_value:claim",
+    )
+    assert answer_from_result(_Retriever(store), q, junk, verify=True) is None

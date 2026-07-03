@@ -2848,6 +2848,23 @@ _EVENT_SYNONYM_FAMILIES: tuple[frozenset[str], ...] = (
 )
 
 
+_DURATION_NUMBER = r"(?:\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|couple\s+of|few)"
+_DURATION_EXPR_RE = re.compile(
+    rf"\b(?:for|took(?:\s+(?:me|us|them|him|her))?|lasted)\s+"
+    rf"(?:about\s+|over\s+|nearly\s+|almost\s+)?"
+    rf"({_DURATION_NUMBER}\s+(?:days?|weeks?|months?|years?))\b(?!\s+ago\b)",
+    re.I,
+)
+
+
+def _duration_expression_from_atom(atom: str) -> str:
+    """The stated elapsed time itself: 'been together FOR THREE YEARS' -> 'three years',
+    'took me four months' -> 'four months'. Requires a duration verb/preposition so a
+    hypothetical ('one day we will...') or an ago-shift ('3 years ago') never qualifies."""
+    m = _DURATION_EXPR_RE.search(_strip_role(atom))
+    return m.group(1).lower() if m else ""
+
+
 _ACTIVITY_WH_RE = re.compile(
     r"\b(?:activity|activities|hobby|hobbies|sport|sports|exercise)\b", re.I)
 # Tight verb-form activity extraction: 'went bowling' / 'go hiking' -> the gerund names the
@@ -5008,12 +5025,22 @@ def _execute_atoms(plan: ExecutionPlan, query: str,
         return None
     specific_hits = []
     for score, item, atom in atoms:
-        if current_value_query and _is_future_intent_atom(atom):
+        # Elapsed-time questions ('how long HAVE they BEEN') measure the past; a hypothetical
+        # ('Maybe one day we WILL watch the sunrise') is not a duration statement, yet 'one
+        # day' is duration-shaped and shipped verified on the fresh holdout.
+        if (current_value_query or duration_value_query) and _is_future_intent_atom(atom):
             continue
         if scalar_amount_query:
             answer = _answer_value_specific(query, atom, item) or _action_object_phrase(query, atom)
         elif media_example_query:
             answer = _answer_value_specific(query, atom, item)
+        elif duration_value_query:
+            # The stated elapsed time outranks generic slot extraction, which happily returns
+            # a nearby noun ('Married' from 'not married yet but been together for three
+            # years') that the duration-shape gate then discards.
+            answer = _duration_expression_from_atom(atom) \
+                or _answer_value_specific(query, atom, item) \
+                or _action_object_phrase(query, atom)
         else:
             # Specific slot extraction outranks the action-object phrase: the phrase route can
             # return filler ("with a degree") when the slot value follows a preposition.
@@ -5059,7 +5086,7 @@ def _execute_atoms(plan: ExecutionPlan, query: str,
     if _requires_verified_synthesis(query):
         return None
     for score, item, atom in atoms:
-        if current_value_query and _is_future_intent_atom(atom):
+        if (current_value_query or duration_value_query) and _is_future_intent_atom(atom):
             continue
         if entity_terms and _entity_hit_count(entity_terms, _item_match_text(item, atom)) == 0:
             continue

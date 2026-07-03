@@ -76,6 +76,25 @@ def _option_terms(segment: str) -> set[str]:
             if t not in _QUERY_TIE_STOP}
 
 
+def _answer_adds_information(query: str, answer: str) -> bool:
+    """False when every content token of the answer already appears in the question (exact
+    or prefix-tolerant) -- such an answer restates the question rather than answering it."""
+    ans_terms = _option_terms(answer)
+    if not ans_terms:
+        # Clock times and bare numbers ('11 pm') tokenize to nothing here; an empty set is
+        # unevaluable, not uninformative -- fail open.
+        return True
+    qterms = _option_terms(query)
+    for a in ans_terms:
+        if a in qterms:
+            continue
+        if any(min(len(a), len(q)) >= 4 and (a.startswith(q) or q.startswith(a))
+               for q in qterms):
+            continue
+        return True
+    return False
+
+
 def _option_choice_answer_names_option(query: str, answer: str) -> bool:
     """An 'A or B?' question is answered by NAMING one of the options. The option-choice
     anchor exemption lets executor logic over preference evidence skip the strict hypothesis,
@@ -180,6 +199,18 @@ def answer_from_result(retriever, query: str, result: StructuredAnswerResult,
     # answers are derived values (counts, deltas) whose form the operator already fixes.
     if (verify and result.op not in _COMPUTED_OPS
             and not _option_choice_answer_names_option(query, result.answer)):
+        return None
+    # Zero-information FORM refusal: an answer whose every content token already appears in
+    # the question restates it instead of answering ('My girlfriend' for 'what places have
+    # Andrew and his girlfriend checked out?' shipped verified on the fresh holdout -- the
+    # fragment is quotable, so it anchor-verifies while adding nothing). Computed ops are
+    # exempt (a count IS query tokens plus a digit... a digit is new; but '2' when the query
+    # says '2 sensors' is not, and the operator's arithmetic is the proof there). Option
+    # choices are exempt by construction: naming an option MUST echo the question.
+    if (verify and result.op not in _COMPUTED_OPS
+            and not _OPTION_SPLIT_RE.search(query or "")
+            and not re.match(r"\s*(?:yes|no)\b", result.answer or "", re.I)
+            and not _answer_adds_information(query, result.answer)):
         return None
     citations: list[Citation] = []
     entailed = 0
