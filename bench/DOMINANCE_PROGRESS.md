@@ -1601,3 +1601,28 @@ ABSTENTION_V2 precedence preserved. Suite 1286.
   FORM-refused; c9_q12 residual (2023-05-15 vs 'last week of May'); c4_q16 delta fails
   closed (reader off-by-one remains); recall-gap abstentions (c3_q14, c6_q17, c6_q1,
   c6_q33, c7_q36) are the enumerator/retrieval frontier.
+
+### Wave M (2026-07-03): rotation slice 1 RAN -- the fresh slice did its job
+Release-grade holdout h2h on never-touched test-split slice (epoch 0, window 0, digest
+d96875..), holdout profile, unpromoted flags OFF. EIDETIC: 23/40 (57%), 34 verified,
+6 abstained, 11 VERIFIED-AND-WRONG, temporal 2/8, median 5,344 qtok. mem0 phase still
+running. The 11 verified-wrong rows are exactly what rotation exists to surface -- dev
+had been scrubbed clean of the classes we knew about; the fresh slice found seven new
+ones. Same-day kills (all on-store exact-gold or fail-closed proofs, all general
+mechanisms, offline):
+- hypothetical durations ('Maybe one day we WILL...' shipped 'one day' for how-long) +
+  missing stated-duration extractor ('been together FOR THREE YEARS' now wins) (4e1a10096)
+- zero-information echoes ('My girlfriend') -- verify-layer form floor, prefix-tolerant,
+  clock-times fail open (4e1a10096)
+- bare day-of-month ('bought it ON THE 17TH' -> 2023-08-17 exact gold) (c02da86de)
+- ordinal kth events ('his THIRD tourney') -- explicit anchors or bounded interpolation
+  between (k-1)th/(k+1)th, else fail closed; answered exact gold week (6fc16a081)
+- favorite-category agreement ('favorite FOOD' vs beach-sunsets favorites atom) --
+  domain-family gate + preference-object extraction -> 'ginger snaps' exact (c6694aee5)
+- duration-tie (wave-J c3_q43, caught pre-run): no pronoun-group bridge for how-long
+  (0cc5968b7); future-polarity floor kills pic-vs-show Tokyo class (ce5fd07d4);
+  date-anchored activity lookup answers 'bowling' exact (3de4673f3)
+Still open from r1: c4_q22 sequence-anchored temporal ('after returning from Chicago'),
+c7_q68 capture gap (zero Brazil atoms in store -- extraction frontier), c4_q88
+introduced-to gold-preference ambiguity. NOTE: r1 ran pre-fix code by construction
+(frozen process); rotation slice 2 measures the fixes honestly.
