@@ -1035,13 +1035,17 @@ def _elapsed_value(days: int, unit: str, *, with_unit: bool = False) -> str:
 
 
 def _count_answer(atom: str) -> str:
-    m = re.search(r"\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|\d+)\b", atom, re.I)
+    # Calendar dates, clock times, race times, money, and bare years are quotable NUMBERS that
+    # are never CARDINALITIES; masking them first keeps a verified-wrong count ("2023" dentist
+    # visits, "10" from 10:45, "30" from $30) impossible by construction.
+    masked = atom or ""
+    for pat in (_DATE_RE, _RACE_TIME_RE, _CLOCK_TIME_RE, _MONEY_RE):
+        masked = pat.sub(" ", masked)
+    masked = re.sub(r"\b(?:19|20)\d{2}\b", " ", masked)
+    m = re.search(r"\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|once|twice|\d+)\b", masked, re.I)
     if not m:
         return ""
-    raw = m.group(1).lower()
-    if raw.isdigit():
-        return raw
-    return raw
+    return m.group(1).lower()
 
 
 _COUNT_QUERY_STOP = {

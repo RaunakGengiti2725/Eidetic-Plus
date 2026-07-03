@@ -2420,6 +2420,19 @@ def test_structured_answer_randomized_temporal_delta_single_anchor_distractors(t
         assert decoy_action not in proof
 
 
+def test_count_answer_never_reads_calendar_clock_or_money_tokens():
+    """A count extractor that returns a year, clock time, or price as a cardinality is a
+    verified-wrong machine: the atom is quotable so the wrong number verifies."""
+    from eidetic.smqe.record_ops import _count_answer
+
+    assert _count_answer("I visited the dentist twice in 2023.") == "twice"
+    assert _count_answer("In 2023 I visited the museum with my cousin.") == ""
+    assert _count_answer("The race finished at 10:45 after two laps.") == "two"
+    assert _count_answer("I paid $30 for three tickets.") == "three"
+    assert _count_answer("On March 3, 2024 we planted trees.") == ""
+    assert _count_answer("I own 12 paintbrushes.") == "12"
+
+
 def test_structured_answer_yes_no_proposition_confirmation(tmp_path):
     """A yes/no question whose proposition is literally stated in memory answers
     'Yes - <premise>' anchored on the stating atom, instead of failing to the reader."""
