@@ -153,6 +153,21 @@ class EideticSystem(MemorySystem):
         # Async build: parallel fact extraction, bi-temporal graph, events, date normalization,
         # typed preferences. score_importance=False (importance isn't in the ranking path).
         scope = Scope(namespace=namespace)
+        # Real model-spend accounting: the write_tokens column counts ingested CONTENT volume,
+        # not model calls - extraction savings were invisible to it. The API's own usage
+        # numbers, deltaed around consolidation, land in the report (stored per row under
+        # extra['consolidate']) so write-cost claims measure dollars-shaped tokens.
+        _usage_before = None
+        _snap = getattr(self.engine.client, "usage_snapshot", None)
+        if callable(_snap):
+            _usage_before = _snap()
+
+        def _with_usage(report: dict) -> dict:
+            if _usage_before is not None:
+                delta_fn = getattr(self.engine.client, "usage_delta", None)
+                if callable(delta_fn):
+                    report["model_usage"] = delta_fn(_usage_before, _snap())
+            return report
         # FULL_SLEEP=1: consolidate_pending + dream (replay + inferred links + multi-resolution
         # gist), so the dream/gist channels have output to read. This is exactly the default build
         # PLUS the DREAM_AB hook -- a true superset, and token-free (score_importance=False keeps
@@ -161,7 +176,7 @@ class EideticSystem(MemorySystem):
         if _truthy("FULL_SLEEP"):
             pending = self.engine.consolidate_pending(scope=scope, score_importance=False)
             dream = self.engine.dream(scope=scope)
-            return {"consolidate_pending": pending, "dream": dream}
+            return _with_usage({"consolidate_pending": pending, "dream": dream})
         pending = self.engine.consolidate_pending(scope=scope, score_importance=False)
         out = {"consolidate_pending": pending}
         # Dreaming-engine A/B hook (token-free): set DREAM_AB=1 to run one idle consolidation
@@ -169,7 +184,7 @@ class EideticSystem(MemorySystem):
         # layer can be measured dream-on vs dream-off against the scoreboard. Off by default.
         if _truthy("DREAM_AB"):
             out["dream"] = self.engine.dream(scope=scope)
-        return out
+        return _with_usage(out)
 
     def answer(self, namespace: str, question: str,
                as_of: Optional[float] = None) -> AnswerResult:
@@ -267,6 +282,8 @@ class EideticFullSystem(EideticSystem):
         # abstention + proof -- is then layered on THAT answer (the honesty differentiator), not on
         # a stronger private reader. (engine.ask()'s own reader/cascade is a separate latency/quality
         # feature, deliberately kept OUT of the neutral accuracy comparison.)
+        _q_snap = getattr(r.client, "usage_snapshot", None)
+        _q_before = _q_snap() if callable(_q_snap) else None
         text = answer_with_fixed_reader(question, blocks)
         declined = bool(_DECLINE_RE.search(text or ""))
         citations, entailed = r._verify_candidates(cands, text, True, query=question, at=as_of)
@@ -300,6 +317,9 @@ class EideticFullSystem(EideticSystem):
                    "entailed_raw_uris": _entailed_raw_uris(citations),
                    "proof_surface_tokens": _proof_surface_tokens(citations),
                    "policy": "fixed-reader + verify+abstain+proof",
+                   **({"model_usage": r.client.usage_delta(_q_before, _q_snap())}
+                      if _q_before is not None and callable(getattr(r.client, "usage_delta", None))
+                      else {}),
                    **_region_context_extra(r, question)},
         )
 

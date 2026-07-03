@@ -403,3 +403,31 @@ def test_verify_citation_lru_memoizes_successful_verdicts(fresh_settings, monkey
     r_off.verify_citation(rec, "the fern is watered weekly")
     r_off.verify_citation(rec, "the fern is watered weekly")
     assert calls["n"] == 2
+
+
+def test_usage_counters_accumulate_real_api_spend(fresh_settings, monkeypatch):
+    """Model-spend accounting: chat responses' own usage numbers accumulate; snapshot/delta
+    expose dollars-shaped tokens (the write_tokens column only ever counted content volume)."""
+    c = DashScopeClient(fresh_settings)
+
+    class _Usage:
+        input_tokens = 120
+        output_tokens = 30
+
+    class _Resp:
+        status_code = 200
+        usage = _Usage()
+        output = {"choices": [{"message": {"content": "ok"}}]}
+
+    class _Gen:
+        @staticmethod
+        def call(**kw):
+            return _Resp()
+
+    monkeypatch.setattr(c, "_require_key", lambda: None)
+    monkeypatch.setattr(c, "_ds", type("DS", (), {"Generation": _Gen}))
+    before = c.usage_snapshot()
+    c.chat("m", "sys", "user")
+    c.chat("m", "sys", "user")
+    delta = c.usage_delta(before, c.usage_snapshot())
+    assert delta == {"input_tokens": 240, "output_tokens": 60, "calls": 2}

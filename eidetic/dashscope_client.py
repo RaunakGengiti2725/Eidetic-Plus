@@ -388,6 +388,8 @@ class DashScopeClient:
                          self.settings.dashscope_backoff_max,
                          self.settings.dashscope_slot_timeout_sec)
             if self.settings.dashscope_govern_enabled else None)
+        self._usage_lock = threading.Lock()
+        self._usage = {"input_tokens": 0, "output_tokens": 0, "calls": 0}
         # S4 persistent embedding cache (keyed by model+dim+hash). Construction is offline-safe.
         if self.settings.embed_cache_enabled:
             from .embed_cache import PersistentEmbedCache
@@ -460,15 +462,45 @@ class DashScopeClient:
             raise ModelCallError(f"DashScope call failed (HTTP {code}): {msg}")
         return resp
 
+    # ---- real model-spend accounting ---------------------------------------
+    # The benchmark's write_tokens column counts ingested CONTENT volume, not model spend -
+    # extraction-call savings were invisible to it. These counters accumulate the API's own
+    # usage numbers so cost claims measure dollars-shaped tokens, not proxies.
+    def _track_usage(self, resp: Any) -> Any:
+        usage = getattr(resp, "usage", None)
+        if usage is not None:
+            def _u(key: str) -> int:
+                v = getattr(usage, key, None)
+                if v is None and hasattr(usage, "get"):
+                    v = usage.get(key)
+                try:
+                    return int(v or 0)
+                except (TypeError, ValueError):
+                    return 0
+            with self._usage_lock:
+                self._usage["input_tokens"] += _u("input_tokens")
+                self._usage["output_tokens"] += _u("output_tokens")
+                self._usage["calls"] += 1
+        return resp
+
+    def usage_snapshot(self) -> dict:
+        with self._usage_lock:
+            return dict(self._usage)
+
+    @staticmethod
+    def usage_delta(before: dict, after: dict) -> dict:
+        return {k: int(after.get(k, 0)) - int(before.get(k, 0))
+                for k in ("input_tokens", "output_tokens", "calls")}
+
     # ---- embeddings -------------------------------------------------------
     def _embed_batch_call(self, batch: list[str]) -> list[list[float]]:
-        resp = self._governed(lambda b=batch: self._ok(self._ds.TextEmbedding.call(
+        resp = self._track_usage(self._governed(lambda b=batch: self._ok(self._ds.TextEmbedding.call(
             model=self.settings.text_embed_model,
             input=b,
             dimension=self.settings.embed_dim,
             request_timeout=self.settings.dashscope_request_timeout_sec,
             timeout=self.settings.dashscope_request_timeout_sec,
-        )))
+        ))))
         embs = sorted(resp.output["embeddings"], key=lambda e: e.get("text_index", 0))
         return [e["embedding"] for e in embs]
 
@@ -570,7 +602,8 @@ class DashScopeClient:
             timeout=self.settings.dashscope_request_timeout_sec,
         )
         _ = json_mode  # accepted for API symmetry; parsing is prompt-driven
-        resp = self._governed(lambda: self._ok(self._ds.Generation.call(**kwargs)))
+        resp = self._track_usage(
+            self._governed(lambda: self._ok(self._ds.Generation.call(**kwargs))))
         return resp.output["choices"][0]["message"]["content"].strip()
 
     def chat_json(self, model: str, system: str, user: str, **kw) -> Any:
