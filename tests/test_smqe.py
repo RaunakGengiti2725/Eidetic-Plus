@@ -4151,3 +4151,53 @@ def test_date_anchored_latest_value_verifies_on_the_anchor(tmp_path):
     assert "mom" in ans.answer.lower()
     assert ans.verified is True
     assert ":date_anchored" in ans.note
+
+
+def test_assembled_enumerations_never_verify_on_anchors_alone(tmp_path):
+    """A comma-assembled list from a non-computed op is the one derived shape whose anchors
+    prove nothing: every fragment is quotable, so junk lists ('Good, Ok, You Get') shipped
+    verified at n=40. Such answers must survive the strict query-aware hypothesis."""
+    from eidetic.models import NLILabel
+
+    class _NeverEntail(_Retriever):
+        def verify(self, premise, hypothesis):
+            return (NLILabel.NEUTRAL, 0.2)
+
+        def verify_citation(self, rec, hypothesis):
+            return (NLILabel.NEUTRAL, 0.2)
+
+    store = RecordStore(tmp_path / "enum-verify.sqlite")
+    scope = Scope(namespace="enum-verify")
+    a = _record("User: You're doing great, keep it up!", scope=scope, valid_at=1.0)
+    b = _record("User: Ok, sounds good to me.", scope=scope, valid_at=2.0)
+    store.upsert_record(a)
+    store.upsert_record(b)
+    result = StructuredAnswerResult(
+        answer="Good, Great Job, Ok, You Get",
+        op="open_inference",
+        backend="claim",
+        supports=[
+            StructuredSupport(memory_id=a.memory_id, proof_atom="doing great"),
+            StructuredSupport(memory_id=b.memory_id, proof_atom="Ok"),
+        ],
+        note="smqe:open_inference:claim",
+    )
+
+    ans = answer_from_result(
+        _NeverEntail(store),
+        "What outdoor activities has the user done other than hiking?",
+        result, verify=True,
+    )
+    assert ans is None                    # strict hypothesis failed -> no verified junk list
+
+    # computed enumerations (event_order timelines) keep their anchor exemption
+    result2 = StructuredAnswerResult(
+        answer="[2023-02-05] prepared the nursery; [2023-02-10] baby shower, gifts, and cake",
+        op="event_order",
+        backend="claim",
+        supports=[StructuredSupport(memory_id=a.memory_id, proof_atom="doing great")],
+        note="smqe:event_order:claim",
+    )
+    # anchor path: proof atom is verbatim in the record
+    a2 = answer_from_result(_NeverEntail(store), "Which happened first?", result2, verify=True)
+    assert a2 is not None and a2.verified is True

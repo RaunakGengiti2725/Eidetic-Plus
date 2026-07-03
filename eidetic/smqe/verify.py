@@ -51,11 +51,49 @@ def _query_tie_hits(query: str, atom: str) -> int:
     return hits
 
 
+_ENUMERATED_ANSWER_RE = re.compile(r"^[^.;!?]{0,120},\s[^.;!?]{1,120},\s")
+_ENUM_ITEM_JUNK = {
+    "awesome", "cool", "definitely", "fine", "good", "great", "great job", "nice", "no",
+    "ok", "okay", "really", "similarly", "sure", "thank you", "thanks", "well", "wow", "yes",
+}
+_ENUM_ITEM_HEAD_STOP = {
+    "at", "he", "her", "his", "i", "in", "it", "my", "on", "our", "she", "that", "their",
+    "they", "this", "we", "you", "your",
+}
+
+
+def _enumeration_items_credible(answer: str) -> bool:
+    """Every comma item of an assembled list must be a short content noun phrase.
+
+    Conversational filler is quotable, so a junk list ('Good, Ok, You Get') anchor-verifies
+    while answering nothing - that exact shape shipped verified-wrong at n=40. Interjections,
+    pronoun/preposition heads, and sub-4-char fragments disqualify the WHOLE enumeration from
+    the anchor exemption (it must then survive the strict query-aware hypothesis)."""
+    payload = re.sub(r"^[^,:;]{0,80}:\s*", "", answer or "")   # drop a "Header: " prefix
+    items = [i.strip() for i in re.split(r",\s*(?:and\s+)?", payload) if i.strip()]
+    if len(items) < 2:
+        return True
+    for item in items:
+        words = item.split()
+        low = item.lower()
+        if len(item) < 4 or len(words) > 6:
+            return False
+        if low in _ENUM_ITEM_JUNK or words[0].lower() in _ENUM_ITEM_HEAD_STOP:
+            return False
+    return True
+
+
 def _atom_anchor_allowed(query: str, result: StructuredAnswerResult) -> bool:
     """Anchor-level verification is the honest standard when the answer is DERIVED rather than
     quoted: multi-support composition (joins/orderings), computed operators (arithmetic over
     anchors), and option choices (executor logic over preference evidence). Everything else must
     survive the strict query-aware hypothesis."""
+    # An ASSEMBLED ENUMERATION from a non-computed op earns the anchor exemption only when
+    # every item is a credible content phrase; fragment lists must face the strict hypothesis.
+    if (_ENUMERATED_ANSWER_RE.match(result.answer or "")
+            and result.op not in _COMPUTED_OPS
+            and not _enumeration_items_credible(result.answer)):
+        return False
     if len(result.supports) > 1:
         # Witness rule: INDEPENDENT witnesses (distinct records) earn the exemption outright.
         # Two quotable atoms from the SAME record are one source wearing two hats; they keep the
