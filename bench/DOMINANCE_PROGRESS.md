@@ -1009,3 +1009,37 @@ honesty: record_ops shrink via tier-1 claims (4671 lines, no dead symbols - need
 with live validation), phase primitive (liquid->crystal->procedural needs claim-confirmation
 plumbing through engine.ask reconsolidation), query fossil, proof currency, closed-world absence
 answers.
+
+---
+
+## Wave H - 2026-07-02 evening: MCP/product surface hardening (code-only)
+
+Multi-agent audit (8 dimensions launched; 7 quota-killed, mcp-product finder completed with 6
+findings, each re-verified by hand before landing). Commits 56ebe95..9551f25:
+
+- **Bitemporal parity across transports**: MCP `remember` gains `valid_at` (event-time
+  backdating) + `source`; `recall`/`truth_ledger` gain `as_of`; HTTP `AskIn` gains `as_of`.
+  Previously every MCP-written memory was stamped world-valid at ingest time (wrong validity
+  windows for imported history) and NO external host could ask the verified time-travel
+  question at all.
+- **Thread-local trace bug** (/api/ask?prove=true): ask and prove ran in two threadpool
+  dispatches; under concurrency the second lands on another worker and silently drops recall
+  paths from the proof. Same-closure fix (the truth_ledger route already documented the rule).
+- **get_raw UTF-8 paging**: byte slices that split a multibyte character flipped whole pages
+  to base64 (~33%+ token inflation, unreadable); now trims to character boundaries with
+  adjusted offsets, fuzz-tested to zero undecodable pages with exact reassembly.
+- **remember_file**: multimodal write parity (base64 + filename -> ingest_bytes) so MCP hosts
+  can store PDFs/screenshots/documents losslessly, not just text.
+- **Event-loop freeze**: all 27 MCP tools ran inline on the asyncio loop; one model-backed
+  call froze every session in shared HTTP mode. All tools now offload to worker threads
+  (_threaded_tool); engine publishes the completed recall trace under a lock so cross-thread
+  introspection (recall_trace) stays correct.
+- **Answer-path index save gating**: ask() saved the full vector index (O(corpus) disk write
+  under the write lock) on every confirmed answer even when nothing mutated; now only when
+  inline re-embeds applied. Latency stops growing with corpus size on the answer path.
+- Server instructions now teach hosts the verify-or-abstain + bitemporal contract per tool.
+
+Suite 1232 green. Triage note: active_claims_at load measured at ~10ms per 2.5k claims on the
+wave-F store - not a bottleneck vs model calls; left alone. Remaining audit dimensions
+(read/write token cost, recall gaps, verified-wrong hunt, latency, flag hygiene, architecture
+leverage) queued for the next agent-budget window.
