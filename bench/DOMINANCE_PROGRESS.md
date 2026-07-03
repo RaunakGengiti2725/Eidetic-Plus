@@ -1043,3 +1043,39 @@ Suite 1232 green. Triage note: active_claims_at load measured at ~10ms per 2.5k 
 wave-F store - not a bottleneck vs model calls; left alone. Remaining audit dimensions
 (read/write token cost, recall gaps, verified-wrong hunt, latency, flag hygiene, architecture
 leverage) queued for the next agent-budget window.
+
+---
+
+## Wave I - 2026-07-02 late: audit-driven integrity + token-cost units (code-only)
+
+Full 8-dimension multi-agent audit completed after quota reset: 45 findings, 42 adversarially
+confirmed, synthesized into a 12-unit ranked plan (integrity > accuracy > tokens > product >
+latency). Units landed so far (each TDD, suite green, wave-F replay checked where SMQE-touching):
+
+1. `_count_answer` masks dates/clock/race times/money/bare years before reading a cardinality
+   (verified-wrong: '2023' dentist visits, '10' from 10:45, '\$30'->'30' - all reproduced then
+   killed). Replay byte-identical.
+2. who/which-person superlatives name the clause SUBJECT (kin-phrase/capitalized-subject/
+   possessive extraction; leading time adverbials stripped; weekday/month rejected; fail closed
+   on first-person atoms). 'Wednesday (9 miles)' as the friend - reproduced then killed.
+   After-text temporal labels reserved for time-word wh-heads. Replay byte-identical.
+3. recall_trace scope-keyed (bounded LRU per scope; MCP + HTTP take scope params): traces no
+   longer leak query text/memory ids across namespaces.
+5. CLAIM_EXTRACTION=0 stops PAYING for claim extraction (calls fired, results discarded -
+   ~half of extraction spend in every flag-off config; ablation cost accounting now honest).
+6. Sub-claim grounding early-stop (_claim_grounded): CoVe/span demotion loops stop at the
+   first grounding source (free proofs first, whole-answer-entailed-first order); a demotion
+   still consults the full set. Kill-switch CLAIM_GROUNDING_EARLY_STOP.
+7. FAST_VERIFY semantics under BATCH_NLI: cap-sized wave 1, full-set escalation on zero
+   entailment or any contradiction. The shipping profile (both flags on) stops paying
+   full-width NLI per answer.
+12. Affect/importance dedup: the importance flash call the affect scorer fully overwrote is
+   skipped (three-path equivalence tested); SLEEP_SCORE_IMPORTANCE flag (default = today).
+
+Suite 1246 green. Pending from the plan: unit 4 (plural-enumeration operator, flag-off),
+units 8-11 (combined extraction call, extraction-result cache, verify LRU, rerank spans - all
+flag-gated default-off), deferred backlog 13-19 (repair tool exposure, /api/truth_ledger
+as_of, prove citation refs, /api/memories paging, ingest_many exposure after dedup fix,
+assemble_context scan hoist, line-aligned chunker). Rejected findings documented with
+refutations in the audit output (notably: two cache proposals rejected as verified-wrong
+channels - stale-truth revalidation and plan-keyed SMQE caching).
