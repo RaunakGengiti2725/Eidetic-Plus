@@ -1390,3 +1390,22 @@ Suite 1272 green; dialogue/paraphrase/lacuna/fullpath sidecars pass post-change.
   integrity) does not make them produce good answers. That shrink is the top structural item,
   with EXTRACT_COMBINED / verify LRU / cost-flag promotions behind it, and bigger-n/holdout
   gates the standing evaluation need.
+
+### Wave K - shadow-decline + verify LRU (2026-07-03)
+
+- Non-credible enumerations DECLINE at dispatch (fbbb2d8): claim-pass junk that verification
+  would kill was shadowing legit record-backend answers behind it (the executor takes the
+  first backend's result). Junk lists are now dead at BOTH the dispatch seam and the verify
+  layer via one shared credible-items rule; the H2H-40 junk rows produce legit-or-None at
+  execute layer. Locked by a shadow test (junk claims must not stop the record backend from
+  answering).
+- VERIFY_NLI_CACHE (8b2f3a9, default off): bounded LRU over successful NLI verdicts
+  (premise-hash + normalized hypothesis + model); the claim backend's double-verify per ask
+  and repeated questions stop re-paying temp-0 verdicts. Off = byte-identical; promotion
+  needs an A/B because a flaked verdict sticks for the cache lifetime.
+
+Suite 1275 green. Queue: record_ops collector REWRITE (junk factories double-contained but
+still emitting; tier-1-claims replacement remains the structural fix), EXTRACT_COMBINED,
+cost-flag promotion runs (ADAPTIVE_CONTEXT profile flip, RERANK_SPAN_INPUT, EXTRACT_RESULT_CACHE,
+VERIFY_NLI_CACHE), Tokyo cross-sentence association, reader partial lists, bigger-n/holdout
+gates.
