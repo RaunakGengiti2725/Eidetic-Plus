@@ -959,3 +959,28 @@ guarded action-list SMQE path. It passes focused synthetic coverage and leakage 
 dev replay remains at **9/20 structured rows** because the live dev action-list evidence is sparse;
 the path correctly fails closed instead of emitting incomplete single-item lists. The ablation
 failure above is therefore still current.
+
+---
+
+## Wave G - 2026-07-02 Mixed-24 Miss Surgery (code-only, offline-verified)
+
+All six wave-F full-role misses were root-caused by replaying the questions against the
+run's own persisted store (`dev_ablation_mixed24_wave_f/data_full`, no API calls, no re-ingest)
+and fixed on general grounds. Commits 31d04d1, fc6a18b, 72a1f1f, c40a161, 9f1958a, 5a7c69c.
+
+| Row (category) | Live failure | Root cause | Fix |
+|---|---|---|---|
+| temporal-reasoning "days ago" | **verified-wrong `0`** | fail-open tail computed a delta between two arbitrary dated atoms; literal anchor matching missed the acquisition-family paraphrase; true anchor sat below the 20-atom scan window | tail deleted (fail closed); family-aware `_temporal_anchor_hit_score`; 200-atom gated scan |
+| single-hop "what kind of X did Y's team..." | **verified-wrong** cheer quoted as answer | `_is_affiliation_query` fired on any what-question CONTAINING an affiliation noun | noun must be the wh-target or the query must carry a join/sign/accept action |
+| temporal "who ... on <date>" | abstain (SMQE produced nonsense; verify killed it) | explicit calendar dates never used as atom filters; "last night" undatable | explicit-date windows, opt-in for the latest_value consumer only; "last night"/"tonight" event dating |
+| knowledge-update yes/no | abstain | no operator for a yes/no question whose proposition memory literally asserts | `_proposition_confirmation_answer` ("Yes - <premise>", positive-only, negation-guarded) |
+| single-session-preference | abstain (entail=0 by construction) | fresh suggestions are never whole-answer entailed | sentence-level advice grounding on the entailed context restatement; contradiction kills the rescue |
+| temporal-reasoning ordering | judge fail on format | identical ordering passed/failed judge depending on date-anchored vs question-echo surface | reader instruction: chronological + per-event source dates for order-shaped questions |
+
+Integrity evidence (offline replay of all 24 rows, pre vs post): exactly the four broken
+SMQE rows differ - `0`->`10`, cheer->fail-closed, `Oregon`->`My mom`, None->`Yes - <premise>` -
+and the eighteen correct rows are byte-identical. One regression caught and fixed during the
+sweep (explicit windows leaking into the list consumer; now opt-in per consumer).
+
+No live accuracy claims: these are code-level results against the wave-F store; the next
+governed run owns the numbers. Suite 1216 green. `record_ops.py` net line count DOWN vs wave F.
