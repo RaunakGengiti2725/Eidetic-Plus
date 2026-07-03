@@ -183,3 +183,61 @@ def test_likely_inference_answer_grounds_on_premise_restatement(fresh_settings):
     assert not ans.note.startswith("abstained")
     assert ans.verified is True
     assert any(c.nli_label == NLILabel.ENTAILMENT for c in ans.citations)
+
+
+def test_rescue_grounds_sentence_of_verbatim_quotes_across_records(fresh_settings):
+    """A synthesis sentence that cites MULTIPLE verbatim quoted spans from different records
+    ('mentions 'the trail club', 'old friends', ...') never single-record-entails - but the
+    quotes ARE anchors. When every quoted span is found verbatim in some candidate, the
+    sentence is grounded extractively, no model call."""
+    import hashlib
+    import re as _re
+
+    import numpy as np
+
+    from eidetic.engine import Engine
+    from eidetic.models import NLILabel, Scope
+
+    class _QuoteClient:
+        def __init__(self, dim):
+            self.dim = dim
+
+        def _e(self, t):
+            v = np.zeros(self.dim, np.float32)
+            for tok in _re.findall(r"[a-z0-9]+", (t or "").lower()):
+                v[int(hashlib.md5(tok.encode()).hexdigest(), 16) % self.dim] += 1.0
+            n = np.linalg.norm(v)
+            return v / n if n > 0 else v
+
+        def embed_text(self, t):
+            return self._e(t)
+
+        def embed_texts(self, ts):
+            return (np.stack([self._e(t) for t in ts])
+                    if ts else np.zeros((0, self.dim), np.float32))
+
+        def extract_edges(self, text):
+            return []
+
+        def generate_answer(self, q, blocks, model=None):
+            return ("Likely yes. Rowan mentions hiking with 'colleagues from the trail club' "
+                    "and grabbing lunch with 'friends from the chess league' regularly.")
+
+        def nli(self, premise, hypothesis):
+            return ("neutral", 0.2)            # NLI never fires: grounding must be extractive
+
+    from dataclasses import replace as _replace
+    s = _replace(fresh_settings, rerank_enabled=False)
+    e = Engine(s, client=_QuoteClient(s.embed_dim))
+    ns = Scope(namespace="quote-ground")
+    e.ingest_text("User: Rowan went hiking with colleagues from the trail club again.",
+                  scope=ns, consolidate_now=False)
+    e.ingest_text("User: Rowan grabbed lunch with friends from the chess league.",
+                  scope=ns, consolidate_now=False)
+    e.consolidate_pending(scope=ns, score_importance=False)
+
+    ans = e.ask("Is it likely that Rowan has friends besides his sister?", scope=ns)
+
+    assert not ans.note.startswith("abstained")
+    assert ans.verified is True
+    assert any(c.nli_label == NLILabel.ENTAILMENT for c in ans.citations)

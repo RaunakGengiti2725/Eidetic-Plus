@@ -4679,6 +4679,42 @@ class Retriever:
                 return True
         return False
 
+    def _quoted_span_anchors(self, candidates: list[RetrievalCandidate],
+                             sentence: str) -> Optional[tuple[list["Citation"], int]]:
+        """Extractive grounding for a sentence built from verbatim QUOTED spans.
+
+        Returns (citations, entailed_count) when the sentence carries at least two quoted
+        spans (>=8 chars each) and EVERY span appears verbatim (whitespace/case-normalized) in
+        some candidate's source text; None otherwise. The quotes are the anchors: each cited
+        record carries its own quoted span as the snippet."""
+        spans = [s.strip() for s in re.findall(r"['\"‘’“”]([^'\"‘’“”]{8,120})['\"‘’“”]", sentence)]
+        spans = [s for s in spans if len(s) >= 8]
+        if len(spans) < 2:
+            return None
+        citations: list[Citation] = []
+        seen: set[str] = set()
+        for span in spans:
+            norm = re.sub(r"\s+", " ", span.lower())
+            hit = None
+            for c in candidates:
+                premise = re.sub(r"\s+", " ", (self._ground_truth(c.record) or "").lower())
+                if norm in premise:
+                    hit = c.record
+                    break
+            if hit is None:
+                return None                      # one unfound quote fails the whole sentence
+            if hit.memory_id in seen:
+                continue
+            seen.add(hit.memory_id)
+            citations.append(Citation(
+                memory_id=hit.memory_id, content_hash=hit.content_hash,
+                raw_uri=hit.raw_uri, source=hit.source, valid_at=hit.valid_at,
+                snippet=span[:500], nli_label=NLILabel.ENTAILMENT, nli_score=1.0,
+            ))
+        if not citations:
+            return None
+        return citations, len(citations)
+
     def _abstention_confidence(self, candidates: list[RetrievalCandidate],
                                citations: list[Citation]) -> tuple[float, dict]:
         """Blend the four abstention signals into a confidence score (Phase 2). Two are structural
@@ -4812,6 +4848,15 @@ class Retriever:
             rescue: Optional[tuple[list[Citation], int]] = None
             rescue_contradicted = False
             for cl in sentence_claims:
+                # A synthesis sentence citing MULTIPLE verbatim quoted spans from different
+                # records never single-record-entails, but the quotes ARE anchors: when every
+                # quoted span is found verbatim in some candidate, the sentence is grounded
+                # extractively across those records - deterministic, zero model calls.
+                if rescue is None:
+                    quoted = self._quoted_span_anchors(candidates, cl)
+                    if quoted is not None:
+                        rescue = quoted
+                        continue
                 cl_citations, cl_entailed = self._verify_candidates(
                     candidates, cl, True, query=query, at=at)
                 if any(c.nli_label == NLILabel.CONTRADICTION for c in cl_citations):
