@@ -1555,3 +1555,34 @@ paging all exercised. Residual: no external-user feedback loop; /api/memories pa
 Standing queue by leverage: reader partial-lists -> reflex abstention pre-gate -> enumerator
 coverage on cleaned claims (fresh-ingest measurement) -> legacy deletion wave -> promotion
 A/Bs w/ spend metric -> bigger-n/holdout gates -> Tokyo cross-sentence -> deferred 13/15/16.
+
+### Catalog addendum: RELIABILITY (the missing seventh dimension)
+
+Shipped and test-backed:
+- Concurrency: F0 wave fixed a REAL corruption bug; test_concurrency.py exercises
+  concurrent ingest+search+save on one Engine, lock-free quantized-index search during
+  adds (no OOB), thread-local recall traces. Per-namespace turn locks make
+  decay+inject+spread atomic; engine write-phase applies index/store/graph mutations
+  under one write lock.
+- Durability: sqlite WAL everywhere (store, extract cache); vector index saves via
+  temp-file + os.replace (atomic on POSIX -- a crash mid-save leaves the old snapshot,
+  never a torn file); substrate same pattern.
+- Fault tolerance at the model boundary: typed retry ladder (429/backoff with
+  Retry-After, transient 5xx/TLS-blip retry, quota-exhaustion fails LOUD and is never
+  retried, 4xx deterministic fail-fast, content-moderation skip without swallowing real
+  errors); extraction JSON truncation salvage (complete objects recovered from a
+  mid-array cut); extract-cache never caches errors.
+- Harness: per-question resilience + transport retry (a poisoned question no longer
+  kills a run); manifest env replication for exact reproduction.
+
+Residual (honest): no crash-recovery test for sqlite mid-transaction (WAL mitigates,
+untested); MCP server restart/reconnect behavior unexercised; no soak/load test at
+sustained concurrent QPS; retry ladder unit-tested but never fault-injected end-to-end;
+single-host assumption throughout (no replication story).
+
+### Latency item CLOSED (flag-off): FAST_ABSTAIN pre-reader gate (9f75a368)
+Hopeless-coverage abstentions (structured declined + dense coverage < 0.25 floor,
+strictly under the 0.4 threshold) now answer in-process instead of paying context
+assembly + a 5-7s reader call the coverage gate discards anyway. Trade: forfeits the
+rare NLI rescue of a low-coverage draft -- default OFF, promotion needs A/B at n>=40.
+ABSTENTION_V2 precedence preserved. Suite 1286.
