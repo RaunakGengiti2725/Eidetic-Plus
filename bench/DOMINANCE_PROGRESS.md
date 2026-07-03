@@ -1639,3 +1639,20 @@ introduced-to gold-preference ambiguity. NOTE: r1 ran pre-fix code by constructi
   c7_q107 amulet oblique association -- ActivationField/graph frontier), capture gap x1
   (c7_q68 Brazil never extracted), gold-preference ambiguity x2 (c4_q88, c4_q16-style
   arithmetic), retrieval-synonym gap x1 (study<->class, queued).
+
+### Rotation slice 1 FINAL (h2h, release-grade, pre-fix frozen code)
+| | correct | verified | abstained | qtok med |
+|---|---|---|---|---|
+| eidetic-plus-full | 23/40 (57%) | 34 | 6 | 5,344 |
+| mem0 | 22/40 (55%) | 0 | 0 | 383 |
+
+McNemar n.s. in every category (n=40 too small for CI-clear wins). HONEST reading: a
+statistical TIE on raw accuracy against mem0 on never-touched data, with the entire
+eidetic margin in INTEGRITY (34 verified answers + 6 honest abstentions vs zero
+verification) and the entire mem0 margin in COST (14x cheaper reads; ADAPTIVE_CONTEXT
+was off per holdout discipline -- its -28% is still promotion-pending). Temporal is the
+shared disaster (2/8 vs 1/8) and is exactly where today's nine kills concentrate
+(bare-day, ordinal-kth, future-floor, durations x3, date-anchored activity). Slice 1 ran
+pre-fix code by construction; ROTATION SLICE 2 (fresh never-touched window, current
+build) is the honest measurement of whether the mechanisms generalize. No dominance
+claim from this run.
