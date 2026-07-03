@@ -1471,8 +1471,12 @@ class Engine:
             if rec.text.strip():
                 try:
                     bounded = getattr(self.client, "extract_edges_bounded", None)
-                    claim_bounded = getattr(self.client, "extract_claims_bounded", None)
-                    claim_extract = getattr(self.client, "extract_claims", None)
+                    # CLAIM_EXTRACTION gates the CALLS, not just the write: with the flag off,
+                    # claims_for_record below never runs, so paying the claim-extraction model
+                    # calls here would buy nothing (roughly half of extraction spend discarded).
+                    claims_on = self.settings.claim_extraction_enabled
+                    claim_bounded = getattr(self.client, "extract_claims_bounded", None) if claims_on else None
+                    claim_extract = getattr(self.client, "extract_claims", None) if claims_on else None
                     allow = window_allowance.get(rec.memory_id, 0)
                     if allow <= 0:
                         triples = []

@@ -96,3 +96,51 @@ def test_affect_salience_off_skips_affect_call(fresh_settings):
     rec = eng.store.active_records_at(2_000_000_000, scope)[0]
     assert eng.client.affect_calls == 0
     assert "arousal" not in rec.metadata
+
+
+def test_claim_extraction_flag_off_makes_no_claim_calls(fresh_settings):
+    """CLAIM_EXTRACTION=0 must not PAY for claim extraction: the calls fired anyway and the
+    results were discarded at the write - half the extraction spend bought nothing, and
+    ablation cost accounting lied about what the flag saves."""
+    eng = _engine(fresh_settings, claim_extraction_enabled=False)
+    calls = {"claims": 0, "edges": 0}
+    client = eng.client
+
+    def counting_claims(text):
+        calls["claims"] += 1
+        return []
+
+    def counting_claims_bounded(text, *, max_windows=0):
+        calls["claims"] += 1
+        return []
+
+    def counting_edges(text):
+        calls["edges"] += 1
+        return []
+
+    def counting_edges_bounded(text, *, max_windows=0):
+        calls["edges"] += 1
+        return []
+
+    client.extract_claims = counting_claims
+    client.extract_claims_bounded = counting_claims_bounded
+    client.extract_edges = counting_edges
+    client.extract_edges_bounded = counting_edges_bounded
+
+    scope = Scope(namespace="claims-cost-off")
+    eng.ingest_text("user: I adopted a corgi named Biscuit last spring.",
+                    source="s0", scope=scope, consolidate_now=False)
+    eng.consolidate_pending(scope=scope, score_importance=False)
+    assert calls["claims"] == 0            # flag off -> zero claim-extraction spend
+    assert calls["edges"] >= 1             # edge extraction unaffected
+
+    eng2 = _engine(fresh_settings, claim_extraction_enabled=True)
+    calls2 = {"claims": 0}
+    eng2.client.extract_claims = lambda text: (calls2.__setitem__("claims", calls2["claims"] + 1) or [])
+    eng2.client.extract_claims_bounded = (
+        lambda text, *, max_windows=0: (calls2.__setitem__("claims", calls2["claims"] + 1) or []))
+    scope2 = Scope(namespace="claims-cost-on")
+    eng2.ingest_text("user: I adopted a corgi named Biscuit last spring.",
+                     source="s0", scope=scope2, consolidate_now=False)
+    eng2.consolidate_pending(scope=scope2, score_importance=False)
+    assert calls2["claims"] >= 1           # flag on -> claim extraction still runs
