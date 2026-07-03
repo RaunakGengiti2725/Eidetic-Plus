@@ -579,11 +579,14 @@ def memory_autopsy(question: str, namespace: Optional[str] = None, agent_id: Opt
 
 
 @_threaded_tool
-def recall_trace() -> dict:
-    """The RecallTrace from the most recent traced recall: which channels fired, their weights,
-    fused scores, and stage latency. Returns {} unless RECALL_TRACE is enabled. Read-only, no key.
-    This is the 'why did recall find/miss that?' introspection surface."""
-    t = engine().recall_trace()
+def recall_trace(namespace: Optional[str] = None, agent_id: Optional[str] = None,
+                 project_id: Optional[str] = None) -> dict:
+    """The RecallTrace from the most recent traced recall IN THIS SCOPE: which channels fired,
+    their weights, fused scores, and stage latency. Returns {} unless RECALL_TRACE is enabled or
+    no traced recall has run in the scope. Scope-filtered like every tool - another namespace's
+    trace (its query text and memory ids) is never visible. Read-only, no key. This is the 'why
+    did recall find/miss that?' introspection surface."""
+    t = engine().recall_trace(scope=_scope(namespace, agent_id, project_id))
     return t.model_dump() if t is not None else {}
 
 

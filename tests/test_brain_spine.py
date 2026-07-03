@@ -224,6 +224,12 @@ def test_recall_trace_visible_across_threads_after_ask(fresh_settings, tmp_path)
     t.start()
     t.join()
 
-    trace = e.recall_trace()               # main thread: worker's thread-local is invisible
+    trace = e.recall_trace(scope=scope)    # main thread: worker's thread-local is invisible
     assert trace is not None
     assert "berry" in trace.query
+
+    # scope isolation: another namespace must never see this trace (query text + memory ids
+    # would otherwise leak across the namespace boundary)
+    assert e.recall_trace(scope=Scope(namespace="other")) is None
+    # no-arg call resolves the DEFAULT scope, not "whatever ask ran last"
+    assert e.recall_trace() is None

@@ -13,7 +13,7 @@ import re
 import tempfile
 import threading
 import time
-from collections import deque
+from collections import OrderedDict, deque
 from pathlib import Path
 from typing import Optional
 
@@ -71,9 +71,11 @@ class Engine:
         # drained on the idle/sleep cadence (the embed runs OFF the write lock).
         self._reembed_queue: set[str] = set()
         self._reembed_lock = threading.Lock()
-        # Last COMPLETED traced ask, published for cross-thread introspection surfaces; the
-        # retriever's thread-local remains the in-flight isolation mechanism.
-        self._last_completed_trace: Optional[RecallTrace] = None
+        # Last COMPLETED traced ask PER SCOPE, published for cross-thread introspection
+        # surfaces; the retriever's thread-local remains the in-flight isolation mechanism.
+        # Scope-keyed and bounded: a global "last trace" would leak query text + memory ids
+        # across the namespace boundary the whole product guarantees.
+        self._trace_snapshots: "OrderedDict[str, RecallTrace]" = OrderedDict()
         self._trace_snapshot_lock = threading.Lock()
         self._ingest_since_save = 0          # S2 debounced-save counter (guarded by the write lock)
         self.substrate = make_substrate(self.settings)
@@ -1129,13 +1131,16 @@ class Engine:
             self.cache.put(sk, query, qvec, ans, version=cache_ver)
         # Publish the completed trace for cross-thread introspection (MCP recall_trace,
         # /api/recall_trace run on their own worker threads and cannot see this thread's
-        # thread-local). Written once per completed ask under a lock; in-flight concurrent asks
-        # still isolate via the retriever's thread-local, so no mid-flight clobbering.
+        # thread-local). Scope-keyed + bounded; written once per completed ask under a lock.
+        # In-flight concurrent asks still isolate via the retriever's thread-local.
         if self.settings.recall_trace_enabled:
             completed = self.retriever.last_trace
             if completed is not None:
                 with self._trace_snapshot_lock:
-                    self._last_completed_trace = completed
+                    self._trace_snapshots[sk] = completed
+                    self._trace_snapshots.move_to_end(sk)
+                    while len(self._trace_snapshots) > 128:
+                        self._trace_snapshots.popitem(last=False)
         return ans
 
     def link_coactivated(
@@ -2253,16 +2258,20 @@ class Engine:
         trace = self.retriever.last_trace if with_paths else None
         return prove_answer(answer, trace)
 
-    def recall_trace(self) -> Optional[RecallTrace]:
-        """The RecallTrace from the most recent traced retrieve (None unless RECALL_TRACE is on).
-        Explains why the last read found/missed what it did. Prefers the calling thread's own
-        trace (same-thread flows keep exact semantics); falls back to the last COMPLETED ask's
-        published snapshot so introspection surfaces on other worker threads still see it."""
+    def recall_trace(self, *, scope: Optional[Scope] = None) -> Optional[RecallTrace]:
+        """The RecallTrace from the most recent traced recall IN THE GIVEN SCOPE (None unless
+        RECALL_TRACE is on; default scope when omitted). Explains why the last read
+        found/missed what it did. Prefers the calling thread's own trace when it belongs to
+        the requested scope (same-thread flows keep exact semantics); otherwise serves the
+        scope's last COMPLETED published snapshot. Never returns another scope's trace -
+        query text and memory ids stay inside the namespace boundary."""
+        scope = scope or Scope()
+        sk = scope.key()
         own = self.retriever.last_trace
-        if own is not None:
+        if own is not None and own.scope.key() == sk:
             return own
         with self._trace_snapshot_lock:
-            return self._last_completed_trace
+            return self._trace_snapshots.get(sk)
 
     @staticmethod
     def _claim_status(answer) -> str:

@@ -458,10 +458,13 @@ async def memory_autopsy(question: str, namespace: str = "default",
 
 
 @app.get("/api/recall_trace")
-async def recall_trace():
-    """The most recent RecallTrace (why the last recall found/missed what it did). {} unless
-    RECALL_TRACE is enabled. Mirrors the MCP `recall_trace` tool. Read-only, no key."""
-    t = await run_in_threadpool(engine().recall_trace)
+async def recall_trace(namespace: str = "default", agent_id: Optional[str] = None,
+                       project_id: Optional[str] = None):
+    """The most recent RecallTrace IN THIS SCOPE (why the last recall found/missed what it
+    did). {} unless RECALL_TRACE is enabled. Scope-filtered - another namespace's trace is
+    never visible. Mirrors the MCP `recall_trace` tool. Read-only, no key."""
+    scope = _scope(namespace, agent_id, project_id)
+    t = await run_in_threadpool(lambda: engine().recall_trace(scope=scope))
     return t.model_dump() if t is not None else {}
 
 
