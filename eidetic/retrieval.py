@@ -15,12 +15,14 @@ depend on a memory's age. That is what the signature flat curve proves.
 """
 from __future__ import annotations
 
+import hashlib
 import logging
 import os
 import re
 import tempfile
 import threading
 import time
+from collections import OrderedDict
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Optional
@@ -3207,6 +3209,10 @@ class Retriever:
         self.client = client
         self.settings = settings or get_settings()
         self.bm25 = PersistentBM25(self.settings.index_dir / "bm25_index.json")
+        # Bounded LRU over successful NLI verdicts (VERIFY_NLI_CACHE, default off): the SMQE
+        # claim backend can verify the identical (premise, hypothesis) pair twice per ask.
+        self._nli_memo: "OrderedDict[tuple, tuple]" = OrderedDict()
+        self._nli_memo_lock = threading.Lock()
         # Connected Brain Loop: the last RecallTrace, populated only when RECALL_TRACE is on.
         # Observation-only side channel -- never read by ranking. THREAD-LOCAL so concurrent asks
         # never read each other's trace (last_trace was last-writer-wins shared state). Direct
@@ -4444,8 +4450,27 @@ class Retriever:
 
     # ---- verification -----------------------------------------------------
     def verify(self, premise: str, hypothesis: str) -> tuple[NLILabel, float]:
+        if not self.settings.verify_nli_cache_enabled:
+            label, conf = self.client.nli(premise, hypothesis)
+            return NLILabel(label), conf
+        # Keyed by premise HASH (premises can be large raw spans), the normalized hypothesis,
+        # and the verify model; only successful verdicts memoize (an exception never caches).
+        norm_h = re.sub(r"\s+", " ", (hypothesis or "").lower()).strip()
+        key = (hashlib.sha256((premise or "").encode()).hexdigest(), norm_h,
+               self.settings.verify_model)
+        with self._nli_memo_lock:
+            hit = self._nli_memo.get(key)
+            if hit is not None:
+                self._nli_memo.move_to_end(key)
+                return hit
         label, conf = self.client.nli(premise, hypothesis)
-        return NLILabel(label), conf
+        out = (NLILabel(label), conf)
+        with self._nli_memo_lock:
+            self._nli_memo[key] = out
+            self._nli_memo.move_to_end(key)
+            while len(self._nli_memo) > max(16, int(self.settings.verify_nli_cache_size)):
+                self._nli_memo.popitem(last=False)
+        return out
 
     def _bounded_proof_premise(self, rec: MemoryRecord, hypothesis: str) -> str:
         """Premise for model NLI after local extractive proof fails.

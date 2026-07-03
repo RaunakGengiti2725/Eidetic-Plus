@@ -767,6 +767,17 @@ class Settings:
     adaptive_context_floor: float = field(
         default_factory=lambda: float(_get("ADAPTIVE_CONTEXT_FLOOR", "0.45"))
     )
+    # Bounded in-process LRU over successful NLI verdicts, keyed by (premise-hash,
+    # normalized hypothesis, model). The SMQE claim backend can execute-and-verify the same
+    # pair twice per ask; a temp-0 verdict is deterministic modulo flakes, and only successes
+    # memoize. Default OFF (changes retry semantics: a flaked verdict sticks for the cache
+    # lifetime).
+    verify_nli_cache_enabled: bool = field(
+        default_factory=lambda: _get_bool("VERIFY_NLI_CACHE", "0")
+    )
+    verify_nli_cache_size: int = field(
+        default_factory=lambda: _get_int("VERIFY_NLI_CACHE_SIZE", 2048)
+    )
 
     # Prod-only (Alibaba Cloud)
     oss_bucket: str = field(default_factory=lambda: _get("OSS_BUCKET"))

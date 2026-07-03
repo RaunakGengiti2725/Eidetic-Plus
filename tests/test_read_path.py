@@ -365,3 +365,41 @@ def test_adaptive_context_scales_budget_with_difficulty(fresh_settings, monkeypa
     r2 = build(s_off)
     r2.assemble_context(easy_q, [], at=2.0, scope=_Scope(namespace="ac"))
     assert captured["budget"] == 8000
+
+
+def test_verify_citation_lru_memoizes_successful_verdicts(fresh_settings, monkeypatch):
+    """VERIFY_NLI_CACHE: an identical (premise, hypothesis, model) NLI pair costs one client
+    call; only successful verdicts memoize; flag off is byte-identical (every call paid)."""
+    from dataclasses import replace as _replace
+
+    calls = {"n": 0}
+
+    class _NliClient:
+        def nli(self, premise, hypothesis):
+            calls["n"] += 1
+            return ("entailment", 0.9)
+
+    def build(enabled):
+        s = _replace(fresh_settings, verify_nli_cache_enabled=enabled)
+        store = RecordStore(s.sqlite_path)
+        r = Retriever(store, object(), KnowledgeGraph(store), _FakeSub(), _NliClient(), s)
+        return r
+
+    rec = MemoryRecord(memory_id="m1", content_hash="h1",
+                       text="The fern needs weekly watering in summer.",
+                       scope=Scope(), valid_at=1.0)
+
+    r = build(True)
+    calls["n"] = 0
+    r.verify_citation(rec, "the fern is watered weekly")
+    r.verify_citation(rec, "the fern is watered weekly")
+    r.verify_citation(rec, "THE FERN   is watered weekly")   # whitespace/case-normalized hit
+    assert calls["n"] == 1
+    r.verify_citation(rec, "the cactus is watered weekly")   # different hypothesis -> miss
+    assert calls["n"] == 2
+
+    r_off = build(False)
+    calls["n"] = 0
+    r_off.verify_citation(rec, "the fern is watered weekly")
+    r_off.verify_citation(rec, "the fern is watered weekly")
+    assert calls["n"] == 2
