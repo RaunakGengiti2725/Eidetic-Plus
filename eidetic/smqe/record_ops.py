@@ -375,8 +375,19 @@ def _result(answer: str, plan: ExecutionPlan, backend: str, supports: list[Struc
     )
 
 
+# Operator vocabulary from question SYNTAX ("how many DAYS AGO..."), not content. Such words
+# still ADMIT an atom (aggregates gather duration atoms whose relevance is proven later), but
+# they score zero: a unit-word-only match must rank below every topical match, or true anchors
+# get buried under duration chatter.
+_SCORING_NEUTRAL_TERMS = {
+    "ago", "day", "days", "hour", "hours", "many", "minute", "minutes", "month", "months",
+    "much", "week", "weeks", "year", "years",
+}
+
+
 def _claim_atoms(query: str, claims: Iterable[ClaimRecord]) -> list[tuple[float, ClaimRecord, str]]:
     qterms = _query_terms(query)
+    content_terms = qterms - _SCORING_NEUTRAL_TERMS
     all_claims = list(claims)
     scored = []
     included = set()
@@ -390,9 +401,9 @@ def _claim_atoms(query: str, claims: Iterable[ClaimRecord]) -> list[tuple[float,
             " ".join(str(v) for v in claim.filters.values()),
         ])
         hterms = _terms(hay)
-        hits = len(qterms & hterms)
-        if qterms and hits == 0:
+        if qterms and not (qterms & hterms):
             continue
+        hits = len(content_terms & hterms) if content_terms else len(qterms & hterms)
         score = hits + min(1.0, max(0.0, float(claim.confidence or 0.0))) + float(claim.valid_at or 0.0) / 10_000_000_000.0
         scored.append((score, claim, atom))
         included.add(claim.claim_id)
@@ -415,6 +426,7 @@ def _claim_atoms(query: str, claims: Iterable[ClaimRecord]) -> list[tuple[float,
 
 def _record_atoms(query: str, records: Iterable[MemoryRecord]) -> list[tuple[float, MemoryRecord, str]]:
     qterms = _query_terms(query)
+    content_terms = qterms - _SCORING_NEUTRAL_TERMS
     scored = []
     for rec in records:
         rec_atoms = _sentences(rec.text or rec.summary or "")
@@ -422,11 +434,11 @@ def _record_atoms(query: str, records: Iterable[MemoryRecord]) -> list[tuple[flo
         hit_any = False
         for atom in rec_atoms:
             hterms = _terms(atom)
-            hits = len(qterms & hterms)
-            if qterms and hits == 0:
+            if qterms and not (qterms & hterms):
                 local.append((0.0, rec, atom))
                 continue
             hit_any = True
+            hits = len(content_terms & hterms) if content_terms else len(qterms & hterms)
             local.append((hits + float(rec.valid_at or 0.0) / 10_000_000_000.0, rec, atom))
         if hit_any:
             for score, item, atom in local:
