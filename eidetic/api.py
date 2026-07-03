@@ -75,6 +75,7 @@ class AskIn(ScopeIn):
     query: str
     verify: bool = True
     prove: bool = False
+    as_of: Optional[float] = None
 
 
 class StructuredRecallIn(ScopeIn):
@@ -184,14 +185,21 @@ async def add_file(file: UploadFile = File(...), source: str = Form(""),
 
 @app.post("/api/ask")
 async def ask(body: AskIn):
-    ans = await run_in_threadpool(
-        lambda: _guard(engine().ask, body.query, verify=body.verify, scope=body.to_scope()))
-    out = ans.model_dump()
-    if body.prove:
-        # API proof parity with MCP recall(prove=True): include recall paths when RECALL_TRACE is on.
-        out["proof"] = await run_in_threadpool(
-            lambda: engine().prove(ans, with_paths=engine().settings.recall_trace_enabled))
-    return out
+    def _ask_and_prove():
+        # ask + prove must run on the SAME threadpool thread: the retriever's last_trace is
+        # thread-local (concurrency safety), so a second dispatch can land on another worker
+        # and silently see a foreign/None trace, dropping the recall paths from the proof.
+        # Same rule the truth_ledger route already follows.
+        ans = _guard(engine().ask, body.query, verify=body.verify, as_of=body.as_of,
+                     scope=body.to_scope())
+        out = ans.model_dump()
+        if body.prove:
+            # API proof parity with MCP recall(prove=True): include recall paths when
+            # RECALL_TRACE is on.
+            out["proof"] = engine().prove(
+                ans, with_paths=engine().settings.recall_trace_enabled)
+        return out
+    return await run_in_threadpool(_ask_and_prove)
 
 
 @app.post("/api/reflex_recall")

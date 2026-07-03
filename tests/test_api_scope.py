@@ -176,3 +176,81 @@ def test_http_forget_is_scope_safe_and_preserves_raw(tmp_path, monkeypatch):
     finally:
         monkeypatch.setattr(api_mod, "_engine", None)
         get_settings.cache_clear()
+
+
+def test_http_ask_accepts_as_of_and_travels_in_time(tmp_path, monkeypatch):
+    """Bitemporal parity on the HTTP transport: /api/ask with as_of must not see facts that
+    became valid after that moment; ask+prove run in one threadpool dispatch (thread-local
+    trace rule)."""
+    pytest.importorskip("starlette")
+    monkeypatch.setenv("DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("VECTOR_BACKEND", "numpy")
+    from starlette.testclient import TestClient
+
+    import hashlib
+    import re
+
+    import numpy as np
+
+    import eidetic.api as api_mod
+    from eidetic.config import get_settings
+    from eidetic.engine import Engine
+
+    class _Client:
+        def __init__(self, dim):
+            self.dim = dim
+
+        def _e(self, t):
+            v = np.zeros(self.dim, np.float32)
+            for tok in re.findall(r"[a-z0-9]+", (t or "").lower()):
+                v[int(hashlib.md5(tok.encode()).hexdigest(), 16) % self.dim] += 1.0
+            n = np.linalg.norm(v)
+            return v / n if n > 0 else v
+
+        def embed_text(self, t):
+            return self._e(t)
+
+        def embed_texts(self, ts):
+            return (np.stack([self._e(t) for t in ts])
+                    if ts else np.zeros((0, self.dim), np.float32))
+
+        def extract_edges(self, text):
+            return []
+
+        def generate_answer(self, q, blocks, model=None):
+            return blocks[0][:200] if blocks else "I do not have that in memory."
+
+        def nli(self, premise, hypothesis):
+            pt = set(re.findall(r"[a-z0-9]+", premise.lower()))
+            ht = set(re.findall(r"[a-z0-9]+", hypothesis.lower()))
+            return (("entailment", 0.9)
+                    if len(pt & ht) / (len(ht) or 1) >= 0.5 else ("neutral", 0.3))
+
+    get_settings.cache_clear()
+    try:
+        settings = get_settings()
+        eng = Engine(settings, client=_Client(settings.embed_dim))
+        monkeypatch.setattr(api_mod, "_engine", eng)
+        client = TestClient(api_mod.app)
+
+        r = client.post("/api/memories/text", json={
+            "text": "The rotation lead is Priya.", "namespace": "tt",
+            "valid_at": 1_700_000_000.0, "consolidate_now": False,
+        })
+        assert r.status_code == 200
+
+        before = client.post("/api/ask", json={
+            "query": "who is the rotation lead", "namespace": "tt",
+            "as_of": 1_600_000_000.0,
+        }).json()
+        assert "priya" not in (before.get("answer") or "").lower()
+
+        after = client.post("/api/ask", json={
+            "query": "who is the rotation lead", "namespace": "tt",
+            "as_of": 1_800_000_000.0, "prove": True,
+        }).json()
+        assert "priya" in (after.get("answer") or "").lower()
+        assert "proof" in after
+    finally:
+        monkeypatch.setattr(api_mod, "_engine", None)
+        get_settings.cache_clear()
