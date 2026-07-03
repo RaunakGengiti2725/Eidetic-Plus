@@ -1296,3 +1296,20 @@ build now leads every baseline on correctness AND is the only system with verifi
 front - strategy recorded above (structured-coverage growth, adaptive context, cost-flag
 promotions). Caveats stand: n=20 dev slice, single run, baselines not rerun post-fix (their
 code was untouched).
+
+### Adaptive-context live A/B - 2026-07-03 (artifacts/wave_i_adaptive_ab_codex)
+
+Same 20 rows, ADAPTIVE_CONTEXT=1 vs the post-fix baseline:
+
+| arm | correct | verified-correct | median qtok |
+|---|---|---|---|
+| baseline | 15/20 | 15/20 | 5586 |
+| ADAPTIVE_CONTEXT=1 | **15/20** | **15/20** | **4033 (-27.8%)** |
+
+Accuracy held exactly; read cost dropped 28%. One row changed status: c4_q16 honest-abstention
+-> wrong-unverified (the judge-risky reconnect-weeks row; it kept 89% of its budget, so the
+flip is plausibly reader nondeterminism rather than the flag - but it is exactly the
+cheap-wrong-answer class the bar forbids). VERDICT: promotion candidate, default stays OFF
+until a confirming run (or bigger n) shows the flip is noise. Profile recommendation recorded.
+Cost trajectory vs mem0 (411): 5586 -> 4033 median with verification intact; structured
+coverage growth (28-token rows) remains the second lever.
