@@ -805,6 +805,22 @@ def _relative_date_from_atom(rec: object, atom: str, query: str = "") -> str:
         return f"{calendar.month_name[month]} {year:04d}"
     if "last year" in low:
         return str(ref.year - 1)
+    # Bare day-of-month: 'I bought it ON THE 17TH' (spoken Aug 19) names Aug 17 -- the
+    # month is the session's. A day AFTER the session date in non-future speech means the
+    # previous month's instance. Lowest priority: '17th of May' style is month-explicit
+    # and handled by the richer forms above, hence the lookahead.
+    m = re.search(r"\bon\s+the\s+(\d{1,2})(?:st|nd|rd|th)\b(?!\s+of\b)", low)
+    if m:
+        day = int(m.group(1))
+        if 1 <= day <= 31:
+            try:
+                candidate = ref.replace(day=min(day, calendar.monthrange(ref.year, ref.month)[1]))
+            except ValueError:
+                candidate = None
+            if candidate is not None:
+                if candidate > ref and not _is_future_intent_atom(atom):
+                    candidate = _shift_months(candidate, -1)
+                return candidate.isoformat()
     return ""
 
 

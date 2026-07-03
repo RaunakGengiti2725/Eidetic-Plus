@@ -4686,3 +4686,30 @@ def test_zero_information_answers_are_refused(tmp_path):
         note="smqe:latest_value:claim",
     )
     assert answer_from_result(_Retriever(store), q, junk, verify=True) is None
+
+
+def test_bare_day_of_month_resolves_against_session_date(tmp_path):
+    """Fresh-holdout c7_q57 shape: 'I bought a console for my partner as a gift ON THE
+    17TH' (spoken Aug 19) names Aug 17, but no extractor knew the bare day-of-month form,
+    so a January 'last week' console atom outscored the exact statement and shipped a wrong
+    week window verified. The session month anchors the day; a day after the session date
+    in non-future speech is the previous month's instance."""
+    from datetime import datetime as _dt
+
+    store = RecordStore(tmp_path / "bare-day.sqlite")
+    scope = Scope(namespace="bare-day")
+    rows = [
+        ("Jolene: We played the game Detroit on the console last week.",
+         _dt(2023, 1, 27, 12, 0)),
+        ("Jolene: I bought a console for my partner as a gift on the 17th and it's so much fun!",
+         _dt(2023, 8, 19, 12, 0)),
+    ]
+    for text, dt in rows:
+        store.upsert_record(_record(text, scope=scope, valid_at=dt.timestamp()))
+
+    ans = structured_answer(
+        _Retriever(store), "When did Jolene gift her partner a new console?",
+        at=_dt(2023, 9, 1, 12, 0).timestamp(), scope=scope,
+    )
+    assert ans is not None and ans.answer == "2023-08-17"
+    assert "on the 17th" in ans.citations[0].snippet
