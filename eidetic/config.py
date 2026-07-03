@@ -318,6 +318,10 @@ class Settings:
     # 5-7s measured in the MCP UX exercise). Trades away the rare NLI rescue of a low-coverage
     # draft, so the floor sits strictly under the threshold and promotion needs an A/B.
     fast_abstain_enabled: bool = field(default_factory=lambda: _get_bool("FAST_ABSTAIN", "0"))
+    # READER_FORM_FLOOR (default on, kill-switch for one release): deterministic form floors
+    # on reader-path answers -- a verbatim conversational fragment entails trivially and
+    # shipped verified-wrong at scale on the rotation holdout.
+    reader_form_floor_enabled: bool = field(default_factory=lambda: _get_bool("READER_FORM_FLOOR", "1"))
     fast_abstain_floor: float = field(default_factory=lambda: float(_get("FAST_ABSTAIN_FLOOR", "0.25")))
     abstention_v2_enabled: bool = field(default_factory=lambda: _get_bool("ABSTENTION_V2", "0"))
     abstention_v2_tau: float = field(default_factory=lambda: float(_get("ABSTENTION_V2_TAU", "0.5")))

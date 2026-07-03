@@ -186,6 +186,42 @@ def _atom_anchor_allowed(query: str, result: StructuredAnswerResult) -> bool:
     return bool(_LIKELY_INFERENCE_RE.search(query or ""))
 
 
+_ANSWER_JUNK_SINGLETONS = _ENUM_ITEM_JUNK | {"check", "yeah", "yep", "right", "exactly", "totally"}
+_SOURCE_REF_RE = re.compile(r"\s*\[S\d+\]")
+
+
+def reader_answer_form_credible(query: str, answer: str) -> bool:
+    """Universal deterministic form floors for READER-path answers. The photographic reader
+    quotes sources verbatim, so a conversational fragment ('I'm reading', 'Check,', 'Yeah,
+    Maria') entails trivially and ships verified while answering nothing -- every one of a
+    fresh holdout slice's 18 verified-wrong rows came through this path. Same primitives as
+    the structured floors: junk singletons, non-credible enumerations, enumerations for
+    why-questions, option-choice naming, zero-information echoes. Computed shapes do not
+    exist here (the reader never does arithmetic), so no op carve-outs apply."""
+    text = _SOURCE_REF_RE.sub("", answer or "").strip()
+    if not text:
+        return False
+    low = re.sub(r"[.,!?;:\s]+$", "", text.lower()).strip()
+    if low in _ANSWER_JUNK_SINGLETONS:
+        return False
+    if _ENUMERATED_ANSWER_RE.match(text):
+        if not _enumeration_items_credible(text):
+            return False
+        if (re.match(r"\s*why\b", query or "", re.I)
+                and not re.search(r"\b(?:because|since)\b", text, re.I)):
+            return False
+    if not _option_choice_answer_names_option(query, text):
+        return False
+    # Junk tokens are not information either: 'Yeah, Maria' for a question about Maria is
+    # acknowledgment plus echo, so junk words are stripped before the echo test.
+    echo_text = " ".join(t for t in re.findall(r"[a-z0-9][a-z0-9'-]*", text.lower())
+                         if t not in _ANSWER_JUNK_SINGLETONS)
+    if (not re.match(r"\s*(?:yes|no)\b", text, re.I)
+            and not _answer_adds_information(query, echo_text or text)):
+        return False
+    return True
+
+
 def answer_from_result(retriever, query: str, result: StructuredAnswerResult,
                        *, verify: bool = True) -> Answer | None:
     if result is None or not result.answer or not result.supports:

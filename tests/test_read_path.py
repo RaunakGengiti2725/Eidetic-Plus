@@ -453,3 +453,57 @@ def test_usage_counters_accumulate_real_api_spend(fresh_settings, monkeypatch):
     c.chat("m", "sys", "user")
     delta = c.usage_delta(before, c.usage_snapshot())
     assert delta == {"input_tokens": 240, "output_tokens": 60, "calls": 2}
+
+
+# ---- reader-path form floor ------------------------------------------------------------------
+def test_reader_form_floor_demotes_verbatim_fragment_answers(fresh_settings):
+    """Every verified-wrong row of rotation slice 2 came through the READER path: the
+    photographic reader quotes sources verbatim, so a conversational fragment ('I'm
+    reading') entails trivially and ships verified while answering nothing. The universal
+    form floor demotes such answers to unverified; the coverage gate then abstains. Kill
+    switch READER_FORM_FLOOR=0 restores the old behavior for one release."""
+    from dataclasses import replace as _replace
+
+    from eidetic.graph import KnowledgeGraph
+    from eidetic.models import MemoryRecord, RetrievalCandidate, Scope
+    from eidetic.retrieval import Retriever
+    from eidetic.store import RecordStore
+
+    class _EchoClient:
+        def generate_answer(self, q, blocks, model=None):
+            return "I'm reading"
+
+        def nli(self, premise, hypothesis):
+            return ("entailment", 0.95)
+
+    def _build(flag):
+        s = _replace(fresh_settings, rerank_enabled=False, cascade_enabled=False,
+                     abstention_threshold=1.0, reader_form_floor_enabled=flag)
+        store = RecordStore(s.sqlite_path)
+
+        class _Sub:
+            def get(self, h):
+                raise KeyError(h)
+
+        r = Retriever(store, object(), KnowledgeGraph(store), _Sub(), _EchoClient(), s)
+        r._try_conflict_resolver = lambda *a, **k: None
+        r.assemble_context = lambda *a, **k: ["[S0] Tim: I'm reading"]
+        r._verify_candidates = lambda cands, text, verify, **kw: (
+            [], 0) if not verify else (
+            [__import__("eidetic.models", fromlist=["Citation"]).Citation(
+                memory_id="m0", content_hash="h0", raw_uri="", source="u", valid_at=1.0,
+                nli_label=__import__("eidetic.models", fromlist=["NLILabel"]).NLILabel.ENTAILMENT,
+                nli_score=0.95)], 1)
+        cands = [RetrievalCandidate(record=MemoryRecord(
+            memory_id="m0", content_hash="h0", text="Tim: I'm reading", scope=Scope(),
+            valid_at=1.0), dense_score=0.2)]
+        return r, cands
+
+    r, cands = _build(True)
+    ans = r.answer("What books has Tim read?", verify=True, precomputed=cands)
+    assert ans.verified is False
+    assert ans.note.startswith("abstained") or "non-responsive" in ans.note
+
+    r2, cands2 = _build(False)                    # kill switch: old behavior
+    ans2 = r2.answer("What books has Tim read?", verify=True, precomputed=cands2)
+    assert ans2.verified is True

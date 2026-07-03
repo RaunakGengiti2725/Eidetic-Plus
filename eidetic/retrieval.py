@@ -5000,6 +5000,23 @@ class Retriever:
                          if c.nli_label == NLILabel.ENTAILMENT else c
                          for c in citations]
 
+        # Universal FORM floor on the reader path (READER_FORM_FLOOR, kill-switch off for one
+        # release). The photographic reader quotes sources verbatim, so a conversational
+        # fragment ('I'm reading', 'Check,') entails trivially and ships VERIFIED while
+        # answering nothing -- an entire fresh holdout slice's verified-wrong set came through
+        # here. Same deterministic primitives as the structured floors; the advice-anchor path
+        # keeps its own dedicated gates.
+        form_failed = False
+        if (verify and entailed > 0 and not advice_anchor
+                and getattr(self.settings, "reader_form_floor_enabled", True)):
+            from .smqe.verify import reader_answer_form_credible
+            if not reader_answer_form_credible(query, text):
+                form_failed = True
+                entailed = 0
+                citations = [c.model_copy(update={"nli_label": NLILabel.NEUTRAL, "nli_score": 0.0})
+                             if c.nli_label == NLILabel.ENTAILMENT else c
+                             for c in citations]
+
         verified = (entailed > 0) if verify else False
         unverified: list[str] = []
         abstained = False
@@ -5008,6 +5025,9 @@ class Retriever:
             _unverified_reason = "unverified: a CoVe verification question was not grounded in memory"
         elif span_failed:
             _unverified_reason = "unverified: a sentence-level claim was not grounded in memory"
+        elif form_failed:
+            _unverified_reason = ("unverified: answer form is non-responsive "
+                                  "(verbatim echo/fragment answers nothing)")
         else:
             _unverified_reason = "unverified: no source entails the answer"
         # Calibrated abstention (Phase 2). When ABSTENTION_V2 is on, gate on a multi-signal
