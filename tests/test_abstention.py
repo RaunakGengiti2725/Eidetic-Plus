@@ -320,3 +320,84 @@ def test_abstentions_never_ship_citations_as_support(fresh_settings):
     ans = r.answer("what is my blood type", verify=True, precomputed=cands)
     assert ans.note.startswith("abstained")
     assert ans.citations == []
+
+
+def _fast_abstain_retriever(fresh_settings, *, flag, floor=0.25, reader_calls=None, v2=False):
+    from dataclasses import replace as _replace
+
+    from eidetic.graph import KnowledgeGraph
+    from eidetic.retrieval import Retriever
+    from eidetic.store import RecordStore
+
+    class _CountingClient:
+        def generate_answer(self, q, blocks, model=None):
+            if reader_calls is not None:
+                reader_calls.append(q)
+            return "Something unrelated to any source."
+
+        def nli(self, premise, hypothesis):
+            return ("neutral", 0.2)
+
+    s = _replace(fresh_settings, rerank_enabled=False, cascade_enabled=False,
+                 fast_abstain_enabled=flag, fast_abstain_floor=floor,
+                 abstention_threshold=0.4, abstention_v2_enabled=v2)
+    store = RecordStore(s.sqlite_path)
+
+    class _Sub:
+        def get(self, h):
+            raise KeyError(h)
+
+    r = Retriever(store, object(), KnowledgeGraph(store), _Sub(), _CountingClient(), s)
+    r._try_conflict_resolver = lambda *a, **k: None
+    r.assemble_context = lambda *a, **k: ["[S0] fact"]
+    return r
+
+
+def _weak_candidates(dense=0.1, n=3):
+    from eidetic.models import MemoryRecord, RetrievalCandidate, Scope
+
+    return [RetrievalCandidate(record=MemoryRecord(
+        memory_id=f"m{i}", content_hash=f"h{i}", text=f"fact {i}",
+        scope=Scope(), valid_at=1.0), dense_score=dense) for i in range(n)]
+
+
+def test_fast_abstain_skips_reader_below_floor(fresh_settings):
+    """Coverage far under the threshold: the 5-7s reader call buys nothing -- the coverage
+    gate discards its draft anyway. Pre-gate abstains in-process, no model call, no citations."""
+    calls: list[str] = []
+    r = _fast_abstain_retriever(fresh_settings, flag=True, reader_calls=calls)
+    ans = r.answer("what is my blood type", verify=True,
+                   precomputed=_weak_candidates(dense=0.1))
+    assert ans.note == "abstained: insufficient evidence (coverage 0.10, pre-reader)"
+    assert ans.citations == [] and not ans.verified and ans.confidence == 0.0
+    assert calls == []                      # the reader was never invoked
+
+
+def test_fast_abstain_above_floor_keeps_reader_rescue_path(fresh_settings):
+    """Coverage between floor and threshold: the draft can still be NLI-rescued, so the
+    reader must run; the ordinary coverage gate decides afterwards."""
+    calls: list[str] = []
+    r = _fast_abstain_retriever(fresh_settings, flag=True, reader_calls=calls)
+    ans = r.answer("what is my blood type", verify=True,
+                   precomputed=_weak_candidates(dense=0.3))
+    assert len(calls) == 1                  # full pipeline ran
+    assert ans.note == "abstained: insufficient evidence (coverage 0.30)"
+
+
+def test_fast_abstain_flag_off_is_baseline(fresh_settings):
+    calls: list[str] = []
+    r = _fast_abstain_retriever(fresh_settings, flag=False, reader_calls=calls)
+    ans = r.answer("what is my blood type", verify=True,
+                   precomputed=_weak_candidates(dense=0.1))
+    assert len(calls) == 1                  # baseline: reader always consulted
+    assert ans.note == "abstained: insufficient evidence (coverage 0.10)"
+
+
+def test_fast_abstain_defers_to_abstention_v2(fresh_settings):
+    """ABSTENTION_V2's calibrated confidence needs the citation signals, so the pre-gate
+    must not fire when v2 owns the decision."""
+    calls: list[str] = []
+    r = _fast_abstain_retriever(fresh_settings, flag=True, reader_calls=calls, v2=True)
+    r.answer("what is my blood type", verify=True,
+             precomputed=_weak_candidates(dense=0.1))
+    assert len(calls) == 1                  # v2 path kept the full pipeline

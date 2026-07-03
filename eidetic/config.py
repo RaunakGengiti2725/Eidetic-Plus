@@ -313,6 +313,12 @@ class Settings:
     # w_proof*proof_completeness; abstain if confidence < tau. tau is dev-calibrated via
     # abstention.pick_tau (precision target), never a magic literal. Agreement + proof are
     # STRUCTURAL signals (independent of the model's self-report).
+    # FAST_ABSTAIN (default off): when the structured path declined AND the best content match is
+    # far below the abstention threshold, skip the reader call and abstain immediately (~30ms vs
+    # 5-7s measured in the MCP UX exercise). Trades away the rare NLI rescue of a low-coverage
+    # draft, so the floor sits strictly under the threshold and promotion needs an A/B.
+    fast_abstain_enabled: bool = field(default_factory=lambda: _get_bool("FAST_ABSTAIN", "0"))
+    fast_abstain_floor: float = field(default_factory=lambda: float(_get("FAST_ABSTAIN_FLOOR", "0.25")))
     abstention_v2_enabled: bool = field(default_factory=lambda: _get_bool("ABSTENTION_V2", "0"))
     abstention_v2_tau: float = field(default_factory=lambda: float(_get("ABSTENTION_V2_TAU", "0.5")))
     abstention_w_entail: float = field(default_factory=lambda: float(_get("ABSTENTION_W_ENTAIL", "0.4")))

@@ -4899,6 +4899,24 @@ class Retriever:
         # Pre-generation coverage signal (strength of the best content match).
         coverage = max((c.dense_score for c in candidates), default=0.0)
 
+        # Fast abstention pre-gate (FAST_ABSTAIN, default off). The slowest measured path is
+        # saying "I don't know": full context assembly + a 5-7s reader call whose draft the
+        # coverage gate then discards. When coverage sits under a floor STRICTLY below the
+        # abstention threshold, the only way that draft ships is an NLI entailment rescue
+        # against evidence this weak -- a trade the flag makes explicit. ABSTENTION_V2 keeps
+        # the full pipeline (its confidence needs the citation signals).
+        if (verify and self.settings.fast_abstain_enabled
+                and not self.settings.abstention_v2_enabled
+                and coverage < min(self.settings.fast_abstain_floor,
+                                   self.settings.abstention_threshold)):
+            return Answer(
+                question=query,
+                answer="I don't have enough verified evidence in memory to answer that confidently.",
+                verified=False, confidence=0.0, citations=[], unverified_claims=[],
+                generated_by=self.settings.gen_model, retrieved_count=len(candidates),
+                note=f"abstained: insufficient evidence (coverage {coverage:.2f}, pre-reader)",
+            )
+
         # Shared context assembly (event calendar + preferences + raw chunks, edge-placed).
         blocks = self.assemble_context(query, candidates, at, scope,
                                        include_conflict_resolution=False, activation=activation)
