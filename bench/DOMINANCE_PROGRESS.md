@@ -984,3 +984,28 @@ sweep (explicit windows leaking into the list consumer; now opt-in per consumer)
 
 No live accuracy claims: these are code-level results against the wave-F store; the next
 governed run owns the numbers. Suite 1216 green. `record_ops.py` net line count DOWN vs wave F.
+
+### Wave G addendum - lacuna primitive, witness rule, ranking honesty (same day)
+
+- **Lacuna/antimemory** (b778991, 874b3c5): proposition confirmation now covers all four honest
+  yes/no outcomes - stated -> "Yes - <premise>"; stored negation -> "No - <premise>"; retraction ->
+  latest assertion wins (re-assertion flips back); absence -> fail closed to the reader. New
+  rotating sidecar `bench/smqe_lacuna_invariant.py` (positive/negative/retraction/absent case
+  types) wired into reproduce.sh, merge_artifacts composites, and release_gate (18 rotating
+  sidecars now). Its absent-proposition cases caught a modifier-head false-yes ("sculpture
+  garden" answering a "botanical garden" question) during development.
+- **Witness rule** (b1177e41): the multi-support anchor-verification exemption now distinguishes
+  INDEPENDENT witnesses (distinct records: exempt) from same-record pairs (exempt only when
+  query-tied, computed, or preference_synth). Closes the channel that let two quotable atoms
+  from one record verify a topically unrelated derived answer.
+- **Ranking honesty** (d646da15): unit/quantity operator words admit atoms but score zero, so
+  duration chatter can never outrank a topical anchor. Offline replay of all 24 mixed-dev rows
+  byte-identical.
+
+Suite 1222 green. Cross-role miss matrix over the five completed wave-F roles shows every
+systematic miss (2 all-role, 2 four-role, preference, ordering-format) covered by wave G fixes;
+remaining misses are role-specific ablation effects or single-row variance. Still pending, in
+honesty: record_ops shrink via tier-1 claims (4671 lines, no dead symbols - needs consolidation
+with live validation), phase primitive (liquid->crystal->procedural needs claim-confirmation
+plumbing through engine.ask reconsolidation), query fossil, proof currency, closed-world absence
+answers.
