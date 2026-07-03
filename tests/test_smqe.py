@@ -4290,3 +4290,32 @@ def test_dialogue_crystals_respect_wh_class_and_reject_pleasantries(tmp_path):
     )
 
     assert ans is None or "Hey Joanna" not in ans.answer
+
+
+def test_past_when_questions_never_answer_from_future_intent_atoms(tmp_path):
+    """'When WAS the concert?' must not answer with the date of a future PLAN ('going to Tokyo
+    next month') - a future-intent atom can never date a past event."""
+    from eidetic.smqe.claim_extraction import claims_for_record
+
+    store = RecordStore(tmp_path / "past-future.sqlite")
+    scope = Scope(namespace="past-future")
+    rows = [
+        ("Calvin: My concert in Osaka was electric back in March 2023, the crowd sang along!",
+         datetime(2023, 4, 2, 12, 0)),
+        ("Calvin: I'm actually going to Osaka next month after the tour ends - my concert there "
+         "will be huge.", datetime(2023, 10, 19, 12, 0)),
+    ]
+    for text, dt in rows:
+        rec = _record(text, scope=scope, valid_at=dt.timestamp())
+        store.upsert_record(rec)
+        store.add_claims(claims_for_record(rec))
+
+    ans = structured_answer(
+        _Retriever(store),
+        "When was Calvin's concert in Osaka?",
+        at=datetime(2023, 12, 1, 12, 0).timestamp(), scope=scope,
+    )
+
+    assert ans is not None
+    assert "March 2023" in ans.answer or "2023-03" in ans.answer
+    assert "November" not in ans.answer

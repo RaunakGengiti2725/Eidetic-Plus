@@ -4669,8 +4669,15 @@ def _execute_atoms(plan: ExecutionPlan, query: str,
             month_names = {name.lower(): i for i, name in enumerate(calendar.month_name) if i}
             month_names.update({name.lower(): i for i, name in enumerate(calendar.month_abbr) if i})
             query_months = {num for name, num in month_names.items() if re.search(rf"\b{re.escape(name)}\b", query or "", re.I)}
+            # A past-tense when-question ('when WAS/DID...') can never be dated by a future
+            # PLAN ('going to Tokyo next month'): that class shipped a November date for a May
+            # concert as verified.
+            past_question = bool(re.search(r"\b(?:was|were|did|happened)\b", query or "", re.I)) \
+                and not re.search(r"\b(?:will|going\s+to|next|upcoming)\b", query or "", re.I)
             candidates: list[tuple[int, int, float, object, str, str]] = []
             for score, item, atom in atoms:
+                if past_question and _is_future_intent_atom(atom):
+                    continue
                 match_text = _item_match_text(item, atom)
                 target_hits = _target_hit_count(_expanded_terms(match_text), target_terms)
                 if threshold and target_hits < threshold:
