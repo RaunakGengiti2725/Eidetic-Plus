@@ -186,7 +186,12 @@ def _atom_anchor_allowed(query: str, result: StructuredAnswerResult) -> bool:
     return bool(_LIKELY_INFERENCE_RE.search(query or ""))
 
 
-_ANSWER_JUNK_SINGLETONS = _ENUM_ITEM_JUNK | {"check", "yeah", "yep", "right", "exactly", "totally"}
+_ANSWER_JUNK_SINGLETONS = _ENUM_ITEM_JUNK | {
+    "check", "yeah", "yep", "right", "exactly", "totally",
+    # vague quantity/manner fillers: 'Money-wise, I've gotten some cool endorsement deals'
+    # is a teaser -- strip the filler and only the question's own words remain
+    "gotten", "some", "stuff", "things", "money-wise",
+}
 _SOURCE_REF_RE = re.compile(r"\s*\[S\d+\]")
 
 
