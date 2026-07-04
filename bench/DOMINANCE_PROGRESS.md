@@ -1824,3 +1824,16 @@ instance that satisfies the question's constraints) -- a design-sized change, qu
 its own unit, not fixable by another regex. Until then: the reader form floor's
 when-type agreement keeps junk out, and the class costs accuracy but not integrity
 (week windows ARE temporal-shaped -- they verify honestly, judged wrong on precision).
+
+### Event-instance clustering: built, measured, REVERTED (third attempt at the class)
+Full implementation (date-proximity clusters, corroboration + precision selection,
+latest-on-ties) measured against the probe battery + the time-invariant sidecar:
+latest-tie-break satisfies the sidecar's repeated-event semantics but returns the Gina
+row to its wrong answer; earliest-tie-break fixes Gina and breaks the sidecar. The two
+semantics ('same event retold' -> one date; 'different events sharing terms' -> distinct
+instances) are indistinguishable by date proximity alone -- disambiguation REQUIRES
+verb-role/discourse event identity. Clustering shuffles wrongs without netting a single
+row, so it does not ship. SPEC for the real unit: claim-tier event identity at WRITE
+time (extraction tags each event claim with a canonical action lemma + object head;
+instances = same lemma+head), then relative_temporal selects instances by lemma match
+to the question verb. That is claim-schema work, not another read-time regex.
