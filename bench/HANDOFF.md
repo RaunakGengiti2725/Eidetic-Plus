@@ -55,7 +55,9 @@ session (feature/acceleration) appends tasks with pin SHAs. Shapes as convN-rowM
 | P1 claim-tier counting (head->verbs, unblocks deletion tranche #2) | 050513f0d | shipped |
 | phase_holdout.sh + taxonomy subshapes | 3eecd12a9 | shipped |
 | ask_problem NL war-room recall | 22ce903e8 | shipped |
-| FAST_ABSTAIN + EXTRACT_COMBINED dev arms | — | DEFERRED twice (mem0 tail active both waves); one command each in FAST_LOOP.md |
+| FAST_ABSTAIN dev A/B | (COST_AB) | NO-GO -- gate never fires; fix class is P4 reflex plane |
+| EXTRACT_COMBINED dev-20 + n=40 | fb683149d | GO as promotion candidate (claims flat, qtok total -11.6%, accuracy in noise); flip = holdout call |
+| Likelihood-exemption fragment kill + head-stop hygiene | e5830efc4, b2cd95789 | shipped |
 | P6 wings-as-claims (PROBLEM_CLAIMS, typed :problem SELECT) | a27f4b96a | shipped |
 | P2 breadth (lemma-family compat, week->month honesty, adverb/work-on shapes) | 6566561a6 | shipped |
 | Deletion tranche 2 | e2ddc90f6 | NO-GO with evidence (existence counts need itemized-list claims first) |
