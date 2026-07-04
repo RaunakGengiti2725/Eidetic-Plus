@@ -272,3 +272,43 @@ def test_problem_extract_folds_conversation_into_war_room(tmp_path, monkeypatch)
 def test_problem_extract_flag_off_is_inert(prob_engine):
     prob_engine.ingest_text("blocker: nothing should happen", consolidate_now=False)
     assert problems.recall_problem(prob_engine, query="nothing should happen") is None
+
+
+def test_war_room_safe_under_concurrent_writers(prob_engine):
+    """Ship-readiness: many agents hammer one problem concurrently (hypotheses, updates,
+    decisions) while readers fold state -- no lost revisions, no torn folds, no cross-
+    namespace leaks. Every revision is an immutable record, so the fold must account for
+    exactly writers x writes revisions plus the opener."""
+    import threading
+
+    p = mcp_server.remember_problem(goal="Load test: intermittent 502s at the edge")
+    pid = p["problem_id"]
+    errors = []
+
+    def writer(i):
+        try:
+            for j in range(5):
+                mcp_server.add_hypothesis(pid, f"theory {i}-{j}: cache node {i} flaps")
+                mcp_server.update_problem(pid, handoffs=[f"agent-{i} pass {j}"])
+        except Exception as e:
+            errors.append(e)
+
+    def reader():
+        try:
+            for _ in range(10):
+                st = mcp_server.recall_problem(problem_id=pid)
+                assert st["problem_id"] == pid
+        except Exception as e:
+            errors.append(e)
+
+    threads = [threading.Thread(target=writer, args=(i,)) for i in range(4)]
+    threads += [threading.Thread(target=reader) for _ in range(2)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert not errors
+    final = mcp_server.recall_problem(problem_id=pid)
+    assert final["revisions"] == 1 + 4 * 5 * 2
+    assert len(final["hypotheses"]) == 20
+    assert len(final["handoffs"]) == 20

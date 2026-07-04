@@ -125,3 +125,38 @@ python -m twine upload dist/*   # publish (requires a PyPI account + token)
 ```
 
 Until then, install from the local checkout with `pip install -e .` and run `eidetic-plus`.
+
+## War room: shared problem memory
+
+Investigations are first-class memory, not chat scrollback. A problem is an immutable
+bitemporal revision chain — every update is a new record, nothing is ever overwritten,
+and `as_of` replays the war room exactly as it stood at any moment.
+
+```text
+remember_problem(goal="Checkout latency spikes above 2s at peak",
+                 blockers=["no staging repro"])          -> problem_id
+add_hypothesis(problem_id, "Connection pool exhaustion under burst traffic")
+add_witness(problem_id, "/tmp/pool_metrics.log", note="pool saturation log")
+resolve_hypothesis(problem_id, hypothesis_id, "confirmed",
+                   rationale="pool at 100% during every spike",
+                   evidence=[witness_memory_id])
+update_problem(problem_id, status="resolved",
+               decisions=[{"choice": "raise the pool size to 64",
+                           "rationale": "confirmed saturation hypothesis"}])
+recall_problem(problem_id, as_of=<mid-investigation>)    -> the state back then
+ask_problem(problem_id, "What did we decide about the pool size and why?")
+```
+
+`ask_problem` runs through the same verify-or-abstain path as every recall; each
+citation is marked `revision_backed` when it points into the problem's own history.
+Witness files land losslessly in the content-addressed substrate — `get_raw` returns
+byte-identical content and the hash re-verifies, so evidence is checkable down to raw
+bytes. With `PROBLEM_EXTRACT=1`, explicit markers in ordinary conversation
+(`problem:`, `blocker:`, "we decided ... because ...", "handoff to", "root cause")
+fold into the war room automatically; with `PROBLEM_CLAIMS=1`, war-room state answers
+structurally in milliseconds. Both default off.
+
+Bulk import and maintenance: `remember_many` stores up to 500 items in one call
+(batched embedding, duplicates within the batch and against the store resolve to one
+record); `repair` rebuilds the vector and reflex indexes from the raw store when
+`sync_health` reports drift.
