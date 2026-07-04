@@ -36,7 +36,13 @@ session (feature/acceleration) appends tasks with pin SHAs. Shapes as convN-rowM
 | P1 claim-tier counting (head->verbs, unblocks deletion tranche #2) | 050513f0d | shipped |
 | phase_holdout.sh + taxonomy subshapes | 3eecd12a9 | shipped |
 | ask_problem NL war-room recall | 22ce903e8 | shipped |
-| FAST_ABSTAIN + EXTRACT_COMBINED dev arms | — | DEFERRED (mem0 tail owns RPM); one command each in FAST_LOOP.md |
+| FAST_ABSTAIN + EXTRACT_COMBINED dev arms | — | DEFERRED twice (mem0 tail active both waves); one command each in FAST_LOOP.md |
+| P6 wings-as-claims (PROBLEM_CLAIMS, typed :problem SELECT) | a27f4b96a | shipped |
+| P2 breadth (lemma-family compat, week->month honesty, adverb/work-on shapes) | 6566561a6 | shipped |
+| Deletion tranche 2 | e2ddc90f6 | NO-GO with evidence (existence counts need itemized-list claims first) |
+| PROBLEM_EXTRACT ingest hook (default off) | 5fbd6bba7 | shipped |
+| SLICE6_PLAN + form_floor_matrix.sh + dev_fast profile | 3637b8487 | shipped |
+| demo_war_room.sh (offline, zero API) | (this commit) | shipped |
 
 ## Slice 6 pin recommendation
 
