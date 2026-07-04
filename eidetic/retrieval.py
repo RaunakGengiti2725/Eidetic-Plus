@@ -2604,7 +2604,7 @@ def _date_residual_supported_by_premise(residual: str, premise: str) -> bool:
         return True
     premise_terms = set(_support_norm(premise).split())
     # Require exact support for short date+fact answers. This avoids proving broad explanations,
-    # while accepting answers like "Caroline went to the support group on 2023-05-07" when the
+    # while accepting answers like "<speaker> went to the support group on 2023-05-07" when the
     # premise says "I went to a support group yesterday" and the session date supplies the date.
     return terms <= premise_terms
 
@@ -2817,8 +2817,11 @@ def _identity_entailment(premise: str, hypothesis: str) -> bool:
         return False
     # If the answer names a subject, the source must name the same subject or be first-person from
     # that source turn. This keeps the alias bridge from proving unrelated trans-woman mentions.
-    if "caroline" in hyp:
-        return "caroline" in prem or re.search(r"\b(?:i|my)\b", prem)
+    # Subject-general: any leading name-like token in the hypothesis must appear in the premise.
+    subject = re.match(r"\s*([a-z]+)\s+(?:is|was)\b", hyp)
+    if subject and subject.group(1) not in {"she", "he", "it", "this", "that", "there"}:
+        name = subject.group(1)
+        return name in prem or bool(re.search(r"\b(?:i|my)\b", prem))
     return True
 
 
