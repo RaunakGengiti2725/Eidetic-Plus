@@ -130,6 +130,8 @@ reading, but candidacy UPGRADED: the write-call halving is proven, the compositi
 is gone, and the remaining question is one n=40 confirmation run. Recommend: holdout
 session runs the n=40 pair after slice 6 lands.
 
-Instrumentation note: structured_rows read 0/20 in both arms via extra.note -- the dev
-adapter is not surfacing smqe notes in that field (r-slice jsonls do). Field mismatch,
-not truth; worth one look before slice-6 forensics lean on it.
+Instrumentation note RESOLVED: the right fields are extra.structured_recall and
+extra.smqe_operator (extra.note is reader-path only). Structured rate on the current
+build: 8/20 baseline, 9/20 COMBINED (40-45%, vs ~9/20 measured on the older live probe
+at twice the question count) -- and COMBINED's +1 structured row is consistent with its
++6.8% claims. miss_taxonomy and slice-6 forensics should read structured_recall.

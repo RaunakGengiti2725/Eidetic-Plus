@@ -5106,3 +5106,44 @@ def test_when_question_verb_selects_the_event_instance(tmp_path):
                             at=_dt(2023, 12, 1, 12, 0).timestamp(), scope=scope)
     assert ans is not None and ans.answer == "2023-09-11"
     assert "dropped on the 11th" in ans.citations[0].snippet
+
+
+def test_likelihood_anchor_exemption_requires_the_inference_marker(tmp_path):
+    """Dev-arm catch: 'Would Caroline likely have classic picture books?' shipped a bare
+    fragment verified -- the likely-inference anchor exemption exists BECAUSE the yes/no
+    marker is the executor's labeled inference over the cited premise, so an answer
+    without that marker cannot use it and must face the strict hypothesis."""
+    store = RecordStore(tmp_path / "likely-marker.sqlite")
+    scope = Scope(namespace="likely-marker")
+    rec = _record("Caroline: Building the children's library is a long process, and I "
+                  "want friends to check them out.", scope=scope, valid_at=1.0)
+    store.upsert_record(rec)
+    q = "Would Caroline likely have classic picture books on her shelf?"
+
+    from eidetic.models import NLILabel as _L
+
+    class _NoEntail(_Retriever):
+        def verify(self, premise, hypothesis):
+            return (_L.NEUTRAL, 0.2)
+
+        def verify_citation(self, rec, hypothesis):
+            return (_L.NEUTRAL, 0.2)
+
+    frag = StructuredAnswerResult(
+        answer="a long process, and to check them out",
+        op="open_inference", backend="claim",
+        supports=[StructuredSupport(memory_id=rec.memory_id,
+                                    proof_atom="a long process, and I want friends to check them out")],
+        note="smqe:open_inference:claim",
+    )
+    assert answer_from_result(_NoEntail(store), q, frag, verify=True) is None
+
+    labeled = StructuredAnswerResult(
+        answer="Likely yes - she is building a children's library",
+        op="open_inference", backend="claim",
+        supports=[StructuredSupport(memory_id=rec.memory_id,
+                                    proof_atom="Building the children's library is a long process")],
+        note="smqe:open_inference:claim",
+    )
+    ans = answer_from_result(_Retriever(store), q, labeled, verify=True)
+    assert ans is not None and ans.verified is True

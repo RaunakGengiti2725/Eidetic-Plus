@@ -188,7 +188,10 @@ def _atom_anchor_allowed(query: str, result: StructuredAnswerResult) -> bool:
         return True
     # Explicitly speculative questions ("Would X likely ...?"): the verifiable content is the
     # cited premise; the yes/no marker is the executor's labeled inference over that premise.
-    return bool(_LIKELY_INFERENCE_RE.search(query or ""))
+    # The exemption therefore requires that marker -- a bare fragment under a likelihood
+    # question is not a labeled inference and shipped verified on a dev arm.
+    return bool(_LIKELY_INFERENCE_RE.search(query or "")
+                and re.match(r"\s*(?:yes|no|likely|unlikely)\b", result.answer or "", re.I))
 
 
 _ANSWER_JUNK_SINGLETONS = _ENUM_ITEM_JUNK | {
