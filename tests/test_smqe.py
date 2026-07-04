@@ -3722,6 +3722,47 @@ def test_holdout_audit_finds_banned_strings(tmp_path):
     assert result["findings"][0]["needle"] == "secret_case_001"
 
 
+def test_holdout_audit_digit_ending_id_does_not_match_longer_distinct_id(tmp_path):
+    from bench.audit_no_holdout_leakage import audit
+
+    holdout = tmp_path / "holdout"
+    holdout.mkdir()
+    (holdout / "leaked_sample_ids.json").write_text('["s9_q4"]')
+    (holdout / "longmemeval_test_holdout.json").write_text("[]")
+    (holdout / "locomo_test_holdout.json").write_text("[]")
+    (holdout / "manifest.json").write_text("{}")
+    root = tmp_path / "src"
+    root.mkdir()
+    (root / "ledger.md").write_text("dev row s9_q42 flipped at 24 tokens\n")
+
+    result = audit(holdout, [root], include_legacy_policy=False)
+
+    assert result["pass"] is True, result["findings"]
+
+
+def test_holdout_audit_digit_ending_id_still_matches_exact_occurrences(tmp_path):
+    from bench.audit_no_holdout_leakage import audit
+
+    holdout = tmp_path / "holdout"
+    holdout.mkdir()
+    (holdout / "leaked_sample_ids.json").write_text('["s9_q4"]')
+    (holdout / "longmemeval_test_holdout.json").write_text("[]")
+    (holdout / "locomo_test_holdout.json").write_text("[]")
+    (holdout / "manifest.json").write_text("{}")
+    root = tmp_path / "src"
+    root.mkdir()
+    (root / "a.md").write_text("the s9_q42 row and then s9_q4, the real leak\n")
+    (root / "b.py").write_text('SAMPLE = "s9_q4"\n')
+
+    result = audit(holdout, [root], include_legacy_policy=False)
+
+    assert result["pass"] is False
+    assert {f["path"] for f in result["findings"]} == {
+        str(root / "a.md"),
+        str(root / "b.py"),
+    }
+
+
 def test_holdout_audit_rejects_empty_registry_without_explicit_override(tmp_path):
     from bench.audit_no_holdout_leakage import audit
 

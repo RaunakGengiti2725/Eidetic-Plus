@@ -88,6 +88,23 @@ FORBIDDEN_RUNTIME_SYMBOLS = (
 )
 
 
+def _needle_pos(hay: str, target: str) -> int:
+    """First match position, or -1. A needle ending in a digit must not be
+    immediately followed by another digit: an ID ending in '_q4' inside a
+    different ID ending in '_q42' is decimal-numbering collision, not a leak."""
+    if not target or not target[-1].isdigit():
+        return hay.find(target)
+    start = 0
+    while True:
+        pos = hay.find(target, start)
+        if pos < 0:
+            return -1
+        end = pos + len(target)
+        if end >= len(hay) or not hay[end].isdigit():
+            return pos
+        start = pos + 1
+
+
 def _load_json(path: Path):
     if not path.exists():
         return None
@@ -172,9 +189,9 @@ def audit(
             case_insensitive = needle in FORBIDDEN_POLICY_STRINGS or needle in FORBIDDEN_FIXED_ANSWER_STRINGS
             hay = low if case_insensitive else text
             target = needle.lower() if case_insensitive else needle
-            if target in hay:
-                pos = hay.find(target)
-                line = text[:pos if pos >= 0 else 0].count("\n") + 1
+            pos = _needle_pos(hay, target)
+            if pos >= 0:
+                line = text[:pos].count("\n") + 1
                 findings.append({"path": str(path), "needle": needle, "line": line})
     registry_error = ""
     if require_holdout_needles and not holdout_needles:
