@@ -99,3 +99,16 @@ identified the instance at month granularity, the earlier statement won the date
 junk). Remaining temporal misses are the known no-verb-family week-window class.
 Second-best window headline (r3 = 27). Phase B (mem0) launched for the h2h; two-phase
 runner delivered forensics at +40 min as designed.
+
+## SLICE 6 FINAL -- fourth consecutive window win
+
+| | correct | verified | temporal | qtok med |
+|---|---|---|---|---|
+| eidetic-plus-full | 25/40 (62%) | 36 | 6/9 | 4,898 |
+| mem0 | 18/40 (45%) | 0 | 0/9 | 382 |
+
+Margins across six disjoint never-touched windows: +1, -1, +4, +2, +7, +7. Rolling
+n=240: 139/240 (58%) vs 119/240 (50%); verified answers 209 vs 0. Temporal across all
+windows: ours 19/43, mem0's 3/43. The write-path waves measured on holdout: temporal
+2/8 (pre-P2 ingest) -> 6/9 (wave-2/3 build), :event_instance firing live. The two-phase
+runner cut forensics latency to +40 min in production use.
