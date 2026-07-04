@@ -5065,3 +5065,19 @@ def test_city_visits_extract_across_phrasings_and_enumerate_proper_nouns(tmp_pat
     for city in ("Chicago", "Seattle", "Paris", "New York"):
         assert city in ans.answer, city
     assert "charity" not in ans.answer
+
+
+def test_form_floor_quoted_names_and_them_head(tmp_path):
+    """Slice-4 pair: a show literally titled \"That\" is stopwords to the tokenizer but
+    real information -- the quoted-span check must run on RAW text before token stripping
+    (the four-slice matrix caught the flip pre-commit); and 'them looking good' finally
+    hits the enumeration head-stop ('them' was missing from the set)."""
+    from eidetic.smqe.verify import reader_answer_form_credible as f
+
+    q = "What is one of Tim's favorite fantasy TV shows, as mentioned on November 11, 2023?"
+    a = '"That" is one of Tim\'s favorite fantasy TV shows, as mentioned on November 11, 2023'
+    assert f(q, a)                                # quoted name = information
+
+    junk = ("difference regarding, them looking good, Regular, Regular grooming, "
+            "dog grooming course, Toby, groom Toby, and learn dog grooming")
+    assert not f("What advice did Audrey give to Andrew regarding grooming Toby?", junk)

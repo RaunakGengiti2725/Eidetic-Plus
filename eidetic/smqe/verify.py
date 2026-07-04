@@ -58,7 +58,7 @@ _ENUM_ITEM_JUNK = {
 }
 _ENUM_ITEM_HEAD_STOP = {
     "at", "he", "her", "his", "i", "in", "it", "like", "my", "on", "our",
-    "she", "that", "their", "these", "they", "this", "those", "to", "we", "what",
+    "she", "that", "their", "them", "these", "they", "this", "those", "to", "we", "what",
     "you", "your", "up", "with", "off", "for",
 }
 
@@ -87,6 +87,10 @@ def _answer_adds_information(query: str, answer: str) -> bool:
     or prefix-tolerant) -- such an answer restates the question rather than answering it.
     Pronoun contractions are speaker scaffolding, not information ('I'm reading' answers a
     what-books question with nothing), so they never count as new content."""
+    # A double-quoted span is a NAME regardless of its tokens: a show literally titled
+    # "That" is stopwords to the tokenizer but real information to the reader.
+    if re.search(r'"[^"]{1,60}"', answer or "") and not re.search(r'"[^"]{1,60}"', query or ""):
+        return True
     ans_terms = _option_terms(answer) - _FIRST_PERSON_TOKENS
     if not ans_terms:
         # Clock times and bare numbers ('11 pm') tokenize to nothing here; an empty set is
@@ -281,6 +285,10 @@ def reader_answer_form_credible(query: str, answer: str) -> bool:
                 return False
     if not _option_choice_answer_names_option(query, text):
         return False
+    # A double-quoted span is a NAME regardless of its tokens (a show titled "That"): the
+    # token pipeline below destroys quote marks, so check the RAW text first.
+    if re.search(r'"[^"]{1,60}"', text) and not re.search(r'"[^"]{1,60}"', query or ""):
+        return True
     # Junk tokens are not information either: 'Yeah, Maria' for a question about Maria is
     # acknowledgment plus echo, so junk words are stripped before the echo test.
     echo_text = " ".join(t for t in re.findall(r"[a-z0-9][a-z0-9'-]*", text.lower())
