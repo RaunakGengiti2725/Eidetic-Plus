@@ -385,6 +385,42 @@ def _relation_object_claims_from_atom(rec: MemoryRecord, atom: str) -> list[Clai
     return out
 
 
+_SUPPORT_SOURCE_STOP = {
+    "what", "who", "that", "this", "it", "they", "them", "there", "then", "i", "we",
+    "you", "he", "she", "me", "us", "him", "everyone", "someone", "people",
+}
+
+
+def _support_relation_claims_from_atom(rec: MemoryRecord, atom: str) -> list[ClaimRecord]:
+    text = re.sub(r"\s+", " ", atom or "").strip()
+    if not text or text.endswith("?"):
+        return []
+    out: list[ClaimRecord] = []
+    patterns = (
+        r"\b(?:help|assistance|support)\s+from\s+(?:out\s+|our\s+|my\s+|his\s+|her\s+|their\s+)?"
+        r"(?P<source>[A-Za-z][\w' -]{2,40}?)(?=[.,;!?]|\s+(?:when|while|because|and|but|so|it)\b|$)",
+        r"\b(?:my|our|his|her|their)\s+(?P<source>[a-z][\w'-]{2,20})\s+"
+        r"(?:[\w' ]{0,30}?\s+)?(?:used\s+to\s+)?help(?:ed|s)?\s+(?:my|our|us|me)\b",
+        r"\b(?P<source>[A-Z][\w'-]{2,20})\s+(?:[\w' ]{0,30}?\s+)?(?:used\s+to\s+)?"
+        r"help(?:ed|s)?\s+(?:my|our|us|me)\s+(?:family|out)\b",
+    )
+    for pat in patterns:
+        for m in re.finditer(pat, text):
+            source = re.sub(r"\s+", " ", m.group("source").strip(" .,:;!?"))
+            source = re.sub(r"^(?:out|our|my|his|her|their|the|a|an)\s+", "", source, flags=re.I)
+            if not source or source.lower() in _SUPPORT_SOURCE_STOP or len(source) < 3:
+                continue
+            claim = _claim_from_atom(rec, text, "state",
+                                     predicate=f"support from {source}", value=source)
+            if claim is None:
+                continue
+            claim.subject = _speaker_for_atom(rec, text) or claim.subject
+            claim.object = source
+            claim.filters = {"relation": "support", "source": source}
+            out.append(claim)
+    return out
+
+
 def _clean_relation_object(value: str) -> str:
     value = re.sub(r"\s+", " ", (value or "").strip(" .,:;!?"))
     value = re.sub(r"^[A-Z][A-Za-z'_-]{1,32}:\s*", "", value)
@@ -726,6 +762,7 @@ def heuristic_claims_from_text(rec: MemoryRecord) -> list[ClaimRecord]:
         claims.extend(_action_object_claims_from_atom(rec, atom))
         claims.extend(_list_item_claims_from_atom(rec, atom))
         claims.extend(_naming_claims_from_atom(rec, atom))
+        claims.extend(_support_relation_claims_from_atom(rec, atom))
         relation_claims = _relation_object_claims_from_atom(rec, atom)
         if relation_claims:
             # Keep the full-sentence claim TOO: the concise relation claim wins on precision,

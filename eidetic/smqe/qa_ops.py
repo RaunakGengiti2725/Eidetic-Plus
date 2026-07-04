@@ -501,7 +501,9 @@ def _claim_enumeration_answer(query: str, atoms: list[tuple[float, object, str]]
         low = obj.lower()
         if (not obj or len(obj) < (3 if list_label_hit else 4) or len(words) > 5
                 or low in _ENUM_OBJECT_JUNK
-                or words[0].lower() in _ENUM_OBJECT_HEAD_STOP):
+                or words[0].lower() in _ENUM_OBJECT_HEAD_STOP
+                or words[-1].lower() in {"to", "of", "in", "on", "at", "with", "for",
+                                         "from", "or", "and", "but", "the", "a", "an"}):
             continue
         # Place-name heads (cities/countries/towns) enumerate PROPER NOUNS only: the visit
         # family also carries 'charity thing'/'event' objects that must never appear in a

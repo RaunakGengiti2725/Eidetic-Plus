@@ -4951,6 +4951,45 @@ _NICKNAME_QUERY_RE = re.compile(
 )
 
 
+_WHO_GAVE_QUERY_RE = re.compile(
+    r"\bwho\s+(?:gave|gifted|sent|helped|supported|provided)\b", re.I)
+_SUPPORT_KIN_RE = re.compile(
+    r"^(?:aunt(?:ie)?|uncle|mom|mother|dad|father|brother|sister|cousin|grandma|"
+    r"grandmother|grandpa|grandfather|friend|neighbor|neighbour|teacher|coach|boss|"
+    r"[A-Z][\w'-]{2,20})$")
+
+
+def _relation_source_answer(query: str, atoms: list[tuple[float, object, str]]) -> tuple[str, list[tuple[float, object, str]]]:
+    """'Who gave/helped X ...' is a SELECT over gift/support relation claims: the write side
+    already extracted the giver into filters.source with the sentence as proof, so
+    attribution is a typed lookup, not a reader pass. Sources must look like a person
+    (kin noun or TitleCase name); junk captures fail the shape and fall through."""
+    q = query or ""
+    if not _WHO_GAVE_QUERY_RE.search(q):
+        return "", []
+    q_terms = {_count_term_key(t) for t in _expanded_terms(q)}
+    best: tuple[int, float, float, object, str, str] | None = None
+    for score, item, atom in atoms:
+        if not isinstance(item, ClaimRecord):
+            continue
+        filters = item.filters or {}
+        if filters.get("relation") not in {"gift", "support"}:
+            continue
+        source = str(filters.get("source") or "").strip()
+        if not source or not _SUPPORT_KIN_RE.match(source):
+            continue
+        overlap = len(q_terms & {_count_term_key(t) for t in _expanded_terms(atom)})
+        if overlap < 2:
+            continue
+        row = (overlap, item.valid_at or 0.0, score, item, atom, source)
+        if best is None or row[:3] > best[:3]:
+            best = row
+    if best is None:
+        return "", []
+    _ov, _va, score, item, atom, source = best
+    return source, [(score, item, atom)]
+
+
 _TITLE_QUERY_BLOCK_RE = re.compile(
     r"\b(?:when|where|who|whom|whose|why|how\s+(?:often|long|many|much|far))\b", re.I)
 
@@ -5041,9 +5080,20 @@ def _execute_atoms(plan: ExecutionPlan, query: str,
     # record-backend fallback during the transition.
     answer, selected = _claim_enumeration_answer(query, atoms)
     if answer and selected:
+        all_list_items = all(
+            isinstance(item, ClaimRecord) and item.filters.get("list") == "item"
+            for _s, item, _a in selected
+        )
+        if all_list_items:
+            return _result(answer, plan, backend,
+                           [sup(item, atom, score) for score, item, atom in selected[:6]],
+                           0.9, note_suffix=":claim_list_enum")
         return result_from(answer, selected, confidence=0.9)
     if op != "event_order":
         answer, selected = _named_alias_answer(query, atoms)
+        if answer and selected:
+            return result_from(answer, selected, confidence=0.9)
+        answer, selected = _relation_source_answer(query, atoms)
         if answer and selected:
             return result_from(answer, selected, confidence=0.9)
     for helper in (

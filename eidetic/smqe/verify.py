@@ -316,9 +316,14 @@ def answer_from_result(retriever, query: str, result: StructuredAnswerResult,
             and _ENUMERATED_ANSWER_RE.match(result.answer or "")
             and result.op not in _COMPUTED_OPS
             and result.op != "preference_synth"
+            and ":claim_list_enum" not in (result.note or "")
             and not _enumeration_items_credible(result.answer)):
         # preference_synth keeps the same carve-out as the anchor rule: suggestion output is
-        # context fragments by design and provenance-gated upstream.
+        # context fragments by design and provenance-gated upstream. ':claim_list_enum'
+        # compositions share it for the FORM floor only -- every item there is backed by its
+        # own typed write-time claim (junk-filtered at extraction, per-item proof), so a
+        # 3-char trick name ('sit') is not fragment soup; the per-support strict hypothesis
+        # below still runs unchanged, so nothing ships without live entailment.
         return None
     # Option-choice FORM refusal: 'A or B?' is answered by naming an option. Applies across
     # ops (preference_synth included -- its fragment carve-out is for suggestion synthesis,

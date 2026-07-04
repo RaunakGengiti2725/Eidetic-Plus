@@ -193,6 +193,66 @@ def test_qualified_count_prefers_matching_list(tmp_path):
     assert res is not None and res.answer.startswith("3 release blockers")
 
 
+def test_short_item_list_enum_survives_verify_form_floor(tmp_path):
+    from eidetic.models import NLILabel
+    from eidetic.smqe import structured_answer
+
+    class _R:
+        def __init__(self, s):
+            self.store = s
+
+        def verify_citation(self, rec, atom):
+            ok = " ".join(atom.lower().split()) in " ".join((rec.text or "").lower().split())
+            return (NLILabel.ENTAILMENT, 1.0) if ok else (NLILabel.NEUTRAL, 0.0)
+
+    store, scope = _store_with(tmp_path, [
+        ("Bram: They can do tricks like sit, stay, paw, and rollover.",
+         datetime(2024, 4, 1, 12, 0)),
+    ])
+    ans = structured_answer(_R(store), "What tricks do Bram's dogs know?",
+                            at=1_800_000_000, verify=True, scope=scope)
+    assert ans is not None and ans.verified
+    for item in ("sit", "stay", "paw", "rollover"):
+        assert item in ans.answer
+
+
+def test_fragment_soup_without_claim_backing_still_refused(tmp_path):
+    from eidetic.models import ExecutionPlan, StructuredAnswerResult, StructuredSupport
+    from eidetic.smqe.verify import answer_from_result
+
+    class _R:
+        def __init__(self, s):
+            self.store = s
+
+        def verify_citation(self, rec, atom):
+            from eidetic.models import NLILabel
+            return (NLILabel.ENTAILMENT, 1.0)
+
+    store, scope = _store_with(tmp_path, [
+        ("Kip: Good, ok, you get the idea.", datetime(2024, 4, 1, 12, 0)),
+    ])
+    rec = next(iter(store.active_records_at(scope=scope)))
+    result = StructuredAnswerResult(
+        answer="Good, Ok, You Get", op="open_inference", backend="claim",
+        supports=[StructuredSupport(memory_id=rec.memory_id, proof_atom=rec.text,
+                                    answer_atom=rec.text)],
+        note="smqe:open_inference:claim",
+    )
+    assert answer_from_result(_R(store), "What did Kip say?", result, verify=True) is None
+
+
+def test_who_gave_answers_from_support_relation_claim(tmp_path):
+    store, scope = _store_with(tmp_path, [
+        ("Mara: When I was younger, we had some money problems and had to rely on "
+         "outside help from out auntie.", datetime(2024, 4, 1, 12, 0)),
+        ("Mara: The garden is doing great this spring.", datetime(2024, 4, 2, 12, 0)),
+    ])
+    res = _ask(store, scope,
+               "Who gave Mara's family money when she was going through tough times?")
+    assert res is not None and res.answer == "auntie"
+    assert res.backend == "claim"
+
+
 def test_visited_question_never_composes_from_favorite_list_claims():
     from eidetic.smqe.qa_ops import _claim_enumeration_answer
     scope = Scope(namespace="fav")
