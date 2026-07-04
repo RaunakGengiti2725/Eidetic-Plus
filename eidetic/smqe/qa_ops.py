@@ -458,6 +458,11 @@ def _claim_enumeration_answer(query: str, atoms: list[tuple[float, object, str]]
         # A count question owns its own operator; enumerating the members here would
         # answer 'how many books' with the titles instead of the number.
         return "", []
+    if _ADVICE_REQUEST_RE.search(q):
+        # Recommendation lists are speaker-attributed dialogue, not disposition claims;
+        # the flat-union predicate fallback composed junk here (verified-wrong on a live
+        # dev row). The reader/speaker paths own these.
+        return "", []
     people = ro._query_people(q)
     person_terms = {t.lower() for t in ro._terms(people[0])} if people else set()
     allowed_preds = _enum_predicate_family_for_query(q) or _ENUM_VERB_FAMILY

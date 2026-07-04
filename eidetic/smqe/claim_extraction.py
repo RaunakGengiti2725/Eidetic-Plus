@@ -440,6 +440,8 @@ _LIST_ITEM_JUNK = {
     "you", "me", "us", "him", "her", "them", "it", "that", "this", "these", "those",
     "one", "ones", "thing", "things", "stuff", "more", "lot", "lots", "etc", "everything",
     "anything", "something", "same", "i", "we", "he", "she", "they",
+    "myself", "yourself", "herself", "himself", "ourselves", "themselves", "itself",
+    "each", "both", "all", "some", "any",
 }
 _LIST_ITEM_STATE_WORDS = {
     "gone", "done", "over", "fine", "okay", "ok", "better", "worse", "great", "good",
