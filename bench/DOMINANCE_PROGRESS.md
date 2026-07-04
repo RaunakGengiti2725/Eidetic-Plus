@@ -1719,3 +1719,21 @@ form floors never touched them.
 - Remaining deferred: #19 line-aligned chunker (sequenced after EXTRACT_COMBINED
   promotion). Teaser-filler echo strip (a3563fcc8) raised slice-2 form-floor kills to
   5/18, still zero correct flips on both slices.
+
+### Rotation slice 2 FINAL (h2h, release-grade; build = pre-wave-N/O frozen)
+| | correct | verified | abstained | qtok med |
+|---|---|---|---|---|
+| eidetic-plus-full | 17/40 (42%) | 33 | 5 | 4,900 |
+| mem0 | 18/40 (45%) | 0 | 0 | 398 |
+
+COMBINED across two never-touched windows (n=80): 40/80 vs 40/80 -- a dead statistical
+tie on raw judge accuracy, with POLAR profiles: temporal 6/9 vs mem0 0/9 (wave-M
+mechanisms generalize; mem0 cannot do temporal at all on this window), single-hop mem0
+15/21 vs our 10/21 (their summarized-fact store wins simple recents; our single-hop
+losses were the verified-wrong echo/instance classes -- 5 of them now form-floor-killed
+into honest abstentions), multi-hop weak for both (1/7 vs 3/7). Integrity margin
+unchanged: 67 verified answers + 11 honest abstentions across n=80 vs zero verification.
+Cost margin theirs: ~12x cheaper reads.
+Slice 3 next: FIRST window measuring wave-N/O together (photo captions, reader form
+floor, irregular-past claims, plural-list scaffold, last-monthname, bare-day, ordinal
+interpolation all live).
