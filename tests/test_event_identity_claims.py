@@ -170,3 +170,17 @@ def test_started_working_on_shape_tags_open_lemma():
     tagged = [c for c in claims_for_record(rec) if c.filters.get("lemma") == "open"]
     assert tagged
     assert tagged[0].filters["obj_head"] == "novel"
+
+
+def test_action_object_boundaries_cut_temporal_tails():
+    """Wave-K diagnosis fix: 'I started surfing five years ago' produced a sentence-length
+    object, starving the enumerator of exactly the doing-evidence it needs. Numeric and
+    temporal tails terminate the object capture."""
+    scope = Scope(namespace="bounds")
+    rec = _rec("John: I started surfing five years ago and it's been great. "
+               "I tried rock climbing two months ago too.",
+               datetime(2023, 5, 1, 12, 0), scope, 0)
+    objs = {(c.predicate, c.object) for c in claims_for_record(rec)
+            if c.claim_type == "event"}
+    assert ("started", "surfing") in objs
+    assert ("tried", "rock climbing") in objs

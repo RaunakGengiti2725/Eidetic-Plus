@@ -265,7 +265,7 @@ def _action_object_claims_from_atom(rec: MemoryRecord, atom: str) -> list[ClaimR
         return []
     out: list[ClaimRecord] = []
     patterns = (
-        r"\b(?:i|we)\s+(?:(?:just|also|finally|recently|officially)\s+){0,2}(?P<verb>[a-z][a-z'-]{2,}(?:ed|t))\s+(?P<object>[^.;!?]{3,90}?)(?=\s+(?:last|this|recently|because|while|when|where|which|that|so|together|again|alone|yesterday|today)\b|[.;!?]|$)",
+        r"\b(?:i|we)\s+(?:(?:just|also|finally|recently|officially)\s+){0,2}(?P<verb>[a-z][a-z'-]{2,}(?:ed|t))\s+(?P<object>[^.;!?]{3,90}?)(?=\s+(?:last|this|recently|because|while|when|where|which|that|so|together|again|alone|yesterday|today|ago|now|(?:a|an|one|two|three|four|five|six|seven|eight|nine|ten)\s+(?:days?|weeks?|months?|years?)|\d)\b|[.;!?]|$)",
         r"\b(?:i|we)\s+(?:(?:just|also|finally|recently|officially)\s+){0,2}(?P<verb>[a-z][a-z'-]{2,}(?:ed|t))\s+(?:at|in|to|from)\s+(?P<object>[^.;!?]{3,90}?)(?=\s+(?:last|this|recently|because|while|when|where|which|that|so)\b|[.;!?]|$)",
         r"\b(?:i|we)\s+(?P<verb>teamed|linked|partnered|paired)\s+up\s+with\s+(?P<object>[^.;!?]{3,60}?)(?=\s+(?:last|this|for|and|because|when)\b|[.;!?]|$)",
         r"\b(?:my|our)\s+(?P<object>[a-z][a-z' -]{2,40}?)\s+(?:just\s+|finally\s+|officially\s+){0,2}(?P<verb>dropped|released|launched|debuted|opened|started|arrived|premiered)\b",
