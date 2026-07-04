@@ -1,8 +1,10 @@
 """Source-backed claim extraction helpers for SMQE consolidation."""
 from __future__ import annotations
 
+import calendar
 import hashlib
 import re
+from datetime import date, datetime
 from functools import lru_cache
 from typing import Any, Iterable, Optional
 
@@ -421,6 +423,312 @@ def _support_relation_claims_from_atom(rec: MemoryRecord, atom: str) -> list[Cla
     return out
 
 
+# ------------------------------------------------------------------ event-date family
+# A claim is emitted ONLY when the source sentence itself carries a date expression tied
+# to the event verb/noun. No in-atom date = no claim (the record falls back to the
+# existing paths). This is the structural fix for mention-time-vs-event-time and
+# ambient-year selection -- never fall back to rec.valid_at here: the session timestamp
+# masquerading as the event date is exactly the bug this family exists to kill.
+
+_EVENT_NEGATION_RE = re.compile(
+    r"\b(?:not|never|didn't|did\s+not|couldn't|won't|wouldn't|can't|failed\s+to|missed|"
+    r"cancell?ed|postponed)\b", re.I)
+_EVENT_HYPOTHETICAL_RE = re.compile(
+    r"\b(?:hoping|hope\s+to|planning|plan(?:s|ned)?\s+to|might|would|want(?:s|ed)?\s+to|"
+    r"thinking\s+of|wish\s+to|if)\b", re.I)
+# Scheduled-but-possibly-unrealized markers: 'was SUPPOSED TO be in June 2020' states a
+# plan that a later clause may cancel -- crystallizing the never-happened date is worse
+# than declining, so the whole segment is skipped (fail closed to the legacy paths).
+_EVENT_SCHEDULED_RE = re.compile(
+    r"\b(?:supposed\s+to|going\s+to\s+be|originally|meant\s+to|rescheduled|"
+    r"was\s+to\s+be|were\s+to\s+be)\b", re.I)
+_MONTH_NUM: dict[str, int] = {name.lower(): i for i, name in enumerate(calendar.month_name) if i}
+_MONTH_NUM.update({name.lower(): i for i, name in enumerate(calendar.month_abbr) if i})
+_MONTH_NUM["sept"] = 9
+# FULL month names only (abbreviations stay out of phrase alternations): the earlier
+# len()>4 filter silently dropped May/June/July, so 'last week of May' fell through to
+# the generic 'last week' branch and anchored to the SESSION month.
+_MONTH_NAMES_RE = "|".join(m.lower() for m in calendar.month_name if m)
+# Date-correction tail: 'on April 9, 2024, not April 1' -- the trailing 'not <date>'
+# corrects a DATE, it does not negate the event, and must neither trip the negation
+# guard nor survive as a matchable date expression.
+_NOT_DATE_CORRECTION_RE = re.compile(
+    rf"[,\s]+not\s+(?:on\s+|in\s+)?(?:the\s+)?"
+    rf"(?:(?:{_MONTH_NAMES_RE})\b[\s,]*\d{{0,2}}(?:st|nd|rd|th)?(?:[\s,]+20\d{{2}})?|"
+    rf"\d{{1,2}}(?:st|nd|rd|th)|20\d{{2}}(?:-\d{{2}}-\d{{2}})?)[^,;]*", re.I)
+_WINDOW_PHRASE_RE = re.compile(
+    rf"\b(?:(?:the\s+)?(?:first|last)\s+week\s+of\s+(?:{_MONTH_NAMES_RE})|"
+    rf"last\s+(?:week|month|{_MONTH_NAMES_RE}))\b", re.I)
+
+
+@lru_cache(maxsize=1)
+def _event_date_patterns() -> tuple[re.Pattern, re.Pattern]:
+    from . import event_identity as ei
+
+    verbs = "|".join(sorted(ei.DATED_EVENT_VERB_LEMMAS, key=len, reverse=True))
+    nouns = "|".join(sorted(ei.EVENT_NOUN_LEMMAS, key=len, reverse=True))
+    verb_re = re.compile(
+        rf"\b(?:i|we)(?:'ve|'d)?\s+(?:(?:just|also|both|all|finally|recently|officially)\s+){{0,2}}"
+        rf"(?P<verb>{verbs})\b(?P<obj>[^.;!?]*)", re.I)
+    noun_re = re.compile(
+        rf"\b(?:(?P<owner>[A-Z][\w'-]+)'s\s+|(?:[Mm]y|[Oo]ur|[Tt]he)\s+)"
+        rf"(?P<noun>{nouns})\b[^.;!?]{{0,60}}?\b(?:was|is|were|took\s+place|happened)\b")
+    return verb_re, noun_re
+
+
+def _event_clause_segments(body: str) -> list[str]:
+    """Clause-proximity segmentation (the ambient-year fix): parenthetical relative
+    clauses are EXCISED (their dates can never qualify), then the text splits at clause
+    boundaries so the qualifying date must live with the verb/noun. Date-internal commas
+    are protected so 'March 3, 2024' never splits."""
+    from . import event_identity as ei
+    from .record_ops import _DATE_RE
+
+    dated_verbs = "|".join(sorted(ei.DATED_EVENT_VERB_LEMMAS, key=len, reverse=True))
+    prot = _DATE_RE.sub(lambda m: m.group(0).replace(",", "\x00"), body or "")
+    prot = re.sub(r",\s+(?:who|whom|which|where)\b[^,;]*", "", prot, flags=re.I)
+    # Restrictive (no-comma) relative clauses carry OTHER entities' dates too: 'a kitten
+    # that was born in March 2023', 'my cousin who moved to Denver in March 2021', and
+    # contact clauses 'the bakery she opened in March 2021' must never date the main verb.
+    prot = re.sub(r"\s+(?:who|whom|which|where)\s+[^,;]*", "", prot, flags=re.I)
+    prot = re.sub(
+        r"\s+that\s+(?:was|were|is|are|had|has|got|went|she|he|they)\b[^,;]*",
+        "", prot, flags=re.I)
+    prot = re.sub(
+        r"(?<=[a-z])\s+(?:she|he|they)\s+(?:'d\s+|had\s+)?"
+        r"(?:[a-z]+ed|met|flew|went|held|took|made|got|was|were|had|ran|built|"
+        r"sold|bought)\b[^,;]*",
+        "", prot, flags=re.I)
+    segs = re.split(
+        rf";\s+|,?\s+(?:and|but|then|so)\s+"
+        rf"(?=(?:(?:yesterday|today|tonight|recently|earlier|later|finally|eventually)\s+|"
+        rf"(?:last|this|next)\s+\w+\s+)?(?:i|we|my|our)\b)|"
+        # Coordinated dated verb with a shared subject ('...adopted a puppy and VISITED
+        # the vet yesterday'): the trailing date belongs to the second verb's clause.
+        rf",?\s+(?:and|but|then|so)\s+(?=(?:{dated_verbs})\b)|"
+        rf"\s+when\s+(?:i|we)\s+(?:was|were)\b|\s+back\s+in\b",
+        prot, flags=re.I)
+    return [s.replace("\x00", ",").strip() for s in segs if s and s.strip()]
+
+
+def _segment_event_date(rec: MemoryRecord, seg: str) -> Optional[tuple[str, int, str]]:
+    """(iso, precision, date_phrase) for the date expression the segment itself states.
+    None when the segment carries no resolvable date -- callers must then emit nothing.
+    Bare years are deliberately skipped: a year-only anchor would render as 'January YYYY'
+    at month granularity (fabricated month); the generic candidate loop already answers
+    bare years honestly."""
+    from . import event_identity as ei
+    from .record_ops import _DATE_RE, _relative_date_from_atom
+
+    m = _DATE_RE.search(seg)
+    if m:
+        raw = m.group(0)
+        if re.match(r"20\d{2}-\d{2}-\d{2}$", raw):
+            return raw, ei.PRECISION_EXPLICIT, ""
+        dm = re.match(r"([a-z]+)\s+(\d{1,2}),?\s+(20\d{2})$", raw, re.I)
+        if dm:
+            mon = _MONTH_NUM.get(dm.group(1).lower())
+            if mon:
+                try:
+                    return (date(int(dm.group(3)), mon, int(dm.group(2))).isoformat(),
+                            ei.PRECISION_EXPLICIT, "")
+                except ValueError:
+                    pass
+        my = re.match(r"([a-z]+)\s+(20\d{2})$", raw, re.I)
+        if my:
+            mon = _MONTH_NUM.get(my.group(1).lower())
+            if mon:
+                return f"{int(my.group(2)):04d}-{mon:02d}-01", ei.PRECISION_WINDOW, raw
+    try:
+        ref = datetime.fromtimestamp(float(getattr(rec, "valid_at", None))).date()
+    except (OSError, OverflowError, ValueError, TypeError):
+        ref = None
+    wm = re.search(rf"\b(first|last)\s+week\s+of\s+({_MONTH_NAMES_RE})\b", seg, re.I)
+    if wm and ref is not None:
+        # Present-tense copular ('my graduation IS the first week of March') reads as an
+        # upcoming event; the past-only year inference would date it a full year early.
+        # Fail closed instead of guessing the year.
+        if re.search(r"\b(?:is|are)\s+(?:during\s+|in\s+)?(?:the\s+)?(?:first|last)\s+week\b",
+                     seg, re.I):
+            return None
+        mon = _MONTH_NUM[wm.group(2).lower()]
+        year = ref.year if mon <= ref.month else ref.year - 1
+        day = 1 if wm.group(1).lower() == "first" else calendar.monthrange(year, mon)[1] - 6
+        return date(year, mon, day).isoformat(), ei.PRECISION_WINDOW, wm.group(0)
+    rel = _relative_date_from_atom(rec, seg)
+    if rel:
+        if re.match(r"\d{4}-\d{2}-\d{2}$", rel):
+            try:
+                rd = date(*[int(x) for x in rel.split("-")])
+            except ValueError:
+                return None
+            # Past-surface verb + strictly-future resolved date is self-contradictory:
+            # 'I moved the whole house in two weeks' is a DURATION, not a placement.
+            if ref is not None and rd > ref:
+                return None
+            # Granularity honesty: '(a|N) year(s) ago' bounds neither day nor month --
+            # emit nothing; week/month-granular phrases anchor at WINDOW precision so
+            # format_answer renders month-only; only day-granular phrases keep the day.
+            if re.search(r"\byears?\s+ago\b", seg, re.I) or re.search(
+                    r"\bfor\s+(?:about\s+|over\s+|nearly\s+|almost\s+)?[\w]+\s+years?\b",
+                    seg, re.I):
+                return None
+            gm = re.search(
+                r"\b(?:[\w]+\s+(?:weeks?|months?)|a\s+fortnight)\s+ago\b|"
+                r"\bfor\s+(?:about\s+|over\s+|nearly\s+|almost\s+)?[\w]+\s+(?:weeks?|months?)\b",
+                seg, re.I)
+            if gm:
+                return rel, ei.PRECISION_WINDOW, gm.group(0)
+            return rel, ei.PRECISION_RELATIVE_DAY, ""
+        phrase_m = _WINDOW_PHRASE_RE.search(seg)
+        phrase = phrase_m.group(0) if phrase_m else rel
+        isos = re.findall(r"\d{4}-\d{2}-\d{2}", rel)
+        if isos:
+            # A range whose endpoints land in different months ('last week' spoken July 3
+            # covers Jun 26-Jul 2) has no honest single-month anchor: decline and let the
+            # legacy path answer the range verbatim.
+            if len(isos) > 1 and isos[0][:7] != isos[-1][:7]:
+                return None
+            if ref is not None and isos[0] > ref.isoformat():
+                return None
+            return isos[0], ei.PRECISION_WINDOW, phrase
+        mm = re.match(r"([A-Za-z]+)\s+(\d{4})$", rel)
+        if mm and _MONTH_NUM.get(mm.group(1).lower()):
+            return (f"{int(mm.group(2)):04d}-{_MONTH_NUM[mm.group(1).lower()]:02d}-01",
+                    ei.PRECISION_WINDOW, phrase)
+    return None
+
+
+def _segment_date_pos(seg: str, phrase: str) -> Optional[int]:
+    """Character position of the segment's date expression, for nearest-verb attribution
+    when one clause carries several dated verbs."""
+    from .record_ops import _DATE_RE
+
+    if phrase:
+        i = seg.lower().find(phrase.lower())
+        if i >= 0:
+            return i
+    m = _DATE_RE.search(seg)
+    if m:
+        return m.start()
+    m = re.search(
+        r"\byesterday\b|\btoday\b|\btonight\b|\bago\b|\blast\s+\w+|"
+        r"\bthis\s+(?:past\s+)?\w+|\bon\s+the\s+\d{1,2}", seg, re.I)
+    return m.start() if m else None
+
+
+def _event_date_object(raw: str) -> str:
+    obj = re.sub(r"\s+", " ", (raw or "").strip())
+    obj = re.sub(r"^(?:up|into|in|to|at|from|with|for)\s+", "", obj, flags=re.I)
+    obj = re.split(
+        r"\b(?:on|in|at|during|for|with|from|by|last|this|next|yesterday|today|tomorrow|"
+        r"when|while|because|back|ago|and|but|so|"
+        r"(?:a|an|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|\d+)"
+        r"\s+(?:days?|weeks?|months?|years?))\b",
+        obj, maxsplit=1, flags=re.I)[0]
+    return _clean_relation_object(obj)
+
+
+def _event_date_claims_from_atom(rec: MemoryRecord, atom: str) -> list[ClaimRecord]:
+    text = re.sub(r"\s+", " ", atom or "").strip()
+    if not text or text.endswith("?") or _is_info_seeking_question(text):
+        return []
+    from . import event_identity as ei
+    from .record_ops import _is_future_polarity_atom
+
+    # Write-time future/plan polarity guard: replicates for the claim path what the
+    # generic loop enforces at read time ('tomorrow' added -- record_ops's marker set
+    # predates day-resolution relatives).
+    if _is_future_polarity_atom(text) or re.search(r"\btomorrow\b", text, re.I):
+        return []
+    body = re.sub(r"^[A-Z][A-Za-z'_-]{1,32}:\s*", "", text)
+    # Quoted third-party speech is REPORTED, not the speaker's own event: 'Rosa told me
+    # "I adopted a kitten on March 3, 2024"' must never become a first-person claim.
+    body = re.sub(r'"[^"]*"|“[^”]*”', " ", body)
+    verb_re, noun_re = _event_date_patterns()
+    if not (verb_re.search(body) or noun_re.search(body)):
+        return []
+    speaker = _speaker_for_atom(rec, text)
+    out: list[ClaimRecord] = []
+    seen: set[tuple[str, str, str]] = set()
+
+    def _emit(lemma: str, obj: str, subject: str, iso: str, precision: int,
+              place: str, phrase: str, owner: str = "") -> None:
+        key = (lemma, _norm(obj), iso)
+        if key in seen:
+            return
+        seen.add(key)
+        head = ei.obj_head(obj)
+        if not head:
+            # An empty object head ('We opened IT on June 1') is unanchorable evidence:
+            # downstream object ties auto-pass on empty heads, so such a claim can
+            # hijack unrelated instances. Emit nothing.
+            return
+        claim = _claim_from_atom(rec, text, "event", predicate=lemma, value=iso)
+        if claim is None:
+            return
+        if subject:
+            claim.subject = subject
+        claim.object = obj
+        filters: dict[str, Any] = {
+            "event": "dated", "lemma": lemma, "obj_head": head,
+            "event_date": iso, "date_precision": precision,
+        }
+        if place:
+            filters["place"] = place
+        if phrase:
+            filters["date_phrase"] = phrase
+        if owner:
+            # Third-party possessive ('Mina's wedding'): the read side must never serve
+            # this for a first-person question, nor the speaker's own event for an
+            # owner-named question.
+            filters["owner"] = owner
+        claim.filters = filters
+        out.append(claim)
+
+    for seg in _event_clause_segments(body):
+        # 'not April 1' after a stated date corrects the DATE; it is not event negation.
+        seg = _NOT_DATE_CORRECTION_RE.sub("", seg)
+        if _EVENT_NEGATION_RE.search(seg) or _EVENT_SCHEDULED_RE.search(seg):
+            continue
+        dated = _segment_event_date(rec, seg)
+        if dated is None:
+            continue  # no in-atom date tied to this clause -> no claim, ever
+        iso, precision, phrase = dated
+        place_m = re.search(
+            rf"\b(?:in|at)\s+(?!(?i:{_MONTH_NAMES_RE})\b)"
+            rf"([A-Z][\w'-]+(?:\s+[A-Z][\w'-]+){{0,2}})", seg)
+        place = place_m.group(1) if place_m else ""
+        cands: list[tuple[int, str, str, str, str]] = []
+        for m in verb_re.finditer(seg):
+            if _EVENT_HYPOTHETICAL_RE.search(seg[:m.start()]):
+                continue
+            lemma = ei.DATED_EVENT_VERB_LEMMAS.get(m.group("verb").lower(), "")
+            if not lemma:
+                continue
+            cands.append((m.start("verb"), lemma, _event_date_object(m.group("obj")),
+                          speaker, ""))
+        for m in noun_re.finditer(seg):
+            if _EVENT_HYPOTHETICAL_RE.search(seg[:m.start()]):
+                continue
+            noun = m.group("noun").lower()
+            lemma = ei.EVENT_NOUN_LEMMAS.get(noun, "")
+            if not lemma:
+                continue
+            owner = (m.group("owner") or "").strip()
+            cands.append((m.start("noun"), lemma, noun, owner or speaker, owner))
+        if len(cands) > 1:
+            # One clause, one date, several dated verbs: the date belongs to the NEAREST
+            # verb only ('I adopted a puppy and yesterday we visited the vet' must never
+            # date the adoption with the vet visit's 'yesterday').
+            dpos = _segment_date_pos(seg, phrase)
+            if dpos is not None:
+                cands = [min(cands, key=lambda c: abs(c[0] - dpos))]
+        for _pos, lemma, obj, subject, owner in cands:
+            _emit(lemma, obj, subject, iso, precision, place, phrase, owner)
+    return out
+
+
 def _clean_relation_object(value: str) -> str:
     value = re.sub(r"\s+", " ", (value or "").strip(" .,:;!?"))
     value = re.sub(r"^[A-Z][A-Za-z'_-]{1,32}:\s*", "", value)
@@ -763,6 +1071,7 @@ def heuristic_claims_from_text(rec: MemoryRecord) -> list[ClaimRecord]:
         claims.extend(_list_item_claims_from_atom(rec, atom))
         claims.extend(_naming_claims_from_atom(rec, atom))
         claims.extend(_support_relation_claims_from_atom(rec, atom))
+        claims.extend(_event_date_claims_from_atom(rec, atom))
         relation_claims = _relation_object_claims_from_atom(rec, atom)
         if relation_claims:
             # Keep the full-sentence claim TOO: the concise relation claim wins on precision,
@@ -788,11 +1097,14 @@ def claims_for_record(
     deduped: list[ClaimRecord] = []
     seen = set()
     for claim in claims:
-        discriminant = (
-            _norm(str(claim.object or ""))
-            if (claim.filters.get("list") == "item" or claim.filters.get("naming"))
-            else ""
-        )
+        if claim.filters.get("list") == "item" or claim.filters.get("naming"):
+            discriminant = _norm(str(claim.object or ""))
+        elif claim.filters.get("event") == "dated":
+            # Two dated events in one sentence must not collapse.
+            discriminant = (_norm(str(claim.object or "")) + "|"
+                            + str(claim.filters.get("event_date")))
+        else:
+            discriminant = ""
         key = (claim.claim_type, _norm(claim.proof_atom), claim.source_memory_id, discriminant)
         if key in seen:
             continue

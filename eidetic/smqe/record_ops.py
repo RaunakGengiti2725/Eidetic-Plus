@@ -3135,6 +3135,11 @@ def _claim_tier_count_answer(plan, query: str, atoms, backend: str, sup):
     for score, item, atom in atoms:
         if not isinstance(item, ClaimRecord) or item.claim_type != "event":
             continue
+        if (item.filters or {}).get("event") == "dated":
+            # Event-dated family claims are when-question evidence, never countable
+            # objects (their object trimming differs from relation claims, so one
+            # event would double-count). Same exclusion as _claim_enumeration_answer.
+            continue
         pred_words = set(re.findall(r"[a-z']+", (item.predicate or "").lower()))
         if not (pred_words & allowed):
             continue
@@ -3301,6 +3306,110 @@ def _claim_event_instance_answer(plan, query: str, atoms, backend: str, sup):
         return None
     return _result(answer, plan, backend, [sup(item, atom, score)],
                    note_suffix=":event_instance")
+
+
+def _event_date_claim_answer(plan, query: str, atoms, backend: str, sup):
+    """Event-date family read side: serves ONLY 'when ...' / 'what date|day ...' shapes.
+    Date-conditioned INVERSE questions ('Which country was X visiting in May 2023?') and
+    who-questions with embedded when-clauses never enter -- date->event lookup is
+    explicitly out of scope for this family and stays reader-served. Once-ish question
+    lemmas belong to _claim_event_instance_answer (dispatched just above, reading the
+    same four filter keys); multi-instance evidence declines instead of guessing, and a
+    window-precision claim can never render a day (format_answer enforces month
+    granularity)."""
+    from . import event_identity as ei
+
+    q = (query or "").strip().lower()
+    if not (q.startswith("when ") or re.match(r"what\s+(?:date|day)\b", q)):
+        return None
+    if _query_event_ordinal(query) is not None:
+        # 'my FIRST concert' has counting semantics this op cannot honor; the ordinal
+        # machinery (k==1 anchor / kth interpolation) owns those shapes.
+        return None
+    if ei.question_lemma(query):
+        return None  # once-ish lemma: owned by _claim_event_instance_answer
+    qwords_list = re.findall(r"[a-z][\w'-]*", q)
+    qlemma = ""
+    for w in qwords_list:
+        qlemma = ei.dated_lemma_for(w) or ei.EVENT_NOUN_LEMMAS.get(w, "")
+        if qlemma:
+            break
+    if not qlemma:
+        return None
+    qwords = {w for w in qwords_list if len(w) >= 3}
+    toks = re.findall(r"[A-Za-z][\w'-]*", query or "")
+    qcaps = {t for t in toks[1:] if t[:1].isupper()}
+    # Subject/owner discipline: an owner-named question ('When was Mina's wedding?')
+    # must never serve the speaker's own event, and a first-person question must never
+    # serve a third-party-owned one.
+    qowner_m = re.search(r"\b([A-Z][\w-]+)'s\b", query or "")
+    qowner = qowner_m.group(1).lower() if qowner_m else ""
+    first_person = bool(re.search(r"\b(?:i|we|my|our)\b", q))
+    content_words = {
+        w for w in qwords
+        if w not in _STOP
+        and w not in {"happen", "happened", "take", "took", "place", "date", "day"}
+        and ei.dated_lemma_for(w) != qlemma and ei.EVENT_NOUN_LEMMAS.get(w) != qlemma
+    }
+    matches: list[tuple[int, str, str, float, object, str]] = []
+    for score, item, atom in atoms:
+        if not isinstance(item, ClaimRecord):
+            continue
+        f = item.filters or {}
+        if f.get("event") != "dated":
+            continue
+        if not ei.dated_lemmas_compatible(str(f.get("lemma") or ""), qlemma):
+            continue
+        iso = str(f.get("event_date") or "")
+        if not re.match(r"\d{4}-\d{2}-\d{2}$", iso):
+            continue
+        subj = str(getattr(item, "subject", "") or "").lower()
+        owner_f = str(f.get("owner") or "").lower()
+        if qowner and qowner not in (subj, owner_f):
+            continue
+        if not qowner and first_person and owner_f:
+            continue
+        head = str(f.get("obj_head") or "").lower()
+        place = str(f.get("place") or "")
+        # Object tie is MANDATORY when the question carries content nouns -- never
+        # answer on lemma alone (same prefix rule as _claim_event_instance_answer).
+        tie = not content_words
+        if not tie and head and (head in qwords or any(
+                min(len(head), len(w)) >= 4 and (head.startswith(w) or w.startswith(head))
+                for w in qwords)):
+            tie = True
+        if not tie and head and ei.EVENT_NOUN_LEMMAS.get(head) == qlemma:
+            tie = True
+        if not tie and place and place in qcaps:
+            tie = True
+        if not tie:
+            continue
+        matches.append((int(f.get("date_precision") or 0), iso, place, score, item, atom))
+    if not matches:
+        return None
+    # Place narrowing: a query-named place selects its instance ('my concert in Berlin').
+    if qcaps and any(m[2] and m[2] in qcaps for m in matches):
+        matches = [m for m in matches if m[2] in qcaps]
+    days = []
+    for _p, iso, _pl, _s, _i, _a in matches:
+        try:
+            days.append(date(*[int(x) for x in iso.split("-")]))
+        except (ValueError, TypeError):
+            return None
+    if (max(days) - min(days)).days > ei.INSTANCE_SPAN_GUARD_DAYS:
+        return None  # repeatable event, several instances: decline to the legacy paths
+    # Supersession: at equal precision the LATEST statement wins (a correction that
+    # moves the date later must be able to beat the original), then earliest event day
+    # for determinism.
+    ranked = sorted(
+        zip(matches, days),
+        key=lambda md: (-md[0][0], -(getattr(md[0][4], "valid_at", 0.0) or 0.0), md[1]))
+    (precision, iso, _place, score, item, atom), _d = ranked[0]
+    answer = ei.format_answer(iso, precision)
+    if not answer:
+        return None
+    return _result(answer, plan, backend, [sup(item, atom, score)],
+                   confidence=0.9, note_suffix=":event_date")
 
 
 def _event_term_hit(term: str, atom_terms: set[str]) -> bool:
@@ -5326,6 +5435,9 @@ def _execute_atoms(plan: ExecutionPlan, query: str,
             instance = _claim_event_instance_answer(plan, query, atoms, backend, sup)
             if instance is not None:
                 return instance
+            dated = _event_date_claim_answer(plan, query, atoms, backend, sup)
+            if dated is not None:
+                return dated
             if k == 1:
                 # 'my FIRST tournament' is the strongest possible anchor for a first-instance
                 # question; when such an atom exists it answers directly. No explicit anchor

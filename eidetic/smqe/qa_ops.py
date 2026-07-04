@@ -481,6 +481,10 @@ def _claim_enumeration_answer(query: str, atoms: list[tuple[float, object, str]]
             continue
         pred = str(getattr(item, "predicate", "") or "").lower()
         filters = getattr(item, "filters", None) or {}
+        if filters.get("event") == "dated":
+            # Event-dated family claims are when-question evidence, never enum items
+            # (same spirit as the list/naming exclusions).
+            continue
         list_label_hit = bool(
             query_head_key
             and filters.get("list") == "item"

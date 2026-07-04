@@ -37,6 +37,35 @@ for _canon, _members in INSTANCE_LEMMA_FAMILIES.items():
     for _m in _members:
         _LEMMA_OF.setdefault(_m, _canon)
 
+# Event-date claim family vocabulary (shared by write and read sides so "When was X's
+# concert..." matches a claim written from "My concert ... was ..."). Deliberately
+# SEPARATE from INSTANCE_LEMMA_FAMILIES: repeatable verbs never enter the once-ish
+# contract (reverted 3x history); the family carries its own filter marker
+# (event == "dated") and the read op declines on multi-instance ambiguity instead.
+EVENT_NOUN_LEMMAS: dict[str, str] = {
+    "concert": "concert", "wedding": "wedding", "graduation": "graduation",
+    "ceremony": "ceremony", "interview": "interview", "flight": "flight",
+    "trip": "trip", "recital": "recital", "performance": "concert",
+    "show": "concert", "appointment": "appointment", "exam": "exam",
+    "surgery": "surgery",
+}
+
+# Past-tense surface form -> canonical lemma for dated action verbs. Kept here (not in
+# claim_extraction) so the read op imports ONE vocabulary and write/read never drift.
+DATED_EVENT_VERB_LEMMAS: dict[str, str] = {
+    "adopted": "adopt", "rescued": "rescue", "married": "marry",
+    "graduated": "graduate", "moved": "move", "released": "release",
+    "opened": "open", "started": "start", "joined": "join", "launched": "launch",
+    "performed": "perform", "attended": "attend", "visited": "visit",
+    "met": "meet", "traveled": "travel", "travelled": "travel", "flew": "fly",
+    "went": "go", "reconnected": "reconnect", "held": "hold",
+}
+
+_DATED_SURFACE_OF: dict[str, str] = {}
+for _surf, _lem in DATED_EVENT_VERB_LEMMAS.items():
+    _DATED_SURFACE_OF[_surf] = _lem
+    _DATED_SURFACE_OF.setdefault(_lem, _lem)
+
 _HEAD_STOP = frozenset({
     "a", "an", "the", "my", "his", "her", "their", "our", "your", "own", "new", "old",
     "little", "big", "small", "first", "second", "third", "this", "that", "some",
@@ -70,6 +99,23 @@ def lemmas_compatible(a: str, b: str) -> bool:
 
 def canon_lemma(verb: str) -> str:
     return _LEMMA_OF.get((verb or "").lower(), "")
+
+
+def dated_lemma_for(word: str) -> str:
+    """Canonical dated-event lemma for a surface verb ('adopted' or 'adopt' -> 'adopt')."""
+    return _DATED_SURFACE_OF.get((word or "").lower(), "")
+
+
+def dated_lemmas_compatible(a: str, b: str) -> bool:
+    """Exact lemma match, or both map into the same INSTANCE_LEMMA_FAMILIES family via the
+    existing lemmas_compatible ('rescue' answers an adopt-question and vice versa)."""
+    if not a or not b:
+        return False
+    if a == b:
+        return True
+    ca = canon_lemma(a) or a
+    cb = canon_lemma(b) or b
+    return ca == cb or lemmas_compatible(ca, cb)
 
 
 def question_lemma(query: str) -> str:
