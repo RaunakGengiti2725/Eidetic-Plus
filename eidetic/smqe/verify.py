@@ -306,6 +306,12 @@ def answer_from_result(retriever, query: str, result: StructuredAnswerResult,
             and _ENUMERATED_ANSWER_RE.match(result.answer or "")
             and not re.search(r"\b(?:because|since)\b", result.answer or "", re.I)):
         return None
+    # When-question type agreement, structured side: a when-answer without a single temporal
+    # token is malformed regardless of which operator derived it ('I'm taking a dog training
+    # course and it's challenging' shipped verified for a when-took-place question).
+    if (verify and re.match(r"\s*when\b", query or "", re.I)
+            and not _TEMPORAL_TOKEN_RE.search(result.answer or "")):
+        return None
     # Zero-information FORM refusal: an answer whose every content token already appears in
     # the question restates it instead of answering ('My girlfriend' for 'what places have
     # Andrew and his girlfriend checked out?' shipped verified on the fresh holdout -- the

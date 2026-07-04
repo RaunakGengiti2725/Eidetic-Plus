@@ -1188,9 +1188,25 @@ _TRAVEL_DURATION_TERMS = {
 }
 
 
+# Tiny general synonym families the morphology rules cannot bridge; used by term expansion
+# so kinship and giving vocabulary tie across phrasings ('mom gifted' <-> 'my mother gave').
+_TERM_SYNONYMS: dict[str, tuple[str, ...]] = {
+    "mom": ("mother", "mum", "mommy", "mama"), "mother": ("mom", "mum"),
+    "dad": ("father", "daddy", "papa"), "father": ("dad",),
+    "gift": ("gave", "give", "given", "gifted", "present"),
+    "gave": ("gift", "gifted", "give", "given"),
+    "gifted": ("gift", "gave", "give", "given"),
+    "speech": ("talk", "talked", "talking", "spoke", "speak", "presentation"),
+    "talked": ("speech", "spoke", "talk"),
+    "spoke": ("speech", "talk", "talked"),
+}
+
+
 def _expanded_terms(text: str) -> set[str]:
     terms = set(_terms(text))
     for term in list(terms):
+        for syn in _TERM_SYNONYMS.get(term, ()):
+            terms.add(syn)
         if len(term) > 4 and term.endswith("ied"):
             terms.add(term[:-3] + "y")
         if len(term) > 4 and term.endswith("ing"):
@@ -1493,7 +1509,19 @@ def _temporal_window_list_answer(
 def _target_hit_count(terms: set[str], target_terms: set[str]) -> int:
     if not target_terms:
         return 0
-    return len({_count_term_key(term) for term in terms} & target_terms)
+    keys = {_count_term_key(term) for term in terms}
+    hits = 0
+    for tt in target_terms:
+        if tt in keys:
+            hits += 1
+            continue
+        # Conservative prefix bridge (>=5 shared leading chars) for morphology the key
+        # normalizer cannot see: 'donated' -> 'donat' ties to 'donate'; 'car'/'card' stay
+        # apart. Exact-key-only matching made event gates depend on incidental terms.
+        if any(min(len(tt), len(k)) >= 5 and (tt.startswith(k) or k.startswith(tt))
+               for k in keys):
+            hits += 1
+    return hits
 
 
 def _target_threshold(target_terms: set[str]) -> int:
@@ -2819,7 +2847,7 @@ def _latest_atom_target_hit(target_terms: set[str], atom: str, group_terms: Opti
     return 0
 
 
-_RELATIVE_TARGET_STOP = _STOP | {"achieve", "achieved", "after", "ago", "before", "career", "child", "children", "date", "day", "days", "did", "do", "ever", "family", "friend", "friends", "file", "filed", "from", "game", "high", "highest", "in", "inspect", "inspected", "last", "mail", "mailed", "month", "months", "next", "pick", "picked", "point", "points", "review", "reviewed", "schedule", "scheduled", "score", "scored", "since", "time", "today", "tomorrow", "up", "week", "weeks", "when", "will", "year", "years", "yesterday"}
+_RELATIVE_TARGET_STOP = _STOP | {"achieve", "achieved", "after", "ago", "before", "career", "child", "children", "date", "day", "days", "did", "do", "ever", "family", "friend", "friends", "file", "filed", "from", "game", "high", "highest", "in", "inspect", "inspected", "last", "mail", "mailed", "month", "months", "next", "pick", "picked", "point", "points", "review", "reviewed", "schedule", "scheduled", "score", "scored", "since", "time", "today", "tomorrow", "up", "week", "weeks", "when", "will", "year", "years", "yesterday", "take", "took", "taken", "place", "happen", "happened", "occur", "occurred"}
 
 
 def _relative_temporal_target_terms(query: str) -> set[str]:
@@ -4939,7 +4967,8 @@ def _execute_atoms(plan: ExecutionPlan, query: str,
                 if past_question and _is_future_polarity_atom(atom):
                     continue
                 match_text = _item_match_text(item, atom)
-                target_hits = _target_hit_count(_expanded_terms(match_text), target_terms)
+                expanded = _expanded_terms(match_text)
+                target_hits = _target_hit_count(expanded, target_terms)
                 if threshold and target_hits < threshold:
                     continue
                 answer = _relative_date_from_atom(item, atom, query)
