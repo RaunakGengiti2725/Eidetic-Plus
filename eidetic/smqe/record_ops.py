@@ -3160,6 +3160,57 @@ def _claim_tier_count_answer(plan, query: str, atoms, backend: str, sup):
                    note_suffix=":claim_count")
 
 
+def _claim_list_count_answer(plan, query: str, atoms, backend: str, sup):
+    """P1b existence counts: 'how many X are there' over itemized-list claims -- the write
+    side already split 'blockers: A, B, C' into one claim per item under a shared list_id,
+    so the count is COUNT(DISTINCT object) of the LATEST matching list and every counted
+    item carries the shared proof sentence. No matching list falls through to the legacy
+    collectors."""
+    if not re.search(r"\b(?:how\s+many|number\s+of|count\s+of)\b", query or "", re.I):
+        return None
+    label = _count_target_label(query)
+    head_terms = _count_target_head_terms(query)
+    if not label or not head_terms:
+        return None
+    people = _query_people(query)
+    person_keys = {re.sub(r"'s$", "", p.lower()) for p in people}
+    q_terms = {_count_term_key(t) for t in _expanded_terms(query)}
+    groups: dict[str, dict] = {}
+    for score, item, atom in atoms:
+        if not isinstance(item, ClaimRecord) or item.filters.get("list") != "item":
+            continue
+        list_label = str(item.filters.get("list_label") or "")
+        if not list_label:
+            continue
+        label_keys = {_count_term_key(t) for t in _expanded_terms(list_label)}
+        if not (label_keys & head_terms):
+            continue
+        if person_keys and not (
+            person_keys & {t.lower() for t in _terms(str(item.subject or "") + " " + atom)}
+        ):
+            continue
+        lid = str(item.filters.get("list_id") or "")
+        if not lid:
+            continue
+        g = groups.setdefault(lid, {"valid_at": item.valid_at or 0.0, "items": {},
+                                    "overlap": 0})
+        g["valid_at"] = max(g["valid_at"], item.valid_at or 0.0)
+        g["overlap"] = max(g["overlap"], len(
+            q_terms & {_count_term_key(t) for t in _expanded_terms(atom + " " + list_label)}))
+        key = _norm_key(str(item.object or ""))
+        if key and key not in g["items"]:
+            g["items"][key] = (score, item, atom, item.filters.get("list_index", 0))
+    live = [g for g in groups.values() if len(g["items"]) >= 2]
+    if not live:
+        return None
+    best = max(live, key=lambda g: (g["overlap"], g["valid_at"]))
+    entries = sorted(best["items"].values(), key=lambda row: row[3])
+    values = [str(item.object) for _s, item, _a, _i in entries]
+    supports = [sup(item, atom, score) for score, item, atom, _i in entries[:6]]
+    return _result(f"{len(values)} {label}: " + "; ".join(values), plan, backend,
+                   supports, note_suffix=":claim_list_count")
+
+
 _MONTH_SUPERLATIVE_RE = re.compile(
     r"\b(?:in\s+)?(?:which|what)\s+month\b[^?]*\b(?:career[- ]high|highest|record|"
     r"personal\s+best|best)\b", re.I)
@@ -4894,6 +4945,72 @@ def _open_or_preference_answer(query: str, atoms: list[tuple[float, object, str]
         return answer, selected
     return "", []
 
+_NICKNAME_QUERY_RE = re.compile(
+    r"\bnicknames?\b|\bgoes\s+by\b|\bknown\s+as\b|\bwhat\s+(?:do|does|did)\s+\w+\s+call\b",
+    re.I,
+)
+
+
+_TITLE_QUERY_BLOCK_RE = re.compile(
+    r"\b(?:when|where|who|whom|whose|why|how\s+(?:often|long|many|much|far))\b", re.I)
+
+
+def _named_alias_answer(query: str, atoms: list[tuple[float, object, str]]) -> tuple[str, list[tuple[float, object, str]]]:
+    """Naming claims answer alias questions deterministically: 'what nickname does Nate use
+    for Joanna' is a SELECT over naming=nickname claims tied to BOTH people; 'which
+    technique does Tim use' selects the naming=title claim whose named_head sits in a
+    what/which question. Title answers require a name-shaped question (never when/where/
+    how-often -- a title is not a date), qualifier overlap outranks recency, and no
+    matching claim falls through to the legacy paths."""
+    q = query or ""
+    people = _query_people(q)
+    person_keys = {re.sub(r"'s$", "", p.lower()) for p in people}
+    q_term_keys = {_count_term_key(t) for t in _expanded_terms(q)}
+    nickname_query = bool(_NICKNAME_QUERY_RE.search(q))
+    title_query = bool(
+        re.search(r"\b(?:what|which)\b", q, re.I) and not _TITLE_QUERY_BLOCK_RE.search(q)
+    )
+    giver_m = re.search(r"\b(?:does|did|do)\s+([A-Z][\w'-]+)\s+(?:use|call|have)\b", q)
+    target_m = re.search(
+        r"\b(?:for|of)\s+([A-Z][\w'-]+)\s*\??$|\b([A-Z][\w'-]+)'s\s+nickname\b", q)
+    best: tuple[int, float, float, object, str] | None = None
+    for score, item, atom in atoms:
+        if not isinstance(item, ClaimRecord):
+            continue
+        naming = (item.filters or {}).get("naming")
+        if not naming:
+            continue
+        if naming == "nickname":
+            if not nickname_query:
+                continue
+            subject = str(item.subject or "").lower()
+            target = str(item.filters.get("target") or "").lower()
+            if person_keys and not person_keys <= {subject, target}:
+                continue
+            if giver_m and giver_m.group(1).lower() != subject:
+                continue
+            if target_m:
+                wanted = (target_m.group(1) or target_m.group(2) or "").lower()
+                if wanted and wanted != target:
+                    continue
+        else:
+            if not title_query:
+                continue
+            head = str(item.filters.get("named_head") or "")
+            if not head or _count_term_key(head) not in q_term_keys:
+                continue
+            if person_keys and str(item.subject or "").lower() not in person_keys:
+                continue
+        overlap = len(q_term_keys & {_count_term_key(t) for t in _expanded_terms(atom)})
+        row = (overlap, item.valid_at or 0.0, score, item, atom)
+        if best is None or row[:3] > best[:3]:
+            best = row
+    if best is None:
+        return "", []
+    _ov, _va, score, item, atom = best
+    return str(item.object or ""), [(score, item, atom)]
+
+
 _COMPOUND_WH_RE = re.compile(
     r"\b(?:when|where|who|what)\b[^.?]{0,40}\band\b[^.?]{0,40}\b(?:when|where|who|what)\b", re.I)
 
@@ -4925,6 +5042,10 @@ def _execute_atoms(plan: ExecutionPlan, query: str,
     answer, selected = _claim_enumeration_answer(query, atoms)
     if answer and selected:
         return result_from(answer, selected, confidence=0.9)
+    if op != "event_order":
+        answer, selected = _named_alias_answer(query, atoms)
+        if answer and selected:
+            return result_from(answer, selected, confidence=0.9)
     for helper in (
         _before_event_time_answer,
         _event_order_answer,
@@ -5014,6 +5135,9 @@ def _execute_atoms(plan: ExecutionPlan, query: str,
         claim_count = _claim_tier_count_answer(plan, query, atoms, backend, sup)
         if claim_count is not None:
             return claim_count
+        list_count = _claim_list_count_answer(plan, query, atoms, backend, sup)
+        if list_count is not None:
+            return list_count
         for helper in (_sum_duration_answer, _action_item_count_answer):
             answer, selected = helper(query, atoms)
             if answer and selected:

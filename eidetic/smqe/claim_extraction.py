@@ -1,7 +1,9 @@
 """Source-backed claim extraction helpers for SMQE consolidation."""
 from __future__ import annotations
 
+import hashlib
 import re
+from functools import lru_cache
 from typing import Any, Iterable, Optional
 
 from eidetic import preferences
@@ -22,6 +24,7 @@ _DURATION_AMOUNT_RE = re.compile(
 )
 
 
+@lru_cache(maxsize=4096)
 def _norm(text: str) -> str:
     return re.sub(r"\s+", " ", (text or "").strip()).lower()
 
@@ -433,13 +436,294 @@ def _dialogue_answer_claims_from_text(rec: MemoryRecord) -> list[ClaimRecord]:
     return out
 
 
+_LIST_ITEM_JUNK = {
+    "you", "me", "us", "him", "her", "them", "it", "that", "this", "these", "those",
+    "one", "ones", "thing", "things", "stuff", "more", "lot", "lots", "etc", "everything",
+    "anything", "something", "same", "i", "we", "he", "she", "they",
+}
+_LIST_ITEM_STATE_WORDS = {
+    "gone", "done", "over", "fine", "okay", "ok", "better", "worse", "great", "good",
+    "bad", "hard", "easy", "back", "here", "there",
+}
+_LIST_ITEM_ADVERBS = {
+    "thankfully", "finally", "luckily", "honestly", "hopefully", "sadly", "really",
+    "mostly", "definitely", "probably", "quickly", "slowly", "recently", "lately",
+    "actually", "eventually", "certainly", "surely",
+}
+_LIST_ITEM_TAIL_RE = re.compile(
+    r"\s+\b(?:from|at|during|for|because|since|so|when|while|after|before|which|that|"
+    r"who|where|last|next|yesterday|today|tomorrow|recently|too|though|although)\b.*$",
+    re.I,
+)
+_LIST_ENUM_VERB_RE = (
+    r"enjoy(?:s|ed)?|love(?:s|d)?|like(?:s|d)?|know(?:s)?|knew|learn(?:ed|t)?|"
+    r"tried|do|does|did|can\s+do|play(?:s|ed)?|practice(?:s|d)?"
+)
+
+
+def _clean_list_item(raw: str) -> str:
+    item = re.sub(r"\s+", " ", (raw or "").strip(" .,:;!?-"))
+    item = re.sub(r"^(?:and|or|also|then|even|maybe|perhaps|probably|hopefully|definitely)\s+",
+                  "", item, flags=re.I)
+    item = re.sub(r"^(?:a|an|the|some|my|our|his|her|their|new|another)\s+", "", item, flags=re.I)
+    item = _LIST_ITEM_TAIL_RE.sub("", item).strip(" .,:;!?-")
+    if len(item) < 3 or len(item.split()) > 5:
+        return ""
+    if item.lower() in _LIST_ITEM_JUNK or item.split()[0].lower() in _LIST_ITEM_JUNK:
+        return ""
+    if item.split()[-1].lower() in {"to", "of", "in", "on", "at", "with", "for", "from",
+                                    "or", "and", "but", "the", "a", "an"}:
+        return ""
+    if len(item.split()) == 1:
+        low = item.lower()
+        if low in _LIST_ITEM_STATE_WORDS or low in _LIST_ITEM_ADVERBS:
+            return ""
+        if len(low) >= 6 and low.endswith("ed"):
+            return ""
+    if item.isdigit():
+        return ""
+    return item[:80]
+
+
+def _split_list_items(raw: str) -> list[str]:
+    region = (raw or "").strip()
+    parts = re.split(r",\s*(?:and\s+|or\s+)?|\s+and\s+|\s+as\s+well\s+as\s+", region, flags=re.I)
+    items: list[str] = []
+    seen: set[str] = set()
+    for part in parts:
+        item = _clean_list_item(part)
+        key = _norm(item)
+        if item and key not in seen:
+            seen.add(key)
+            items.append(item)
+        if len(items) >= 8:
+            break
+    if "," not in region and not (
+        len(items) == 2 and all(len(i.split()) <= 3 for i in items)
+    ):
+        return []
+    return items
+
+
+def _plural_label(label: str) -> str:
+    label = re.sub(r"\s+", " ", (label or "").strip(" .,:;!?-"))
+    label = re.sub(
+        r"^(?:the|my|our|his|her|their|these|those|some|all|current|active|main|new)\s+",
+        "", label, flags=re.I,
+    )
+    words = re.findall(r"[a-z][\w'-]*", label.lower())
+    if not words or len(words) > 4:
+        return ""
+    last = words[-1]
+    if not re.search(r"(?:s|es)$", last) or re.search(r"(?:ss|us|is)$", last):
+        return ""
+    return " ".join(words)
+
+
+def _list_item_claims(rec: MemoryRecord, atom: str, label: str, verb: str,
+                      items: list[str]) -> list[ClaimRecord]:
+    if len(items) < 2:
+        return []
+    lid = hashlib.sha1(
+        f"{rec.memory_id}|{label}|{verb}|{_norm(atom)}".encode()
+    ).hexdigest()[:12]
+    out: list[ClaimRecord] = []
+    for idx, item in enumerate(items):
+        claim = _claim_from_atom(rec, atom, "state", predicate=verb or label, value=item)
+        if claim is None:
+            continue
+        claim.subject = _speaker_for_atom(rec, atom) or claim.subject
+        claim.object = item
+        claim.filters = {
+            "list": "item", "list_id": lid, "list_label": label,
+            "list_size": len(items), "list_index": idx,
+        }
+        out.append(claim)
+    return out
+
+
+def _list_item_claims_from_atom(rec: MemoryRecord, atom: str) -> list[ClaimRecord]:
+    text = re.sub(r"\s+", " ", atom or "").strip()
+    if not text or text.endswith("?"):
+        return []
+    body = re.sub(r"^[A-Z][A-Za-z'_-]{1,32}:\s*", "", text)
+    out: list[ClaimRecord] = []
+
+    m = re.search(
+        r"^(?P<label>[\w' -]{2,60}?)\s+(?:are|were|include(?:s|d)?)\s+(?P<items>[^.;!?]+)",
+        body, re.I,
+    ) or re.search(
+        r"^(?P<label>[\w' -]{2,60}?):\s+(?P<items>[^.;!?]+)", body,
+    )
+    if m:
+        label = _plural_label(m.group("label"))
+        if label:
+            out.extend(_list_item_claims(
+                rec, text, label, "", _split_list_items(m.group("items"))))
+
+    for m in re.finditer(
+        r"\b(?P<label>[a-z][\w-]*)\s+(?:like|such\s+as|including)\s+(?P<items>[^.;!?]+)",
+        body, re.I,
+    ):
+        label = _plural_label(m.group("label"))
+        if not label:
+            continue
+        out.extend(_list_item_claims(
+            rec, text, label, "", _split_list_items(m.group("items"))))
+
+    for clause in re.split(r",?\s+(?:and|but|then)\s+(?=(?:i|we)\b)", body, flags=re.I):
+        for m in re.finditer(
+            rf"\b(?:i|we)\s+(?:really\s+|also\s+|both\s+|all\s+)?"
+            rf"(?P<verb>{_LIST_ENUM_VERB_RE})\s+(?P<items>[^.;!?]+)",
+            clause, re.I,
+        ):
+            verb = re.sub(r"\s+", " ", m.group("verb").lower())
+            region = re.split(r"\b(?:like|such\s+as|including)\b", m.group("items"),
+                              maxsplit=1, flags=re.I)[0]
+            region = re.split(r",?\s+(?:and\s+|but\s+|then\s+)?(?:i|we|he|she|they)\b",
+                              region, maxsplit=1, flags=re.I)[0]
+            out.extend(_list_item_claims(rec, text, "", verb, _split_list_items(region)))
+
+    deduped: list[ClaimRecord] = []
+    seen: set[tuple[str, str]] = set()
+    for claim in out:
+        key = (str(claim.filters.get("list_id")), _norm(claim.object))
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(claim)
+    return deduped
+
+
+_NAMED_CATEGORY_NOUNS = {
+    "technique", "method", "diet", "challenge", "program", "workout", "routine",
+    "strategy", "framework",
+}
+_TITLE_STOP_WORDS = {
+    "i", "we", "he", "she", "they", "it", "the", "a", "an", "my", "our", "his", "her",
+    "their", "this", "that", "so", "and", "but", "when", "then", "hey", "wow", "oh",
+}
+_VOCATIVE_LEAD_RE = re.compile(
+    r"(?:^|[.!?,;]\s*)(?i:hey|hi|hello|yo|wow|oh|thanks|congrats|awesome|great|"
+    r"sounds\s+great|good\s+luck)[\s,]+([A-Z][a-z]{1,12})\b",
+)
+_VOCATIVE_TAIL_RE = re.compile(r",\s*([A-Z][a-z]{1,12})[!?.]")
+
+
+_THIRD_PARTY_OWNER_RE = re.compile(
+    r"\b(?:my|his|her|their)\s+(brother|sister|mom|dad|mother|father|friend|cousin|"
+    r"aunt|uncle|coworker|colleague|neighbor|boss|roommate|son|daughter|grandma|grandpa)\b",
+    re.I,
+)
+
+
+def _naming_subject(rec: MemoryRecord, text: str, body: str, match_start: int) -> str:
+    owner = None
+    for om in _THIRD_PARTY_OWNER_RE.finditer(body[:match_start + 40]):
+        owner = om.group(1).lower()
+    if owner:
+        return owner
+    return _speaker_for_atom(rec, text) or ""
+
+
+def _naming_claims_from_atom(rec: MemoryRecord, atom: str) -> list[ClaimRecord]:
+    text = re.sub(r"\s+", " ", atom or "").strip()
+    if not text or text.endswith("?") or len(text) > 600:
+        return []
+    body = re.sub(r"^[A-Z][A-Za-z'_-]{1,32}:\s*", "", text)
+    out: list[ClaimRecord] = []
+
+    for m in re.finditer(
+        r"(?P<head>[a-z][\w'-]{0,24}(?:\s+[a-z][\w'-]{0,24}){0,3}?)\s+"
+        r"(?:called|titled|named)\s+"
+        r"(?:[\"“](?P<qname>[^\"“”]{2,60})[\"”]"
+        r"|(?P<tname>[A-Z][\w'-]*(?:\s+[A-Z][\w'-]*){0,4}))",
+        body,
+    ):
+        name = (m.group("qname") or m.group("tname") or "").strip(" .,:;!?")
+        head_words = [w for w in re.findall(r"[a-z][\w'-]*", m.group("head").lower())
+                      if w not in _TITLE_STOP_WORDS]
+        if not name or not head_words:
+            continue
+        claim = _claim_from_atom(rec, text, "state", predicate="named", value=name)
+        if claim is None:
+            continue
+        claim.subject = _naming_subject(rec, text, body, m.start()) or claim.subject
+        claim.object = name
+        claim.filters = {"naming": "title", "named_head": head_words[-1]}
+        out.append(claim)
+
+    for m in re.finditer(
+        r"\b(?:the|a|an)\s+(?P<name>[A-Z][\w'-]+(?:\s+[A-Z][\w'-]+){0,3})\b", body,
+    ):
+        name = m.group("name").strip()
+        last = name.split()[-1].lower()
+        if last not in _NAMED_CATEGORY_NOUNS or len(name.split()) < 2:
+            continue
+        claim = _claim_from_atom(rec, text, "state", predicate="named", value=name)
+        if claim is None:
+            continue
+        claim.subject = _naming_subject(rec, text, body, m.start()) or claim.subject
+        claim.object = name
+        claim.filters = {"naming": "title", "named_head": last}
+        out.append(claim)
+
+    return out
+
+
+_VOCATIVE_NOT_A_NAME = {
+    "God", "Man", "Boy", "Girl", "Dude", "Buddy", "Honey", "Dear", "Lord", "Gosh",
+    "Guys", "Folks", "Well", "Yeah", "Wait", "Stop", "Right", "Please", "Sorry",
+}
+
+
+def _nickname_claims_from_text(rec: MemoryRecord) -> list[ClaimRecord]:
+    text = rec.text or ""
+    speakers = set(re.findall(r"\b([A-Z][a-z]{2,32})\s*:", text))
+    names = speakers | set(re.findall(r"\b([A-Z][a-z]{3,32})\b", text))
+    out: list[ClaimRecord] = []
+    seen: set[tuple[str, str]] = set()
+    for m in re.finditer(r"\b([A-Z][A-Za-z'_-]{1,32})\s*:\s*([^\n]+)", text):
+        speaker, utterance = m.group(1), m.group(2)
+        for vm in list(_VOCATIVE_LEAD_RE.finditer(utterance)) + list(
+            _VOCATIVE_TAIL_RE.finditer(utterance)
+        ):
+            addr = vm.group(1)
+            if (addr == speaker or addr in names or len(addr) < 2
+                    or addr in _VOCATIVE_NOT_A_NAME):
+                continue
+            targets = [n for n in speakers
+                       if n != speaker and n != addr and n.lower().startswith(addr.lower())]
+            if len(targets) != 1:
+                continue
+            key = (speaker, addr)
+            if key in seen:
+                continue
+            seen.add(key)
+            for sent in _sentences(utterance, limit=40):
+                if addr in sent:
+                    claim = _claim_from_atom(rec, sent, "state", predicate="nickname",
+                                             value=addr)
+                    if claim is None:
+                        break
+                    claim.subject = speaker
+                    claim.object = addr
+                    claim.filters = {"naming": "nickname", "target": targets[0]}
+                    out.append(claim)
+                    break
+    return out
+
+
 def heuristic_claims_from_text(rec: MemoryRecord) -> list[ClaimRecord]:
     claims = _duration_answer_claims_from_text(rec)
     claims.extend(_dialogue_answer_claims_from_text(rec))
+    claims.extend(_nickname_claims_from_text(rec))
     for atom in _sentences(rec.text or "", limit=200):
         claims.extend(_acquisition_claims_from_atom(rec, atom))
         claims.extend(_action_location_claims_from_atom(rec, atom))
         claims.extend(_action_object_claims_from_atom(rec, atom))
+        claims.extend(_list_item_claims_from_atom(rec, atom))
+        claims.extend(_naming_claims_from_atom(rec, atom))
         relation_claims = _relation_object_claims_from_atom(rec, atom)
         if relation_claims:
             # Keep the full-sentence claim TOO: the concise relation claim wins on precision,
@@ -465,7 +749,12 @@ def claims_for_record(
     deduped: list[ClaimRecord] = []
     seen = set()
     for claim in claims:
-        key = (claim.claim_type, _norm(claim.proof_atom), claim.source_memory_id)
+        discriminant = (
+            _norm(str(claim.object or ""))
+            if (claim.filters.get("list") == "item" or claim.filters.get("naming"))
+            else ""
+        )
+        key = (claim.claim_type, _norm(claim.proof_atom), claim.source_memory_id, discriminant)
         if key in seen:
             continue
         seen.add(key)

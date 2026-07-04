@@ -461,6 +461,13 @@ def _claim_enumeration_answer(query: str, atoms: list[tuple[float, object, str]]
     people = ro._query_people(q)
     person_terms = {t.lower() for t in ro._terms(people[0])} if people else set()
     allowed_preds = _enum_predicate_family_for_query(q) or _ENUM_VERB_FAMILY
+    head_m = _ENUM_QUERY_HEAD_RE.search(q)
+    qverbs = set(re.findall(r"[a-z']+", q.lower()))
+    episodic = _ENUM_VERB_FAMILIES[2] | _ENUM_VERB_FAMILIES[4] | _ENUM_VERB_FAMILIES[5]
+    query_head_key = (
+        ro._count_term_key(head_m.group(0).lower())
+        if head_m and not (qverbs & episodic) else ""
+    )
     values: list[str] = []
     selected: list[tuple[float, object, str]] = []
     seen_vals: set[str] = set()
@@ -468,7 +475,18 @@ def _claim_enumeration_answer(query: str, atoms: list[tuple[float, object, str]]
         if not isinstance(item, ClaimRecord):
             continue
         pred = str(getattr(item, "predicate", "") or "").lower()
-        if not ({w for w in re.findall(r"[a-z']+", pred)} & allowed_preds):
+        filters = getattr(item, "filters", None) or {}
+        list_label_hit = bool(
+            query_head_key
+            and filters.get("list") == "item"
+            and query_head_key in {
+                ro._count_term_key(t)
+                for t in re.findall(r"[a-z][\w'-]*", str(filters.get("list_label") or "").lower())
+            }
+        )
+        if not list_label_hit and not (
+            {w for w in re.findall(r"[a-z']+", pred)} & allowed_preds
+        ):
             continue
         subject = str(getattr(item, "subject", "") or "").lower()
         if person_terms and not (person_terms & {t.lower() for t in ro._terms(subject)}):
@@ -476,7 +494,7 @@ def _claim_enumeration_answer(query: str, atoms: list[tuple[float, object, str]]
         obj = ro._clean(str(getattr(item, "object", "") or ""))
         words = obj.split()
         low = obj.lower()
-        if (not obj or len(obj) < 4 or len(words) > 5
+        if (not obj or len(obj) < (3 if list_label_hit else 4) or len(words) > 5
                 or low in _ENUM_OBJECT_JUNK
                 or words[0].lower() in _ENUM_OBJECT_HEAD_STOP):
             continue
