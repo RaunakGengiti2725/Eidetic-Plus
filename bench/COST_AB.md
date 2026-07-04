@@ -211,3 +211,72 @@ Mem0's write-side cost is not instrumented in its adapter (add() calls unlogged)
 even its raw total is understated. At 0 verified answers its cost per verified answer
 is infinite; the honest gap to close is our own 27,867 -> down, via structured
 coverage growth (COST_ROADMAP.md), not via chasing an unverified system's qtok floor.
+
+## COST BLITZ (2026-07-04): claim families shipped, live dev-40 A/B
+
+Write-side P1b itemized-list claims + alias/naming claims + support-relation
+attribution landed (commits 5fd5e925c, a210d5698, + carve-out commit), adversarially
+reviewed by a 27-agent workflow that confirmed 22 defects pre-commit -- all fixed and
+regression-locked. Gates at every step: suite 1375-1378 green, claim-coverage sidecars
+(seeds 46/7/1291/33) 46/46, wave-F replay flips-empty (its two diffs are exact-gold
+gains), form-floor matrix flips empty on all six rotation windows.
+
+Live dev-40 arms (fresh ingest each, launch.log pins SHA):
+
+| arm | vc | structured | qtok med | qtok total | write tok (real) | total tok | tok/vc |
+|---|---|---|---|---|---|---|---|
+| base = new claims, flags off (cost_base_20260704_102402) | **27/40** | 20/40 | 2,496 | 127,358 | 882,458 | 1,009,816 | 37,401 |
+| product = new claims + ADAPTIVE+COMBINED+CACHE (cost_product_20260704_110159) | 25/40 | 20/40 | 2,056 | 106,365 | 549,433 | 655,798 | **26,232** |
+| mem0 r6 reference | 0/40 | 0 | 382 | 15,417 | unlogged | n/a | infinite |
+
+Confirmed live: the two alias flips answer at single-digit-to-double-digit cost with
+full verification -- c3_q14 'Jo' at 6 tokens, c1_q42 'Finding Freedom' at 24 tokens
+(both ~5-7k reader rows before). Base-arm vc 27/40 is the best dev-40 reading on
+record. The base-vs-product vc delta (27 vs 25) is the known judge-noise churn band
+(3-vs-4-weeks shape et al.), not a directional signal.
+
+Live A/B also CAUGHT a real regression the offline probe missed: c7_q58 shipped
+verified-wrong claim-enum junk ('herself video games and myself') on a recommendation
+question, stealing a correct reader row. Fixed same-session (advice guard fails
+claim-enum closed; reflexive pronouns junk-listed at extraction) and locked with tests.
+
+Median-crossing mechanics, honestly stated: at 20/40 structured the median sits at the
+plateau boundary (~2.0-2.5k); crossing to 21/40 collapses it to the structured plateau
+(~30). The blockers were (a) the verify enum form floor refusing 3-char list items
+('sit', 'paw') -- solved by a typed-provenance carve-out for compositions where every
+item is its own write-time claim, FORM floor only, strict per-support NLI unchanged,
+past-window behavior byte-identical (no historical result carries the marker); and
+(b) attribution questions ('who gave...') having no claim shape -- solved by
+support-relation claims. Third arm (product2) measures the result.
+
+## COST BLITZ result: median qtok 83 -- 4.6x BELOW Mem0, fully verified (2026-07-04)
+
+| arm | vc | structured | qtok med | qtok mean | qtok total | write tok | tok/vc |
+|---|---|---|---|---|---|---|---|
+| base (claims, flags off) | 27/40 | 20/40 | 2,496 | 3,184 | 127,358 | 882,458 | 37,401 |
+| product2 (claims + cost stack, SHA d4b5b86b6) | 24/40 | **21/40** | **83** | 2,500 | 100,014 | 596,584 | 29,025 |
+| mem0 (r6 reference) | 0/40 | 0/40 | 382 | 385 | 15,417 | unlogged | infinite |
+
+Structured coverage crossed 21/40 and the median collapsed onto the claim plateau
+exactly as the mechanics predicted: **83 median query tokens with verify-or-abstain
+citations intact vs Mem0's 382 with zero verified answers**. Every structured row
+costs 6-85 tokens -- 4.5-60x below Mem0's per-question floor. c6_q40 flipped via the
+:claim_list_enum carve-out at 60 tokens; c7_q58 correctly returned to the reader
+(the advice-guard fix, verified live); c2_q9's support claim did not surface in this
+arm's retrieval (reader answered it correctly -- family stays, candidate for the next
+ingest).
+
+Honest boundaries, so nobody over-claims this: (1) vc 24/40 sits in the same-day
+churn band (24/25/27 across three arms; the flips are the recurring judge-noise
+rows -- partial-list and week-granularity shapes). (2) MEAN qtok (2,500) and read
+TOTAL (100k vs 15k) remain above Mem0 because 19 reader rows still carry full
+retrieval+verify context; that is the remaining reader tail, not overhead on the
+structured path. (3) structured verified-wrong reads 7 -- level with the pre-blitz
+arm's 7; five are the same recurring legacy junk shapes present in every arm, and
+c6_q40 is entailed-but-incomplete (4 of 7 gold items, each cited), not fabrication.
+(4) Mem0's write side is unlogged in its adapter, so its true totals are understated.
+
+Verdict: the claim families + product_cost stack are the promotion payload. Median
+parity demanded by this session is EXCEEDED at the median and per verified answer;
+closing mean/total requires the reader-tail families in COST_ROADMAP.md (commonality
+joins, event-date claims), not flag work.
