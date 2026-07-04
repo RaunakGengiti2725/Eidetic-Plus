@@ -73,3 +73,18 @@ particle/possessive-subject events) only measure on fresh ingests. Expected move
 temporal wrong-instance shapes (event_instance path answers release/open/team-up
 questions with exact or month-precision dates) and count questions (claim_count path).
 Run slice 6 with bench/phase_holdout.sh A for forensics at +40 min.
+
+## UX2 exercise (2026-07-04, current build, live key, multi-turn + cross-session)
+
+Battery: contradiction chain with backdating (dentist switch), as_of era answers, bulk
+import with in-batch dedup, honest zero-citation abstention, war-room built from PLAIN
+conversation via PROBLEM_EXTRACT (decision + rationale extracted, ask_problem verified
+with a revision-backed citation in 4ms), cross-namespace scope isolation.
+
+CAUGHT AND FIXED SAME HOUR (c14b3d0d8): abbreviation-blind segmentation truncated
+answers at honorifics in TWO places -- the recalled dentist was literally 'Dr'. Shared
+abbreviation-aware splitter + honorific-tolerant value capture; live re-run fully green.
+
+Latency profile: remember ~1.1-2.1s (embed + auto-sleep), structured recall 3-34ms,
+recall_problem/ask_problem 0-4ms, unknown-question abstention 10.2s (the P4 reflex-plane
+class, unchanged).
