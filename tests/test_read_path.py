@@ -507,3 +507,25 @@ def test_reader_form_floor_demotes_verbatim_fragment_answers(fresh_settings):
     r2, cands2 = _build(False)                    # kill switch: old behavior
     ans2 = r2.answer("What books has Tim read?", verify=True, precomputed=cands2)
     assert ans2.verified is True
+
+
+def test_reader_prompt_demands_complete_lists_on_plural_questions(monkeypatch):
+    """Slice-2 shape: 'What books has Tim read?' answered with a sentence saying books
+    exist. Plural-wh questions instruct the reader to enumerate every distinct item
+    across ALL sources; non-plural questions get no such instruction."""
+    c = DashScopeClient(replace(get_settings(), reader_cot_enabled=True))
+    seen = {}
+
+    def fake_chat_json(model, system, user, **kw):
+        seen["system"] = system
+        return {"answer": "ok"}
+
+    monkeypatch.setattr(c, "chat_json", fake_chat_json)
+    for q in ("What books has Tim read?",
+              "Which activities has Maria done with her friends?",
+              "What kinds of subjects does Evan enjoy painting?"):
+        c.generate_answer(q, ["[S0] ctx"])
+        assert "COMPLETE list" in seen["system"], q
+
+    c.generate_answer("What is Jon working on opening?", ["ctx"])
+    assert "COMPLETE list" not in seen["system"]

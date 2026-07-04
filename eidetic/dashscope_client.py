@@ -937,6 +937,12 @@ class DashScopeClient:
         r"\bwhat\s+else\b",
         re.I,
     )
+    # 'What books has Tim read?' answered 'I'm reading' / 'I've gotten some cool deals':
+    # a sentence saying items EXIST is not an enumeration. Plural-wh questions instruct the
+    # reader to list every distinct item found across ALL sources.
+    _ENUMERATION_QUESTION_RE = re.compile(
+        r"^\s*(?:what|which)\s+(?:kinds?\s+of\s+)?"
+        r"(?!(?:is|was|has|does|goes|its|his|hers|was|does)\b)([a-z]{3,}s)\b", re.I)
 
     def generate_answer(self, question: str, context_blocks: list[str],
                         model: Optional[str] = None) -> str:
@@ -958,6 +964,13 @@ class DashScopeClient:
                 "excludes what is already established as the person's current or mentioned "
                 "items -- those are the baseline, not the answer. Answer with the ADDITIONAL "
                 "items the sources mention, and include every one you find."
+            )
+        if self._ENUMERATION_QUESTION_RE.match(question or ""):
+            order_hint += (
+                " A plural question ('what books...', 'which activities...') asks for the "
+                "COMPLETE list: name every distinct item found across ALL the sources, "
+                "comma-separated. A sentence saying such items exist, or naming only the "
+                "most recent one, is not an answer."
             )
         if self.settings.reader_cot_enabled:
             data = self.chat_json(
