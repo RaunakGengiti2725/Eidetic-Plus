@@ -125,3 +125,16 @@ against the honest build. Reversible with `claude mcp remove eidetic`.
 Wheel eidetic_plus-1.0.0-py3-none-any.whl built and cold-verified; PyPI publication +
 public announcement remain authorization-gated (irreversible, outward-facing) -- the
 one-liner is `twine upload <scratchpad>/dist/eidetic_plus-1.0.0-py3-none-any.whl`.
+
+## SLICE 7 PHASE A (window 6, digest af54f5.., SHA 6f56d7743) -- promotion measurement
+
+20/40 (50%) | vc 18 | verified 32 | abstained 6 | VW 14 | structured 13/40 |
+qtok med 4,029 | write tok real 516,036 at 527 calls (COMBINED halving held on holdout).
+
+Hard window; both bars missed (vc 18 vs r6's 25; structured 13 vs >=21). Claim plateau
+held (structured rows 6-55 qtok) but coverage did not transfer from dev mix. VW: 5
+partial-list, 2 temporal wrong-instance, 1 week-window (honest), 1 preference_synth
+junk fragment (form-floor gap), 1 lemma-miss. Full forensics in DOMINANCE_PROGRESS.
+Phase B mem0 running same --out. Phase-6 conditional triggered: event-date family,
+dev-40 probe first, zero holdout tuning; Phase A re-run ONLY on +2 structured at zero
+vc regression (fresh ingest, same draw, same SHA discipline).
