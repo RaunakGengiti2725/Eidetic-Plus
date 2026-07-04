@@ -1847,3 +1847,34 @@ start~opened, win~won, team~collaborated...). Album row exact gold on-store; rep
 -event sidecar semantics intact; no-family-verb questions byte-identical (c796a0463).
 Residual honestly bounded: a dateless first report (shop) and an ambiguous second
 mention (Gina) stay wrong -- their fix is write-time event claims, still queued.
+
+---
+
+## Consolidation from feature/acceleration (2026-07-04; ledger authority returned)
+
+Full arc in bench/HANDOFF.md, COST_AB.md, WEAKNESS_QUEUE.md, WINGS_PROGRESS.md.
+Headlines: SIX rotating never-touched windows, margins +1/-1/+4/+2/+7/+7 (four
+consecutive wins), n=240 at 139 vs mem0 119, verified 209 vs 0, temporal 19/43 vs 3/43
+with write-time event identity GENERALIZING on holdout (2/8 pre-P2 ingest -> 6/9).
+Dev-40 current build: 26/40, temporal 9/10, structured 45%. Shipped to user #1 (claude
+mcp add, first verified memory 1.9s). Wheel 1.0.0 cold-verified; publish + merge + two
+GO-flag flips remain user-gated.
+
+### Wave-K claim-quality probe: scored STALE, superseded, diagnosis extracted
+artifacts/wave_k_claimq_probe_codex ran Jul-3 13:24 -- BEFORE the form floors, the
+enumerator families, and the write path. Its 13/20 (vc 13, structured 9/20, model_usage
+34 calls / 163k in) is historical; the same-protocol Jul-4 runs read 17/20 vc (dev-20)
+and 26/40 (dev-40). Its junk-list rows (conv3/conv4 like-shapes) no longer SHIP on the
+current build (form floors refuse them; absent from r5/r6 verified-wrong) but the
+enumerator still cannot OWN them, and tonight's offline gate diagnosis on the fresh
+dev-40 store found why, gate by gate: head gate PASSES, verb gate PASSES, 98
+John-subject enjoy-family claims EXIST -- the blocker is OBJECT QUALITY. The clean
+doing-evidence exists as claims but with sentence-length objects ('I started surfing
+five years ago and it...') or verb-absorbing predicates ('had an awesome summer'), while
+short-object claims carry brands and feelings ('Nike and Under Armour', 'the ocean').
+A read-side activity/gerund gate was built, measured, and REVERTED same-hour: it
+admitted junk gerunds ('doing seminars') and would have opened a NEW verified-wrong
+vector through the witness rule. VERDICT: enjoy-family enumeration is blocked on
+WRITE-SIDE extraction boundaries (predicate/object split, object trimming) -- the same
+prerequisite already gating the deletion wave. Queued as the claim-schema unit
+(ARCHITECTURE P1); no more read gates on this class.
