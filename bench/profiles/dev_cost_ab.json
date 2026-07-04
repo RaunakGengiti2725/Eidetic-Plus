@@ -1,0 +1,6 @@
+{
+  "_comment": "Baseline arm for cost A/B runs -- all cost flags explicitly OFF so the arm pins the flags instead of inheriting ambient shell state. Pair against product_cost.json via bench/run_cost_profile.sh; fresh DATA_DIR per arm, one API bench at a time.",
+  "ADAPTIVE_CONTEXT": "0",
+  "EXTRACT_COMBINED": "0",
+  "EXTRACT_RESULT_CACHE": "0"
+}

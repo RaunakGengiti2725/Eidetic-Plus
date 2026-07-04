@@ -157,3 +157,57 @@ flip remains the holdout session's call (mid-rotation flips confound the window 
 Free n=40 finding: the current build's dev-40 baseline reads 26/40 with TEMPORAL 9/10
 and 45% structured coverage -- the first fresh-ingest n=40 carrying the wave-2/3 write
 path, and the targeted class is nearly clean off-holdout.
+
+## Promotion profiles shipped (2026-07-04)
+
+GO flags now live as stackable profile files -- code defaults remain 0 everywhere;
+holdout stays OFF by design until the user says "promote on holdout" (slice 7+).
+
+- `bench/profiles/product_cost.json` -- ADAPTIVE_CONTEXT=1, EXTRACT_COMBINED=1,
+  EXTRACT_RESULT_CACHE=1 (the measured-GO stack, nothing speculative)
+- `bench/profiles/dev_cost_ab.json` -- same three flags pinned to 0 (baseline arm)
+- `bench/run_cost_profile.sh` -- inherited wave-F env + profile overlay + fresh
+  DATA_DIR per arm, output to `artifacts/cost_<arm>_<timestamp>/`
+
+Copy-paste (one API bench at a time, dev split only):
+
+```bash
+bench/run_cost_profile.sh bench/profiles/dev_cost_ab.json base 40
+bench/run_cost_profile.sh bench/profiles/product_cost.json product 40
+COST_PROFILE_DRY=1 bench/run_cost_profile.sh bench/profiles/product_cost.json check 20
+.venv/bin/python -m bench.cost_report artifacts/cost_base_<ts> artifacts/cost_product_<ts>
+```
+
+## Real write-side cost measured -- the proxy defect is closed (2026-07-04)
+
+`bench/cost_report.py` reads `extra.consolidate.model_usage` (real DashScope
+input+output tokens, deduplicated per conversation) instead of the `write_tokens`
+content-volume proxy that was arm-invariant by construction. Re-scored the existing
+dev-40 pair with zero new API spend:
+
+| arm | vc | structured | qtok total | write tok (real) | write calls | total tok | tok/vc |
+|---|---|---|---|---|---|---|---|
+| dev40_combined_off | 25/40 | 18/40 | 139,600 | 856,459 | 882 | 996,059 | 39,842 |
+| dev40_combined_on | 24/40 | 20/40 | 123,432 (-11.6%) | 545,374 (**-36.3%**) | 552 (-37.4%) | 668,806 (-32.9%) | **27,867 (-30.1%)** |
+
+The write side dominates total cost (~86% of tokens on the OFF arm), so the COMBINED
+call-halving that was invisible to the proxy is the single largest cost lever measured
+to date: **-30.1% total tokens per verified-correct answer** with accuracy inside the
+noise band. This upgrades the GO case for `product_cost.json` -- the -11.6% qtok
+reading understated the win by ~3x.
+
+## Verified-cost vs Mem0 -- honest framing (holdout r6 as reference)
+
+Read-side qtok is the wrong parity axis: Mem0 is cheap AND unverified. The metric this
+program optimizes is total DashScope tokens per verified-correct answer.
+
+| system | median qtok | judge-correct | verified-correct | total tok/verified answer |
+|---|---|---|---|---|
+| eidetic-full (holdout r6) | 4,898 | 25/40 | 25/40 | 41,322 |
+| eidetic + product_cost stack (dev-40 ON arm) | 2,515 | 25/40 | 24/40 | 27,867 |
+| mem0 (holdout r6) | 382 | 18/40 | **0/40** | N/A (nothing verified) |
+
+Mem0's write-side cost is not instrumented in its adapter (add() calls unlogged), so
+even its raw total is understated. At 0 verified answers its cost per verified answer
+is infinite; the honest gap to close is our own 27,867 -> down, via structured
+coverage growth (COST_ROADMAP.md), not via chasing an unverified system's qtok floor.
