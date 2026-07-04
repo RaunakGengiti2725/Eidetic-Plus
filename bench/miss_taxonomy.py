@@ -17,6 +17,9 @@ from collections import Counter
 from pathlib import Path
 
 
+import re
+
+
 def bucket(row: dict) -> str:
     if row.get("error"):
         return "error"
@@ -25,6 +28,23 @@ def bucket(row: dict) -> str:
     if row.get("extra", {}).get("verified"):
         return "verified-wrong"
     return "unverified-wrong"
+
+
+def subshape(row: dict) -> str:
+    pred = str(row.get("predicted") or "")
+    gold = str(row.get("gold") or "")
+    q = str(row.get("question") or "")
+    if re.match(r"\s*the week(?:end)? of \d{4}-\d{2}-\d{2}", pred):
+        return "week-window"
+    if ("," in gold or " and " in gold) and pred and "," not in pred and " and " not in pred.lower():
+        return "partial-list"
+    if re.match(r"\s*when\b", q, re.I):
+        from eidetic.smqe.event_identity import question_lemma
+        if not question_lemma(q):
+            return "lemma-miss"
+    if bucket(row) == "abstained" and (row.get("e2e_ms") or 0) > 3000:
+        return "abstained-late"
+    return ""
 
 
 def taxonomize(path: Path) -> str:
@@ -46,7 +66,9 @@ def taxonomize(path: Path) -> str:
             continue
         lines.append(f"### {b} ({len(group)})")
         for r in group:
-            lines.append(f"- `{r.get('sample_id')}` [{r.get('category')}] Q: {str(r.get('question'))[:90]}")
+            shape = subshape(r)
+            tag = f" {{{shape}}}" if shape else ""
+            lines.append(f"- `{r.get('sample_id')}` [{r.get('category')}]{tag} Q: {str(r.get('question'))[:90]}")
             lines.append(f"  - gold: `{str(r.get('gold'))[:80]}`")
             lines.append(f"  - pred: `{str(r.get('predicted'))[:80]}`")
         lines.append("")
