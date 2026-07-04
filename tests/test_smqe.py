@@ -4921,3 +4921,29 @@ def test_last_monthname_resolves_against_statement_date(tmp_path):
         at=_dt(2024, 4, 1, 12, 0).timestamp(), scope=scope,
     )
     assert ans2 is not None and ans2.answer == "May 2023"
+
+
+def test_how_old_answers_stated_age_and_defers_inference(tmp_path):
+    """Fresh-holdout shape: 'How old is Max?' ABSTAINED while 'Max is already old, he is
+    8 years old' sat in the store -- no extractor knew age statements. Entity-tied stated
+    ages answer directly (latest statement wins); with no age atom the op falls through so
+    the reader can still INFER a range ('likely under 30, she's in school')."""
+    from datetime import datetime as _dt
+
+    store = RecordStore(tmp_path / "age.sqlite")
+    scope = Scope(namespace="age")
+    rows = [
+        ("Jolene: Moreover, Max is already old, he is 8 years old.", _dt(2023, 8, 27, 12, 0)),
+        ("Jolene: When Max was a puppy he was 1 year old obviously!", _dt(2020, 1, 1, 12, 0)),
+    ]
+    for text, dt in rows:
+        store.upsert_record(_record(text, scope=scope, valid_at=dt.timestamp()))
+
+    ans = structured_answer(_Retriever(store), "How old is Max?",
+                            at=_dt(2023, 12, 1, 12, 0).timestamp(), scope=scope)
+    assert ans is not None and ans.answer == "8 years old"   # latest statement wins
+    assert "8 years old" in ans.citations[0].snippet
+
+    ans2 = structured_answer(_Retriever(store), "How old is Deborah?",
+                             at=_dt(2023, 12, 1, 12, 0).timestamp(), scope=scope)
+    assert ans2 is None                                       # no stated age -> reader owns it

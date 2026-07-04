@@ -2896,6 +2896,22 @@ def _duration_expression_from_atom(atom: str) -> str:
     return m.group(1).lower() if m else ""
 
 
+_HOW_OLD_RE = re.compile(r"^\s*how\s+old\b", re.I)
+_AGE_STATEMENT_RE = re.compile(
+    r"\b(?:is|was|am|are|he's|she's|they're)\s+(?:already\s+|about\s+|almost\s+|nearly\s+|"
+    r"just\s+)*(\d{1,3})\s+(?:years?|yrs?)\s+old\b"
+    r"|\bturn(?:ed|s|ing)\s+(\d{1,3})\b",
+    re.I,
+)
+
+
+def _age_from_atom(atom: str) -> str:
+    m = _AGE_STATEMENT_RE.search(_strip_role(atom))
+    if not m:
+        return ""
+    return (m.group(1) or m.group(2) or "").strip()
+
+
 _ACTIVITY_WH_RE = re.compile(
     r"\b(?:activity|activities|hobby|hobbies|sport|sports|exercise)\b", re.I)
 # Tight verb-form activity extraction: 'went bowling' / 'go hiking' -> the gerund names the
@@ -5044,6 +5060,29 @@ def _execute_atoms(plan: ExecutionPlan, query: str,
         if answer and selected:
             return result_from(answer, selected, confidence=0.95)
         return None
+
+    if op in {"latest_value", "open_inference"} and _HOW_OLD_RE.match(query or ""):
+        # Stated age lookup ('Max is already old, he is 8 years old' -- we ABSTAINED on the
+        # fresh holdout while the atom sat in the store): entity-tied age statements answer
+        # directly, latest statement wins. No age atom -> fall through, the reader may still
+        # INFER an age range ('likely under 30, she's in school'), which no extractor should
+        # preempt by failing closed.
+        age_entity_terms = _subject_entity_terms(query)
+        best_age = None
+        for score, item, atom in atoms:
+            if age_entity_terms and not _entity_hit_count(
+                    age_entity_terms, _item_match_text(item, atom)):
+                continue
+            age = _age_from_atom(atom)
+            if not age:
+                continue
+            key = (float(getattr(item, "valid_at", 0.0) or 0.0), score)
+            if best_age is None or key > best_age[0]:
+                best_age = (key, item, atom, score, age)
+        if best_age is not None:
+            _key, item, atom, score, age = best_age
+            return _result(f"{age} years old", plan, backend, [sup(item, atom, score)],
+                           confidence=0.95)
 
     if op in {"preference_synth", "open_inference"}:
         # Category-noun agreement: 'favorite FOOD' names the answer's category; a favorites
