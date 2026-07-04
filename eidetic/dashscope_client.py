@@ -941,8 +941,9 @@ class DashScopeClient:
     # a sentence saying items EXIST is not an enumeration. Plural-wh questions instruct the
     # reader to list every distinct item found across ALL sources.
     _ENUMERATION_QUESTION_RE = re.compile(
-        r"^\s*(?:what|which)\s+(?:kinds?\s+of\s+)?"
-        r"(?!(?:is|was|has|does|goes|its|his|hers|was|does)\b)([a-z]{3,}s)\b", re.I)
+        r"^\s*(?:what|which)\s+"
+        r"(?!(?:is|was|has|does|goes|are|were|did)\b)"
+        r"(?:[a-z]+\s+){0,3}?([a-z]{3,}s)\b", re.I)
 
     def generate_answer(self, question: str, context_blocks: list[str],
                         model: Optional[str] = None) -> str:

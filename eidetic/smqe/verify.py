@@ -209,6 +209,11 @@ def reader_answer_form_credible(query: str, answer: str) -> bool:
     low = re.sub(r"[.,!?;:\s]+$", "", text.lower()).strip()
     if low in _ANSWER_JUNK_SINGLETONS:
         return False
+    # Degenerate repetition ('involved and involved with organizations') is assembly noise,
+    # not an answer -- the same token on both sides of a conjunction never occurs in a
+    # meaningful reply.
+    if re.search(r"\b(\w+)\s+and\s+\1\b", low):
+        return False
     # A polarity answer ('Yes, Dave can work with engines') is credible by form; its comma
     # is prose, and its content is the yes/no plus elaboration.
     if re.match(r"\s*(?:yes|no)\b", text, re.I):
