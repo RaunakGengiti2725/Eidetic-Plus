@@ -102,6 +102,8 @@ def _answer_adds_information(query: str, answer: str) -> bool:
     for a in ans_terms:
         if a in qterms:
             continue
+        if re.match(r"\d{4}-\d{2}-\d{2}$", a):
+            return True
         if any(min(len(a), len(q)) >= 4 and (a.startswith(q) or q.startswith(a))
                for q in qterms):
             continue

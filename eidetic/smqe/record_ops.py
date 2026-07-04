@@ -3160,6 +3160,52 @@ def _claim_tier_count_answer(plan, query: str, atoms, backend: str, sup):
                    note_suffix=":claim_count")
 
 
+_MONTH_SUPERLATIVE_RE = re.compile(
+    r"\b(?:in\s+)?(?:which|what)\s+month\b[^?]*\b(?:career[- ]high|highest|record|"
+    r"personal\s+best|best)\b", re.I)
+_METRIC_UNITS = ("points", "assists", "rebounds", "goals", "steals", "blocks", "runs",
+                 "sets", "games", "wins")
+_SUPERLATIVE_ATOM_RE = re.compile(
+    r"\b(?:career[- ]high|highest\s+ever|personal\s+best|my\s+highest|my\s+best|"
+    r"record\b)", re.I)
+
+
+def _month_of_superlative_answer(plan, query: str, atoms, backend: str, sup):
+    """'In which MONTH did X achieve a career-high in POINTS?' composes the month of the
+    superlative event -- and the metric unit must TIE: a December career-high in ASSISTS
+    answered a points question verified-wrong on a holdout window. The question's unit
+    selects among superlative atoms; no unit tie or no dateable winner fails closed."""
+    if not _MONTH_SUPERLATIVE_RE.search(query or ""):
+        return None
+    q = (query or "").lower()
+    q_units = [u for u in _METRIC_UNITS if u in q]
+    best = None
+    for score, item, atom in atoms:
+        if not _SUPERLATIVE_ATOM_RE.search(atom):
+            continue
+        low = atom.lower()
+        if q_units and not any(u in low for u in q_units):
+            continue
+        rel = _relative_date_from_atom(item, atom)
+        m_iso = re.search(r"(\d{4})-(\d{2})-(\d{2})", rel or "")
+        if m_iso:
+            try:
+                d = date(int(m_iso.group(1)), int(m_iso.group(2)), int(m_iso.group(3)))
+            except ValueError:
+                d = _event_date(item, atom)
+        else:
+            d = _event_date(item, atom)
+        if d is None:
+            continue
+        if best is None or score > best[0]:
+            best = (score, item, atom, d)
+    if best is None:
+        return None
+    score, item, atom, d = best
+    return _result(f"{calendar.month_name[d.month]} {d.year:04d}", plan, backend,
+                   [sup(item, atom, score)])
+
+
 def _claim_event_instance_answer(plan, query: str, atoms, backend: str, sup):
     """P2 read side: a when-question about a once-ish event resolves by WRITE-TIME identity
     tags -- (lemma family match to the question verb, object-head tie to the query), then
@@ -5098,6 +5144,11 @@ def _execute_atoms(plan: ExecutionPlan, query: str,
                 return _ordinal_kth_event_result(
                     plan, query, atoms, backend, k,
                     target_terms=target_terms, entity_terms=entity_terms, sup=sup)
+            month_sup = _month_of_superlative_answer(plan, query, atoms, backend, sup)
+            if month_sup is not None:
+                return month_sup
+            if _MONTH_SUPERLATIVE_RE.search(query or ""):
+                return None
             instance = _claim_event_instance_answer(plan, query, atoms, backend, sup)
             if instance is not None:
                 return instance

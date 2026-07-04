@@ -804,7 +804,13 @@ def test_product_structured_recall_does_not_resolve_movie_title_from_description
     assert ans is None
 
 
-def test_product_structured_recall_prefers_last_month_for_month_question(fresh_settings):
+def test_product_structured_recall_dates_month_from_the_specific_marker(fresh_settings):
+    """REVERSED expectation: this test previously demanded 'June 2023' from a July-16
+    session whose sentence says 'LAST WEEK I scored 40 points' (July 9-15) -- it codified
+    a dataset annotation that anchored on the vague 'so much happened in the last month'
+    preamble. The specific temporal marker attached to the event wins; boundary weeks
+    that genuinely start in the prior month still answer that month (covered by the
+    session-July-3 fixture elsewhere)."""
     scope = Scope(namespace="deprecated-structured-scan")
     valid_at = datetime(2023, 7, 16, 12, 0).timestamp()
     rec = MemoryRecord(
@@ -825,7 +831,7 @@ def test_product_structured_recall_prefers_last_month_for_month_question(fresh_s
         at=valid_at,
     )
 
-    assert ans.answer == "June 2023"
+    assert ans.answer == "July 2023"
     assert ans.verified is True
     assert ans.note.startswith("smqe:")
 

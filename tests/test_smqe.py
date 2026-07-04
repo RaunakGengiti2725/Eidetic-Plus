@@ -5147,3 +5147,46 @@ def test_likelihood_anchor_exemption_requires_the_inference_marker(tmp_path):
     )
     ans = answer_from_result(_Retriever(store), q, labeled, verify=True)
     assert ans is not None and ans.verified is True
+
+
+def test_month_of_superlative_ties_the_metric_unit(tmp_path):
+    """'In which MONTH did X achieve a career-high in POINTS?' composes the month of the
+    superlative event, and the metric unit must tie -- a December career-high in ASSISTS
+    answered a points question verified-wrong on a holdout window. (The gold on that row
+    contradicts its own evidence sentence -- annotation anchored on a 'last month' opener
+    while the sentence says 'last week'; this fix optimizes truthfulness, not the judge.)"""
+    from datetime import datetime as _dt
+
+    store = RecordStore(tmp_path / "month-sup.sqlite")
+    scope = Scope(namespace="month-sup")
+    rows = [
+        ("John: Last week I scored 40 points, my highest ever, and it feels great.",
+         _dt(2023, 7, 16, 12, 0)),
+        ("John: By the way, I had a career-high in assists last Friday in our big game.",
+         _dt(2023, 12, 12, 12, 0)),
+    ]
+    for text, dt in rows:
+        store.upsert_record(_record(text, scope=scope, valid_at=dt.timestamp()))
+
+    ans = structured_answer(
+        _Retriever(store), "In which month's game did John achieve a career-high score in points?",
+        at=_dt(2024, 1, 1, 12, 0).timestamp(), scope=scope,
+    )
+    assert ans is not None and ans.answer == "July 2023"
+    assert "40 points" in ans.citations[0].snippet
+
+    ans2 = structured_answer(
+        _Retriever(store), "In which month did John achieve a career-high in assists?",
+        at=_dt(2024, 1, 1, 12, 0).timestamp(), scope=scope,
+    )
+    assert ans2 is not None and ans2.answer == "December 2023"
+
+
+def test_iso_date_answers_are_never_query_echoes():
+    """Six-window matrix catch: '2023-08-15' was refused as an 'echo' of the query's bare
+    'August 2023' -- the prefix tolerance consumed the full ISO date against the year
+    token. A full ISO date is always information unless the query quotes it exactly."""
+    from eidetic.smqe.verify import reader_answer_form_credible as f
+
+    assert f("When did John meet back up with his teammates after his trip in August 2023?",
+             "2023-08-15")
