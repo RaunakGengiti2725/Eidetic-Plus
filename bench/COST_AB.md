@@ -76,3 +76,14 @@ Claim-tier counting shipped (050513f0d): the head->verbs COUNT path now exists, 
 the gating condition for collector-deletion tranche items #2 (the _generic_*_count
 family). Next measurement: claim-coverage sidecar comparison on a fresh dev ingest, then
 the deletion tranche with the full matrix net.
+
+## Deletion tranche 2 (wave 3): attempted, NO-GO with evidence
+
+`_generic_list_count_answer` (89 lines) deleted behind the full gate battery: two suite
+failures -- the collector carries EXISTENCE counts over itemized lists ('how many
+release blockers are there?' from 'release blockers: A, B, C' atoms), a shape with no
+action verb, which claim_count's head->verbs SELECT cannot serve by design. REVERTED.
+Supersession precondition recorded: claim extraction would need itemized-list claims
+(claim per listed item with a shared list_id) before this collector can die. The
+verb-backed count load (books read / cities visited) IS now claim-served; the
+existence-count load is not.
