@@ -65,3 +65,14 @@ SMQE sidecars green, on-store probes of the shapes the collector served):
 Honest bottom line: the big shrink (~400–600 lines) is gated on P1 write-time claim
 coverage, not on tonight. Anything deleted before claims can answer the load is accuracy
 loss dressed as hygiene.
+
+## Wave-2 status (feature/acceleration)
+
+FAST_ABSTAIN and EXTRACT_COMBINED dev arms DEFERRED again tonight: slice-5 eidetic phase
+finished (40/40) but the mem0 tail is mid-run and owns the DashScope RPM. Both arms are
+one command each (FAST_LOOP.md); run them the moment the tail lands.
+
+Claim-tier counting shipped (050513f0d): the head->verbs COUNT path now exists, which is
+the gating condition for collector-deletion tranche items #2 (the _generic_*_count
+family). Next measurement: claim-coverage sidecar comparison on a fresh dev ingest, then
+the deletion tranche with the full matrix net.

@@ -47,3 +47,10 @@ verification → hypothesis citing the witness.
 - Witness summary atoms (image caption / log digest at ingest) — remember_file already
   describes files when the model key is set; not wired into the witness note.
 - Cross-problem queries ("what did we decide about pools anywhere?").
+
+## Wave 2 addition: ask_problem (22ce903e8)
+
+NL questions against war-room history through the SAME verify-or-abstain path; citations
+marked revision-backed vs general memory; folded state + as_of replay in the response.
+Deferred list unchanged otherwise (write-time problem-shaped extraction remains the next
+integration).

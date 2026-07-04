@@ -28,9 +28,21 @@ session (feature/acceleration) appends tasks with pin SHAs. Shapes as convN-rowM
 
 | Item | SHA | State |
 |------|-----|-------|
-| ARCHITECTURE_PROPOSALS / WEAKNESS_QUEUE / FAST_LOOP / HANDOFF | (this commit) | docs |
-| miss_taxonomy.py forensics helper | (this commit) | code |
-| COST_AB.md — EXTRACT_COMBINED / ADAPTIVE_CONTEXT / FAST_ABSTAIN verdicts | pending | measurement |
-| record_ops deletion tranche 1 | pending | code |
-| Wings 7 problem memory MCP + tests | pending | code |
-| Wings 8 witness scaffold + test | pending | code |
+| Planning docs + miss_taxonomy | 566f25ac9 | shipped |
+| Wings 7 problem memory + tests | e076014a2 | shipped |
+| Wings 8 witness scaffold + test | e9452e7b5 | shipped |
+| COST_AB verdicts (ADAPTIVE GO, COMBINED NO-GO, tranche#1 NO-GO) | 990ab2e5f | measured |
+| P2 write-time event identity (lemma+head+date tags, instance answers) | 120446db5 | shipped |
+| P1 claim-tier counting (head->verbs, unblocks deletion tranche #2) | 050513f0d | shipped |
+| phase_holdout.sh + taxonomy subshapes | 3eecd12a9 | shipped |
+| ask_problem NL war-room recall | 22ce903e8 | shipped |
+| FAST_ABSTAIN + EXTRACT_COMBINED dev arms | — | DEFERRED (mem0 tail owns RPM); one command each in FAST_LOOP.md |
+
+## Slice 6 pin recommendation
+
+Merge feature/acceleration into connected-brain-loop BEFORE slice 6 Phase A: the write
+-path changes (event-identity tags, count claims, extraction patterns for adverb/
+particle/possessive-subject events) only measure on fresh ingests. Expected movement:
+temporal wrong-instance shapes (event_instance path answers release/open/team-up
+questions with exact or month-precision dates) and count questions (claim_count path).
+Run slice 6 with bench/phase_holdout.sh A for forensics at +40 min.
