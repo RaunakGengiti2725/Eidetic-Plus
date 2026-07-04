@@ -914,7 +914,7 @@ def _temporal_topic_terms(query: str, parsed: dict) -> tuple[set[str], int]:
     """Expanded non-entity temporal terms plus the required hit count.
 
     Keep the required count tied to the unexpanded topic words, not their inflection variants. A
-    title/date query like "When did Melanie read Nothing is Impossible?" has one real action word
+    title/date query like "When did Elena read Nothing is Impossible?" has one real action word
     ("read") plus title entities; requiring two expanded action hits would drop the correct source.
     """
     raw_terms = {

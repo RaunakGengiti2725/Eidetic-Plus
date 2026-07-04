@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import random
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -3761,6 +3762,69 @@ def test_holdout_audit_digit_ending_id_still_matches_exact_occurrences(tmp_path)
         str(root / "a.md"),
         str(root / "b.py"),
     }
+
+
+def test_holdout_audit_flags_speaker_name_literal_in_runtime_code(tmp_path):
+    from bench.audit_no_holdout_leakage import audit
+
+    holdout = tmp_path / "holdout"
+    holdout.mkdir()
+    (holdout / "leaked_sample_ids.json").write_text('["s9_q4"]')
+    (holdout / "longmemeval_test_holdout.json").write_text("[]")
+    (holdout / "locomo_test_holdout.json").write_text("[]")
+    (holdout / "manifest.json").write_text("{}")
+    datasets = tmp_path / "datasets" / "locomo"
+    datasets.mkdir(parents=True)
+    (datasets / "conv.json").write_text(json.dumps(
+        [{"conversation": {"speaker_a": "Zorblatt", "speaker_b": "Quixana"}}]
+    ))
+    runtime = tmp_path / "runtime"
+    runtime.mkdir()
+    (runtime / "verify.py").write_text(
+        'def check(hyp, prem):\n    if "zorblatt" in hyp:\n        return True\n'
+    )
+
+    result = audit(
+        holdout, [runtime], include_legacy_policy=False,
+        dataset_dir=tmp_path / "datasets", runtime_roots=[runtime],
+    )
+
+    assert result["pass"] is False
+    assert any(
+        f["needle"] == "zorblatt" and f.get("kind") == "entity-name"
+        for f in result["findings"]
+    )
+    assert result["entity_names_checked"] == 2
+
+
+def test_holdout_audit_entity_scan_ignores_embedded_and_docs(tmp_path):
+    from bench.audit_no_holdout_leakage import audit
+
+    holdout = tmp_path / "holdout"
+    holdout.mkdir()
+    (holdout / "leaked_sample_ids.json").write_text('["s9_q4"]')
+    (holdout / "longmemeval_test_holdout.json").write_text("[]")
+    (holdout / "locomo_test_holdout.json").write_text("[]")
+    (holdout / "manifest.json").write_text("{}")
+    datasets = tmp_path / "datasets" / "locomo"
+    datasets.mkdir(parents=True)
+    (datasets / "conv.json").write_text(json.dumps(
+        [{"conversation": {"speaker": "Maria"}}]
+    ))
+    runtime = tmp_path / "runtime"
+    runtime.mkdir()
+    # Embedded occurrence (word-boundary miss) and a non-runtime doc mention are fine.
+    (runtime / "db.py").write_text('BACKEND = "mariadb"\n')
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "notes.md").write_text("Maria is a speaker in the corpus.\n")
+
+    result = audit(
+        holdout, [runtime, docs], include_legacy_policy=False,
+        dataset_dir=tmp_path / "datasets", runtime_roots=[runtime],
+    )
+
+    assert result["pass"] is True, result["findings"]
 
 
 def test_holdout_audit_rejects_empty_registry_without_explicit_override(tmp_path):

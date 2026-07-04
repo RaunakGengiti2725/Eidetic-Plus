@@ -9,6 +9,11 @@ from pathlib import Path
 
 DEFAULT_HOLDOUT_DIR = Path("data/bench/holdout")
 DEFAULT_SCAN_ROOTS = ("eidetic", "bench", "tests", "docs")
+DEFAULT_DATASET_DIR = Path("data/bench")
+# Entity-name literals are only banned in RUNTIME code: ledgers/tests/docs may discuss
+# benchmark content by shape, but verification/extraction code must never special-case
+# a benchmark speaker (the _identity_entailment lesson).
+DEFAULT_RUNTIME_ROOTS = ("eidetic",)
 FORBIDDEN_POLICY_STRINGS = (
     "product-" + "source-scan",
     "long" + "memeval-direct",
@@ -149,6 +154,37 @@ def load_holdout_needles(holdout_dir: Path) -> set[str]:
     return {n for n in needles if len(n) >= 4}
 
 
+def load_benchmark_speaker_names(dataset_dir: Path) -> set[str]:
+    """Speaker names from the benchmark dataset files (dynamic -- never hardcoded
+    here, so this module cannot itself become the leak). Empty when datasets are
+    absent (fresh clone): the scan is then a visible no-op via entity_names_checked."""
+    names: set[str] = set()
+
+    def walk(obj) -> None:
+        if isinstance(obj, dict):
+            for key, value in obj.items():
+                if str(key).lower() in {"speaker", "speaker_a", "speaker_b"} and isinstance(value, str):
+                    name = value.strip().lower()
+                    if len(name) >= 3 and name.isalpha():
+                        names.add(name)
+                else:
+                    walk(value)
+        elif isinstance(obj, list):
+            for item in obj:
+                walk(item)
+
+    for sub in ("locomo", "longmemeval"):
+        root = Path(dataset_dir) / sub
+        if not root.is_dir():
+            continue
+        for path in sorted(root.glob("*.json")):
+            try:
+                walk(json.loads(path.read_text()))
+            except (OSError, json.JSONDecodeError):
+                continue
+    return names
+
+
 def iter_files(roots: list[Path]):
     for root in roots:
         if root.is_file():
@@ -169,6 +205,8 @@ def audit(
     *,
     include_legacy_policy: bool = True,
     require_holdout_needles: bool = True,
+    dataset_dir: Path = DEFAULT_DATASET_DIR,
+    runtime_roots: list[Path] | None = None,
 ) -> dict:
     holdout_needles = load_holdout_needles(holdout_dir)
     needles = set(holdout_needles)
@@ -193,6 +231,26 @@ def audit(
             if pos >= 0:
                 line = text[:pos].count("\n") + 1
                 findings.append({"path": str(path), "needle": needle, "line": line})
+    entity_names = load_benchmark_speaker_names(dataset_dir)
+    entity_roots = [Path(r) for r in (runtime_roots if runtime_roots is not None else DEFAULT_RUNTIME_ROOTS)]
+    if entity_names:
+        entity_res = [
+            (name, re.compile(r"\b" + re.escape(name) + r"\b", re.IGNORECASE))
+            for name in sorted(entity_names)
+        ]
+        for path in iter_files(entity_roots):
+            if path.suffix != ".py":
+                continue
+            try:
+                text = path.read_text(errors="ignore")
+            except OSError:
+                continue
+            for name, pattern in entity_res:
+                match = pattern.search(text)
+                if match:
+                    line = text[:match.start()].count("\n") + 1
+                    findings.append({"path": str(path), "needle": name, "line": line,
+                                     "kind": "entity-name"})
     registry_error = ""
     if require_holdout_needles and not holdout_needles:
         registry_error = "holdout registry is empty"
@@ -201,6 +259,8 @@ def audit(
         "findings": findings,
         "needles_checked": len(needles),
         "holdout_needles_checked": len(holdout_needles),
+        "entity_names_checked": len(entity_names),
+        "entity_scan_roots": [str(root) for root in entity_roots],
         "legacy_policy_scan_enabled": bool(include_legacy_policy),
         "forbidden_policy_strings_checked": len(FORBIDDEN_POLICY_STRINGS) if include_legacy_policy else 0,
         "forbidden_fixed_answer_strings_checked": len(FORBIDDEN_FIXED_ANSWER_STRINGS) if include_legacy_policy else 0,

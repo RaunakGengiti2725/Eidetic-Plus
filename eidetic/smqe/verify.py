@@ -204,7 +204,7 @@ _ANSWER_JUNK_SINGLETONS = _ENUM_ITEM_JUNK | {
 }
 # A when-question's answer must carry a temporal token; a what/where/who-question's answer
 # must not be ONLY a date. Both directions shipped verified on the fresh holdout ('When did
-# Joanna make the tart?' -> the recipe ingredients; 'what did he and his father do?' ->
+# Noor make the tart?' -> the recipe ingredients; 'what did he and his father do?' ->
 # '2023-10-05').
 _TEMPORAL_TOKEN_RE = re.compile(
     r"\b(?:19|20)\d{2}\b|\b(?:january|february|march|april|may|june|july|august|september|"
@@ -232,8 +232,8 @@ _WH_AUX_RE = re.compile(
 
 def _main_wh(query: str) -> str:
     """The question's MAIN wh-word: the last wh immediately followed by an auxiliary.
-    'When Dave was a child, what did he do?' is a WHAT-question -- its leading 'when'
-    heads a subordinate clause ('when Dave...', no auxiliary adjacency). Falls back to the
+    'When Farid was a child, what did he do?' is a WHAT-question -- its leading 'when'
+    heads a subordinate clause ('when Farid...', no auxiliary adjacency). Falls back to the
     leading token when no wh+aux pair exists."""
     matches = _WH_AUX_RE.findall(query or "")
     if matches:
@@ -246,7 +246,7 @@ _SOURCE_REF_RE = re.compile(r"\s*\[S\d+\]")
 def reader_answer_form_credible(query: str, answer: str) -> bool:
     """Universal deterministic form floors for READER-path answers. The photographic reader
     quotes sources verbatim, so a conversational fragment ('I'm reading', 'Check,', 'Yeah,
-    Maria') entails trivially and ships verified while answering nothing -- every one of a
+    Priya') entails trivially and ships verified while answering nothing -- every one of a
     fresh holdout slice's 18 verified-wrong rows came through this path. Same primitives as
     the structured floors: junk singletons, non-credible enumerations, enumerations for
     why-questions, option-choice naming, zero-information echoes. Computed shapes do not
@@ -262,12 +262,12 @@ def reader_answer_form_credible(query: str, answer: str) -> bool:
     # meaningful reply.
     if re.search(r"\b(\w+)\s+and\s+\1\b", low):
         return False
-    # A polarity answer ('Yes, Dave can work with engines') is credible by form -- but ONLY
+    # A polarity answer ('Yes, Farid can work with engines') is credible by form -- but ONLY
     # for a polarity question. A what-question answered 'Yes - glad you have people to lean
     # on' is junk wearing a yes.
     if re.match(r"\s*(?:yes|no)\b", text, re.I):
         return bool(_POLARITY_QUERY_RE.match(query or ""))
-    # Wh/temporal type agreement, both directions, on the question's MAIN wh ('When Dave
+    # Wh/temporal type agreement, both directions, on the question's MAIN wh ('When Farid
     # was a child, what did he do?' is a WHAT-question).
     wh = _main_wh(query)
     if wh == "when" and not _TEMPORAL_TOKEN_RE.search(text):
@@ -277,7 +277,7 @@ def reader_answer_form_credible(query: str, answer: str) -> bool:
             and _PURE_DATE_ANSWER_RE.match(text)):
         return False
     if _ENUMERATED_ANSWER_RE.match(text):
-        # Reader answers are PROSE with commas more often than lists ('James enjoys
+        # Reader answers are PROSE with commas more often than lists ('Marco enjoys
         # reading, especially while snuggled under the covers, ...'); only a list-like
         # shape -- every comma segment short -- faces the enumeration rules. This differs
         # from the structured path on purpose: executors assemble lists, readers write
@@ -295,7 +295,7 @@ def reader_answer_form_credible(query: str, answer: str) -> bool:
     # token pipeline below destroys quote marks, so check the RAW text first.
     if re.search(r'"[^"]{1,60}"', text) and not re.search(r'"[^"]{1,60}"', query or ""):
         return True
-    # Junk tokens are not information either: 'Yeah, Maria' for a question about Maria is
+    # Junk tokens are not information either: 'Yeah, Priya' for a question about Priya is
     # acknowledgment plus echo, so junk words are stripped before the echo test.
     echo_text = " ".join(t for t in re.findall(r"[a-z0-9][a-z0-9'-]*", text.lower())
                          if t not in _ANSWER_JUNK_SINGLETONS)
@@ -350,7 +350,7 @@ def answer_from_result(retriever, query: str, result: StructuredAnswerResult,
         return None
     # Zero-information FORM refusal: an answer whose every content token already appears in
     # the question restates it instead of answering ('My girlfriend' for 'what places have
-    # Andrew and his girlfriend checked out?' shipped verified on the fresh holdout -- the
+    # Ravi and his girlfriend checked out?' shipped verified on the fresh holdout -- the
     # fragment is quotable, so it anchor-verifies while adding nothing). Computed ops are
     # exempt (a count IS query tokens plus a digit... a digit is new; but '2' when the query
     # says '2 sensors' is not, and the operator's arithmetic is the proof there). Option

@@ -190,7 +190,7 @@ def _dialogue_answer_match(query: str, atoms: list[tuple[float, object, str]]) -
     _overlap, score, item, atom = best
     value = ro._answer_value(query, atom, item) or ro._clean(ro._strip_role(atom))
     if not value or _PLEASANTRY_ANSWER_RE.match(value):
-        # A greeting-only crystal ('Hey Joanna, thanks!') answers nothing.
+        # A greeting-only crystal ('Hey Noor, thanks!') answers nothing.
         return "", []
     return value, [(score, item, atom)]
 
@@ -406,7 +406,7 @@ _ENUM_QUERY_VERB_RE = re.compile(
 _ENUM_QUERY_HEAD_RE = re.compile(
     r"\b(?:hobbies|interests|activities|sports|games|pastimes|passions|cities|countries|"
     r"places|towns|tricks|skills|books|novels|deals|endorsements|gifts|presents)\b", re.I)
-# Query verb -> the claim-predicate family that answers it: 'which cities has Jon VISITED'
+# Query verb -> the claim-predicate family that answers it: 'which cities has Wei VISITED'
 # selects visit-family claims, never like-family ones. Query verbs outside every family
 # (do/does/has) fall back to the flat union.
 _ENUM_VERB_FAMILIES: tuple[frozenset, ...] = (
@@ -445,7 +445,7 @@ def _claim_enumeration_answer(query: str, atoms: list[tuple[float, object, str]]
     """Collector-rewrite step 1: enumeration answers come from TIER-1 CLAIMS.
 
     A typed claim already carries subject + predicate + object + a verbatim proof atom
-    extracted once at write time; 'what hobbies does Dave enjoy?' is a SELECT over claims
+    extracted once at write time; 'what hobbies does Farid enjoy?' is a SELECT over claims
     whose subject matches the question's person and whose predicate sits in the question
     verb's family - each returned object carries its own proof atom, so the composition
     verifies per item. Replaces per-query regex re-parsing of raw text (the junk factories).

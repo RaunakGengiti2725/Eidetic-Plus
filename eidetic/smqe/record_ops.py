@@ -5104,9 +5104,9 @@ _TITLE_QUERY_BLOCK_RE = re.compile(
 
 
 def _named_alias_answer(query: str, atoms: list[tuple[float, object, str]]) -> tuple[str, list[tuple[float, object, str]]]:
-    """Naming claims answer alias questions deterministically: 'what nickname does Nate use
-    for Joanna' is a SELECT over naming=nickname claims tied to BOTH people; 'which
-    technique does Tim use' selects the naming=title claim whose named_head sits in a
+    """Naming claims answer alias questions deterministically: 'what nickname does Ravi use
+    for Noor' is a SELECT over naming=nickname claims tied to BOTH people; 'which
+    technique does Priya use' selects the naming=title claim whose named_head sits in a
     what/which question. Title answers require a name-shaped question (never when/where/
     how-often -- a title is not a date), qualifier overlap outranks recency, and no
     matching claim falls through to the legacy paths."""
@@ -5849,7 +5849,7 @@ def _execute_atoms(plan: ExecutionPlan, query: str,
         # The claim group bypass needs at least ONE direct NON-ENTITY tie: a claim whose own
         # text hits nothing but the person's name rode its group's terms to a verified
         # wrong-instance answer ('wrapping up the business plan' for a working-on-OPENING
-        # question -- 'Jon' tied, 'opening' never did).
+        # question -- 'Wei' tied, 'opening' never did).
         _non_entity_targets = {t for t in target_terms if t not in entity_terms}
         if target_terms and not (target_hit or (not duration_value_query
                 and isinstance(item, ClaimRecord)
