@@ -1769,3 +1769,18 @@ but broke two legit cases; shared head nouns are what good AND bad atoms carry, 
 wrong-instance-with-shared-head class (conv5-row10 shape) stays OPEN pending event
 disambiguation (not lexically gateable). Reader form floor cumulative: 2+5+5 kills
 across slices, zero flips anywhere.
+
+### Rotation slice 3 FINAL -- first clear window win (wave-N/O build live)
+| | correct | verified | abstained | qtok med |
+|---|---|---|---|---|
+| eidetic-plus-full | 27/40 (68%) | 38 | 1 | 5,016 |
+| mem0 | 23/40 (57%) | 0 | 0 | 388 |
+
+Per-slice: r1 +1 (23v22), r2 -1 (17v18), r3 +4 (27v23). COMBINED n=120 never-touched:
+eidetic 67/120 (56%) vs mem0 63/120 (52%), verified answers 105 vs 0. Slice 3 is the
+first window with captions + reader form floor + irregular-past claims + scaffolds +
+temporal mechanisms, and the first clear relative win (+11pp on the window). Temporal
+across all three windows: 11/25 vs mem0's 1/25. Their strength: multi-hop (7/8 on r3 vs
+our 4/8) and raw read price (~13x cheaper). Single-hop CLOSED: 19/22 on r3 (was the r2
+weakness at 10/21). No SOTA claim; n=120 with rotating windows is the honest evidence so
+far, and slice 4 measures the wave-Q forensics batch next.
