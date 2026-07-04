@@ -44,7 +44,8 @@ def fold_state(revisions: list[MemoryRecord]) -> Optional[dict]:
     if not revisions:
         return None
     state: dict = {"problem_id": "", "goal": "", "status": "open", "blockers": [],
-                   "hypotheses": [], "handoffs": [], "decisions": [], "revisions": 0}
+                   "hypotheses": [], "handoffs": [], "decisions": [], "witnesses": [],
+                   "revisions": 0}
     hyps: dict[str, dict] = {}
     for rec in revisions:
         p = _revision_payload(rec) or {}
@@ -53,7 +54,7 @@ def fold_state(revisions: list[MemoryRecord]) -> Optional[dict]:
             state["goal"] = p["goal"]
         if p.get("status"):
             state["status"] = p["status"]
-        for field in ("blockers", "handoffs", "decisions"):
+        for field in ("blockers", "handoffs", "decisions", "witnesses"):
             for item in p.get(field) or []:
                 if item not in state[field]:
                     state[field].append(item)
@@ -168,6 +169,29 @@ def resolve_hypothesis(engine, problem_id: str, hypothesis_id: str, status: str,
                                + (f": {rationale}" if rationale else ""))
     return {"problem_id": problem_id, "hypothesis_id": hypothesis_id,
             "memory_id": rec.memory_id,
+            "state": fold_state(problem_revisions(engine, problem_id, scope=scope))}
+
+
+def add_witness(engine, problem_id: str, path: str, *, scope: Optional[Scope] = None,
+                note: str = "", valid_at: Optional[float] = None) -> dict:
+    """Wings 8 scaffold: attach an operational-truth WITNESS (screenshot, log, dump) to a
+    problem. The file lands losslessly in the content-addressed substrate (byte-identical
+    retrieval via get_raw); the problem gains a witness entry carrying the memory_id,
+    content hash, and note, so any hypothesis or answer citing it is checkable down to
+    the raw bytes."""
+    if not problem_revisions(engine, problem_id, scope=scope):
+        raise KeyError(f"no such problem in scope: {problem_id}")
+    rec = engine.ingest_file(path, source=f"witness:{problem_id}", valid_at=valid_at,
+                             extract_graph=False, scope=scope, consolidate_now=False)
+    payload = {"problem_id": problem_id, "handoffs": [], "witnesses": [{
+        "memory_id": rec.memory_id, "content_hash": rec.content_hash,
+        "raw_uri": rec.raw_uri, "note": note,
+    }]}
+    marker = _write_revision(engine, payload, scope=scope, valid_at=valid_at,
+                             text=f"[problem {problem_id}] witness {rec.content_hash[:12]}"
+                                  + (f": {note}" if note else ""))
+    return {"problem_id": problem_id, "witness_memory_id": rec.memory_id,
+            "content_hash": rec.content_hash, "revision_memory_id": marker.memory_id,
             "state": fold_state(problem_revisions(engine, problem_id, scope=scope))}
 
 

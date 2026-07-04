@@ -111,3 +111,29 @@ def test_hypothesis_evidence_refs_are_scope_validated(prob_engine):
 
     with pytest.raises(ValueError):
         mcp_server.remember_problem(goal="bad status", status="done")
+
+
+def test_witness_file_attaches_hash_checked_evidence(prob_engine, tmp_path):
+    """Wings 8 scaffold: a witness file lands losslessly in the substrate; the problem's
+    folded state carries its content hash; the raw bytes come back byte-identical and the
+    hash re-verifies (the same tamper check the proof surface uses)."""
+    blob = tmp_path / "pool_metrics.log"
+    blob.write_bytes(b"19:00 pool=64/64 saturated\n19:05 pool=64/64 saturated\n")
+
+    p = mcp_server.remember_problem(goal="API errors during evening peak")
+    out = mcp_server.add_witness(p["problem_id"], str(blob), note="pool saturation log")
+    assert out["content_hash"]
+    st = out["state"]
+    assert st["witnesses"][0]["content_hash"] == out["content_hash"]
+    assert st["witnesses"][0]["note"] == "pool saturation log"
+
+    raw = prob_engine.get_raw(out["content_hash"])
+    assert raw == blob.read_bytes()
+    assert prob_engine.substrate.verify(out["content_hash"]) is True
+
+    hyp = mcp_server.add_hypothesis(p["problem_id"], "Pool saturation causes the errors",
+                                    evidence=[out["witness_memory_id"]])
+    assert hyp["state"]["hypotheses"][0]["evidence"] == [out["witness_memory_id"]]
+
+    with pytest.raises(KeyError):
+        mcp_server.add_witness("prob_nope", str(blob))

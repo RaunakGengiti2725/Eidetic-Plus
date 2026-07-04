@@ -472,6 +472,20 @@ def resolve_hypothesis(problem_id: str, hypothesis_id: str, status: str,
 
 
 @_threaded_tool
+def add_witness(problem_id: str, path: str, namespace: Optional[str] = None,
+                agent_id: Optional[str] = None, project_id: Optional[str] = None,
+                note: str = "", valid_at: Optional[float] = None) -> dict:
+    """Attach an operational-truth WITNESS file (screenshot, log, dump) to a problem.
+    The bytes land losslessly in the content-addressed substrate (get_raw returns them
+    byte-identical, hash-checked); the problem's folded state lists the witness with its
+    content hash so hypotheses and answers citing it are checkable down to raw bytes."""
+    from . import problems
+    return problems.add_witness(engine(), problem_id, path,
+                                scope=_scope(namespace, agent_id, project_id),
+                                note=note, valid_at=valid_at)
+
+
+@_threaded_tool
 def recall_problem(problem_id: Optional[str] = None, query: str = "",
                    namespace: Optional[str] = None, agent_id: Optional[str] = None,
                    project_id: Optional[str] = None,
