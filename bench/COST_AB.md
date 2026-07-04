@@ -87,3 +87,10 @@ Supersession precondition recorded: claim extraction would need itemized-list cl
 (claim per listed item with a shared list_id) before this collector can die. The
 verb-backed count load (books read / cities visited) IS now claim-served; the
 existence-count load is not.
+
+## Wave-4 closure status
+
+FAST_ABSTAIN and EXTRACT_COMBINED arms deferred a THIRD time (mem0 tail active at every
+gate check across waves 2-4). They are the first two commands to run when the tail
+lands -- staged in FAST_LOOP.md, GO criteria above. Nothing else in this ledger is
+blocked on API.
