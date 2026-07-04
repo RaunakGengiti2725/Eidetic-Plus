@@ -414,6 +414,12 @@ def _claim_enumeration_answer(query: str, atoms: list[tuple[float, object, str]]
                 or low in _ENUM_OBJECT_JUNK
                 or words[0].lower() in _ENUM_OBJECT_HEAD_STOP):
             continue
+        # Place-name heads (cities/countries/towns) enumerate PROPER NOUNS only: the visit
+        # family also carries 'charity thing'/'event' objects that must never appear in a
+        # which-cities answer.
+        if (re.search(r"\b(?:cities|countries|towns)\b", q, re.I)
+                and not obj[:1].isupper()):
+            continue
         key = ro._norm_key(obj)
         if key in seen_vals:
             continue

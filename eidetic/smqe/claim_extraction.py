@@ -271,11 +271,18 @@ def _action_object_claims_from_atom(rec: MemoryRecord, atom: str) -> list[ClaimR
         # offered a deal with Nike\') whose object is the enumerable fact.
         r"\b(?:i|we)(?:\'ve|\'d)?\s+(?:just\s+|also\s+|recently\s+|finally\s+)?(?P<verb>read|reread|wrote|saw|met|took)\s+(?P<object>[A-Z][^.;!?]{2,90}?)(?=\s+(?:last|this|recently|because|while|when|and|so|together|again|yesterday|today)\b|[.;!?]|$)",
         r"\b(?:i|we)(?:\'ve|\'d)?\s+been\s+(?P<verb>offered|given|promised)\s+(?P<object>[^.;!?]{3,90}?)(?=\s+(?:last|this|recently|because|while|when|so|by)\b|[.;!?]|$)",
+        # Location visits that never phrase as went/been-to: 'I WAS IN Chicago', 'my TRIP TO
+        # Seattle', 'we FLEW TO Paris'. TitleCase object keeps precision (places capitalize).
+        r"\b(?:i|we)\s+(?P<verb>was|were)\s+in\s+(?P<object>[A-Z][\w' -]{2,40}?)(?=[.,;!?]|\s+(?:last|this|for|and|it|when|where|because|yesterday|today)\b)",
+        r"\bmy\s+(?P<verb>trip)\s+to\s+(?P<object>[A-Z][\w' -]{2,40}?)(?=[.,;!?]|\s+(?:last|this|for|and|it|when|where|because|was|is)\b)",
+        r"\b(?:i|we)(?:\'ve|\'d)?\s+(?:just\s+|also\s+)?(?P<verb>flew)\s+to\s+(?P<object>[A-Z][\w' -]{2,40}?)(?=[.,;!?]|\s+(?:last|this|for|and|when|because)\b)",
     )
     for pat in patterns:
         for m in re.finditer(pat, text, re.I):
             obj = _clean_relation_object(m.group("object"))
             verb = m.group("verb").lower().replace("'", "")
+            if verb in {"was", "were", "trip", "flew"}:
+                verb = "visited"           # location visits normalize into the visit family
             if not obj or verb in {"asked", "answered", "said", "told", "wanted"}:
                 continue
             claim = _claim_from_atom(rec, text, "event", predicate=verb, value=text)

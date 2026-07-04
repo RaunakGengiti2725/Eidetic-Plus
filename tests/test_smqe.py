@@ -5035,3 +5035,33 @@ def test_first_instance_uses_explicit_ordinal_anchor_and_skips_future_placements
     assert ans is not None
     assert "2022-01" in ans.answer            # the January first-win week, never May
     assert "my first" in ans.citations[0].snippet
+
+
+def test_city_visits_extract_across_phrasings_and_enumerate_proper_nouns(tmp_path):
+    """Slice-3 multi-hop shape: 'Which cities has John been to?' -- city visits phrase as
+    'I WAS IN Chicago' / 'my TRIP TO Seattle' / 'we FLEW TO New York', none of which the
+    went/been-to patterns saw; and the visit family also carries 'charity thing' objects
+    that must never appear in a which-cities answer (place-name heads enumerate proper
+    nouns only)."""
+    from eidetic.smqe.claim_extraction import claims_for_record
+
+    store = RecordStore(tmp_path / "city-phrasings.sqlite")
+    scope = Scope(namespace="city-phrasings")
+    texts = [
+        "John: I was in Chicago, it was awesome! The pizza was great.",
+        "John: My trip to Seattle was rainy but fun.",
+        "John: Oh, I've been to Paris yesterday.",
+        "John: We flew to New York for the finals.",
+        "John: I went to this charity thing and it was intense.",
+    ]
+    for i, t in enumerate(texts):
+        rec = _record(t, scope=scope, valid_at=float(i + 1))
+        store.upsert_record(rec)
+        store.add_claims(claims_for_record(rec))
+
+    ans = structured_answer(_Retriever(store), "Which cities has John been to?",
+                            at=100.0, scope=scope)
+    assert ans is not None
+    for city in ("Chicago", "Seattle", "Paris", "New York"):
+        assert city in ans.answer, city
+    assert "charity" not in ans.answer
