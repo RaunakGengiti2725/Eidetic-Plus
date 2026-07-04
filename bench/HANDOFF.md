@@ -88,3 +88,14 @@ abbreviation-aware splitter + honorific-tolerant value capture; live re-run full
 Latency profile: remember ~1.1-2.1s (embed + auto-sleep), structured recall 3-34ms,
 recall_problem/ask_problem 0-4ms, unknown-question abstention 10.2s (the P4 reflex-plane
 class, unchanged).
+
+## SLICE 6 PHASE A (window 5, digest 06a923.., branch SHA pinned in launch_A.log)
+
+25/40 (62%) | verified 36, abstained 3, VW 11 | structured 17/40 | temporal 6/9.
+
+THE WRITE PATH GENERALIZED: temporal 6/9 on never-touched holdout vs 2/8 on r5's
+pre-P2 ingest, with a live :event_instance row (near-miss: April vs May -- the mechanism
+identified the instance at month granularity, the earlier statement won the date; not
+junk). Remaining temporal misses are the known no-verb-family week-window class.
+Second-best window headline (r3 = 27). Phase B (mem0) launched for the h2h; two-phase
+runner delivered forensics at +40 min as designed.
