@@ -112,3 +112,16 @@ n=240: 139/240 (58%) vs 119/240 (50%); verified answers 209 vs 0. Temporal acros
 windows: ours 19/43, mem0's 3/43. The write-path waves measured on holdout: temporal
 2/8 (pre-P2 ingest) -> 6/9 (wave-2/3 build), :event_instance firing live. The two-phase
 runner cut forensics latency to +40 min in production use.
+
+## SHIPPED TO USER #1 (2026-07-04)
+
+`claude mcp add eidetic` at user scope -- every Claude Code session on this machine now
+runs the RC 1.0.0 build (branch venv, persistent store at ~/.eidetic-plus/data,
+namespace raunak-main). Connection verified by the client; first real memory written and
+recalled VERIFIED with citation in 1.9s through the deployed configuration. The
+real-user feedback loop is live: every future session exercises remember/recall/war-room
+against the honest build. Reversible with `claude mcp remove eidetic`.
+
+Wheel eidetic_plus-1.0.0-py3-none-any.whl built and cold-verified; PyPI publication +
+public announcement remain authorization-gated (irreversible, outward-facing) -- the
+one-liner is `twine upload <scratchpad>/dist/eidetic_plus-1.0.0-py3-none-any.whl`.
