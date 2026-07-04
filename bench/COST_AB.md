@@ -113,3 +113,23 @@ WEAKNESS_QUEUE #6 updated to point at P4.
 
 Side observation, free of charge: dev-20 baseline now reads 17/20 verified-correct --
 above the 15/15/14 historical band -- on the post-wave build.
+
+## EXTRACT_COMBINED + RESULT_CACHE dev-20 arm (measured 2026-07-04)
+
+| arm | verified-correct | qtok med | claims | edges |
+|---|---|---|---|---|
+| baseline (same-day, same protocol) | 17/20 | 5,664 | 18,059 | 1,141 |
+| COMBINED+CACHE | 15/20 | 5,070 | 19,295 (+6.8%) | 1,322 (+15.9%) |
+
+THE BLOCKER IS RESOLVED: the wave-K claims -8% composition shift did NOT reproduce on
+the current build -- the combined prompt now yields MORE claims (+6.8%), likely because
+the wave-2/3 extraction patterns changed what the schema asks for. Accuracy: -2 rows,
+of which one (the 3-vs-4-weeks shape) flipped in BOTH of today's arms independently --
+pure judge noise -- and one is unexamined. Verdict: NO default flip on a -2-at-n=20
+reading, but candidacy UPGRADED: the write-call halving is proven, the composition fear
+is gone, and the remaining question is one n=40 confirmation run. Recommend: holdout
+session runs the n=40 pair after slice 6 lands.
+
+Instrumentation note: structured_rows read 0/20 in both arms via extra.note -- the dev
+adapter is not surfacing smqe notes in that field (r-slice jsonls do). Field mismatch,
+not truth; worth one look before slice-6 forensics lean on it.
