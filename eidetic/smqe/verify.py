@@ -55,6 +55,7 @@ _ENUMERATED_ANSWER_RE = re.compile(r"^[^.;!?]{0,120},\s[^.;!?]{1,120},\s")
 _ENUM_ITEM_JUNK = {
     "awesome", "cool", "definitely", "fine", "good", "great", "great job", "nice", "no",
     "ok", "okay", "really", "similarly", "sure", "thank you", "thanks", "well", "wow", "yes",
+    "just", "started", "haven't", "hey", "interested",
 }
 _ENUM_ITEM_HEAD_STOP = {
     "at", "he", "her", "his", "i", "in", "it", "like", "my", "on", "our",
@@ -191,7 +192,7 @@ def _atom_anchor_allowed(query: str, result: StructuredAnswerResult) -> bool:
 
 
 _ANSWER_JUNK_SINGLETONS = _ENUM_ITEM_JUNK | {
-    "check", "yeah", "yep", "right", "exactly", "totally",
+    "check", "yeah", "yep", "right", "exactly", "totally", "hey", "hi", "hello",
     # vague quantity/manner fillers: 'Money-wise, I've gotten some cool endorsement deals'
     # is a teaser -- strip the filler and only the question's own words remain
     "gotten", "some", "stuff", "things", "money-wise",
