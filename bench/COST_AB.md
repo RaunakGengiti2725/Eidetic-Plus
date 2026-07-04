@@ -94,3 +94,22 @@ FAST_ABSTAIN and EXTRACT_COMBINED arms deferred a THIRD time (mem0 tail active a
 gate check across waves 2-4). They are the first two commands to run when the tail
 lands -- staged in FAST_LOOP.md, GO criteria above. Nothing else in this ledger is
 blocked on API.
+
+## FAST_ABSTAIN dev-20 A/B — NO-GO (measured 2026-07-04)
+
+| arm | verified-correct | abstained | abstained e2e_ms | qtok med |
+|---|---|---|---|---|
+| OFF | 17/20 | 3 | 16.1s / 16.6s / 25.8s | 5,664 |
+| ON  | 16/20 | 3 | 18.6s / 19.2s / 18.5s | 5,356 |
+
+The pre-gate NEVER FIRED: every real abstention carries dense coverage above the 0.25
+floor, so the flag changed nothing on the target path (latency identical within noise;
+the single row flip is the known 3-vs-4-weeks gold-ambiguity shape, judge noise). GO
+criterion was a 10x abstained-latency drop; measured drop is 0x. Verdict: NO-GO as
+designed. The 16-26s abstention cost is cascade+retry time at coverage 0.25-1.0 --
+cutting it needs the reflex coverage plane (P4) or an ABSTENTION_V2-aware early signal,
+NOT a higher floor (that trades measured NLI rescues away). Flag stays default-off;
+WEAKNESS_QUEUE #6 updated to point at P4.
+
+Side observation, free of charge: dev-20 baseline now reads 17/20 verified-correct --
+above the 15/15/14 historical band -- on the post-wave build.
