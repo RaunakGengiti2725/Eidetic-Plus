@@ -17,12 +17,23 @@ session (feature/acceleration) appends tasks with pin SHAs. Shapes as convN-rowM
       claiming anything.
 - [ ] Lemma instance selection (c796a0463) measures on r5: check conv9 album shape.
 
-## r5 forensics (fill when scoreboard lands)
+## r5 forensics (eidetic phase, read-only; mem0 tail still running at fill time)
 
-- scoreline: _pending_
-- verified-wrong taxonomy: _pending_
-- new classes → WEAKNESS_QUEUE: _pending_
-- form-floor matrix on r5 jsonl (kills / flips): _pending_
+- scoreline (eidetic only): 24/40 (60%), verified 35, abstained 5, verified-wrong 11;
+  multi-hop 6/8 (best window yet), temporal 2/8, single-hop 16/22, open-domain 0/2.
+- verified-wrong taxonomy: temporal 6/11 -- tagged {lemma-miss} and {week-window} by
+  miss_taxonomy, i.e. EXACTLY the classes the wave-2/3 write path (P2 event identity,
+  lemma families, month-granularity windows) targets; r5 ingested on the pre-P2 build,
+  so slice 6 is the measurement. Non-temporal VW: two junk shapes (greeting echo,
+  filler-item list) -- floor gaps closed same-day (2a8e7a10f, matrix 2/5/6/2/2 kills,
+  zero flips on five windows); one two-item credible-list content miss (form cannot
+  judge); two start/collaborate shapes that the shipped open/team lemma families cover.
+- abstained (5): three {abstained-late} single-hops (FAST_ABSTAIN arm relevance) + two
+  judgment-call open-domain rows where abstention is arguably correct.
+- new classes -> WEAKNESS_QUEUE: gerund-object heads ('started playing Civilization VI'
+  -- instance head lands on the gerund's object, verify tagging on slice 6), month-of
+  achievement questions ('in which MONTH's game...' answered with a bare later date).
+- form-floor matrix on r5: kills 2, flips none.
 
 ## From acceleration → holdout (this branch's deliverables)
 

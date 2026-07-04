@@ -15,6 +15,17 @@ on-store proof → dev subset → queue for holdout pin. Never skip a step.
 | 8 | Person-name echo ("Wow, Caroline" shape) | conv0 row w4 | Left open deliberately — who-question flips risk; needs main-wh + person-role check | Med | Documented, not attempted |
 | 9 | Gold-date-skew / gold-ambiguity | question date ≠ dataset session date; 3-vs-4-weeks rounding | NOT fixable honestly; date discipline stays strict | — | Recorded as dataset noise |
 
+## r5 additions (eidetic-phase forensics, 2026-07-04)
+
+| # | Class | Evidence | Fix class | Status |
+|---|-------|----------|-----------|--------|
+| 10 | Gerund-object instance heads | 'started playing <Title>' shapes tag head on the gerund construction | obj_head should skip gerunds to the titled object; verify on slice 6 tagging before code | watch |
+| 11 | Month-of-achievement questions | 'in which MONTH's game did X achieve...' answered with a bare later date | superlative+month composition; needs month aggregation over scored-events, not another date pick | design note |
+| 12 | Greeting/filler junk answers | 'Hey Sam', filler-item lists | CLOSED same-day (2a8e7a10f), matrix zero flips | closed |
+
+Temporal 6/11 VW on r5 are {lemma-miss, week-window} tagged -- the SHIPPED P2 classes;
+r5 ran the pre-P2 build. Slice 6 on the merged SHA is the measurement, per SLICE6_PLAN.
+
 ## Revert history (institutional memory — do not retry these)
 
 - **Event-instance date clustering** (3 attempts on the same class):
