@@ -19,7 +19,7 @@ on-store proof → dev subset → queue for holdout pin. Never skip a step.
 
 | # | Class | Evidence | Fix class | Status |
 |---|-------|----------|-----------|--------|
-| 10 | Gerund-object instance heads | 'started playing <Title>' shapes tag head on the gerund construction | obj_head should skip gerunds to the titled object; verify on slice 6 tagging before code | watch |
+| 10 | Gerund-object instance heads | VERIFIED on 149 real tagged claims (fresh dev store): noise mostly inert via head-tie gate | head stops shipped for conjunctions/temporals/pronouns/numbers (b2cd95789) | closed |
 | 11 | Month-of-achievement questions | 'in which MONTH's game did X achieve...' answered with a bare later date | superlative+month composition; needs month aggregation over scored-events, not another date pick | design note |
 | 12 | Greeting/filler junk answers | 'Hey Sam', filler-item lists | CLOSED same-day (2a8e7a10f), matrix zero flips | closed |
 
