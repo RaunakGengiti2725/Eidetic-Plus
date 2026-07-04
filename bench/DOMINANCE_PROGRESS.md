@@ -1925,3 +1925,16 @@ more than its ceiling did. Margins across seven disjoint never-touched windows:
 +1, -1, +4, +2, +7, +7, +8 (five consecutive wins). Rolling n=280: 159/280 (57%) vs
 131/280 (47%); verified answers 241 vs 0; temporal 22/51 vs 3/51 (mem0 0/8 again this
 window). Scoreboard, curves, and manifest rendered in artifacts/holdout_rotation_r7_codex.
+
+### Rolling never-touched holdout table, r1-r7 (n=280; regenerate: bench/rolling_holdout_table.py)
+
+| window | eidetic correct | eidetic verified | eidetic structured | eidetic qtok med | mem0 correct | margin |
+|---|---|---|---|---|---|---|
+| holdout_rotation_r1_codex | 23/40 | 34 | 11/40 | 5344.5 | 22/40 | +1 |
+| holdout_rotation_r2_codex | 17/40 | 33 | 17/40 | 4900.5 | 18/40 | -1 |
+| holdout_rotation_r3_codex | 27/40 | 38 | 15/40 | 5016.5 | 23/40 | +4 |
+| holdout_rotation_r4_codex | 23/40 | 33 | 16/40 | 5138.5 | 21/40 | +2 |
+| holdout_rotation_r5_codex | 24/40 | 35 | 12/40 | 5438.0 | 17/40 | +7 |
+| holdout_rotation_r6_codex | 25/40 | 36 | 17/40 | 4898.5 | 18/40 | +7 |
+| holdout_rotation_r7_codex | 20/40 | 32 | 13/40 | 4029.0 | 12/40 | +8 |
+| **rolling** | **159/280** | **241** | **101/280** | | **131/280** | **+28** |
