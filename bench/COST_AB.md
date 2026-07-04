@@ -280,3 +280,19 @@ Verdict: the claim families + product_cost stack are the promotion payload. Medi
 parity demanded by this session is EXCEEDED at the median and per verified answer;
 closing mean/total requires the reader-tail families in COST_ROADMAP.md (commonality
 joins, event-date claims), not flag work.
+
+## Event-date family dev-40 probe (product3, measured 2026-07-04) -- NO re-run trigger
+
+| arm | vc | structured | qtok med | qtok total | write tok | abstained |
+|---|---|---|---|---|---|---|
+| product2 (pre-family, same stack) | 24/40 | 21/40 | 83 | 100,014 | 596,584 | 4 |
+| product3 (event-date family, SHA 9437ce421+) | 25/40 | 21/40 | 90 | 98,963 | 617,671 (+3.5%) | 5 |
+
+Structured coverage FLAT (21/40 both arms) -- the roadmap's predicted +1-2 rows did not
+materialize on this dev mix (operator counts shifted latest_value 4->5, open_inference
+11->10; no net crossing). vc +1 is the churn band. Verdict: the +2-structured/zero-vc
+-regression re-run bar is NOT met; window 6 is NOT re-run (it is also no longer
+never-touched for a build whose family was motivated by its miss taxonomy -- both
+reasons point the same way). Family STAYS SHIPPED: zero accuracy cost, write tok +3.5%,
+18 adversarially-confirmed defect classes locked by tests, and it hardens the temporal
+class write-side for r8+. Measurement on the NEXT fresh window is the honest read.
