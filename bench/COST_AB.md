@@ -135,3 +135,25 @@ extra.smqe_operator (extra.note is reader-path only). Structured rate on the cur
 build: 8/20 baseline, 9/20 COMBINED (40-45%, vs ~9/20 measured on the older live probe
 at twice the question count) -- and COMBINED's +1 structured row is consistent with its
 +6.8% claims. miss_taxonomy and slice-6 forensics should read structured_recall.
+
+## EXTRACT_COMBINED n=40 confirmation (measured 2026-07-04) -- GO as promotion candidate
+
+| arm | verified-correct | structured rows | claims | total qtok | qtok mean |
+|---|---|---|---|---|---|
+| OFF (same-day baseline) | 25/40 vc (26 correct) | 18/40 | 27,919 | 139,600 | 3,490 |
+| ON (COMBINED+CACHE) | 24/40 vc (25 correct) | 20/40 | 27,268 (-2.3%) | 123,432 (-11.6%) | 3,086 |
+
+The n=20 -2 did NOT hold at n=40: accuracy is inside the noise band (7 churn flips, 3
+gained / 4 lost, no direction). Claims composition flat (-2.3%, vs the -8% blocker that
+started this) with +2 structured rows. Write-call halving already proven by counting
+tests. One measurement trap documented: the ON arm's qtok MEDIAN read -49%, an artifact
+of structured coverage crossing 50% (median falls off the reader plateau); totals are
+the honest metric. The parity story in one number: a structured row costs 18 tokens
+median vs ~6,000 for a reader row -- every question that crosses saves ~330x.
+
+VERDICT: GO as a bench-profile promotion candidate alongside ADAPTIVE_CONTEXT. Default
+flip remains the holdout session's call (mid-rotation flips confound the window trend).
+
+Free n=40 finding: the current build's dev-40 baseline reads 26/40 with TEMPORAL 9/10
+and 45% structured coverage -- the first fresh-ingest n=40 carrying the wave-2/3 write
+path, and the targeted class is nearly clean off-holdout.
