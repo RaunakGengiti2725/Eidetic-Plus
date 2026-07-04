@@ -50,6 +50,17 @@ PRECISION_WINDOW = 0
 INSTANCE_SPAN_GUARD_DAYS = 45
 
 
+def lemmas_compatible(a: str, b: str) -> bool:
+    """Equal lemmas, or families sharing a surface verb: 'launch' lives in both release
+    and open, so a launched-claim answers an open-question and vice versa."""
+    if not a or not b:
+        return False
+    if a == b:
+        return True
+    fa, fb = INSTANCE_LEMMA_FAMILIES.get(a), INSTANCE_LEMMA_FAMILIES.get(b)
+    return bool(fa and fb and fa & fb)
+
+
 def canon_lemma(verb: str) -> str:
     return _LEMMA_OF.get((verb or "").lower(), "")
 

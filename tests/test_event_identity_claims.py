@@ -130,3 +130,43 @@ def test_claim_tier_count_selects_by_head_verb_sense(tmp_path):
     ])
     res3 = _ask(lone, lscope, "How many books did Tim read?")
     assert res3 is None or ":claim_count" not in (res3.note or "")
+
+
+def test_week_only_evidence_answers_month_granularity(tmp_path):
+    """When every retelling carries only a week window, the instance answers at MONTH
+    granularity -- honest about what the evidence bounds -- rather than fabricating a day
+    or shipping the window string."""
+    store, scope = _store_with(tmp_path, [
+        ("Ana: I launched my pottery studio last week, still buzzing!",
+         datetime(2023, 7, 12, 12, 0)),
+    ])
+    res = _ask(store, scope, "When did Ana open her pottery studio?")
+    assert res is not None and res.answer == "July 2023"
+    assert ":event_instance" in res.note
+
+
+def test_adverb_led_first_report_tags_and_wins(tmp_path):
+    """'I JUST officially released my zine' -- adverb-led first report tags at statement
+    precision and beats a later vague retelling."""
+    scope = Scope(namespace="adv")
+    rec = _rec("Noa: I just officially released my zine!", datetime(2023, 4, 6, 12, 0), scope, 0)
+    tagged = [c for c in claims_for_record(rec) if c.filters.get("lemma") == "release"]
+    assert tagged and tagged[0].filters["obj_head"] == "zine"
+    assert tagged[0].filters["date_precision"] == ei.PRECISION_STATEMENT
+
+    store, scope2 = _store_with(tmp_path, [
+        ("Noa: I just officially released my zine!", datetime(2023, 4, 6, 12, 0)),
+        ("Noa: People keep asking about the zine I released a while back.",
+         datetime(2023, 9, 1, 12, 0)),
+    ])
+    res = _ask(store, scope2, "When was Noa's zine released?")
+    assert res is not None and res.answer == "April 2023"
+
+
+def test_started_working_on_shape_tags_open_lemma():
+    scope = Scope(namespace="work")
+    rec = _rec("Ira: I started working on my novel this winter.",
+               datetime(2024, 1, 15, 12, 0), scope, 0)
+    tagged = [c for c in claims_for_record(rec) if c.filters.get("lemma") == "open"]
+    assert tagged
+    assert tagged[0].filters["obj_head"] == "novel"

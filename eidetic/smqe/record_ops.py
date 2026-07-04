@@ -3176,7 +3176,7 @@ def _claim_event_instance_answer(plan, query: str, atoms, backend: str, sup):
         if not isinstance(item, ClaimRecord):
             continue
         f = item.filters or {}
-        if f.get("lemma") != qlemma or not f.get("event_date"):
+        if not ei.lemmas_compatible(str(f.get("lemma") or ""), qlemma) or not f.get("event_date"):
             continue
         head = str(f.get("obj_head") or "")
         if head and head not in qwords and not any(
