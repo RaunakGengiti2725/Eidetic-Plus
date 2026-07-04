@@ -25,10 +25,10 @@ bash scripts/judge_quickstart.sh
 
 - **Verified 241 vs 0.** Across n=280 rolling holdout, every one of our 241 verified
   answers carries citations to immutable sources; Mem0's answers verify nothing.
-- **Rolling holdout lead.** 159/280 correct across seven never-touched windows vs
-  Mem0's 119/240 on the six completed head-to-heads (window 7's Mem0 phase renders
-  from the same launch script). We publish the losing windows too (r2: −1, r7: hard
-  draw below our own bar).
+- **Rolling holdout lead.** 159/280 vs Mem0's 131/280 across seven never-touched
+  windows, five consecutive wins, margins +1/−1/+4/+2/+7/+7/+8. We publish the
+  losing window (r2: −1) and the hard draw (r7: below our own internal bars — and
+  still the largest h2h margin of the seven).
 - **Structured answers at 6–85 tokens, verification included.** Dev-40 median 83
   tokens vs Mem0's 382 unverified; on holdout the plateau transferred but coverage
   didn't (13/40), so we do not claim the dev median as a holdout number. Write-side

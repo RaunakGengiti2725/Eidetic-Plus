@@ -13,10 +13,11 @@ git SHA in their launch logs and whose score-affecting flags are recorded in
 
 ## Claim 1 — verified answers, not vibes
 
-Across seven disjoint, never-touched LoCoMo holdout windows (n=280), every eidetic
-answer is verify-or-abstain: NLI-checked against immutable stored sources with
-citations, or an explicit abstention. **Verified answers: eidetic 241 vs Mem0 0.**
-Mem0 (and the RAG baselines) return unverified text through the same reader.
+Across seven disjoint, never-touched LoCoMo holdout windows (n=280, both systems on
+every window), every eidetic answer is verify-or-abstain: NLI-checked against
+immutable stored sources with citations, or an explicit abstention. **Verified
+answers: eidetic 241 vs Mem0 0.** Mem0 (and the RAG baselines) return unverified
+text through the same reader.
 
 Evidence: `artifacts/holdout_rotation_r1..r7_codex/*__run0.jsonl` (`extra.verified`
 per row); recompute with `bench/rolling_holdout_table.py`.
@@ -34,15 +35,18 @@ never used for tuning; window 7 measured with the promoted product_cost stack):
 | r4 | 23/40 | 21/40 | +2 |
 | r5 | 24/40 | 17/40 | +7 |
 | r6 | 25/40 | 18/40 | +7 |
-| r7 | 20/40 | (Phase B rendering) | — |
-| rolling | **159/280** | — | — |
+| r7 | 20/40 | 12/40 | +8 |
+| rolling | **159/280** | **131/280** | **+28** |
 
 Windows swing ±5pp at n=40 — the rolling total is the evidence unit, not any single
-window. r7 was a hard draw and missed our internal bars; the ledger says so
-(`bench/DOMINANCE_PROGRESS.md`, "SLICE 7 PHASE A").
+window. r7 was a hard draw and missed our internal bars — and still produced the
+largest head-to-head margin of all seven windows (+8): the build's floor beat the
+baseline harder than its ceiling did. Five consecutive window wins. The ledger
+records the miss and the margin together (`bench/DOMINANCE_PROGRESS.md`, "SLICE 7").
 
-Temporal-reasoning questions across r1–r7: eidetic 22/51 vs Mem0 3/43 (r1–r6) — the
-write-time event-identity path generalized on holdout (2/8 pre-P2 ingest → 6/9 on r6).
+Temporal-reasoning questions across r1–r7: eidetic 22/51 vs Mem0 3/51 (0/8 on r7) —
+the write-time event-identity path generalized on holdout (2/8 pre-P2 ingest → 6/9
+on r6).
 
 ## Claim 3 — the structured path is radically cheaper, verification included
 
