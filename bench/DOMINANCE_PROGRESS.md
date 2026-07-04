@@ -1837,3 +1837,13 @@ row, so it does not ship. SPEC for the real unit: claim-tier event identity at W
 time (extraction tags each event claim with a canonical action lemma + object head;
 instances = same lemma+head), then relative_temporal selects instances by lemma match
 to the question verb. That is claim-schema work, not another read-time regex.
+
+### Wave S: the temporal instance class SHIPS on the third design
+Attempts 1 (first-report ceiling) and 2 (date-proximity clustering) built, measured,
+reverted -- date proximity cannot tell 'same event retold' from 'different events
+sharing a noun', and every tie-break traded one row for another. Attempt 3 ships: the
+QUESTION'S ACTION VERB selects the instance via lemma families (release~dropped~debuted,
+start~opened, win~won, team~collaborated...). Album row exact gold on-store; repeated
+-event sidecar semantics intact; no-family-verb questions byte-identical (c796a0463).
+Residual honestly bounded: a dateless first report (shop) and an ambiguous second
+mention (Gina) stay wrong -- their fix is write-time event claims, still queued.
