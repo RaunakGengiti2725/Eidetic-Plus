@@ -712,8 +712,34 @@ def _consecutive_event_delta_case(rng: random.Random, idx: int) -> SyntheticCase
     )
 
 
+_ENUM_HOBBY_PAIRS = [
+    ("pottery", "astronomy"), ("archery", "calligraphy"), ("birdwatching", "origami"),
+    ("beekeeping", "woodturning"), ("kayaking", "printmaking"),
+]
+
+
+def _claim_enumeration_case(rng: random.Random, idx: int) -> SyntheticCase:
+    a, b = _ENUM_HOBBY_PAIRS[idx % len(_ENUM_HOBBY_PAIRS)]
+    name = _NAMES[idx % len(_NAMES)]
+    decoy = "the linen receipt is in the drawer"
+    t = 1_700_500_000 + idx * 100
+    return SyntheticCase(
+        case_id=f"claim-enum-{idx}",
+        op="open_inference",
+        question=f"What hobbies does {name} enjoy?",
+        expected=f"{b} and {a}",
+        rows=[
+            (f"{name}: I really enjoy {a}.", t),
+            (f"{name}: I also enjoy {b}.", t + 100),
+            (f"{name}: The {decoy}.", t + 200),
+        ],
+        forbidden_in_proof=["linen receipt"],
+    )
+
+
 _GENERATORS: list[Callable[[random.Random, int], SyntheticCase]] = [
     _latest_case,
+    _claim_enumeration_case,
     _count_case,
     _itemized_count_case,
     _acquired_item_count_case,
@@ -773,7 +799,12 @@ def _add_case(store: RecordStore, scope: Scope, case: SyntheticCase) -> None:
 
 
 def _answer_matches(actual: str, expected: str) -> bool:
-    return " ".join((actual or "").lower().split()) == " ".join(expected.lower().split())
+    norm = lambda s: " ".join((s or "").lower().split())
+    if norm(actual) == norm(expected):
+        return True
+    split_items = lambda s: {i.strip() for i in re.split(r",\s*(?:and\s+)?|\s+and\s+", norm(s)) if i.strip()}
+    exp_items = split_items(expected)
+    return len(exp_items) > 1 and exp_items == split_items(actual)
 
 
 def _proof_contains_term(proof: str, term: str) -> bool:
