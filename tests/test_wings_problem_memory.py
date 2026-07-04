@@ -137,3 +137,39 @@ def test_witness_file_attaches_hash_checked_evidence(prob_engine, tmp_path):
 
     with pytest.raises(KeyError):
         mcp_server.add_witness("prob_nope", str(blob))
+
+
+def test_ask_problem_marks_revision_backed_citations(prob_engine, monkeypatch):
+    """NL questions run through the SAME ask path; citations pointing into this problem's
+    revision records are marked revision-backed, general memories are not, and the folded
+    state rides along. as_of replays the state."""
+    from eidetic.models import Answer, Citation, NLILabel
+
+    p = mcp_server.remember_problem(goal="Checkout latency spikes at peak", valid_at=100.0)
+    pid = p["problem_id"]
+    mcp_server.update_problem(
+        pid, decisions=[{"choice": "raise pool size to 64"}], valid_at=200.0)
+    rev_ids = [r.memory_id for r in problems.problem_revisions(prob_engine, pid)]
+
+    def fake_ask(query, scope=None, as_of=None, **kw):
+        return Answer(question=query, answer="We decided to raise the pool size to 64.",
+                      verified=True, confidence=0.9,
+                      citations=[
+                          Citation(memory_id=rev_ids[-1], content_hash="h", raw_uri="",
+                                   source="problem", valid_at=200.0, snippet="raise pool",
+                                   nli_label=NLILabel.ENTAILMENT, nli_score=0.95),
+                          Citation(memory_id="mem_general", content_hash="h2", raw_uri="",
+                                   source="user", valid_at=50.0, snippet="unrelated",
+                                   nli_label=NLILabel.ENTAILMENT, nli_score=0.9),
+                      ],
+                      unverified_claims=[], generated_by="test", retrieved_count=2, note="")
+
+    monkeypatch.setattr(prob_engine, "ask", fake_ask)
+    out = mcp_server.ask_problem(pid, "What did we decide about the pool size?")
+    assert out["verified"] is True and out["revision_backed_count"] == 1
+    backed = {c["memory_id"]: c["revision_backed"] for c in out["citations"]}
+    assert backed[rev_ids[-1]] is True and backed["mem_general"] is False
+    assert out["state"]["decisions"][0]["choice"] == "raise pool size to 64"
+
+    with pytest.raises(KeyError):
+        mcp_server.ask_problem("prob_nope", "anything?")

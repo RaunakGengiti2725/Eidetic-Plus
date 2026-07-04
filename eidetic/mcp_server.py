@@ -472,6 +472,27 @@ def resolve_hypothesis(problem_id: str, hypothesis_id: str, status: str,
 
 
 @_threaded_tool
+def ask_problem(problem_id: str, question: str, namespace: Optional[str] = None,
+                agent_id: Optional[str] = None, project_id: Optional[str] = None,
+                as_of: Optional[float] = None) -> dict:
+    """Ask a natural-language question against a problem's war-room history ('what did we
+    decide about the pool size and why?') through the same verify-or-abstain path as
+    every recall: the answer arrives with citations, each marked revision-backed when it
+    points into this problem's own revision records, plus the folded state. `as_of`
+    replays both the answer and the state at a past moment. Needs DASHSCOPE_API_KEY."""
+    from . import problems
+    try:
+        return problems.ask_problem(engine(), problem_id,
+                                    _text_arg(question, "question", max_chars=_MAX_QUERY_CHARS),
+                                    scope=_scope(namespace, agent_id, project_id),
+                                    as_of=as_of)
+    except ModelCallError as e:
+        raise RuntimeError(
+            f"ask_problem needs the model and no result was fabricated: {e}. "
+            "Set DASHSCOPE_API_KEY to enable it.")
+
+
+@_threaded_tool
 def add_witness(problem_id: str, path: str, namespace: Optional[str] = None,
                 agent_id: Optional[str] = None, project_id: Optional[str] = None,
                 note: str = "", valid_at: Optional[float] = None) -> dict:

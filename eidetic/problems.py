@@ -195,6 +195,42 @@ def add_witness(engine, problem_id: str, path: str, *, scope: Optional[Scope] = 
             "state": fold_state(problem_revisions(engine, problem_id, scope=scope))}
 
 
+def ask_problem(engine, problem_id: str, question: str, *,
+                scope: Optional[Scope] = None,
+                as_of: Optional[float] = None) -> dict:
+    """Natural-language question against a problem's war-room history through the SAME
+    verify-or-abstain ask path as every other answer. Revision records are ordinary
+    memories, so the answer's citations resolve normally; the response marks which
+    citations point INTO this problem's revisions (revision-backed) versus general
+    memory, and carries the folded state for context."""
+    scope = scope or Scope()
+    revisions = problem_revisions(engine, problem_id, scope=scope)
+    if not revisions:
+        raise KeyError(f"no such problem in scope: {problem_id}")
+    revision_ids = {r.memory_id for r in revisions}
+    ans = engine.ask(question, scope=scope, as_of=as_of)
+    citations = []
+    for c in ans.citations or []:
+        citations.append({
+            "memory_id": c.memory_id,
+            "snippet": c.snippet,
+            "nli_label": getattr(c.nli_label, "value", str(c.nli_label)),
+            "revision_backed": c.memory_id in revision_ids,
+        })
+    if as_of is not None:
+        revisions = [r for r in revisions if (r.valid_at or 0.0) <= as_of]
+    return {
+        "problem_id": problem_id,
+        "question": question,
+        "answer": ans.answer,
+        "verified": ans.verified,
+        "abstained": ans.note.startswith("abstained") if ans.note else False,
+        "citations": citations,
+        "revision_backed_count": sum(1 for c in citations if c["revision_backed"]),
+        "state": fold_state(revisions),
+    }
+
+
 def recall_problem(engine, *, problem_id: Optional[str] = None, query: str = "",
                    scope: Optional[Scope] = None,
                    as_of: Optional[float] = None) -> Optional[dict]:
