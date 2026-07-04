@@ -160,3 +160,25 @@ probe product3 launched for the +2-structured/zero-vc-regression re-run decision
 | holdout_rotation_r6_codex | 25/40 | 36 | 17/40 | 4898.5 | 18/40 | +7 |
 | holdout_rotation_r7_codex | 20/40 | 32 | 13/40 | 4029.0 | 12/40 | +8 |
 | **rolling** | **159/280** | **241** | **101/280** | | **131/280** | **+28** |
+
+## Hackathon checklist (public ship 2026-07-04)
+
+- [x] main = submission default, fast-forwarded from feature/acceleration; all ship
+      work committed on main.
+- [x] Slice 7 committed: artifacts/holdout_rotation_r7_codex (scoreboard, manifest,
+      curves, jsonls, pinned launch logs A/B, product_cost profile copies).
+- [x] Proof bundle: artifacts/public_ship (claim_scope limited + 7 limitations,
+      snap_back 100% 272/272, rolling n=280 json, holdout_audit PASS, 22 offline
+      sidecars green, release_gate report committed at honest FAIL + GATE_STATUS.md).
+- [x] docs/PUBLIC_CLAIMS.md + docs/JUDGES.md -- every bullet artifact-cited, losses
+      published, dev-vs-holdout cost caveat inline.
+- [x] docs/HACKATHON.md shot list (6 shots, all re-runnable, honest-limits shot
+      included). scripts/judge_quickstart.sh tested green offline. README judges +
+      war-room sections. .env.example current.
+- [x] Leakage audit PASS end-state (digit-boundary matcher fix + ledger id scrub +
+      benchmark-entity literal removed from _identity_entailment).
+- [x] Event-date claim family shipped (9437ce421) behind the full offline gate
+      battery; dev-40 probe product3 = the promotion evidence, in flight at handoff.
+- [ ] Tag v1.0.0-public (after probe verdict recorded).
+- [ ] PyPI publish + public announcement remain authorization-gated (wheel built,
+      twine one-liner in SHIPPED TO USER #1 above).
