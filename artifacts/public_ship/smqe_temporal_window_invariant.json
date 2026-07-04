@@ -1,0 +1,29 @@
+{
+  "pass": true,
+  "seed": 401729046,
+  "seed_mode": "random",
+  "cases": 24,
+  "checks": 48,
+  "correct": 24,
+  "record_backend_correct": 24,
+  "claim_backend_correct": 24,
+  "failures": [],
+  "case_type_counts": {
+    "fortnight_count": 2,
+    "most_recent_latest": 2,
+    "past_days_count": 2,
+    "past_few_months_count": 2,
+    "past_week_count": 3,
+    "past_week_list": 2,
+    "recent_count": 3,
+    "recent_hours_sum": 2,
+    "recent_list": 2,
+    "source_action_variant_window": 2,
+    "source_location_window": 2
+  },
+  "backend_counts": {
+    "claim": 24,
+    "record": 24
+  },
+  "avg_proof_tokens": 19.12
+}

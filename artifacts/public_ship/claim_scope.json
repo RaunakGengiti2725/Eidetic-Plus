@@ -1,0 +1,30 @@
+{
+  "public_claim_scope": "limited",
+  "claim": "Best governed verified long-horizon memory agent we can measure today: on rotating never-touched LoCoMo holdout windows with a shared fixed reader and judge, eidetic-plus-full beats Mem0 on judge-correct answers while being the only system returning verify-or-abstain citations (mem0 verified answers: 0). Cost: dev-split median query tokens reached 83 with verification intact (COST_AB.md); holdout confirmation is slice 7.",
+  "explicitly_not_claimed": [
+    "SOTA / best-in-world (requires bench/reproduce.sh >=10-run sweep + external evidence for Chronos, Mastra, ByteRover, Hindsight -- not run)",
+    "any accuracy claim from a single window (windows swing +-5pp at n=40; the rolling n>=240 table is the evidence unit)",
+    "release_gate PASS (the fail-closed gate requires the full multi-run artifact set; see release_gate_report.json in this directory for the honest check-by-check status)"
+  ],
+  "measured_harness_systems": [
+    "eidetic-plus-full",
+    "mem0"
+  ],
+  "measured_external_systems": [],
+  "external_system_evidence": [],
+  "evidence": {
+    "rolling_holdout": "bench/rolling_holdout_table.py over artifacts/holdout_rotation_r1..r7_codex (raw per-row jsonl)",
+    "slice7": "artifacts/holdout_rotation_r7_codex (launch_A.log pins SHA + product_cost profile overlay)",
+    "cost": "bench/COST_AB.md dev-40 ledger; artifacts/cost_*_20260704_*",
+    "snap_back": "artifacts/public_ship/snap_back_audit.json"
+  },
+  "limitations": [
+    "Single benchmark run (runs=1) on one 40-sample rotation window; the >=10-run bench/reproduce.sh sweep has not been run.",
+    "LoCoMo only in this artifact dir; LongMemEval categories not covered here.",
+    "Baselines in this dir: mem0 only; rag-full/rag-vector/graphiti/eidetic-product not in this window's logs.",
+    "Dev-split cost median (83 qtok) is NOT a holdout number; holdout r7 structured coverage 13/40 kept the holdout median on the reader plateau (4,029).",
+    "Windows swing +-5pp at n=40; the rolling n=280 table is the evidence unit, not any single window.",
+    "Mem0's write-side token cost is unlogged in its adapter; its totals are understated in all comparisons.",
+    "Ablation evidence (metabolism/forgetting attribution) not present in this artifact dir; see docs/claims.md Claim B for the program."
+  ]
+}

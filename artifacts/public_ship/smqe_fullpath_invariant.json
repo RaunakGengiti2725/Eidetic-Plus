@@ -1,0 +1,58 @@
+{
+  "pass": true,
+  "seed": 1970129262,
+  "seed_mode": "random",
+  "cases": 46,
+  "correct": 46,
+  "verified": 46,
+  "structured_recall": 46,
+  "reader_calls": 0,
+  "proof_link_checks": 46,
+  "claim_backend_correct": 46,
+  "claims_extracted": 226,
+  "avg_claims_per_case": 4.91,
+  "failures": [],
+  "operator_counts": {
+    "count_aggregate": 6,
+    "latest_value": 6,
+    "multi_session_sum": 3,
+    "open_inference": 6,
+    "preference_synth": 16,
+    "relative_temporal": 2,
+    "speaker_fact": 2,
+    "table_lookup": 2,
+    "temporal_delta": 3
+  },
+  "case_operator_counts": {
+    "count_aggregate": 6,
+    "latest_value": 4,
+    "multi_session_sum": 3,
+    "open_inference": 8,
+    "preference_synth": 16,
+    "relative_temporal": 2,
+    "speaker_fact": 2,
+    "table_lookup": 2,
+    "temporal_delta": 3
+  },
+  "backend_counts": {
+    "claim": 46
+  },
+  "policy_counts": {
+    "smqe:count_aggregate:claim": 4,
+    "smqe:count_aggregate:claim:claim_count": 2,
+    "smqe:latest_value:claim": 6,
+    "smqe:multi_session_sum:claim": 3,
+    "smqe:open_inference:claim": 6,
+    "smqe:preference_synth:claim": 16,
+    "smqe:relative_temporal:claim": 2,
+    "smqe:speaker_fact:claim": 2,
+    "smqe:table_lookup:claim": 2,
+    "smqe:temporal_delta:claim": 3
+  },
+  "avg_proof_tokens": 36.54,
+  "avg_context_tokens": 36.54,
+  "latency_budget_checks": 46,
+  "latency_budget_ms": 100.0,
+  "p95_latency_ms": 12.351729,
+  "max_latency_ms": 22.816375
+}

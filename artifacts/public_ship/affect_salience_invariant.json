@@ -1,0 +1,18 @@
+{
+  "pass": true,
+  "seed": 359988881,
+  "seed_mode": "random",
+  "cases": 24,
+  "checks": 168,
+  "correct": 168,
+  "flip_checks": 48,
+  "age_free_checks": 24,
+  "bounded_checks": 24,
+  "lambda_salience": 0.5,
+  "max_boost_ratio": 0.489803,
+  "min_age_gap_seconds": 114856135.0,
+  "case_type_counts": {
+    "affect_salience_retrieval": 24
+  },
+  "failures": []
+}

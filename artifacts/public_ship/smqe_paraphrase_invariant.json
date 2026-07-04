@@ -1,0 +1,27 @@
+{
+  "pass": true,
+  "seed": 1625150128,
+  "seed_mode": "random",
+  "cases": 24,
+  "checks": 48,
+  "correct": 24,
+  "record_backend_correct": 24,
+  "claim_backend_correct": 24,
+  "failures": [],
+  "operator_counts": {
+    "count_aggregate": 3,
+    "latest_value": 3,
+    "multi_session_sum": 2,
+    "open_inference": 3,
+    "preference_synth": 3,
+    "relative_temporal": 3,
+    "speaker_fact": 2,
+    "table_lookup": 3,
+    "temporal_delta": 2
+  },
+  "backend_counts": {
+    "claim": 24,
+    "record": 24
+  },
+  "avg_proof_tokens": 19.58
+}

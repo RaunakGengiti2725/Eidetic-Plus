@@ -1,0 +1,14 @@
+{
+  "pass": true,
+  "seed": 99764720,
+  "seed_mode": "random",
+  "cases": 24,
+  "correct": 24,
+  "failures": [],
+  "case_type_counts": {
+    "advice_deferral": 6,
+    "entity_guard": 6,
+    "paraphrase_slot": 6,
+    "unrelated_guard": 6
+  }
+}

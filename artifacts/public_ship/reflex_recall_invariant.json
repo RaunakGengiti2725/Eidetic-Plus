@@ -1,0 +1,21 @@
+{
+  "pass": true,
+  "seed": 411610774,
+  "seed_mode": "random",
+  "cases": 24,
+  "checks": 288,
+  "correct": 288,
+  "direct_hit_checks": 48,
+  "coactivation_checks": 48,
+  "active_scope_filter_checks": 96,
+  "proof_link_checks": 24,
+  "score_contract_checks": 48,
+  "latency_budget_checks": 24,
+  "max_latency_ms": 4.088208,
+  "p95_latency_ms": 1.130575,
+  "latency_budget_ms": 100,
+  "case_type_counts": {
+    "reflex_recall_proof_surface": 24
+  },
+  "failures": []
+}

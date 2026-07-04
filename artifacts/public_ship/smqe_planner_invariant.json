@@ -1,0 +1,510 @@
+{
+  "case_type_counts": {
+    "smqe_planner_generic_shape": 24
+  },
+  "cases": 24,
+  "checks": 162,
+  "correct": 162,
+  "details": [
+    {
+      "actual_op": "speaker_fact",
+      "case_id": "planner-16-speaker",
+      "entities": [
+        "Mina",
+        "Cho"
+      ],
+      "expected_op": "speaker_fact",
+      "latency_ms": 6.701,
+      "query": "What did Mina Cho say about the studio keys?",
+      "requires_synthesis": false,
+      "slot": "mina cho say about studio keys",
+      "terms": [
+        "about",
+        "cho",
+        "keys",
+        "mina",
+        "say",
+        "studio"
+      ],
+      "unit": ""
+    },
+    {
+      "actual_op": "table_lookup",
+      "case_id": "planner-22-table",
+      "entities": [
+        "Mina",
+        "Cho",
+        "Monday"
+      ],
+      "expected_op": "table_lookup",
+      "latency_ms": 0.2495,
+      "query": "What shift does Mina Cho have on Monday in the harbor mural schedule?",
+      "requires_synthesis": false,
+      "slot": "shift mina cho monday harbor mural schedule",
+      "terms": [
+        "cho",
+        "harbor",
+        "mina",
+        "monday",
+        "mural",
+        "schedule",
+        "shift"
+      ],
+      "unit": ""
+    },
+    {
+      "actual_op": "count_aggregate",
+      "case_id": "planner-20-count",
+      "entities": [],
+      "expected_op": "count_aggregate",
+      "latency_ms": 0.146667,
+      "query": "How many sensor boards did I prepared for the lumen trial?",
+      "requires_synthesis": false,
+      "slot": "sensor boards prepared lumen trial",
+      "terms": [
+        "boards",
+        "lumen",
+        "many",
+        "prepared",
+        "sensor",
+        "trial"
+      ],
+      "unit": ""
+    },
+    {
+      "actual_op": "table_lookup",
+      "case_id": "planner-12-table",
+      "entities": [
+        "Nico",
+        "Hart",
+        "Monday"
+      ],
+      "expected_op": "table_lookup",
+      "latency_ms": 0.075792,
+      "query": "What shift does Nico Hart have on Monday in the lumen trial schedule?",
+      "requires_synthesis": false,
+      "slot": "shift nico hart monday lumen trial schedule",
+      "terms": [
+        "hart",
+        "lumen",
+        "monday",
+        "nico",
+        "schedule",
+        "shift",
+        "trial"
+      ],
+      "unit": ""
+    },
+    {
+      "actual_op": "preference_synth",
+      "case_id": "planner-15-preference",
+      "entities": [],
+      "expected_op": "preference_synth",
+      "latency_ms": 0.141667,
+      "query": "What should I choose for the opal garden based on my preferences?",
+      "requires_synthesis": true,
+      "slot": "choose opal garden based preferences",
+      "terms": [
+        "based",
+        "choose",
+        "garden",
+        "opal",
+        "preferences"
+      ],
+      "unit": ""
+    },
+    {
+      "actual_op": "latest_value",
+      "case_id": "planner-1-latest",
+      "entities": [],
+      "expected_op": "latest_value",
+      "latency_ms": 0.06425,
+      "query": "What is my current budget amount for the opal garden?",
+      "requires_synthesis": false,
+      "slot": "current budget amount opal garden",
+      "terms": [
+        "amount",
+        "budget",
+        "current",
+        "garden",
+        "opal"
+      ],
+      "unit": ""
+    },
+    {
+      "actual_op": "relative_temporal",
+      "case_id": "planner-17-relative",
+      "entities": [],
+      "expected_op": "relative_temporal",
+      "latency_ms": 0.05725,
+      "query": "When will I schedule the opal garden checklist?",
+      "requires_synthesis": false,
+      "slot": "schedule opal garden checklist",
+      "terms": [
+        "checklist",
+        "garden",
+        "opal",
+        "schedule"
+      ],
+      "unit": ""
+    },
+    {
+      "actual_op": "count_aggregate",
+      "case_id": "planner-10-count",
+      "entities": [],
+      "expected_op": "count_aggregate",
+      "latency_ms": 0.062209,
+      "query": "How many studio keys did I reviewed for the atlas kitchen?",
+      "requires_synthesis": false,
+      "slot": "studio keys reviewed atlas kitchen",
+      "terms": [
+        "atlas",
+        "keys",
+        "kitchen",
+        "many",
+        "reviewed",
+        "studio"
+      ],
+      "unit": ""
+    },
+    {
+      "actual_op": "speaker_fact",
+      "case_id": "planner-6-speaker",
+      "entities": [
+        "Owen",
+        "Grey"
+      ],
+      "expected_op": "speaker_fact",
+      "latency_ms": 0.05825,
+      "query": "What did Owen Grey say about the studio keys?",
+      "requires_synthesis": false,
+      "slot": "owen grey say about studio keys",
+      "terms": [
+        "about",
+        "grey",
+        "keys",
+        "owen",
+        "say",
+        "studio"
+      ],
+      "unit": ""
+    },
+    {
+      "actual_op": "event_order",
+      "case_id": "planner-18-order",
+      "entities": [],
+      "expected_op": "event_order",
+      "latency_ms": 0.171458,
+      "query": "Which happened first, starting the harbor mural or finishing the atlas kitchen?",
+      "requires_synthesis": false,
+      "slot": "happened first",
+      "terms": [
+        "atlas",
+        "finishing",
+        "first",
+        "happened",
+        "harbor",
+        "kitchen",
+        "mural",
+        "starting"
+      ],
+      "unit": ""
+    },
+    {
+      "actual_op": "latest_value",
+      "case_id": "planner-21-latest",
+      "entities": [],
+      "expected_op": "latest_value",
+      "latency_ms": 0.667917,
+      "query": "What is my current permit status for the harbor mural?",
+      "requires_synthesis": false,
+      "slot": "current permit status harbor mural",
+      "terms": [
+        "current",
+        "harbor",
+        "mural",
+        "permit",
+        "status"
+      ],
+      "unit": ""
+    },
+    {
+      "actual_op": "temporal_delta",
+      "case_id": "planner-3-delta",
+      "entities": [],
+      "expected_op": "temporal_delta",
+      "latency_ms": 0.523083,
+      "query": "How many days passed since the river archive kickoff?",
+      "requires_synthesis": false,
+      "slot": "days passed since river archive kickoff",
+      "terms": [
+        "archive",
+        "days",
+        "kickoff",
+        "many",
+        "passed",
+        "river",
+        "since"
+      ],
+      "unit": "days"
+    },
+    {
+      "actual_op": "latest_value",
+      "case_id": "planner-11-latest",
+      "entities": [],
+      "expected_op": "latest_value",
+      "latency_ms": 0.182041,
+      "query": "What is my current permit status for the harbor mural?",
+      "requires_synthesis": false,
+      "slot": "current permit status harbor mural",
+      "terms": [
+        "current",
+        "harbor",
+        "mural",
+        "permit",
+        "status"
+      ],
+      "unit": ""
+    },
+    {
+      "actual_op": "multi_session_sum",
+      "case_id": "planner-14-sum",
+      "entities": [],
+      "expected_op": "multi_session_sum",
+      "latency_ms": 0.202042,
+      "query": "How much total time did I spend on saffron clinic across the follow-up sessions?",
+      "requires_synthesis": false,
+      "slot": "total time spend saffron clinic across follow-up sessions",
+      "terms": [
+        "across",
+        "clinic",
+        "follow-up",
+        "much",
+        "saffron",
+        "sessions",
+        "spend",
+        "time",
+        "total"
+      ],
+      "unit": ""
+    },
+    {
+      "actual_op": "temporal_delta",
+      "case_id": "planner-13-delta",
+      "entities": [],
+      "expected_op": "temporal_delta",
+      "latency_ms": 0.14,
+      "query": "How many days passed since the lumen trial kickoff?",
+      "requires_synthesis": false,
+      "slot": "days passed since lumen trial kickoff",
+      "terms": [
+        "days",
+        "kickoff",
+        "lumen",
+        "many",
+        "passed",
+        "since",
+        "trial"
+      ],
+      "unit": "days"
+    },
+    {
+      "actual_op": "open_inference",
+      "case_id": "planner-19-open",
+      "entities": [],
+      "expected_op": "open_inference",
+      "latency_ms": 0.206625,
+      "query": "Would the river archive probably be better for me or the opal garden?",
+      "requires_synthesis": true,
+      "slot": "river archive probably better opal garden",
+      "terms": [
+        "archive",
+        "better",
+        "garden",
+        "opal",
+        "probably",
+        "river"
+      ],
+      "unit": ""
+    },
+    {
+      "actual_op": "open_inference",
+      "case_id": "planner-9-open",
+      "entities": [],
+      "expected_op": "open_inference",
+      "latency_ms": 0.187458,
+      "query": "Would the river archive probably be better for me or the harbor mural?",
+      "requires_synthesis": true,
+      "slot": "river archive probably better harbor mural",
+      "terms": [
+        "archive",
+        "better",
+        "harbor",
+        "mural",
+        "probably",
+        "river"
+      ],
+      "unit": ""
+    },
+    {
+      "actual_op": "relative_temporal",
+      "case_id": "planner-7-relative",
+      "entities": [],
+      "expected_op": "relative_temporal",
+      "latency_ms": 0.120042,
+      "query": "When will I schedule the north lab checklist?",
+      "requires_synthesis": false,
+      "slot": "schedule north lab checklist",
+      "terms": [
+        "checklist",
+        "lab",
+        "north",
+        "schedule"
+      ],
+      "unit": ""
+    },
+    {
+      "actual_op": "preference_synth",
+      "case_id": "planner-5-preference",
+      "entities": [],
+      "expected_op": "preference_synth",
+      "latency_ms": 0.200709,
+      "query": "What should I choose for the atlas kitchen based on my preferences?",
+      "requires_synthesis": true,
+      "slot": "choose atlas kitchen based preferences",
+      "terms": [
+        "atlas",
+        "based",
+        "choose",
+        "kitchen",
+        "preferences"
+      ],
+      "unit": ""
+    },
+    {
+      "actual_op": "multi_session_sum",
+      "case_id": "planner-4-sum",
+      "entities": [],
+      "expected_op": "multi_session_sum",
+      "latency_ms": 0.15475,
+      "query": "How much total time did I spend on saffron clinic across the follow-up sessions?",
+      "requires_synthesis": false,
+      "slot": "total time spend saffron clinic across follow-up sessions",
+      "terms": [
+        "across",
+        "clinic",
+        "follow-up",
+        "much",
+        "saffron",
+        "sessions",
+        "spend",
+        "time",
+        "total"
+      ],
+      "unit": ""
+    },
+    {
+      "actual_op": "table_lookup",
+      "case_id": "planner-2-table",
+      "entities": [
+        "Tessa",
+        "Rowan",
+        "Monday"
+      ],
+      "expected_op": "table_lookup",
+      "latency_ms": 0.270584,
+      "query": "What shift does Tessa Rowan have on Monday in the harbor mural schedule?",
+      "requires_synthesis": false,
+      "slot": "shift tessa rowan monday harbor mural schedule",
+      "terms": [
+        "harbor",
+        "monday",
+        "mural",
+        "rowan",
+        "schedule",
+        "shift",
+        "tessa"
+      ],
+      "unit": ""
+    },
+    {
+      "actual_op": "temporal_delta",
+      "case_id": "planner-23-delta",
+      "entities": [],
+      "expected_op": "temporal_delta",
+      "latency_ms": 0.124167,
+      "query": "How many days passed since the harbor mural kickoff?",
+      "requires_synthesis": false,
+      "slot": "days passed since harbor mural kickoff",
+      "terms": [
+        "days",
+        "harbor",
+        "kickoff",
+        "many",
+        "mural",
+        "passed",
+        "since"
+      ],
+      "unit": "days"
+    },
+    {
+      "actual_op": "count_aggregate",
+      "case_id": "planner-0-count",
+      "entities": [],
+      "expected_op": "count_aggregate",
+      "latency_ms": 0.123458,
+      "query": "How many tea shops did I visited for the saffron clinic?",
+      "requires_synthesis": false,
+      "slot": "tea shops visited saffron clinic",
+      "terms": [
+        "clinic",
+        "many",
+        "saffron",
+        "shops",
+        "tea",
+        "visited"
+      ],
+      "unit": ""
+    },
+    {
+      "actual_op": "event_order",
+      "case_id": "planner-8-order",
+      "entities": [],
+      "expected_op": "event_order",
+      "latency_ms": 0.111167,
+      "query": "Which happened first, starting the atlas kitchen or finishing the cedar audit?",
+      "requires_synthesis": false,
+      "slot": "happened first",
+      "terms": [
+        "atlas",
+        "audit",
+        "cedar",
+        "finishing",
+        "first",
+        "happened",
+        "kitchen",
+        "starting"
+      ],
+      "unit": ""
+    }
+  ],
+  "failures": [],
+  "generic_term_checks": 24,
+  "max_latency_ms": 6.701,
+  "operator_counts": {
+    "count_aggregate": 3,
+    "event_order": 2,
+    "latest_value": 3,
+    "multi_session_sum": 2,
+    "open_inference": 2,
+    "preference_synth": 2,
+    "relative_temporal": 2,
+    "speaker_fact": 2,
+    "table_lookup": 3,
+    "temporal_delta": 3
+  },
+  "p95_latency_ms": 0.667917,
+  "pass": true,
+  "seed": 2032064384,
+  "seed_mode": "random"
+}

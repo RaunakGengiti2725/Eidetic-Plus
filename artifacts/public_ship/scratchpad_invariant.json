@@ -1,0 +1,17 @@
+{
+  "pass": true,
+  "seed": 1747761934,
+  "seed_mode": "random",
+  "cases": 24,
+  "checks": 264,
+  "correct": 264,
+  "ordering_checks": 24,
+  "active_scope_filter_checks": 24,
+  "proof_link_checks": 96,
+  "top_k_checks": 24,
+  "retrieval_channel_checks": 96,
+  "case_type_counts": {
+    "scratchpad_active_proof_surface": 24
+  },
+  "failures": []
+}

@@ -1,0 +1,6 @@
+{
+  "_comment": "Product / bench COST profile -- measured GO flags only (COST_AB.md). ADAPTIVE_CONTEXT: GO, -28% median qtok at dev-20 x2 + held at n=40. EXTRACT_COMBINED+EXTRACT_RESULT_CACHE: GO promotion candidate, n=40 total qtok -11.6%, write calls -37% (882->552), claims flat (-2.3%), vc 24 vs 25 (noise). Overlay ON TOP of the inherited wave-F profile env (artifacts/wave_i_mixed24_full_codex/inherited_env.json). HOLDOUT-OFF BY DESIGN until the user says 'promote on holdout' (slice 7+): flipping mid-rotation confounds the window trend. Code defaults stay 0 -- this file is the only place these flags stack.",
+  "ADAPTIVE_CONTEXT": "1",
+  "EXTRACT_COMBINED": "1",
+  "EXTRACT_RESULT_CACHE": "1"
+}

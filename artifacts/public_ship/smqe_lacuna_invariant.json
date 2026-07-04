@@ -1,0 +1,14 @@
+{
+  "pass": true,
+  "seed": 1266504253,
+  "seed_mode": "random",
+  "cases": 24,
+  "correct": 24,
+  "failures": [],
+  "case_type_counts": {
+    "absent_proposition": 6,
+    "negative_assertion": 6,
+    "positive_confirmation": 6,
+    "retraction_order": 6
+  }
+}

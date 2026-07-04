@@ -1,0 +1,9 @@
+{
+  "pass": true,
+  "seed": 1975395386,
+  "seed_mode": "random",
+  "cases": 20,
+  "correct": 20,
+  "avg_demotion_ratio": 0.1545,
+  "failures": []
+}

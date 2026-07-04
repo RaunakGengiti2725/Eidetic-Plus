@@ -1,0 +1,21 @@
+{
+  "pass": true,
+  "seed": 1757253953,
+  "seed_mode": "random",
+  "cases": 24,
+  "checks": 48,
+  "correct": 24,
+  "record_backend_correct": 24,
+  "claim_backend_correct": 24,
+  "failures": [],
+  "value_type_counts": {
+    "amount": 8,
+    "location": 8,
+    "status": 8
+  },
+  "backend_counts": {
+    "claim": 24,
+    "record": 24
+  },
+  "avg_proof_tokens": 10.88
+}

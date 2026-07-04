@@ -1,0 +1,18 @@
+{
+  "pass": true,
+  "seed": 1524419470,
+  "seed_mode": "random",
+  "cases": 24,
+  "checks": 288,
+  "correct": 288,
+  "dense_miss_recovery_checks": 72,
+  "active_scope_filter_checks": 48,
+  "nested_cocoon_checks": 48,
+  "proof_link_checks": 48,
+  "telemetry_trace_checks": 48,
+  "route_only_context_checks": 24,
+  "case_type_counts": {
+    "region_routing_cocoon_proof": 24
+  },
+  "failures": []
+}

@@ -1,0 +1,21 @@
+{
+  "pass": true,
+  "seed": 2145806533,
+  "seed_mode": "random",
+  "cases": 24,
+  "checks": 48,
+  "abstained": 24,
+  "record_only_abstained": 24,
+  "claims_present_abstained": 24,
+  "failures": [],
+  "case_type_counts": {
+    "count_neutral_quantity": 3,
+    "count_target_mismatch": 3,
+    "latest_future_only": 3,
+    "latest_missing_subject": 3,
+    "preference_no_positive": 3,
+    "speaker_crossed_support": 3,
+    "table_missing_row": 3,
+    "temporal_missing_anchor": 3
+  }
+}

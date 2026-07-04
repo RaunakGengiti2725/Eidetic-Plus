@@ -1,0 +1,21 @@
+{
+  "pass": true,
+  "seed": 1454806784,
+  "seed_mode": "random",
+  "cases": 24,
+  "checks": 48,
+  "correct": 24,
+  "record_backend_correct": 24,
+  "claim_backend_correct": 24,
+  "failures": [],
+  "case_type_counts": {
+    "event_order": 4,
+    "relative_event_time": 4,
+    "shared_value": 16
+  },
+  "backend_counts": {
+    "claim": 24,
+    "record": 24
+  },
+  "avg_proof_tokens": 24.75
+}

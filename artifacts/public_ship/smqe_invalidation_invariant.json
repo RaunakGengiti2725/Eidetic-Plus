@@ -1,0 +1,43 @@
+{
+  "pass": true,
+  "seed": 1247443719,
+  "seed_mode": "random",
+  "cases": 24,
+  "checks": 96,
+  "correct": 96,
+  "record_backend_correct": 48,
+  "claim_backend_correct": 48,
+  "operator_counts": {
+    "count_aggregate": 3,
+    "latest_value": 6,
+    "multi_session_sum": 2,
+    "preference_synth": 3,
+    "relative_temporal": 3,
+    "speaker_fact": 2,
+    "table_lookup": 3,
+    "temporal_delta": 2
+  },
+  "case_type_counts": {
+    "count_supersession": 3,
+    "latest_supersession": 3,
+    "multi_session_sum_supersession": 2,
+    "preference_supersession": 3,
+    "relative_temporal_supersession": 3,
+    "source_expiration": 3,
+    "speaker_fact_supersession": 2,
+    "table_lookup_supersession": 3,
+    "temporal_delta_supersession": 2
+  },
+  "backend_counts": {
+    "claim": 48,
+    "record": 48
+  },
+  "preference_supersession_pass": true,
+  "preference_supersession_cases": 3,
+  "preference_supersession_checks": 12,
+  "preference_supersession_correct": 12,
+  "preference_supersession_record_correct": 6,
+  "preference_supersession_claim_correct": 6,
+  "avg_proof_tokens": 20.25,
+  "failures": []
+}
