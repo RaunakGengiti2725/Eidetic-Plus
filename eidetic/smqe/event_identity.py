@@ -40,6 +40,13 @@ for _canon, _members in INSTANCE_LEMMA_FAMILIES.items():
 _HEAD_STOP = frozenset({
     "a", "an", "the", "my", "his", "her", "their", "our", "your", "own", "new", "old",
     "little", "big", "small", "first", "second", "third", "this", "that", "some",
+    "and", "or", "but", "with", "for", "about", "into", "onto",
+    "ago", "today", "yesterday", "tomorrow", "lately", "recently", "now", "soon",
+    "time", "week", "weeks", "month", "months", "year", "years", "day", "days",
+    "myself", "yourself", "himself", "herself", "themselves", "ourselves",
+    "me", "him", "them", "us", "it", "journey", "feeling", "feelings",
+    "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten",
+    "eleven", "twelve", "few", "couple", "several",
 })
 
 PRECISION_EXPLICIT = 3
