@@ -1690,3 +1690,24 @@ Policy going forward: sample IDs live only in run artifacts (jsonl), never in sc
 docs/tests/code; ledger forensics use shape descriptions plus the convN-rowM pointer.
 These pointers are documentation for reproducibility -- no code path matches on them
 (the suite's source-literal guard and this audit both enforce that).
+
+### Wave O (2026-07-03): the reader-path form floor -- slice 2's structural lesson
+Slice-2 eidetic FINAL: 17/40 (42%), verified 33, abstained 5, VERIFIED-WRONG 18, temporal
+6/9 (the wave-M kills generalize: 2/8 -> 6/9 across disjoint windows), single-hop 10/21,
+multi-hop 1/7. Window 1 is HARDER for everyone: mem0 interim 10/26 with temporal 0/8.
+STRUCTURAL finding: ALL 18 verified-wrong came through the READER path -- the
+photographic reader quotes sources verbatim, so conversational fragments entail
+trivially and ship verified while answering nothing. The structured path's deterministic
+form floors never touched them.
+- READER_FORM_FLOOR (100f3504a + 306969e27, default on, kill-switch): junk singletons,
+  list-shaped junk (only when every comma segment is short -- reader prose with commas is
+  NOT a list; executors assemble lists, readers write sentences), why-enum refusal,
+  option naming, junk-stripped echo test. Measured on BOTH live slices before commit:
+  first cut flipped 3 correct answers (caught, fixed); final matrix kills 4/18 + 2/11
+  verified-wrong with ZERO correct answers flipped.
+- Plural-wh enumeration scaffold (de7df3591): the reader must name every distinct item
+  across ALL sources; existence sentences and most-recent-only answers rejected by
+  instruction. First cut matched 'What IS' -- negative test caught it pre-commit.
+- Remaining verified-wrong are content-wrong-but-well-formed (wrong instance, superset,
+  teaser with novel tokens) -- beyond deterministic form; owned by retrieval/enumerator
+  coverage (irregular-past claims land in slice 3) and judge-vs-gold precision.
