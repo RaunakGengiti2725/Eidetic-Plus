@@ -107,6 +107,46 @@ to use from any session.
 
 ---
 
+## For judges: verify the claims in ~5 minutes
+
+```bash
+bash scripts/judge_quickstart.sh
+```
+
+Five steps, the first four fully offline (no API key): the holdout-leakage audit
+(fails closed if any benchmark ID appears in source), the war-room demo, the rolling
+never-touched holdout table recomputed from raw per-row logs, and the snap-back
+fidelity report. Step five prints where every public number lives --
+[docs/PUBLIC_CLAIMS.md](docs/PUBLIC_CLAIMS.md) for the claims,
+[docs/claims.md](docs/claims.md) for what we refuse to claim, and
+`artifacts/holdout_rotation_r*_codex/` for the raw runs, each pinned to a git SHA in
+its launch log and a `run_manifest.json` recording every score-affecting flag.
+
+## War room: shared problem memory for agent teams
+
+Beyond facts, Eidetic-Plus remembers **investigations**: open a problem, track
+hypotheses with evidence, attach hash-verified witness files, record decisions with
+rationale, and replay the whole state as of any past moment.
+
+```bash
+bash bench/demo_war_room.sh   # fully offline -- fake embeddings, zero API calls
+```
+
+| Tool | What it does |
+|------|--------------|
+| `remember_problem` | Open a goal with status + blockers. |
+| `add_hypothesis` / `resolve_hypothesis` | Track theories; resolve with evidence refs. |
+| `add_witness` | Attach a file; its sha256 is stored and re-verified on read. |
+| `update_problem` | Record decisions (`{choice, rationale}`), status changes, handoffs. |
+| `recall_problem` | The folded current state -- or the state `as_of` any past moment. |
+| `ask_problem` | Natural-language questions answered from the history with revision-backed citations (single-digit ms). |
+
+Answers ride the same verify-or-abstain path as fact recall: structured, citation
+-backed, never confabulated ("Why did we decide to raise the pool size?" ->
+"confirmed saturation hypothesis", cited to the recorded revision).
+
+---
+
 ## Why it exists
 
 Every production agent-memory system in use today shares the same failure modes.
