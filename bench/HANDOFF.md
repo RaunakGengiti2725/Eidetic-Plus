@@ -138,3 +138,12 @@ junk fragment (form-floor gap), 1 lemma-miss. Full forensics in DOMINANCE_PROGRE
 Phase B mem0 running same --out. Phase-6 conditional triggered: event-date family,
 dev-40 probe first, zero holdout tuning; Phase A re-run ONLY on +2 structured at zero
 vc regression (fresh ingest, same draw, same SHA discipline).
+
+## SLICE 7 FINAL (h2h landed)
+
+h2h: eidetic 20/40 (50%) vs mem0 12/40 (30%) -- FIFTH consecutive window win, +8 the
+largest margin yet, ON THE HARD WINDOW (our worst absolute score of seven). Rolling
+n=280 never-touched: 159/280 (57%) vs 131/280 (47%); verified 241 vs 0; temporal
+22/51 vs 3/51. Window margins: +1, -1, +4, +2, +7, +7, +8. Event-date claim family
+shipped post-r7 (9437ce421, 18 workflow-confirmed defects fixed pre-commit); dev-40
+probe product3 launched for the +2-structured/zero-vc-regression re-run decision.
