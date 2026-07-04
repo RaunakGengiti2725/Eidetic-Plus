@@ -1757,3 +1757,15 @@ exact-gold proofs (all general; each ran the full suite + wave-F replay before c
 Slice-3 interim (n=17, wave-N/O build): 12/17 (71%) vs slice-1 57% / slice-2 42%,
 single-hop 9/11, verified-wrong 4. First window with captions+floors+claims+scaffolds.
 Full verdict when the run lands.
+
+### Wave Q (2026-07-04): slice-3 forensics -- measure-first discipline pays both ways
+Slice-3 same-day kills (all measured on three live slices, zero flips): wh/temporal type
+agreement both directions + polarity-gated yes exemption + junk-head items (f4b9d768c);
+k=1 ordinal anchors + next-X future placements ('I've got a tournament NEXT MONTH' dated
+a first-win question) (520d86fd9); prefix-bridged term matching + kinship/giving/speech
+synonym families + when-boilerplate stops + STRUCTURED when-type agreement (cf71ad418).
+REVERTED after measurement: a non-entity event-term floor -- killed one wrong-instance
+but broke two legit cases; shared head nouns are what good AND bad atoms carry, so the
+wrong-instance-with-shared-head class (conv5-row10 shape) stays OPEN pending event
+disambiguation (not lexically gateable). Reader form floor cumulative: 2+5+5 kills
+across slices, zero flips anywhere.
