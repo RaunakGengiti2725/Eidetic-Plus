@@ -409,6 +409,86 @@ def remember_many(contents: list[str], namespace: Optional[str] = None,
 
 
 @_threaded_tool
+def remember_problem(goal: str, namespace: Optional[str] = None,
+                     agent_id: Optional[str] = None, project_id: Optional[str] = None,
+                     status: str = "open", blockers: Optional[list[str]] = None,
+                     valid_at: Optional[float] = None) -> dict:
+    """Open a shared PROBLEM record (war-room memory): a goal with status, blockers,
+    hypotheses, handoffs, and decisions that any agent in the scope can read and extend.
+    Every change is an immutable bitemporal revision -- the full investigation history is
+    replayable with as_of. Returns the problem_id used by the other problem tools."""
+    from . import problems
+    goal = _text_arg(goal, "goal", max_chars=_MAX_QUERY_CHARS)
+    return problems.remember_problem(engine(), goal, scope=_scope(namespace, agent_id, project_id),
+                                     status=status, blockers=blockers, valid_at=valid_at)
+
+
+@_threaded_tool
+def update_problem(problem_id: str, namespace: Optional[str] = None,
+                   agent_id: Optional[str] = None, project_id: Optional[str] = None,
+                   status: Optional[str] = None, blockers: Optional[list[str]] = None,
+                   handoffs: Optional[list[str]] = None,
+                   decisions: Optional[list[dict]] = None,
+                   valid_at: Optional[float] = None) -> dict:
+    """Append a revision to a problem: status change, new blockers, a handoff note, or a
+    decision ({choice, rationale, witnesses}). Nothing is mutated -- the update is a new
+    immutable record and the folded current state comes back."""
+    from . import problems
+    return problems.update_problem(engine(), problem_id,
+                                   scope=_scope(namespace, agent_id, project_id),
+                                   status=status, blockers=blockers, handoffs=handoffs,
+                                   decisions=decisions, valid_at=valid_at)
+
+
+@_threaded_tool
+def add_hypothesis(problem_id: str, claim: str, namespace: Optional[str] = None,
+                   agent_id: Optional[str] = None, project_id: Optional[str] = None,
+                   evidence: Optional[list[str]] = None,
+                   valid_at: Optional[float] = None) -> dict:
+    """Attach a hypothesis to a problem. `evidence` is a list of memory_ids already in
+    this scope (validated -- a ref to a foreign or missing memory fails loud), so the
+    hypothesis is provable through the same citation machinery as every answer."""
+    from . import problems
+    return problems.add_hypothesis(engine(), problem_id,
+                                   _text_arg(claim, "claim", max_chars=_MAX_QUERY_CHARS),
+                                   scope=_scope(namespace, agent_id, project_id),
+                                   evidence=evidence, valid_at=valid_at)
+
+
+@_threaded_tool
+def resolve_hypothesis(problem_id: str, hypothesis_id: str, status: str,
+                       namespace: Optional[str] = None, agent_id: Optional[str] = None,
+                       project_id: Optional[str] = None, rationale: str = "",
+                       evidence: Optional[list[str]] = None,
+                       valid_at: Optional[float] = None) -> dict:
+    """Mark a hypothesis supported/refuted/confirmed with a rationale and optional new
+    evidence refs. The old status stays in history (bitemporal); latest resolution wins
+    in the folded state."""
+    from . import problems
+    return problems.resolve_hypothesis(engine(), problem_id, hypothesis_id, status,
+                                       scope=_scope(namespace, agent_id, project_id),
+                                       rationale=rationale, evidence=evidence,
+                                       valid_at=valid_at)
+
+
+@_threaded_tool
+def recall_problem(problem_id: Optional[str] = None, query: str = "",
+                   namespace: Optional[str] = None, agent_id: Optional[str] = None,
+                   project_id: Optional[str] = None,
+                   as_of: Optional[float] = None) -> dict:
+    """Current folded state of a problem (goal, status, blockers, hypotheses with
+    evidence refs, handoffs, decisions), by id or by query match on the goal. `as_of`
+    replays the state as it stood at a past moment. Read-only, no model call."""
+    from . import problems
+    state = problems.recall_problem(engine(), problem_id=problem_id, query=query,
+                                    scope=_scope(namespace, agent_id, project_id),
+                                    as_of=as_of)
+    if state is None:
+        raise RuntimeError("no matching problem in this scope")
+    return state
+
+
+@_threaded_tool
 def repair() -> dict:
     """Rebuild the derived retrieval surfaces (vector index, reflex index) from the source of
     truth (raw substrate + SQLite records) -- the fix sync_health names when a surface is
