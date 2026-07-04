@@ -2858,9 +2858,12 @@ def _is_future_intent_atom(atom: str) -> bool:
 
 def _is_future_polarity_atom(atom: str) -> bool:
     """Statements that mark the referenced event as NOT yet happened when spoken: anticipation
-    markers ('upcoming', 'excited for', 'can't wait') on top of the plain future intents."""
+    markers ('upcoming', 'excited for', 'can't wait'), forward placements ('next month'), on
+    top of the plain future intents. 'I've got a tournament NEXT MONTH' carries no will/going
+    -to yet dated a past first-win question with a future event."""
     return _is_future_intent_atom(atom) or bool(re.search(
-        r"\bupcoming\b|\bexcited\s+for\b|\bcan'?t\s+wait\b|\blooking\s+forward\s+to\b",
+        r"\bupcoming\b|\bexcited\s+for\b|\bcan'?t\s+wait\b|\blooking\s+forward\s+to\b|"
+        r"\bnext\s+(?:week|weekend|month|year)\b",
         atom or "",
         re.I,
     ))
@@ -4913,6 +4916,16 @@ def _execute_atoms(plan: ExecutionPlan, query: str,
                 return _ordinal_kth_event_result(
                     plan, query, atoms, backend, k,
                     target_terms=target_terms, entity_terms=entity_terms, sup=sup)
+            if k == 1:
+                # 'my FIRST tournament' is the strongest possible anchor for a first-instance
+                # question; when such an atom exists it answers directly. No explicit anchor
+                # falls through to the legacy earliest-preference candidate logic (never fail
+                # closed here -- k=1 has a well-tested fallback).
+                first_res = _ordinal_kth_event_result(
+                    plan, query, atoms, backend, 1,
+                    target_terms=target_terms, entity_terms=entity_terms, sup=sup)
+                if first_res is not None:
+                    return first_res
             month_names = {name.lower(): i for i, name in enumerate(calendar.month_name) if i}
             month_names.update({name.lower(): i for i, name in enumerate(calendar.month_abbr) if i})
             query_months = {num for name, num in month_names.items() if re.search(rf"\b{re.escape(name)}\b", query or "", re.I)}
@@ -4923,7 +4936,7 @@ def _execute_atoms(plan: ExecutionPlan, query: str,
                 and not re.search(r"\b(?:will|going\s+to|next|upcoming)\b", query or "", re.I)
             candidates: list[tuple[int, int, float, object, str, str]] = []
             for score, item, atom in atoms:
-                if past_question and _is_future_intent_atom(atom):
+                if past_question and _is_future_polarity_atom(atom):
                     continue
                 match_text = _item_match_text(item, atom)
                 target_hits = _target_hit_count(_expanded_terms(match_text), target_terms)

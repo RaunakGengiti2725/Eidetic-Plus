@@ -5006,3 +5006,32 @@ def test_reader_form_floor_wh_temporal_type_agreement():
     # junk-head enumeration item ('up with developer forums') disqualifies the list
     assert not f("Where does James get his ideas from?",
                  "books, movies, various sources, up with developer forums for i")
+
+
+def test_first_instance_uses_explicit_ordinal_anchor_and_skips_future_placements(tmp_path):
+    """Slice-3 catch: 'when did Nate win his FIRST tournament?' shipped May 2022 verified
+    from 'I've got a gaming tournament NEXT MONTH' -- a forward placement with no
+    will/going-to, invisible to the intent detector, and the explicit 'my first' anchor
+    was ignored. Future-polarity now covers next-week/month/year placements, and k=1
+    ordinal questions answer directly from an explicit first-anchor atom."""
+    from datetime import datetime as _dt
+
+    store = RecordStore(tmp_path / "first-anchor.sqlite")
+    scope = Scope(namespace="first-anchor")
+    rows = [
+        ("Nate: I won my first video game tournament last week - so exciting!",
+         _dt(2022, 1, 22, 12, 0)),
+        ("Nate: I've got a gaming tournament next month and I'm feeling good about it.",
+         _dt(2022, 4, 22, 12, 0)),
+        ("Nate: Last week I won my second tournament!", _dt(2022, 5, 2, 12, 0)),
+    ]
+    for text, dt in rows:
+        store.upsert_record(_record(text, scope=scope, valid_at=dt.timestamp()))
+
+    ans = structured_answer(
+        _Retriever(store), "When did Nate win his first video game tournament?",
+        at=_dt(2022, 12, 1, 12, 0).timestamp(), scope=scope,
+    )
+    assert ans is not None
+    assert "2022-01" in ans.answer            # the January first-win week, never May
+    assert "my first" in ans.citations[0].snippet
