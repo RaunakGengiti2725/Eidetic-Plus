@@ -565,9 +565,14 @@ class Engine:
                                     extract_graph=extract_graph, scope=scope,
                                     consolidate_now=consolidate_now) for ep in episodes]
                 return recs[0]
-        return self.ingest(from_text(text, source), valid_at=valid_at,
-                           extract_graph=extract_graph, scope=scope,
-                           consolidate_now=consolidate_now)
+        rec = self.ingest(from_text(text, source), valid_at=valid_at,
+                          extract_graph=extract_graph, scope=scope,
+                          consolidate_now=consolidate_now)
+        if (getattr(self.settings, "problem_extract_enabled", False)
+                and source != "problem"):
+            from . import problems as _problems
+            _problems.apply_extracted_signals(self, rec, scope=scope)
+        return rec
 
     def ingest_file(self, path: str, *, source: Optional[str] = None,
                     valid_at: Optional[float] = None, extract_graph: bool = True,

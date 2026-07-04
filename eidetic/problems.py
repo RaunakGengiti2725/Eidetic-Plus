@@ -11,6 +11,7 @@ machinery is duplicated. MCP tools in mcp_server.py are doors over these functio
 """
 from __future__ import annotations
 
+import re
 import uuid
 from typing import Optional
 
@@ -306,3 +307,63 @@ def recall_problem(engine, *, problem_id: Optional[str] = None, query: str = "",
     if as_of is not None:
         revisions = [r for r in revisions if (r.valid_at or 0.0) <= as_of]
     return fold_state(revisions)
+
+
+_EXTRACT_RULES = (
+    (re.compile(r"^\s*(?:problem|goal)\s*:\s*(.+)$", re.I | re.M), "goal"),
+    (re.compile(r"^\s*blocker\s*:\s*(.+)$", re.I | re.M), "blocker"),
+    (re.compile(r"^\s*hypothesis\s*:\s*(.+)$", re.I | re.M), "hypothesis"),
+    (re.compile(r"\bwe\s+decided\s+(?:to\s+)?([^.;!?\n]+)", re.I), "decision"),
+    (re.compile(r"\bhand(?:ing)?\s*(?:off|over)\s+to\s+([^.;!?\n]+)", re.I), "handoff"),
+    (re.compile(r"\broot\s+cause(?:\s+is|:)\s*([^.;!?\n]+)", re.I), "root_cause"),
+)
+
+
+def extract_problem_signals(text: str) -> list[tuple[str, str]]:
+    """Rules-first detection of problem-shaped utterances. Returns (kind, payload) pairs
+    in document order; deliberately conservative -- explicit markers only, no inference."""
+    out: list[tuple[str, str]] = []
+    for pat, kind in _EXTRACT_RULES:
+        for m in pat.finditer(text or ""):
+            value = m.group(1).strip().rstrip(".")
+            if value:
+                out.append((kind, value))
+    return out
+
+
+def apply_extracted_signals(engine, rec, *, scope: Optional[Scope] = None) -> Optional[str]:
+    """PROBLEM_EXTRACT hook: fold detected signals into the war room. A goal signal opens
+    a new problem; every other signal attaches to the most recent problem in scope (none
+    existing -> an implicit problem is opened from the signal itself). Revisions carry the
+    triggering record's valid_at, so as_of replay stays truthful. Returns the problem_id
+    touched, or None when the text carries no signals."""
+    signals = extract_problem_signals(rec.text or "")
+    if not signals:
+        return None
+    scope = scope or Scope()
+    pid: Optional[str] = None
+    for kind, value in signals:
+        if kind == "goal":
+            pid = remember_problem(engine, value, scope=scope,
+                                   valid_at=rec.valid_at)["problem_id"]
+            continue
+        if pid is None:
+            latest = recall_problem(engine, scope=scope)
+            pid = latest["problem_id"] if latest else remember_problem(
+                engine, f"(implicit) {value}", scope=scope,
+                valid_at=rec.valid_at)["problem_id"]
+        if kind == "blocker":
+            update_problem(engine, pid, scope=scope, blockers=[value], valid_at=rec.valid_at)
+        elif kind == "hypothesis":
+            add_hypothesis(engine, pid, value, scope=scope, valid_at=rec.valid_at)
+        elif kind == "decision":
+            m = re.match(r"(.+?)\s+because\s+(.+)$", value, re.I)
+            decision = ({"choice": m.group(1).strip(), "rationale": m.group(2).strip()}
+                        if m else {"choice": value})
+            update_problem(engine, pid, scope=scope, decisions=[decision], valid_at=rec.valid_at)
+        elif kind == "handoff":
+            update_problem(engine, pid, scope=scope, handoffs=[value], valid_at=rec.valid_at)
+        elif kind == "root_cause":
+            add_hypothesis(engine, pid, f"root cause: {value}", scope=scope,
+                           valid_at=rec.valid_at)
+    return pid

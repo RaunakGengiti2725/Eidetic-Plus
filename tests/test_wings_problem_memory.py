@@ -230,3 +230,45 @@ def test_problem_claims_flag_off_emits_nothing(prob_engine):
     p = mcp_server.remember_problem(goal="Flaky nightly build on arm64 runners")
     mcp_server.update_problem(p["problem_id"], decisions=[{"choice": "pin the runner image"}])
     assert list(prob_engine.store.claims_in_scope(_S())) == []
+
+
+def test_problem_extract_folds_conversation_into_war_room(tmp_path, monkeypatch):
+    """PROBLEM_EXTRACT=1 (default off): explicit problem-shaped utterances at ingest fold
+    into the war room -- goal opens the problem, blocker/hypothesis/decision/handoff
+    attach to it with the record's valid_at, and root-cause becomes a hypothesis. With
+    PROBLEM_CLAIMS also on, the decision then answers structurally."""
+    monkeypatch.setenv("DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("VECTOR_BACKEND", "numpy")
+    monkeypatch.setenv("PROBLEM_EXTRACT", "1")
+    monkeypatch.setenv("PROBLEM_CLAIMS", "1")
+    monkeypatch.delenv("EIDETIC_NAMESPACE", raising=False)
+    get_settings.cache_clear()
+    eng = Engine(get_settings(), client=_FakeClient(get_settings().embed_dim))
+
+    eng.ingest_text("problem: checkout latency spikes at peak", valid_at=100.0,
+                    consolidate_now=False)
+    eng.ingest_text("blocker: no staging repro", valid_at=150.0, consolidate_now=False)
+    eng.ingest_text("After the metrics review we decided to raise the pool size to 64 "
+                    "because saturation was confirmed.", valid_at=200.0,
+                    consolidate_now=False)
+
+    state = problems.recall_problem(eng, query="checkout latency")
+    assert state is not None
+    assert state["blockers"] == ["no staging repro"]
+    assert state["decisions"][0]["choice"] == "raise the pool size to 64"
+    assert state["decisions"][0]["rationale"].startswith("saturation was confirmed")
+
+    from eidetic.models import Scope as _S
+    from eidetic.smqe.executor import execute_plan
+    from eidetic.smqe.planner import plan_query
+    q = "What did we decide about the pool size?"
+    res = execute_plan(plan_query(q), q,
+                       records=eng.store.active_records_at(scope=_S()),
+                       claims=eng.store.claims_in_scope(_S()))
+    assert res is not None and res.answer == "raise the pool size to 64"
+    get_settings.cache_clear()
+
+
+def test_problem_extract_flag_off_is_inert(prob_engine):
+    prob_engine.ingest_text("blocker: nothing should happen", consolidate_now=False)
+    assert problems.recall_problem(prob_engine, query="nothing should happen") is None
