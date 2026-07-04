@@ -173,3 +173,60 @@ def test_ask_problem_marks_revision_backed_citations(prob_engine, monkeypatch):
 
     with pytest.raises(KeyError):
         mcp_server.ask_problem("prob_nope", "anything?")
+
+
+def _claims_engine(tmp_path, monkeypatch):
+    monkeypatch.setenv("DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("VECTOR_BACKEND", "numpy")
+    monkeypatch.setenv("PROBLEM_CLAIMS", "1")
+    monkeypatch.delenv("EIDETIC_NAMESPACE", raising=False)
+    get_settings.cache_clear()
+    eng = Engine(get_settings(), client=_FakeClient(get_settings().embed_dim))
+    return eng
+
+
+def test_problem_claims_answer_structurally_when_flag_on(tmp_path, monkeypatch):
+    """P6: with PROBLEM_CLAIMS=1 every revision emits typed claims into the SAME tier the
+    executor reads, and war-room questions answer via a typed SELECT (:problem note) --
+    decision, rationale, blocker, hypothesis, status -- each carrying the revision text as
+    its proof atom. Flag off emits no problem claims, so the baseline is byte-identical
+    by construction."""
+    from eidetic.models import Scope as _S
+    from eidetic.smqe.executor import execute_plan
+    from eidetic.smqe.planner import plan_query
+
+    eng = _claims_engine(tmp_path, monkeypatch)
+    p = problems.remember_problem(eng, "Checkout latency spikes at peak",
+                                  blockers=["no staging repro"], valid_at=100.0)
+    pid = p["problem_id"]
+    problems.add_hypothesis(eng, pid, "Connection pool exhaustion under burst traffic",
+                            valid_at=150.0)
+    problems.update_problem(eng, pid, decisions=[
+        {"choice": "raise the pool size to 64",
+         "rationale": "pool saturation confirmed at every spike"}], valid_at=200.0)
+
+    claims = list(eng.store.claims_in_scope(_S()))
+    assert {c.claim_type for c in claims} == {"problem"}
+    recs = eng.store.active_records_at(scope=_S())
+
+    def ask(q):
+        return execute_plan(plan_query(q), q, records=recs, claims=claims)
+
+    res = ask("What did we decide about the pool size?")
+    assert res.answer == "raise the pool size to 64" and ":problem" in res.note
+    assert "we decided: raise the pool size to 64" in res.supports[0].proof_atom
+
+    assert ask("Why did we decide to raise the pool size?").answer == \
+        "pool saturation confirmed at every spike"
+    assert ask("What is blocking the checkout latency problem?").answer == "no staging repro"
+    assert ask("What hypotheses do we have?").answer == \
+        "Connection pool exhaustion under burst traffic"
+    assert ask("What is the status of the checkout problem?").answer == "open"
+
+
+def test_problem_claims_flag_off_emits_nothing(prob_engine):
+    from eidetic.models import Scope as _S
+
+    p = mcp_server.remember_problem(goal="Flaky nightly build on arm64 runners")
+    mcp_server.update_problem(p["problem_id"], decisions=[{"choice": "pin the runner image"}])
+    assert list(prob_engine.store.claims_in_scope(_S())) == []

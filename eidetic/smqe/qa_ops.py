@@ -71,6 +71,72 @@ def _wh_class(text: str) -> str:
     return {"which": "what", "whose": "who"}.get(w, w)
 
 
+_PROBLEM_QUERY_PREDICATES = (
+    (re.compile(r"\bwhy\b.*\bdecid|\bdecid\w*\b.*\bwhy\b", re.I), "decision", "rationale"),
+    (re.compile(r"\bdecid\w*\b|\bdecision\b", re.I), "decision", ""),
+    (re.compile(r"\bblock(?:er|ers|ing|ed)\b", re.I), "blocker", ""),
+    (re.compile(r"\bhypothes\w*\b|\btheor\w*\b", re.I), "hypothesis", ""),
+    (re.compile(r"\bhand(?:off|offs|ed\s+off)\b", re.I), "handoff", ""),
+    (re.compile(r"\bstatus\b|\bstate\s+of\b", re.I), "status", ""),
+    (re.compile(r"\bgoal\b|\btrying\s+to\b", re.I), "goal", ""),
+)
+
+
+def _problem_claim_answer(query: str, atoms: list[tuple[float, object, str]]) -> tuple[str, list[tuple[float, object, str]]]:
+    """P6 typed SELECT over war-room claims: 'what did we decide about X' reads decision
+    claims (object tied to X), 'why' variants answer the stored rationale, blockers and
+    hypotheses enumerate, status/goal answer latest-wins. Fires only when problem claims
+    exist in the pool (PROBLEM_CLAIMS off means none exist -- byte-identical baseline)."""
+    ro = _ro()
+    pool = [(s, i, a) for s, i, a in atoms
+            if isinstance(i, ClaimRecord) and i.claim_type == "problem"]
+    if not pool:
+        return "", []
+    q = query or ""
+    predicate = rationale_slot = None
+    for pat, pred, slot in _PROBLEM_QUERY_PREDICATES:
+        if pat.search(q):
+            predicate, rationale_slot = pred, slot
+            break
+    if predicate is None:
+        return "", []
+    qterms = {t for t in ro._query_terms(q)}
+    rows = []
+    for score, item, atom in pool:
+        if item.predicate != predicate:
+            continue
+        tie_text = f"{item.object} {item.filters.get('rationale', '')} {item.filters.get('goal', '')}"
+        tie_terms = ro._expanded_terms(tie_text)
+        content = qterms - {predicate, "decide", "decided", "status", "goal", "blocker",
+                            "blockers", "hypothesis", "hypotheses", "handoff", "handoffs",
+                            "problem", "have", "know"}
+        single_problem = len({i.filters.get("problem_id") for _s, i, _a in pool}) == 1
+        if content and not single_problem and not (
+                ro._expanded_terms(" ".join(content)) & tie_terms):
+            continue
+        rows.append((float(item.valid_at or 0.0), score, item, atom))
+    if not rows:
+        return "", []
+    rows.sort(key=lambda r: (-r[0], -r[1]))
+    if predicate in {"blocker", "hypothesis", "handoff"} and len(rows) > 1:
+        vals, selected, seen = [], [], set()
+        for _va, score, item, atom in rows:
+            key = ro._norm_key(item.object)
+            if key in seen:
+                continue
+            seen.add(key)
+            vals.append(item.object)
+            selected.append((score, item, atom))
+        return "; ".join(vals[:6]), selected[:6]
+    _va, score, item, atom = rows[0]
+    if rationale_slot:
+        value = str(item.filters.get(rationale_slot) or "")
+        if not value:
+            return "", []
+        return value, [(score, item, atom)]
+    return str(item.object), [(score, item, atom)]
+
+
 def _dialogue_answer_match(query: str, atoms: list[tuple[float, object, str]]) -> tuple[str, list[tuple[float, object, str]]]:
     """A claim that was the literal in-conversation answer to an equivalent question answers the
     query directly: match query terms against the RECORDED question (paraphrase-stable), require

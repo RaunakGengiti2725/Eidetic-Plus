@@ -21,6 +21,7 @@ from .qa_ops import (
     _plural_enumeration_answer,
     _premise_affinity_answer,
     _proposition_confirmation_answer,
+    _problem_claim_answer,
     _verb_base_forms,
 )
 
@@ -5542,7 +5543,15 @@ def _execute_atoms(plan: ExecutionPlan, query: str,
 
 def execute_claim_op(plan: ExecutionPlan, query: str,
                      claims: Iterable[ClaimRecord]) -> Optional[StructuredAnswerResult]:
-    relevant = [c for c in claims if c.claim_type in {"state", "quantity", "event", "interval", "table", "preference"}]
+    relevant = [c for c in claims if c.claim_type in {"state", "quantity", "event", "interval", "table", "preference", "problem"}]
+    problem_pool = [(1.0, c, c.proof_atom or "") for c in relevant if c.claim_type == "problem"]
+    if problem_pool:
+        answer, selected = _problem_claim_answer(query, problem_pool)
+        if answer and selected:
+            return _result(answer, plan, "claim",
+                           [_support(c.source_memory_id, atom, claim_id=c.claim_id, score=s)
+                            for s, c, atom in selected[:6]], confidence=0.95,
+                           note_suffix=":problem")
     return _execute_atoms(plan, query, _claim_atoms(query, relevant), "claim")
 
 

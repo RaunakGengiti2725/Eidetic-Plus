@@ -322,6 +322,12 @@ class Settings:
     # on reader-path answers -- a verbatim conversational fragment entails trivially and
     # shipped verified-wrong at scale on the rotation holdout.
     reader_form_floor_enabled: bool = field(default_factory=lambda: _get_bool("READER_FORM_FLOOR", "1"))
+    # PROBLEM_CLAIMS (default off): war-room revisions also emit typed claims into the same
+    # claim tier SMQE and verify already use, so problem state answers structurally.
+    problem_claims_enabled: bool = field(default_factory=lambda: _get_bool("PROBLEM_CLAIMS", "0"))
+    # PROBLEM_EXTRACT (default off): rules-first detection of problem-shaped utterances at
+    # ingest ('blocker:', 'we decided', 'root cause') auto-appends problem revisions.
+    problem_extract_enabled: bool = field(default_factory=lambda: _get_bool("PROBLEM_EXTRACT", "0"))
     fast_abstain_floor: float = field(default_factory=lambda: float(_get("FAST_ABSTAIN_FLOOR", "0.25")))
     abstention_v2_enabled: bool = field(default_factory=lambda: _get_bool("ABSTENTION_V2", "0"))
     abstention_v2_tau: float = field(default_factory=lambda: float(_get("ABSTENTION_V2_TAU", "0.5")))

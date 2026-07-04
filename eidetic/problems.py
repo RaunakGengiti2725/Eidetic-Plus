@@ -80,7 +80,52 @@ def _write_revision(engine, payload: dict, *, scope: Optional[Scope],
     rec = engine.ingest_text(text, source="problem", valid_at=valid_at,
                              extract_graph=False, scope=scope, consolidate_now=False)
     engine.set_metadata(rec.memory_id, {"problem": payload}, scope=scope)
+    if getattr(engine.settings, "problem_claims_enabled", False):
+        engine.store.add_claims(_claims_for_revision(rec, payload, scope or Scope()))
     return engine.store.get_record(rec.memory_id) or rec
+
+
+def _claims_for_revision(rec: MemoryRecord, payload: dict, scope: Scope) -> list:
+    """PROBLEM_CLAIMS: every revision element becomes a typed claim in the SAME tier SMQE
+    and verify already read -- goal/blocker/decision/handoff/status as `problem` claims,
+    hypotheses with their id and status, witnesses as `witness` claims carrying the
+    substrate content hash. Proof atoms quote the revision text verbatim so the anchor
+    rule verifies them like any extracted claim."""
+    from eidetic.models import ClaimRecord
+
+    pid = payload.get("problem_id") or ""
+    out: list[ClaimRecord] = []
+
+    def claim(ctype, predicate, obj, extra_filters=None, value=None):
+        filters = {"problem_id": pid}
+        filters.update(extra_filters or {})
+        out.append(ClaimRecord(
+            claim_type=ctype, scope=scope, subject=pid, predicate=predicate,
+            object=str(obj), value=value if value is not None else str(obj),
+            filters=filters, valid_at=rec.valid_at,
+            source_memory_id=rec.memory_id, proof_atom=rec.text or ""))
+
+    if payload.get("goal"):
+        claim("problem", "goal", payload["goal"])
+    if payload.get("status"):
+        claim("problem", "status", payload["status"])
+    for b in payload.get("blockers") or []:
+        claim("problem", "blocker", b)
+    for h in payload.get("handoffs") or []:
+        claim("problem", "handoff", h)
+    for d in payload.get("decisions") or []:
+        claim("problem", "decision", d.get("choice", ""),
+              {"rationale": d.get("rationale", "")})
+    for h in payload.get("hypotheses") or []:
+        claim("problem", "hypothesis", h.get("claim") or h.get("rationale") or "",
+              {"hypothesis_id": h.get("hypothesis_id", ""),
+               "status": h.get("status", ""),
+               "evidence": list(h.get("evidence") or [])})
+    for w in payload.get("witnesses") or []:
+        claim("witness", "witness", w.get("note") or w.get("content_hash", ""),
+              {"content_hash": w.get("content_hash", ""),
+               "memory_id": w.get("memory_id", "")})
+    return out
 
 
 def remember_problem(engine, goal: str, *, scope: Optional[Scope] = None,
@@ -120,9 +165,12 @@ def update_problem(engine, problem_id: str, *, scope: Optional[Scope] = None,
         payload["decisions"] = list(decisions)
     parts = [p for p in (f"status: {status}" if status else "",
                          f"blockers: {', '.join(blockers)}" if blockers else "",
-                         f"handoffs: {', '.join(handoffs)}" if handoffs else "") if p]
+                         f"handoffs: {', '.join(handoffs)}" if handoffs else "",
+                         "; ".join(f"we decided: {d['choice']}"
+                                   + (f" because {d['rationale']}" if d.get("rationale") else "")
+                                   for d in decisions or []) if decisions else "") if p]
     rec = _write_revision(engine, payload, scope=scope, valid_at=valid_at,
-                          text=f"[problem {problem_id}] update: {'; '.join(parts) or 'decision recorded'}")
+                          text=f"[problem {problem_id}] update: {'; '.join(parts) or 'noted'}")
     return {"problem_id": problem_id, "memory_id": rec.memory_id,
             "state": fold_state(problem_revisions(engine, problem_id, scope=scope))}
 

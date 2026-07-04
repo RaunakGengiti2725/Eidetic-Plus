@@ -243,7 +243,7 @@ class Answer(BaseModel):
     note: str = ""
 
 
-ClaimType = Literal["quantity", "state", "event", "interval", "table", "preference"]
+ClaimType = Literal["quantity", "state", "event", "interval", "table", "preference", "problem", "witness"]
 
 
 class ClaimRecord(BaseModel):
