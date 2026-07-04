@@ -1878,3 +1878,35 @@ vector through the witness rule. VERDICT: enjoy-family enumeration is blocked on
 WRITE-SIDE extraction boundaries (predicate/object split, object trimming) -- the same
 prerequisite already gating the deletion wave. Queued as the claim-schema unit
 (ARCHITECTURE P1); no more read gates on this class.
+
+## SLICE 7 PHASE A (window 6, digest af54f5.., SHA 6f56d7743 in launch_A.log) -- 2026-07-04
+
+FIRST holdout window with the product_cost promotion stack (ADAPTIVE_CONTEXT +
+EXTRACT_COMBINED + EXTRACT_RESULT_CACHE overlaid on wave-F env) AND the cost-blitz
+claim families (itemized-list P1b, alias/naming, support-relation, claim_list_enum
+carve-out). The promotion measurement slice 6 never got.
+
+Scoreline: 20/40 (50%) | verified-correct 18 | verified 32 | abstained 6 | VW 14 |
+structured 13/40 | qtok med 4,029 / mean 3,442 / total 137,670 | write tok (real)
+516,036 at 527 calls | tok/vc 36,317. Category: single-hop 13/21, temporal 3/8,
+multi-hop 3/8, open-domain 1/3.
+
+HONEST READ -- hard window, both bars missed:
+- Bar "match r6 25/40 verified-correct": missed (18 vs 25). Bar "structured >=21/40":
+  missed (13). The dev-40 structured 21/40 did NOT transfer to this window's question
+  mix; median stayed on the reader plateau (4,029 vs dev's 83).
+- What DID transfer: the 13 structured rows cost 6-55 qtok each (claim plateau intact
+  on holdout); write calls 527 vs r6-era ~880 (EXTRACT_COMBINED halving held on fresh
+  holdout ingest); write tok 516k vs the dev-40 OFF arm's 856k (-40%).
+- VW taxonomy: 5x {partial-list} (enumeration coverage, not absent families), 2x
+  temporal wrong-instance (c5_q6-shape: adoption date answered with an unrelated year;
+  c8-shape: wrong sport instance), 1x week-window precision (honest class, judge
+  refuses month granularity), 1x junk fragment through preference_synth (c1_q39 --
+  form-floor gap on holdout shapes), 1x lemma-miss.
+- Structured VW 6/13: the enumerator ships on this window's shapes but partial-list
+  coverage + two wrong-instance temporals turn coverage into verified-wrong instead of
+  verified-correct. Growth lever confirmed as WRITE-side coverage, not read gates.
+- Zero benchmark errors; 6 abstentions all carry the honest no-evidence answer.
+
+Phase B (mem0, same window, same --out) launched for the h2h. No rescue, no re-run of
+this draw with tuned anything: window 6 stands as drawn.
