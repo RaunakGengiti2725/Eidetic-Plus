@@ -371,7 +371,7 @@ def _run_once(case: TemporalWindowCase, *, backend: str) -> tuple[bool, dict, in
         note = ans.note if ans else ""
         parts = note.split(":") if note.startswith("smqe:") else []
         actual_op = parts[1] if len(parts) >= 3 else ""
-        actual_backend = parts[-1] if len(parts) >= 3 else ""
+        actual_backend = parts[2] if len(parts) >= 3 else ""
         proof = " ".join(c.snippet for c in (ans.citations if ans else []))
         ok = (
             ans is not None

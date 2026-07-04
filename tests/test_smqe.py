@@ -1133,7 +1133,7 @@ def test_structured_answer_count_computes_subject_item_lists(tmp_path):
         assert ans is not None
         assert ans.answer == "3 release blockers: auth; billing; search"
         assert ans.verified is True
-        assert ans.note == f"smqe:count_aggregate:{backend}"
+        assert ans.note.startswith(f"smqe:count_aggregate:{backend}")
 
 
 def test_structured_answer_count_computes_generic_action_item_lists(tmp_path):
@@ -1159,7 +1159,7 @@ def test_structured_answer_count_computes_generic_action_item_lists(tmp_path):
         assert ans is not None
         assert ans.answer == "3 items: apples; oranges; pears"
         assert ans.verified is True
-        assert ans.note == f"smqe:count_aggregate:{backend}"
+        assert ans.note.startswith(f"smqe:count_aggregate:{backend}")
 
 
 def test_structured_answer_count_extracts_unseen_action_from_query(tmp_path):
@@ -1188,7 +1188,7 @@ def test_structured_answer_count_extracts_unseen_action_from_query(tmp_path):
         assert ans is not None
         assert ans.answer == "2"
         assert ans.verified is True
-        assert ans.note == f"smqe:count_aggregate:{backend}"
+        assert ans.note.startswith(f"smqe:count_aggregate:{backend}")
         proof = " ".join(c.snippet for c in ans.citations)
         assert "Foundation" not in proof
         assert "Arrival" not in proof
@@ -1219,7 +1219,7 @@ def test_structured_answer_count_rejects_instead_of_action_mentions(tmp_path):
         assert ans is not None
         assert ans.answer == "2"
         assert ans.verified is True
-        assert ans.note == f"smqe:count_aggregate:{backend}"
+        assert ans.note.startswith(f"smqe:count_aggregate:{backend}")
         proof = " ".join(c.snippet for c in ans.citations)
         assert "Cedarline" not in proof
 
@@ -1386,7 +1386,7 @@ def test_structured_answer_count_respects_rolling_temporal_windows(tmp_path):
             ans = structured_answer(_Retriever(store), question, at=ref.timestamp(), scope=scope)
 
             assert ans is not None
-            assert ans.note == f"smqe:count_aggregate:{backend}"
+            assert ans.note.startswith(f"smqe:count_aggregate:{backend}")
             assert ans.verified is True
             assert ans.answer == "2"
             proof = " ".join(c.snippet for c in ans.citations)
@@ -1719,7 +1719,7 @@ def test_structured_answer_itemized_count_splits_arbitrary_target_lists(tmp_path
         assert "directory" not in ans.answer
         assert "kiln token" not in ans.answer
         assert ans.verified is True
-        assert ans.note == f"smqe:count_aggregate:{backend}"
+        assert ans.note.startswith(f"smqe:count_aggregate:{backend}")
         proof = " ".join(c.snippet for c in ans.citations)
         assert "directory" not in proof
         assert "kiln token" not in proof

@@ -60,7 +60,8 @@ def run_eval(*, seed: Optional[int] = None, cases: int = 24) -> dict:
             ans = structured_answer(retriever, case.question, at=1_800_000_000, verify=True, scope=scope)
             proof = " ".join(c.snippet for c in (ans.citations if ans else []))
             note = ans.note if ans else ""
-            backend = note.split(":")[-1] if note.startswith("smqe:") else ""
+            _parts = note.split(":") if note.startswith("smqe:") else []
+            backend = _parts[2] if len(_parts) >= 3 else ""
             if backend:
                 backend_counts[backend] = backend_counts.get(backend, 0) + 1
             if backend == "claim":

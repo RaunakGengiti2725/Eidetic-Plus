@@ -99,3 +99,34 @@ def test_repeatable_actions_and_multi_instance_stay_with_legacy(tmp_path):
     ])
     res2 = _ask(store2, scope2, "When did Rex open his shop?")
     assert res2 is None or ":event_instance" not in (res2.note or "")
+
+
+def test_claim_tier_count_selects_by_head_verb_sense(tmp_path):
+    """P1 claim-tier counting: 'how many BOOKS did X read' is COUNT(DISTINCT object) over
+    read-family claims -- the head noun selects the verb sense, so the film seen at the
+    cinema never counts as a book and each counted item carries its own proof atom.
+    Thinner-than-two evidence stays with the legacy collectors."""
+    store, scope = _store_with(tmp_path, [
+        ("Tim: I read Winter Crossing this month, it was fantastic.",
+         datetime(2023, 3, 4, 12, 0)),
+        ("Tim: I've read The Long Field recently. Highly recommend.",
+         datetime(2023, 3, 10, 12, 0)),
+        ("Tim: I read Salt Roads last night, could not put it down.",
+         datetime(2023, 3, 20, 12, 0)),
+        ("Tim: We saw Arrival at the cinema, great film.", datetime(2023, 3, 22, 12, 0)),
+        ("Tim: I was in Chicago for the finals.", datetime(2023, 4, 2, 12, 0)),
+        ("Tim: Oh, I've been to Paris yesterday.", datetime(2023, 4, 9, 12, 0)),
+    ])
+    res = _ask(store, scope, "How many books did Tim read?")
+    assert res is not None and res.answer == "3"
+    assert ":claim_count" in res.note
+    assert len(res.supports) == 3
+
+    res2 = _ask(store, scope, "How many cities has Tim visited?")
+    assert res2 is not None and res2.answer == "2"
+
+    lone, lscope = _store_with(tmp_path / "lone", [
+        ("Tim: I read Winter Crossing this month.", datetime(2023, 3, 4, 12, 0)),
+    ])
+    res3 = _ask(lone, lscope, "How many books did Tim read?")
+    assert res3 is None or ":claim_count" not in (res3.note or "")

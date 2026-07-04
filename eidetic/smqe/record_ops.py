@@ -3089,6 +3089,74 @@ def _question_action_family(query: str) -> frozenset[str]:
     return frozenset()
 
 
+_COUNT_HEAD_VERBS: dict[str, frozenset[str]] = {
+    "book": frozenset({"read", "reread"}),
+    "novel": frozenset({"read", "reread"}),
+    "movie": frozenset({"saw", "seen", "watched"}),
+    "film": frozenset({"saw", "seen", "watched"}),
+    "city": frozenset({"visited", "been", "went", "traveled", "travelled"}),
+    "country": frozenset({"visited", "been", "went", "traveled", "travelled"}),
+    "place": frozenset({"visited", "been", "went", "traveled", "travelled"}),
+    "town": frozenset({"visited", "been", "went", "traveled", "travelled"}),
+    "trip": frozenset({"visited", "went", "took", "traveled", "travelled"}),
+    "deal": frozenset({"offered", "received", "signed"}),
+    "gift": frozenset({"received", "given", "got"}),
+}
+
+
+def _claim_tier_count_answer(plan, query: str, atoms, backend: str, sup):
+    """P1 claim-tier counting: 'how many X did Y VERB' is a SELECT COUNT(DISTINCT object)
+    over typed claims whose predicate sits in the question verb's family and whose object
+    head matches X -- each counted claim carries its own proof atom, so the count verifies
+    per item through the computed-op anchor rule. Answers only when at least two matching
+    claims exist; thinner evidence stays with the legacy collectors (deleting those is
+    gated on this path carrying their load)."""
+    m = re.search(r"\bhow\s+many\s+([a-z][\w'-]*)\b", (query or "").lower())
+    if not m:
+        return None
+    head = m.group(1)
+    head_key = _count_term_key(head)
+    allowed = _COUNT_HEAD_VERBS.get(head_key)
+    require_head_tie = allowed is None
+    if allowed is None:
+        qverbs = {w for w in re.findall(r"[a-z][\w'-]{2,}", (query or "").lower())}
+        from .qa_ops import _ENUM_VERB_FAMILIES
+        allowed = set()
+        for family in _ENUM_VERB_FAMILIES:
+            if qverbs & family:
+                allowed |= family
+    if not allowed:
+        return None
+    windows = _query_temporal_windows(plan, include_explicit=True)
+    seen_objects: dict[str, tuple[float, object, str]] = {}
+    for score, item, atom in atoms:
+        if not isinstance(item, ClaimRecord) or item.claim_type != "event":
+            continue
+        pred_words = set(re.findall(r"[a-z']+", (item.predicate or "").lower()))
+        if not (pred_words & allowed):
+            continue
+        obj = str(item.object or "").strip()
+        if not obj:
+            continue
+        if require_head_tie:
+            obj_words = {_count_term_key(w) for w in re.findall(r"[a-z][\w'-]*", obj.lower())}
+            atom_words = {_count_term_key(w) for w in re.findall(r"[a-z][\w'-]*", (atom or "").lower())}
+            if head_key not in obj_words and head_key not in atom_words:
+                continue
+        if windows:
+            d = _event_date(item, atom)
+            if d is None or not any(s <= d <= e for s, e in windows):
+                continue
+        key = _norm_key(obj)
+        if key not in seen_objects:
+            seen_objects[key] = (score, item, atom)
+    if len(seen_objects) < 2:
+        return None
+    supports = [sup(item, atom, score) for score, item, atom in list(seen_objects.values())[:6]]
+    return _result(str(len(seen_objects)), plan, backend, supports,
+                   note_suffix=":claim_count")
+
+
 def _claim_event_instance_answer(plan, query: str, atoms, backend: str, sup):
     """P2 read side: a when-question about a once-ish event resolves by WRITE-TIME identity
     tags -- (lemma family match to the question verb, object-head tie to the query), then
@@ -4894,6 +4962,9 @@ def _execute_atoms(plan: ExecutionPlan, query: str,
         atoms = _filter_atoms_to_query_windows(plan, atoms)
         if not atoms:
             return None
+        claim_count = _claim_tier_count_answer(plan, query, atoms, backend, sup)
+        if claim_count is not None:
+            return claim_count
         for helper in (_sum_duration_answer, _action_item_count_answer):
             answer, selected = helper(query, atoms)
             if answer and selected:
