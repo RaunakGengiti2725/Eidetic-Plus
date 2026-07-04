@@ -1737,3 +1737,23 @@ Cost margin theirs: ~12x cheaper reads.
 Slice 3 next: FIRST window measuring wave-N/O together (photo captions, reader form
 floor, irregular-past claims, plural-list scaffold, last-monthname, bare-day, ordinal
 interpolation all live).
+
+### Wave P (2026-07-03/04): single-hop offensive + slice-3 interim
+Slice-2 single-hop losses dissected head-to-head vs mem0. Fixed offline with on-store
+exact-gold proofs (all general; each ran the full suite + wave-F replay before commit):
+- stated-age lookup ('how old is X' abstained while the age atom sat in store; latest
+  statement wins, inference questions still fall through to the reader) (c6a613040)
+- wrong-instance chain (working-on-OPENING answered by a broader working-on crystal):
+  FOUR cooperating holes found by stack-tracing the producer -- dialogue-crystal coverage
+  rule (every query content term must appear in recorded question or answer),
+  record-prefix entity checks (first-person atoms do not name their speaker), progressive
+  -verb target guard, non-entity claim ties (45101345b)
+- degenerate-repetition floor + plural scaffold reaches modifier-separated heads
+  ('what personal health incidents') -- zero flips across all three live slices
+  (f4051c056)
+- gold-date-skew class recorded (question says Aug 19, dataset session is Aug 15): the
+  explicit-day window discipline is CORRECT; not weakening the date_anchored proof for
+  one dataset-noise row.
+Slice-3 interim (n=17, wave-N/O build): 12/17 (71%) vs slice-1 57% / slice-2 42%,
+single-hop 9/11, verified-wrong 4. First window with captions+floors+claims+scaffolds.
+Full verdict when the run lands.
