@@ -1795,3 +1795,19 @@ far, and slice 4 measures the wave-Q forensics batch next.
 - Multi-hop residual (mem0 7/8 vs our 4/8 on r3): partial-list judging (subset answers
   judged wrong) is the dominant shape; plural-list scaffold + enumerator claims are the
   build answer, measured from slice 4/5 onward.
+
+### Rotation slice 4 FINAL + slice 5 launched
+| | correct | verified | abstained | qtok med |
+|---|---|---|---|---|
+| eidetic-plus-full | 23/40 (57%) | 33 | 6 | 5,138 |
+| mem0 | 21/40 (52%) | 0 | 0 | 384 |
+
+SECOND consecutive window win (+2). COMBINED n=160 never-touched: 90/160 (56%) vs
+84/160 (52%), verified 138 vs 0. Margins: +1, -1, +4, +2. Temporal 5/9 vs 1/9 (the
+pattern holds on every window). Slice-4 forensics: quoted-name information rule (a show
+titled \"That\" -- the matrix caught a correct answer flipping BEFORE commit), 'them'
+head-stop, week-window-vs-exact-date precision class recorded (conv9 rows: gold has
+exact dates, relative resolution answered week windows), teaser echoes persist
+(generation-side). Four-slice floor matrix: 15 kills / 0 flips.
+Slice 5 (window 4, digest 8638f0.., overlap 0) RUNNING: first window with city-visit
+claim phrasings + proper-noun place enumeration + main-wh + quoted-name rules.
