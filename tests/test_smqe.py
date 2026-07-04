@@ -4981,3 +4981,28 @@ def test_dialogue_crystal_requires_full_query_term_coverage(tmp_path):
     assert ans is not None
     assert "dance studio" in ans.answer
     assert "business plan" not in ans.answer
+
+
+def test_reader_form_floor_wh_temporal_type_agreement():
+    """Slice-3 catches: 'When did Joanna make the tart?' shipped the recipe INGREDIENTS
+    verified (no temporal token); a what-question shipped a bare date; a what-question
+    shipped junk wearing a 'Yes'. Type agreement both directions, yes/no exempt only for
+    polarity questions; granular date answers keep passing when-questions."""
+    from eidetic.smqe.verify import reader_answer_form_credible as f
+
+    assert not f("When did Joanna make a chocolate tart with raspberries?",
+                 "I make it with almond flour, coconut oil, chocolate and raspberries")
+    assert not f("When did Melanie go camping in July?", "We're thinking about going camping")
+    assert f("When did Joanna make a chocolate tart?", "on 5 October, 2022")
+    assert f("When did John attend the contest?", "August 2023")
+
+    assert not f("What did he and his father do in the garage?", "2023-10-05")
+    assert f("What did he and his father do in the garage?", "tinkering with car engines")
+
+    assert not f("What would Caroline's political leaning likely be?",
+                 "Yes - Glad you've got people to lean on, Melanie")
+    assert f("Did Dave fix the Charger?", "Yes, he finished the restoration last week")
+
+    # junk-head enumeration item ('up with developer forums') disqualifies the list
+    assert not f("Where does James get his ideas from?",
+                 "books, movies, various sources, up with developer forums for i")

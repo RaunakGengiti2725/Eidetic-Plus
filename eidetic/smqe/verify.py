@@ -59,7 +59,7 @@ _ENUM_ITEM_JUNK = {
 _ENUM_ITEM_HEAD_STOP = {
     "at", "he", "her", "his", "i", "in", "it", "like", "my", "on", "our",
     "she", "that", "their", "these", "they", "this", "those", "to", "we", "what",
-    "you", "your",
+    "you", "your", "up", "with", "off", "for",
 }
 
 
@@ -192,6 +192,29 @@ _ANSWER_JUNK_SINGLETONS = _ENUM_ITEM_JUNK | {
     # is a teaser -- strip the filler and only the question's own words remain
     "gotten", "some", "stuff", "things", "money-wise",
 }
+# A when-question's answer must carry a temporal token; a what/where/who-question's answer
+# must not be ONLY a date. Both directions shipped verified on the fresh holdout ('When did
+# Joanna make the tart?' -> the recipe ingredients; 'what did he and his father do?' ->
+# '2023-10-05').
+_TEMPORAL_TOKEN_RE = re.compile(
+    r"\b(?:19|20)\d{2}\b|\b(?:january|february|march|april|may|june|july|august|september|"
+    r"october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|sept|oct|nov|dec)\b|"
+    r"\b(?:week|weekend|month|year|day|yesterday|today|tomorrow|tonight|morning|afternoon|"
+    r"evening|night|ago|last|next|earlier|later|spring|summer|autumn|fall|winter)\b|"
+    r"\b\d{1,2}(?:st|nd|rd|th)\b|\b\d{1,2}:\d{2}\b|\b\d{1,2}\s*(?:am|pm)\b",
+    re.I,
+)
+_PURE_DATE_ANSWER_RE = re.compile(
+    r"^\s*(?:on\s+|in\s+|around\s+)?(?:(?:19|20)\d{2}-\d{2}-\d{2}|(?:19|20)\d{2}|"
+    r"(?:january|february|march|april|may|june|july|august|september|october|november|"
+    r"december)\s+(?:19|20)\d{2})\s*[.!]?\s*$",
+    re.I,
+)
+# The yes/no form exemption belongs to POLARITY questions only ('Did they ...?'); a
+# what-question answered 'Yes - glad you have people to lean on' is junk wearing a yes.
+_POLARITY_QUERY_RE = re.compile(
+    r"^\s*(?:is|are|was|were|am|do|does|did|has|have|had|can|could|will|would|should|"
+    r"must|might)\b", re.I)
 _SOURCE_REF_RE = re.compile(r"\s*\[S\d+\]")
 
 
@@ -214,10 +237,18 @@ def reader_answer_form_credible(query: str, answer: str) -> bool:
     # meaningful reply.
     if re.search(r"\b(\w+)\s+and\s+\1\b", low):
         return False
-    # A polarity answer ('Yes, Dave can work with engines') is credible by form; its comma
-    # is prose, and its content is the yes/no plus elaboration.
+    # A polarity answer ('Yes, Dave can work with engines') is credible by form -- but ONLY
+    # for a polarity question. A what-question answered 'Yes - glad you have people to lean
+    # on' is junk wearing a yes.
     if re.match(r"\s*(?:yes|no)\b", text, re.I):
-        return True
+        return bool(_POLARITY_QUERY_RE.match(query or ""))
+    # Wh/temporal type agreement, both directions.
+    if re.match(r"\s*when\b", query or "", re.I) and not _TEMPORAL_TOKEN_RE.search(text):
+        return False
+    if (re.match(r"\s*(?:what|where|who|which|why|how)\b", query or "", re.I)
+            and not re.match(r"\s*how\s+(?:long|often|old|many|much)\b", query or "", re.I)
+            and _PURE_DATE_ANSWER_RE.match(text)):
+        return False
     if _ENUMERATED_ANSWER_RE.match(text):
         # Reader answers are PROSE with commas more often than lists ('James enjoys
         # reading, especially while snuggled under the covers, ...'); only a list-like
