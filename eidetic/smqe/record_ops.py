@@ -3055,6 +3055,40 @@ def _ordinal_kth_event_result(plan, query: str, atoms, backend: str, k: int, *,
     return None
 
 
+# Canonical action-lemma families: the question's verb identifies WHICH event instance a
+# when-question asks about ('when was the album RELEASED?' -- the release, not the video
+# shoot or the launch party that share the noun 'album'). Families bridge synonym and
+# irregular-form gaps deterministically.
+_VERB_LEMMA_FAMILIES: tuple[frozenset[str], ...] = (
+    frozenset({"release", "released", "releases", "drop", "dropped", "drops", "debut",
+               "debuted", "launch", "launched"}),
+    frozenset({"start", "started", "starts", "open", "opened", "opens", "begin", "began",
+               "begun", "founded"}),
+    frozenset({"win", "won", "wins", "winning"}),
+    frozenset({"buy", "bought", "buys", "purchase", "purchased"}),
+    frozenset({"meet", "met", "meets", "reconnect", "reconnected"}),
+    frozenset({"team", "teamed", "collaborate", "collaborated", "partner", "partnered"}),
+    frozenset({"marry", "married", "wed", "engaged"}),
+    frozenset({"graduate", "graduated", "complete", "completed"}),
+    frozenset({"move", "moved", "relocate", "relocated"}),
+    frozenset({"adopt", "adopted", "rescue", "rescued"}),
+)
+
+
+def _question_action_family(query: str) -> frozenset[str]:
+    """The lemma family of a when-question's action verb, if any word belongs to a known
+    family -- 'when did X WIN...', 'when was the album RELEASED'. Empty when the question
+    names no family verb (no behavior change downstream)."""
+    q = (query or "").lower()
+    if not q.strip().startswith("when"):
+        return frozenset()
+    for w in re.findall(r"[a-z][\w'-]{2,}", q):
+        for family in _VERB_LEMMA_FAMILIES:
+            if w in family:
+                return family
+    return frozenset()
+
+
 def _event_term_hit(term: str, atom_terms: set[str]) -> bool:
     """Direct hit, plural-stripped hit, or same-synonym-family hit."""
     base = term[:-1] if len(term) > 3 and term.endswith("s") else term
@@ -5057,6 +5091,19 @@ def _execute_atoms(plan: ExecutionPlan, query: str,
                         candidates = [pair[1] for pair in dated] + \
                                      [row for row in candidates
                                       if _answer_sort_date(row[5]) is None]
+                # Action-lemma instance selection: when the question names a family verb
+                # and SOME candidate atom carries it, those candidates outrank the rest --
+                # the release beats the launch party regardless of recency.
+                action_family = _question_action_family(query)
+                if action_family:
+                    def _atom_has_lemma(atom_text: str) -> bool:
+                        return bool({t for t in re.findall(r"[a-z][\w'-]{2,}",
+                                                           (atom_text or "").lower())}
+                                    & action_family)
+                    lemma_rows = [row for row in candidates if _atom_has_lemma(row[4])]
+                    if lemma_rows:
+                        candidates = lemma_rows + [r for r in candidates
+                                                   if r not in lemma_rows]
                 _target_hits, _entity_hits, score, item, atom, answer = candidates[0]
                 return _result(answer, plan, backend, [sup(item, atom, score)])
         else:

@@ -5081,3 +5081,28 @@ def test_form_floor_quoted_names_and_them_head(tmp_path):
     junk = ("difference regarding, them looking good, Regular, Regular grooming, "
             "dog grooming course, Toby, groom Toby, and learn dog grooming")
     assert not f("What advice did Audrey give to Andrew regarding grooming Toby?", junk)
+
+
+def test_when_question_verb_selects_the_event_instance(tmp_path):
+    """Third attempt at the wrong-instance temporal class, and the one that ships: the
+    question's ACTION VERB identifies the instance. 'When was the album RELEASED?' must
+    answer from the 'dropped on the 11th' atom, not the later launch party that shares
+    the noun 'album' and wins on recency. Lemma families bridge released<->dropped;
+    questions naming no family verb keep the existing ranking untouched."""
+    from datetime import datetime as _dt
+
+    store = RecordStore(tmp_path / "lemma-instance.sqlite")
+    scope = Scope(namespace="lemma-instance")
+    rows = [
+        ("Calvin: My album finally dropped on the 11th and it was a wild feeling.",
+         _dt(2023, 9, 13, 12, 0)),
+        ("Calvin: Last week I threw a small party at my Japanese house for my new album.",
+         _dt(2023, 11, 3, 12, 0)),
+    ]
+    for text, dt in rows:
+        store.upsert_record(_record(text, scope=scope, valid_at=dt.timestamp()))
+
+    ans = structured_answer(_Retriever(store), "When was Calvin's album released?",
+                            at=_dt(2023, 12, 1, 12, 0).timestamp(), scope=scope)
+    assert ans is not None and ans.answer == "2023-09-11"
+    assert "dropped on the 11th" in ans.citations[0].snippet
