@@ -108,6 +108,13 @@ def _dialogue_answer_match(query: str, atoms: list[tuple[float, object, str]]) -
         # unrelated questions cannot bridge on one incidental word.
         if len(overlap) < 2 or 2 * len(overlap) < len(rq_keys):
             continue
+        # ... and EVERY query content term must appear in the recorded question or its
+        # answer: 'what is X working on OPENING?' matched a broader working-on crystal whose
+        # reply never mentions opening -- the slot-defining term was covered by nothing, and
+        # the wrong instance shipped verified on the fresh holdout.
+        atom_keys = {ro._count_term_key(t) for t in ro._query_terms(atom)}
+        if (qkeys - entity_keys) - rq_keys - atom_keys:
+            continue
         if entity_terms and ro._entity_hit_count(entity_terms, ro._item_match_text(item, atom)) == 0:
             continue
         if best is None or (len(overlap), score) > (best[0], best[1]):

@@ -2799,6 +2799,10 @@ def _latest_specific_answer_needs_target_guard(query: str) -> bool:
         or re.search(r"\bwhat\s+colou?r\b|\bcolou?r\b", q)
         or re.search(r"\bwhat\s+time\b|\bwhat\s+day\b|\bday\s+of\s+the\s+week\b", q)
         or re.search(r"\bhow\s+long\b|\bhow\s+often\b", q)
+        # Progressive-verb slot ('what is X working on OPENING?'): the trailing verb names
+        # the slot; ungated selection let a same-speaker recency-adjacent claim answer the
+        # wrong instance ('wrapping up the business plan') verified.
+        or re.search(r"\bwhat\s+(?:is|are|was|were)\s+\w+\s+\w+ing\b", q)
     )
 
 
@@ -5254,8 +5258,12 @@ def _execute_atoms(plan: ExecutionPlan, query: str,
                 None if duration_value_query else group_terms_by_key.get(_group_key(item)))
             if specific_target_terms and target_hits == 0:
                 continue
+            # Entity presence is about WHO SAID IT: dialog atoms are first-person, so the
+            # speaker name lives on the record's turn prefix, not in the sentence -- an
+            # entity gate on the bare atom drops the correct first-person answer.
             specific_hits.append((
-                _entity_hit_count(entity_terms, _item_match_text(item, atom)),
+                _entity_hit_count(entity_terms,
+                                  getattr(item, "text", "") or _item_match_text(item, atom)),
                 target_hits,
                 getattr(item, "valid_at", 0.0) or 0.0,
                 score,
@@ -5280,15 +5288,25 @@ def _execute_atoms(plan: ExecutionPlan, query: str,
     for score, item, atom in atoms:
         if (current_value_query or duration_value_query) and _is_future_intent_atom(atom):
             continue
-        if entity_terms and _entity_hit_count(entity_terms, _item_match_text(item, atom)) == 0:
+        if entity_terms and _entity_hit_count(
+                entity_terms,
+                getattr(item, "text", "") or _item_match_text(item, atom)) == 0:
             continue
         # Same no-pronoun-bridge rule as the specific loop: a duration atom must name the
         # target itself ('had THEM for 3 years' must never date a book-writing question).
         target_hit = _latest_atom_target_hit(
             target_terms, atom,
             None if duration_value_query else group_terms_by_key.get(_group_key(item)))
+        # The claim group bypass needs at least ONE direct NON-ENTITY tie: a claim whose own
+        # text hits nothing but the person's name rode its group's terms to a verified
+        # wrong-instance answer ('wrapping up the business plan' for a working-on-OPENING
+        # question -- 'Jon' tied, 'opening' never did).
+        _non_entity_targets = {t for t in target_terms if t not in entity_terms}
         if target_terms and not (target_hit or (not duration_value_query
                 and isinstance(item, ClaimRecord)
+                and (not _non_entity_targets
+                     or _target_hit_count(_expanded_terms(_item_match_text(item, atom)),
+                                          _non_entity_targets) >= 1)
                 and _target_hit_count(group_terms_by_key.get(_group_key(item), set()),
                                       target_terms) >= _target_threshold(target_terms))):
             continue

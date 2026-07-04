@@ -4947,3 +4947,37 @@ def test_how_old_answers_stated_age_and_defers_inference(tmp_path):
     ans2 = structured_answer(_Retriever(store), "How old is Deborah?",
                              at=_dt(2023, 12, 1, 12, 0).timestamp(), scope=scope)
     assert ans2 is None                                       # no stated age -> reader owns it
+
+
+def test_dialogue_crystal_requires_full_query_term_coverage(tmp_path):
+    """Fresh-holdout wrong-instance class: 'What is Jon working on OPENING?' matched a
+    broader working-on crystal whose reply never mentions opening -- the slot-defining
+    term was covered by nothing and the wrong instance shipped verified. Every query
+    content term must appear in the recorded question or its answer; the correctly-tied
+    record atom ('Still working on opening a dance studio') then answers. Also locks the
+    two enablers: entity checks consult the record's turn prefix (first-person atoms do
+    not name their speaker), and progressive-verb questions get the specific-loop target
+    guard."""
+    from datetime import datetime as _dt
+
+    from eidetic.smqe.claim_extraction import claims_for_record
+
+    store = RecordStore(tmp_path / "crystal-cover.sqlite")
+    scope = Scope(namespace="crystal-cover")
+    rows = [
+        ("Gina: What are you working on these days, Jon? "
+         "Jon: I'm wrapping up the business plan and looking for investors.",
+         _dt(2023, 6, 25, 12, 0)),
+        ("Jon: Still working on opening a dance studio. It takes a while!",
+         _dt(2023, 6, 19, 12, 0)),
+    ]
+    for text, dt in rows:
+        rec = _record(text, scope=scope, valid_at=dt.timestamp())
+        store.upsert_record(rec)
+        store.add_claims(claims_for_record(rec))
+
+    ans = structured_answer(_Retriever(store), "What is Jon working on opening?",
+                            at=_dt(2023, 8, 1, 12, 0).timestamp(), scope=scope)
+    assert ans is not None
+    assert "dance studio" in ans.answer
+    assert "business plan" not in ans.answer
