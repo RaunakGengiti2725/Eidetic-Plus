@@ -1899,10 +1899,10 @@ HONEST READ -- hard window, both bars missed:
   on holdout); write calls 527 vs r6-era ~880 (EXTRACT_COMBINED halving held on fresh
   holdout ingest); write tok 516k vs the dev-40 OFF arm's 856k (-40%).
 - VW taxonomy: 5x {partial-list} (enumeration coverage, not absent families), 2x
-  temporal wrong-instance (c5_q6-shape: adoption date answered with an unrelated year;
-  c8-shape: wrong sport instance), 1x week-window precision (honest class, judge
-  refuses month granularity), 1x junk fragment through preference_synth (c1_q39 --
-  form-floor gap on holdout shapes), 1x lemma-miss.
+  temporal wrong-instance (pet-adoption-date shape answered with an unrelated year;
+  wrong-sport-instance shape), 1x week-window precision (honest class, judge
+  refuses month granularity), 1x junk fragment through preference_synth (conv1
+  single-hop row -- form-floor gap on holdout shapes), 1x lemma-miss.
 - Structured VW 6/13: the enumerator ships on this window's shapes but partial-list
   coverage + two wrong-instance temporals turn coverage into verified-wrong instead of
   verified-correct. Growth lever confirmed as WRITE-side coverage, not read gates.
