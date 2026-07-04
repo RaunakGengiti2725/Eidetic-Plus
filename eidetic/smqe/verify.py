@@ -204,20 +204,30 @@ def reader_answer_form_credible(query: str, answer: str) -> bool:
     low = re.sub(r"[.,!?;:\s]+$", "", text.lower()).strip()
     if low in _ANSWER_JUNK_SINGLETONS:
         return False
+    # A polarity answer ('Yes, Dave can work with engines') is credible by form; its comma
+    # is prose, and its content is the yes/no plus elaboration.
+    if re.match(r"\s*(?:yes|no)\b", text, re.I):
+        return True
     if _ENUMERATED_ANSWER_RE.match(text):
-        if not _enumeration_items_credible(text):
-            return False
-        if (re.match(r"\s*why\b", query or "", re.I)
-                and not re.search(r"\b(?:because|since)\b", text, re.I)):
-            return False
+        # Reader answers are PROSE with commas more often than lists ('James enjoys
+        # reading, especially while snuggled under the covers, ...'); only a list-like
+        # shape -- every comma segment short -- faces the enumeration rules. This differs
+        # from the structured path on purpose: executors assemble lists, readers write
+        # sentences.
+        items = [i.strip() for i in re.split(r",\s*(?:and\s+)?", text) if i.strip()]
+        if items and all(len(i.split()) <= 6 for i in items):
+            if not _enumeration_items_credible(text):
+                return False
+            if (re.match(r"\s*why\b", query or "", re.I)
+                    and not re.search(r"\b(?:because|since)\b", text, re.I)):
+                return False
     if not _option_choice_answer_names_option(query, text):
         return False
     # Junk tokens are not information either: 'Yeah, Maria' for a question about Maria is
     # acknowledgment plus echo, so junk words are stripped before the echo test.
     echo_text = " ".join(t for t in re.findall(r"[a-z0-9][a-z0-9'-]*", text.lower())
                          if t not in _ANSWER_JUNK_SINGLETONS)
-    if (not re.match(r"\s*(?:yes|no)\b", text, re.I)
-            and not _answer_adds_information(query, echo_text or text)):
+    if not _answer_adds_information(query, echo_text or text):
         return False
     return True
 
