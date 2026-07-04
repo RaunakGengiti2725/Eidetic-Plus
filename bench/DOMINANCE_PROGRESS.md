@@ -1784,3 +1784,14 @@ across all three windows: 11/25 vs mem0's 1/25. Their strength: multi-hop (7/8 o
 our 4/8) and raw read price (~13x cheaper). Single-hop CLOSED: 19/22 on r3 (was the r2
 weakness at 10/21). No SOTA claim; n=120 with rotating windows is the honest evidence so
 far, and slice 4 measures the wave-Q forensics batch next.
+
+### Wave R (2026-07-04): multi-hop offensive begins
+- City visits extract across phrasings (was-in/trip-to/flew-to, TitleCase objects) and
+  place-name heads enumerate proper nouns only -- the which-cities row's four cities now
+  compose end-to-end from claims; junk 'charity thing' objects excluded (26b3f950b).
+  Write-path change: r4 keeps old claims; slice 5 measures.
+- Main-wh detection: compound 'When X was a child, what did...' gets WHAT-type agreement;
+  form-floor matrix 2+5+6 kills, zero flips (30a9a2636).
+- Multi-hop residual (mem0 7/8 vs our 4/8 on r3): partial-list judging (subset answers
+  judged wrong) is the dominant shape; plural-list scaffold + enumerator claims are the
+  build answer, measured from slice 4/5 onward.
