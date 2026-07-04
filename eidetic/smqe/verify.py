@@ -215,6 +215,21 @@ _PURE_DATE_ANSWER_RE = re.compile(
 _POLARITY_QUERY_RE = re.compile(
     r"^\s*(?:is|are|was|were|am|do|does|did|has|have|had|can|could|will|would|should|"
     r"must|might)\b", re.I)
+_WH_AUX_RE = re.compile(
+    r"\b(when|what|where|who|which|why|how)\s+"
+    r"(?:is|are|was|were|am|do|does|did|has|have|had|can|could|will|would|should)\b", re.I)
+
+
+def _main_wh(query: str) -> str:
+    """The question's MAIN wh-word: the last wh immediately followed by an auxiliary.
+    'When Dave was a child, what did he do?' is a WHAT-question -- its leading 'when'
+    heads a subordinate clause ('when Dave...', no auxiliary adjacency). Falls back to the
+    leading token when no wh+aux pair exists."""
+    matches = _WH_AUX_RE.findall(query or "")
+    if matches:
+        return matches[-1].lower()
+    m = re.match(r"\s*(when|what|where|who|which|why|how)\b", query or "", re.I)
+    return m.group(1).lower() if m else ""
 _SOURCE_REF_RE = re.compile(r"\s*\[S\d+\]")
 
 
@@ -242,10 +257,12 @@ def reader_answer_form_credible(query: str, answer: str) -> bool:
     # on' is junk wearing a yes.
     if re.match(r"\s*(?:yes|no)\b", text, re.I):
         return bool(_POLARITY_QUERY_RE.match(query or ""))
-    # Wh/temporal type agreement, both directions.
-    if re.match(r"\s*when\b", query or "", re.I) and not _TEMPORAL_TOKEN_RE.search(text):
+    # Wh/temporal type agreement, both directions, on the question's MAIN wh ('When Dave
+    # was a child, what did he do?' is a WHAT-question).
+    wh = _main_wh(query)
+    if wh == "when" and not _TEMPORAL_TOKEN_RE.search(text):
         return False
-    if (re.match(r"\s*(?:what|where|who|which|why|how)\b", query or "", re.I)
+    if (wh in {"what", "where", "who", "which", "why", "how"}
             and not re.match(r"\s*how\s+(?:long|often|old|many|much)\b", query or "", re.I)
             and _PURE_DATE_ANSWER_RE.match(text)):
         return False
@@ -309,7 +326,7 @@ def answer_from_result(retriever, query: str, result: StructuredAnswerResult,
     # When-question type agreement, structured side: a when-answer without a single temporal
     # token is malformed regardless of which operator derived it ('I'm taking a dog training
     # course and it's challenging' shipped verified for a when-took-place question).
-    if (verify and re.match(r"\s*when\b", query or "", re.I)
+    if (verify and _main_wh(query) == "when"
             and not _TEMPORAL_TOKEN_RE.search(result.answer or "")):
         return None
     # Zero-information FORM refusal: an answer whose every content token already appears in
