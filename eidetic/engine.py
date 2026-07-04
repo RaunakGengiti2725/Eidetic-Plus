@@ -441,15 +441,24 @@ class Engine:
         scope = scope or Scope()
         va = now() if valid_at is None else valid_at
         prepared = []                       # (item, content_hash, raw_uri, existing_or_None)
-        for item in items:
+        # In-batch dedup: the store check below can't see records this call hasn't written
+        # yet, so two identical items in ONE batch used to become two records. The first
+        # occurrence wins; later ones resolve to its record after the write loop.
+        first_occurrence: dict[str, int] = {}
+        batch_dup_of: dict[int, int] = {}
+        for idx, item in enumerate(items):
             h = sha256_hex(item.raw_bytes)
             existing = self.store.get_by_hash(h, scope)
             if existing is not None:
                 prepared.append((item, None, None, existing))
+            elif h in first_occurrence:
+                batch_dup_of[idx] = first_occurrence[h]
+                prepared.append((item, None, None, None))
             else:
+                first_occurrence[h] = idx
                 ch, uri = self.substrate.put(item.raw_bytes)
                 prepared.append((item, ch, uri, None))
-        new_idx = [i for i, p in enumerate(prepared) if p[3] is None]
+        new_idx = [i for i, p in enumerate(prepared) if p[3] is None and i not in batch_dup_of]
         texts = [prepared[i][0].text for i in new_idx]
         vecs = (self.client.embed_texts(texts) if texts          # batched embed, OFF the lock
                 else np.zeros((0, self.settings.embed_dim), np.float32))
@@ -459,6 +468,11 @@ class Engine:
             for i, (item, ch, uri, existing) in enumerate(prepared):
                 if existing is not None:
                     out.append(existing)
+                    continue
+                if i in batch_dup_of:
+                    # duplicate WITHIN this batch: resolve to the first occurrence's record
+                    # (already appended -- first_occurrence index precedes i)
+                    out.append(out[batch_dup_of[i]])
                     continue
                 content_vec = vec_by_i[i]
                 surprise = salience_mod.compute_surprise(content_vec, self.index, self.store, scope)

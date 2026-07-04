@@ -107,3 +107,18 @@ def test_records_in_time_range_is_windowed(fresh_settings):
                                          scope=scope, valid_at=float(t)))
     got = {r.memory_id for r in store.records_in_time_range(150, 6000, scope)}
     assert got == {"m200", "m5000"}                            # only the in-window records
+
+
+def test_ingest_many_dedups_within_one_batch(fresh_settings):
+    """Two identical items in ONE call used to become two records: the store check runs
+    before any write, so neither saw the other. First occurrence wins; later duplicates
+    resolve to its record. (Deferred #17's blocking bug.)"""
+    e = Engine(fresh_settings, client=_FakeEmbed(fresh_settings.embed_dim))
+    scope = Scope(namespace="batch-dup")
+    items = [from_text("alice waters the fern", "user"),
+             from_text("bob repots the cactus", "user"),
+             from_text("alice waters the fern", "user")]     # exact duplicate of item 0
+    recs = e.ingest_many(items, scope=scope)
+    assert len(recs) == 3
+    assert recs[0].memory_id == recs[2].memory_id            # duplicate resolved, not re-written
+    assert e.store.count(scope) == 2 and len(e.index) == 2

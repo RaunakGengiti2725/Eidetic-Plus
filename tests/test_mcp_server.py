@@ -394,3 +394,19 @@ def test_prove_checks_citation_refs_against_raw_substrate(mcp_engine):
         assert item["refs_checked"]["hash_matches"] is True
         assert item["refs_checked"]["snippet_in_record"] is True
     assert proof["refs_verified"] is True
+
+
+def test_remember_many_bulk_stores_and_dedups(mcp_engine):
+    """Deferred #17: bulk import surface. One call stores the batch, duplicates (in-batch
+    and vs the store) resolve without double-writing, and the result reports it."""
+    out = mcp_server.remember_many(contents=[
+        "The orchid feeds every second Friday.",
+        "The greenhouse fan runs at night.",
+        "The orchid feeds every second Friday.",
+    ])
+    assert out["ok"] is True and out["count"] == 3
+    assert out["unique"] == 2 and out["deduped"] == 1
+    assert mcp_server.list_memories()["total"] == 2
+    # second call is fully deduped against the store
+    again = mcp_server.remember_many(contents=["The greenhouse fan runs at night."])
+    assert again["unique"] == 1 and mcp_server.list_memories()["total"] == 2

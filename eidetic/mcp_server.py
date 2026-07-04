@@ -374,6 +374,41 @@ def sync_health(namespace: Optional[str] = None, agent_id: Optional[str] = None,
 
 
 @_threaded_tool
+def remember_many(contents: list[str], namespace: Optional[str] = None,
+                  agent_id: Optional[str] = None, project_id: Optional[str] = None,
+                  valid_at: Optional[float] = None, source: Optional[str] = None) -> dict:
+    """Bulk-store many durable memories in ONE call (batched embedding: N/10 round trips
+    instead of N; one lock acquisition). Duplicates -- against the store AND within the
+    batch -- resolve to the existing record instead of writing twice. Records are marked
+    pending consolidation; run `consolidate` afterwards for graph/claim extraction.
+    `valid_at` backdates every item's event time (bulk history imports). Max 500 items."""
+    from .ingestion import from_text
+    if not isinstance(contents, list) or not contents:
+        raise RuntimeError("contents must be a non-empty list of strings")
+    if len(contents) > 500:
+        raise RuntimeError(f"too many items ({len(contents)}; max 500 per call)")
+    items = [from_text(_text_arg(c, f"contents[{i}]", max_chars=_MAX_CONTENT_CHARS),
+                       source or "user")
+             for i, c in enumerate(contents)]
+    scope = _scope(namespace, agent_id, project_id)
+    try:
+        recs = engine().ingest_many(items, scope=scope, valid_at=valid_at)
+    except ModelCallError as e:
+        raise RuntimeError(
+            f"remember_many needs the model and no result was fabricated: {e}. "
+            "Set DASHSCOPE_API_KEY to enable it.")
+    ids = [r.memory_id for r in recs]
+    return {
+        "ok": True,
+        "count": len(recs),
+        "unique": len(set(ids)),
+        "deduped": len(recs) - len(set(ids)),
+        "memory_ids": ids,
+        "pending_consolidation": any(r.metadata.get("pending_consolidation") for r in recs),
+    }
+
+
+@_threaded_tool
 def repair() -> dict:
     """Rebuild the derived retrieval surfaces (vector index, reflex index) from the source of
     truth (raw substrate + SQLite records) -- the fix sync_health names when a surface is
