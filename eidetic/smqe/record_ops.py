@@ -6,6 +6,7 @@ import re
 from datetime import date, datetime, timedelta
 from typing import Iterable, Optional
 
+from eidetic.textseg import SENTENCE_SPLIT_RE
 from eidetic.models import ClaimRecord, ExecutionPlan, MemoryRecord, StructuredAnswerResult, StructuredSupport
 
 from .verify import _ENUMERATED_ANSWER_RE as _verify_enum_re
@@ -210,7 +211,7 @@ def _sentences(text: str) -> list[str]:
         if "|" in line and re.search(r"\|.*\|", line):
             out.append(line)
         else:
-            out.extend(s.strip() for s in re.split(r"(?<=[.!?])\s+", line) if s.strip())
+            out.extend(s.strip() for s in SENTENCE_SPLIT_RE.split(line) if s.strip())
     return out or ([text.strip()] if text and text.strip() else [])
 
 
@@ -477,7 +478,7 @@ def _answer_value_specific(query: str, atom: str, item: object | None = None) ->
         ):
             m = re.search(pat, text)
             if m:
-                sentence = next((s for s in re.split(r"(?<=[.!?])\s+", text) if m.group(1) in s), text)
+                sentence = next((s for s in SENTENCE_SPLIT_RE.split(text) if m.group(1) in s), text)
                 sent_keys = {_count_term_key(t) for t in _terms(sentence)}
                 if prior_targets and not (prior_targets & sent_keys):
                     continue
@@ -696,9 +697,10 @@ def _answer_value(query: str, atom: str, item: object | None = None) -> str:
         return ""
     text = _strip_role(atom)
     q = (query or "").lower()
+    value_body = r"((?:\b(?:Dr|Mr|Ms|Mrs|Prof|St|Jr|Sr)\.\s*|[^.;!?])+)"
     for pat in (
-        r"\b(?:is|was|are|were|am)\s+([^.;!?]+)",
-        r"\b(?:equals?|means|called|named)\s+([^.;!?]+)",
+        r"\b(?:is|was|are|were|am)\s+" + value_body,
+        r"\b(?:equals?|means|called|named)\s+" + value_body,
     ):
         m = re.search(pat, text, re.I)
         if m:

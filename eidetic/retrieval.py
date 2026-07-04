@@ -2479,7 +2479,8 @@ def edge_place(blocks: list[str]) -> list[str]:
 
 
 def _sentences(text: str) -> list[str]:
-    return [s.strip() for s in re.split(r"(?<=[.!?])\s+", text.strip()) if s.strip()]
+    from .textseg import split_sentences
+    return split_sentences(text)
 
 
 def _strip_source_tags(text: str) -> str:

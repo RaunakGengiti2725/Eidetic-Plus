@@ -5,6 +5,7 @@ import re
 from typing import Any, Iterable, Optional
 
 from eidetic import preferences
+from eidetic.textseg import SENTENCE_SPLIT_RE
 from eidetic.models import ClaimRecord, MemoryRecord
 
 
@@ -40,7 +41,7 @@ def _sentences(text: str, *, limit: int = 80) -> list[str]:
         ):
             pieces.append(line)
             continue
-        pieces.extend(s.strip() for s in re.split(r"(?<=[.!?])\s+", line) if s.strip())
+        pieces.extend(s.strip() for s in SENTENCE_SPLIT_RE.split(line) if s.strip())
     out = []
     seen = set()
     for piece in pieces:
