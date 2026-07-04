@@ -1811,3 +1811,16 @@ exact dates, relative resolution answered week windows), teaser echoes persist
 (generation-side). Four-slice floor matrix: 15 kills / 0 flips.
 Slice 5 (window 4, digest 8638f0.., overlap 0) RUNNING: first window with city-visit
 claim phrasings + proper-noun place enumeration + main-wh + quoted-name rules.
+
+### Temporal instance selection: attempted and REVERTED twice (design debt recorded)
+Second attempt at the week-window-vs-exact-date class (first-report ceiling + release/
+open synonym families) made both target rows WORSE on-store (bare-year junk passes any
+date ceiling; bidirectional synonym expansion polluted matching) and was reverted
+uncommitted. Standing diagnosis: relative_temporal candidate RANKING is
+recency-and-score biased with no notion of which EVENT INSTANCE an atom describes; every
+lexical gate reshuffles failure modes. The fix is an event-disambiguation pass (cluster
+same-family atoms into instances by date proximity + discourse markers, answer from the
+instance that satisfies the question's constraints) -- a design-sized change, queued as
+its own unit, not fixable by another regex. Until then: the reader form floor's
+when-type agreement keeps junk out, and the class costs accuracy but not integrity
+(week windows ARE temporal-shaped -- they verify honestly, judged wrong on precision).
