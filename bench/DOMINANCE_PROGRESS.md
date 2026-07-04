@@ -1910,3 +1910,18 @@ HONEST READ -- hard window, both bars missed:
 
 Phase B (mem0, same window, same --out) launched for the h2h. No rescue, no re-run of
 this draw with tuned anything: window 6 stands as drawn.
+
+### SLICE 7 FINAL -- fifth consecutive window win, largest margin, on the hard window
+
+| | correct | verified | temporal | qtok med |
+|---|---|---|---|---|
+| eidetic-plus-full | 20/40 (50%) | 32 | 3/8 | 4,029 |
+| mem0 | 12/40 (30%) | 0 | 0/8 | 396 |
+
+Margin +8 -- the largest of seven windows -- on the draw where OUR absolute score was
+worst (both internal bars missed, recorded above). That is the strongest kind of
+window evidence: the build's floor beats the baseline's same-window performance by
+more than its ceiling did. Margins across seven disjoint never-touched windows:
++1, -1, +4, +2, +7, +7, +8 (five consecutive wins). Rolling n=280: 159/280 (57%) vs
+131/280 (47%); verified answers 241 vs 0; temporal 22/51 vs 3/51 (mem0 0/8 again this
+window). Scoreboard, curves, and manifest rendered in artifacts/holdout_rotation_r7_codex.
