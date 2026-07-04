@@ -17,6 +17,14 @@ session (feature/acceleration) appends tasks with pin SHAs. Shapes as convN-rowM
       claiming anything.
 - [ ] Lemma instance selection (c796a0463) measures on r5: check conv9 album shape.
 
+## r5 FINAL (both phases landed)
+
+- h2h: eidetic 24/40 (60%) vs mem0 17/40 (42%) -- THIRD consecutive window win, largest
+  margin yet (+7). Multi-hop 6/8 vs mem0 2/8 this window.
+- Rolling n=200 never-touched: 114/200 (57%) vs 101/200 (50%); verified answers 173 vs 0.
+  Window margins: +1, -1, +4, +2, +7.
+- Cost gap unchanged: qtok median 5,438 vs 380 (~14x) -- the arms below are the lever.
+
 ## r5 forensics (eidetic phase, read-only; mem0 tail still running at fill time)
 
 - scoreline (eidetic only): 24/40 (60%), verified 35, abstained 5, verified-wrong 11;
