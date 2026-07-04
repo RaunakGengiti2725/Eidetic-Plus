@@ -3089,6 +3089,52 @@ def _question_action_family(query: str) -> frozenset[str]:
     return frozenset()
 
 
+def _claim_event_instance_answer(plan, query: str, atoms, backend: str, sup):
+    """P2 read side: a when-question about a once-ish event resolves by WRITE-TIME identity
+    tags -- (lemma family match to the question verb, object-head tie to the query), then
+    the instance's most precise date wins and a statement-derived date answers at month
+    granularity. Multi-instance evidence (dates spanning >45 days) declines instead of
+    guessing; repeatable actions never carry tags, so the legacy latest-wins path and the
+    time-invariant sidecar are untouched."""
+    from . import event_identity as ei
+
+    qlemma = ei.question_lemma(query)
+    if not qlemma:
+        return None
+    qwords = {w.lower() for w in re.findall(r"[a-z][\w'-]{2,}", (query or "").lower())}
+    matches = []
+    for score, item, atom in atoms:
+        if not isinstance(item, ClaimRecord):
+            continue
+        f = item.filters or {}
+        if f.get("lemma") != qlemma or not f.get("event_date"):
+            continue
+        head = str(f.get("obj_head") or "")
+        if head and head not in qwords and not any(
+                min(len(head), len(w)) >= 4 and (head.startswith(w) or w.startswith(head))
+                for w in qwords):
+            continue
+        matches.append((int(f.get("date_precision") or 0), str(f["event_date"]),
+                        score, item, atom))
+    if not matches:
+        return None
+    days = []
+    for _p, iso, _s, _i, _a in matches:
+        try:
+            days.append(date(*[int(x) for x in iso.split("-")]))
+        except (ValueError, TypeError):
+            return None
+    if (max(days) - min(days)).days > ei.INSTANCE_SPAN_GUARD_DAYS:
+        return None
+    ranked = sorted(zip(matches, days), key=lambda md: (-md[0][0], md[1]))
+    (precision, iso, score, item, atom), _d = ranked[0]
+    answer = ei.format_answer(iso, precision)
+    if not answer:
+        return None
+    return _result(answer, plan, backend, [sup(item, atom, score)],
+                   note_suffix=":event_instance")
+
+
 def _event_term_hit(term: str, atom_terms: set[str]) -> bool:
     """Direct hit, plural-stripped hit, or same-synonym-family hit."""
     base = term[:-1] if len(term) > 3 and term.endswith("s") else term
@@ -4978,6 +5024,9 @@ def _execute_atoms(plan: ExecutionPlan, query: str,
                 return _ordinal_kth_event_result(
                     plan, query, atoms, backend, k,
                     target_terms=target_terms, entity_terms=entity_terms, sup=sup)
+            instance = _claim_event_instance_answer(plan, query, atoms, backend, sup)
+            if instance is not None:
+                return instance
             if k == 1:
                 # 'my FIRST tournament' is the strongest possible anchor for a first-instance
                 # question; when such an atom exists it answers directly. No explicit anchor

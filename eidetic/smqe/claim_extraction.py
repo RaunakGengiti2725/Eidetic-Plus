@@ -264,8 +264,10 @@ def _action_object_claims_from_atom(rec: MemoryRecord, atom: str) -> list[ClaimR
         return []
     out: list[ClaimRecord] = []
     patterns = (
-        r"\b(?:i|we)\s+(?P<verb>[a-z][a-z'-]{2,}(?:ed|t))\s+(?P<object>[^.;!?]{3,90}?)(?=\s+(?:last|this|recently|because|while|when|where|which|that|so|together|again|alone|yesterday|today)\b|[.;!?]|$)",
-        r"\b(?:i|we)\s+(?P<verb>[a-z][a-z'-]{2,}(?:ed|t))\s+(?:at|in|to|from)\s+(?P<object>[^.;!?]{3,90}?)(?=\s+(?:last|this|recently|because|while|when|where|which|that|so)\b|[.;!?]|$)",
+        r"\b(?:i|we)\s+(?:(?:just|also|finally|recently|officially)\s+){0,2}(?P<verb>[a-z][a-z'-]{2,}(?:ed|t))\s+(?P<object>[^.;!?]{3,90}?)(?=\s+(?:last|this|recently|because|while|when|where|which|that|so|together|again|alone|yesterday|today)\b|[.;!?]|$)",
+        r"\b(?:i|we)\s+(?:(?:just|also|finally|recently|officially)\s+){0,2}(?P<verb>[a-z][a-z'-]{2,}(?:ed|t))\s+(?:at|in|to|from)\s+(?P<object>[^.;!?]{3,90}?)(?=\s+(?:last|this|recently|because|while|when|where|which|that|so)\b|[.;!?]|$)",
+        r"\b(?:i|we)\s+(?P<verb>teamed|linked|partnered|paired)\s+up\s+with\s+(?P<object>[^.;!?]{3,60}?)(?=\s+(?:last|this|for|and|because|when)\b|[.;!?]|$)",
+        r"\b(?:my|our)\s+(?P<object>[a-z][a-z' -]{2,40}?)\s+(?:just\s+|finally\s+|officially\s+){0,2}(?P<verb>dropped|released|launched|debuted|opened|started|arrived|premiered)\b",
         # Irregular pasts the ed|t suffix rule can never see (\'I read The Alchemist\',
         # \'we saw Hamilton\'), clitic-tolerant; and the offered/given passive (\'I\'ve been
         # offered a deal with Nike\') whose object is the enumerable fact.
@@ -467,4 +469,57 @@ def claims_for_record(
             continue
         seen.add(key)
         deduped.append(claim)
+    _tag_event_identity(rec, deduped)
     return deduped
+
+
+def _tag_event_identity(rec: MemoryRecord, claims: list[ClaimRecord]) -> None:
+    """P2 write-time identity: once-ish event claims gain a canonical action lemma, the
+    object head noun, and the best event date THE ATOM ITSELF states, with an explicit
+    precision rank. Identity is decided here, where the phrasing still exists; read-time
+    date clustering was reverted three times for guessing it wrong."""
+    from datetime import datetime as _dt
+
+    from . import event_identity as ei
+
+    for claim in claims:
+        if claim.claim_type != "event":
+            continue
+        lemma = ""
+        for w in re.findall(r"[a-z][\w'-]*", (claim.predicate or "").lower()):
+            lemma = ei.canon_lemma(w)
+            if lemma:
+                break
+        if not lemma:
+            for w in re.findall(r"[a-z][\w'-]*", (claim.proof_atom or "").lower()):
+                lemma = ei.canon_lemma(w)
+                if lemma:
+                    break
+        if not lemma:
+            continue
+        from .record_ops import _DATE_RE, _event_date, _relative_date_from_atom
+        atom = claim.proof_atom or ""
+        precision = ei.PRECISION_STATEMENT
+        iso = ""
+        if _DATE_RE.search(atom):
+            d = _event_date(rec, atom)
+            if d is not None:
+                iso, precision = d.isoformat(), ei.PRECISION_EXPLICIT
+        if not iso:
+            rel = _relative_date_from_atom(rec, atom)
+            if re.match(r"\d{4}-\d{2}-\d{2}$", rel or ""):
+                iso, precision = rel, ei.PRECISION_RELATIVE_DAY
+            elif rel:
+                m = re.search(r"(\d{4})-(\d{2})-(\d{2})", rel)
+                if m:
+                    iso, precision = m.group(0), ei.PRECISION_WINDOW
+        if not iso:
+            try:
+                iso = _dt.fromtimestamp(rec.valid_at).date().isoformat()
+                precision = ei.PRECISION_STATEMENT
+            except (OSError, OverflowError, ValueError, TypeError):
+                continue
+        claim.filters.setdefault("lemma", lemma)
+        claim.filters.setdefault("obj_head", ei.obj_head(claim.object or ""))
+        claim.filters.setdefault("event_date", iso)
+        claim.filters.setdefault("date_precision", precision)
