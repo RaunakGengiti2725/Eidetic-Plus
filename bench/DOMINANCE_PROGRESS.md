@@ -1711,3 +1711,11 @@ form floors never touched them.
 - Remaining verified-wrong are content-wrong-but-well-formed (wrong instance, superset,
   teaser with novel tokens) -- beyond deterministic form; owned by retrieval/enumerator
   coverage (irregular-past claims land in slice 3) and judge-vs-gold precision.
+
+### Deferred backlog: CLOSED 13/15/16/17 (2026-07-03)
+- #13 repair tool (e34ae7c46), #15 checked citation refs (a570e327c), #16 API paging
+  (42b4b36f6), #17 in-batch dedup fix + remember_many bulk import (d9a228b62 -- two
+  identical items in one call used to double-write; first occurrence wins now).
+- Remaining deferred: #19 line-aligned chunker (sequenced after EXTRACT_COMBINED
+  promotion). Teaser-filler echo strip (a3563fcc8) raised slice-2 form-floor kills to
+  5/18, still zero correct flips on both slices.
