@@ -304,3 +304,15 @@ NO tau reaches the 0.95 precision target; tau=1.0 abstains every row. Root cause
 the verified-wrong rate (structured VW junk shapes + partial lists), not the
 threshold. Committed as artifacts/public_ship/abstention_v2_tau.json. Recalibrate
 after the VW-killer wave lands; until then the calibration gate stays honestly red.
+
+## VW-killer wave shipped (b5e2aeb8b, 2026-07-05) -- offline gates green, probe pending
+
+Enum completion sweep + activity claims + preference form floor + shingle audit layer.
+18 workflow-confirmed defects fixed pre-commit (incl. the sweep itself inventing
+hobbies from acquisitions -- caught end-to-end before any API spend). Wave-F replay
+note: current code reads 23/24 unchanged + 1 verbosity-only flip (c-row keeps the gold
+span on both sides); the two previously-documented exact-gold gains are absorbed into
+byte-identical behavior. Legacy debt flagged: ~466 pre-existing shingle hits in 9 OLD
+test files (tests/ not an enforced shingle root) -- cleanup queued, out of this wave.
+Dev-40 probe (product4) queued behind the ablation run: GO bar for r8 is fewer
+structured VW with vc not regressed.
