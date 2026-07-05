@@ -3,7 +3,11 @@ from __future__ import annotations
 import json
 from types import SimpleNamespace
 
-from bench.audit_no_holdout_leakage import DEFAULT_SCAN_ROOTS, audit
+from bench.audit_no_holdout_leakage import (
+    DEFAULT_SCAN_ROOTS,
+    DEFAULT_SHINGLE_ROOTS,
+    audit,
+)
 from bench import build_holdout_registry
 
 
@@ -17,6 +21,13 @@ def _write_empty_registry(root):
 
 def test_holdout_audit_default_roots_include_docs():
     assert DEFAULT_SCAN_ROOTS == ("eidetic", "bench", "tests", "docs")
+
+
+def test_holdout_audit_default_shingle_roots_include_tests():
+    """tests/ was scrubbed to zero conversation-shingle hits (2026-07-04); the
+    shingle scan must keep enforcing it so contamination cannot silently return."""
+    assert DEFAULT_SHINGLE_ROOTS == ("eidetic", "bench", "tests")
+    assert "tests" in DEFAULT_SHINGLE_ROOTS
 
 
 def test_holdout_audit_checks_short_sample_ids(tmp_path):

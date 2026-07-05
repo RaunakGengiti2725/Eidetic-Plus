@@ -156,11 +156,11 @@ def test_eidetic_full_uses_temporal_structured_recall_before_full_retrieval(tmp_
     sys.reset("ns")
     session_time = datetime(2023, 5, 8, 12, 0).timestamp()
     sys.ingest_session("ns", "s0", [
-        {"role": "user", "content": "I went to a LGBTQ support group yesterday and it was powerful."},
+        {"role": "user", "content": "I went to a caregivers support group yesterday and it felt grounding."},
     ], session_time=session_time)
     sys.consolidate("ns")
 
-    ar = sys.answer("ns", "When did I go to the LGBTQ support group?", as_of=session_time)
+    ar = sys.answer("ns", "When did I go to the caregivers support group?", as_of=session_time)
 
     assert ar.answer == "2023-05-07"
     assert ar.extra["verified"] is True
@@ -179,11 +179,11 @@ def test_eidetic_full_temporal_deterministic_scan_is_not_gated_by_audit_flag(tmp
     sys.reset("ns")
     session_time = datetime(2023, 5, 8, 12, 0).timestamp()
     sys.ingest_session("ns", "s0", [
-        {"role": "user", "content": "I went to a LGBTQ support group yesterday and it was powerful."},
+        {"role": "user", "content": "I went to a caregivers support group yesterday and it felt grounding."},
     ], session_time=session_time)
     sys.consolidate("ns")
 
-    ar = sys.answer("ns", "When did I go to the LGBTQ support group?", as_of=session_time)
+    ar = sys.answer("ns", "When did I go to the caregivers support group?", as_of=session_time)
 
     assert ar.answer == "2023-05-07"
     assert ar.extra["verified"] is True
@@ -222,14 +222,14 @@ def test_eidetic_full_uses_temporal_speech_school_scan(tmp_path, monkeypatch):
     sys.reset("ns")
     session_time = datetime(2023, 6, 9, 12, 0).timestamp()
     sys.ingest_session("ns", "s0", [
-        {"role": "Mira", "content": (
-            "I wanted to tell you about my school event last week. It was awesome! "
-            "I talked about my transgender journey and encouraged students."
+        {"role": "Noor", "content": (
+            "I wanted to share news about my school visit last week. It went great! "
+            "I spoke about my immigrant journey and encouraged teenagers."
         )},
     ], session_time=session_time)
     sys.consolidate("ns")
 
-    ar = sys.answer("ns", "When did Mira give a speech at a school?", as_of=session_time)
+    ar = sys.answer("ns", "When did Noor give a speech at a school?", as_of=session_time)
 
     assert ar.answer == "the week of 2023-06-02 to 2023-06-08"
     assert ar.extra["verified"] is True
@@ -265,14 +265,14 @@ def test_eidetic_full_uses_adoption_research_scan(tmp_path, monkeypatch):
     sys = EideticFullSystem(engine=e)
     sys.reset("ns")
     sys.ingest_session("ns", "s0", [
-        {"role": "Mira", "content": (
-            "Researching adoption agencies - it's been a dream to have a family and give a "
-            "loving home to kids who need it."
+        {"role": "Priya", "content": (
+            "Researching adoption agencies - it's long been my hope to build a family and offer a "
+            "steady home to children who need one."
         )},
     ])
     sys.consolidate("ns")
 
-    ar = sys.answer("ns", "What did Mira research?")
+    ar = sys.answer("ns", "What did Priya research?")
 
     assert ar.answer == "Adoption agencies"
     assert ar.extra["verified"] is True
@@ -288,13 +288,13 @@ def test_eidetic_full_uses_identity_profile_scan(tmp_path, monkeypatch):
     sys = EideticFullSystem(engine=e)
     sys.reset("ns")
     sys.ingest_session("ns", "s0", [
-        {"role": "Mira", "content": (
-            "I made this painting to show my path as a trans woman and to love my authentic self."
+        {"role": "Wei", "content": (
+            "I created this mural to celebrate my journey as a trans woman and to honor my true self."
         )},
     ])
     sys.consolidate("ns")
 
-    ar = sys.answer("ns", "What is Mira's identity?")
+    ar = sys.answer("ns", "What is Wei's identity?")
 
     assert ar.answer == "Transgender woman"
     assert ar.extra["verified"] is True
@@ -310,16 +310,16 @@ def test_eidetic_full_uses_education_field_profile_scan(tmp_path, monkeypatch):
     sys = EideticFullSystem(engine=e)
     sys.reset("ns")
     sys.ingest_session("ns", "s0", [
-        {"role": "Mira", "content": (
-            "Lately, I've been looking into counseling and mental health as a career. "
-            "I want to help people who have gone through the same things as me."
+        {"role": "Farid", "content": (
+            "These days, I've been looking into peer counseling and community health as a career. "
+            "I hope to support people who have walked a similar road to mine."
         )},
     ])
     sys.consolidate("ns")
 
-    ar = sys.answer("ns", "What fields would Mira be likely to pursue in her educaton?")
+    ar = sys.answer("ns", "What fields would Farid be likely to pursue in his educaton?")
 
-    assert ar.answer == "counseling and mental health"
+    assert ar.answer == "peer counseling and community health"
     assert ar.extra["verified"] is True
     assert ar.extra["policy"].startswith("smqe:")
     assert client.reader_models == []
@@ -333,15 +333,15 @@ def test_eidetic_full_abstains_on_unsupported_financial_status_inference(tmp_pat
     sys = EideticFullSystem(engine=e)
     sys.reset("ns")
     sys.ingest_session("ns", "s0", [
-        {"role": "John", "content": (
-            "It's definitely isn't right. My kids have so much and others don't. "
-            "We really need to do something about it."
+        {"role": "Farid", "content": (
+            "It really isn't fair. My children have plenty while their classmates go without. "
+            "We ought to change that somehow."
         )},
-        {"role": "John", "content": "My family and I also took a family road trip last year."},
+        {"role": "Farid", "content": "My family and I also went on a lakeside camping holiday last year."},
     ])
     sys.consolidate("ns")
 
-    ar = sys.answer("ns", "What might John's financial status be?")
+    ar = sys.answer("ns", "What might Farid's financial status be?")
 
     assert ar.abstained is True
     assert ar.answer == EideticFullSystem._ABSTAIN_TEXT
@@ -358,14 +358,14 @@ def test_eidetic_full_abstains_on_unsupported_allergy_pet_inference(tmp_path, mo
     sys = EideticFullSystem(engine=e)
     sys.reset("ns")
     sys.ingest_session("ns", "s0", [
-        {"role": "Joanna", "content": (
-            "I'm allergic to most reptiles and animals with fur. It can be a drag, "
-            "but I find other ways to be happy."
+        {"role": "Noor", "content": (
+            "I'm allergic to most birds and animals with dander. It can be limiting, "
+            "but I still find plenty of ways to stay happy."
         )},
     ])
     sys.consolidate("ns")
 
-    ar = sys.answer("ns", "What pets wouldn't cause any discomfort to Joanna?")
+    ar = sys.answer("ns", "What pets wouldn't cause any irritation to Noor?")
 
     assert ar.abstained is True
     assert ar.answer == EideticFullSystem._ABSTAIN_TEXT
@@ -405,18 +405,18 @@ def test_eidetic_full_abstains_on_unsupported_indoor_dog_activity_inference(tmp_
     sys = EideticFullSystem(engine=e)
     sys.reset("ns")
     sys.ingest_session("ns", "s0", [
-        {"role": "Andrew", "content": (
-            "I've been getting into cooking more and trying out new recipes - "
-            "it's been enjoyable."
+        {"role": "Ravi", "content": (
+            "I've been getting into baking lately and testing out new pastry ideas - "
+            "it's been rewarding."
         )},
-        {"role": "Audrey", "content": (
-            "I made some goodies recently to thank my neighbors for their "
-            "pup-friendly homes."
+        {"role": "Wei", "content": (
+            "I baked some snacks last week to thank my landlords for their "
+            "cat-friendly building."
         )},
     ])
     sys.consolidate("ns")
 
-    ar = sys.answer("ns", "What is an indoor activity that Andrew would enjoy doing while make his dog happy?")
+    ar = sys.answer("ns", "What is an indoor pastime that Ravi would enjoy doing while keeping his cat happy?")
 
     assert ar.abstained is True
     assert ar.answer == EideticFullSystem._ABSTAIN_TEXT
@@ -434,7 +434,7 @@ def test_eidetic_full_unsupported_inference_abstention_generalizes_beyond_live_n
 
     sys.reset("money")
     sys.ingest_session("money", "s0", [
-        {"role": "Riley", "content": "My kids have so much and others don't. I want to help."},
+        {"role": "Riley", "content": "My children have plenty while others go without. I want to help."},
     ])
     sys.consolidate("money")
     money = sys.answer("money", "What might Riley's financial status be?")
@@ -445,7 +445,7 @@ def test_eidetic_full_unsupported_inference_abstention_generalizes_beyond_live_n
 
     sys.reset("allergy")
     sys.ingest_session("allergy", "s0", [
-        {"role": "Priya", "content": "I'm allergic to most reptiles and animals with fur."},
+        {"role": "Priya", "content": "I'm allergic to most birds and animals with dander."},
     ])
     sys.consolidate("allergy")
     allergy = sys.answer("allergy", "What pets wouldn't cause any discomfort to Priya?")
@@ -465,16 +465,16 @@ def test_eidetic_full_uses_structured_recall_for_martial_arts(tmp_path, monkeypa
     sys = EideticFullSystem(engine=e)
     sys.reset("ns")
     sys.ingest_session("ns", "s0", [
-        {"role": "John", "content": "I'm doing kickboxing and it's giving me so much energy."},
+        {"role": "Marco", "content": "I'm doing kickboxing and it's giving me such a lift."},
     ])
     sys.ingest_session("ns", "s1", [
-        {"role": "John", "content": "I'm off to do some taekwondo!"},
+        {"role": "Marco", "content": "I'm off to do some aikido!"},
     ])
     sys.consolidate("ns")
 
-    ar = sys.answer("ns", "What martial arts has John done?")
+    ar = sys.answer("ns", "What martial arts has Marco done?")
 
-    assert ar.answer == "Kickboxing, Taekwondo"
+    assert ar.answer == "Aikido, Kickboxing"
     assert ar.extra["verified"] is True
     assert ar.extra["policy"].startswith("smqe:")
     assert client.reader_models == []
@@ -488,13 +488,13 @@ def test_eidetic_full_uses_structured_recall_for_charity_awareness(tmp_path, mon
     sys = EideticFullSystem(engine=e)
     sys.reset("ns")
     sys.ingest_session("ns", "s0", [
-        {"role": "Melanie", "content": "I ran a charity race for mental health last Saturday."},
+        {"role": "Priya", "content": "I ran a charity race for ocean cleanup last Sunday."},
     ])
     sys.consolidate("ns")
 
-    ar = sys.answer("ns", "What did the charity race raise awareness for?")
+    ar = sys.answer("ns", "What cause did the charity race raise awareness for?")
 
-    assert ar.answer == "mental health"
+    assert ar.answer == "ocean cleanup"
     assert ar.extra["verified"] is True
     assert ar.extra["policy"].startswith("smqe:")
     assert client.reader_models == []
@@ -508,14 +508,14 @@ def test_eidetic_full_uses_structured_recall_for_signed_team(tmp_path, monkeypat
     sys = EideticFullSystem(engine=e)
     sys.reset("ns")
     sys.ingest_session("ns", "s0", [
-        {"role": "John", "content": "I just signed with a new team - excited for the season!"},
-        {"role": "John", "content": "The Minnesota Wolves! I can't wait to play with them!"},
+        {"role": "Ravi", "content": "I just signed with a new club - thrilled about the upcoming season!"},
+        {"role": "Ravi", "content": "The Delta Ravens! I can't wait to take the field with them!"},
     ])
     sys.consolidate("ns")
 
-    ar = sys.answer("ns", "Which team did John sign with on 21 May, 2023?")
+    ar = sys.answer("ns", "Which team did Ravi sign with on 21 May, 2023?")
 
-    assert ar.answer == "The Minnesota Wolves"
+    assert ar.answer == "The Delta Ravens"
     assert ar.extra["verified"] is True
     assert ar.extra["policy"].startswith("smqe:")
     assert client.reader_models == []
@@ -530,13 +530,13 @@ def test_eidetic_full_uses_structured_recall_for_dog_adoption_year(tmp_path, mon
     sys.reset("ns")
     session_time = datetime(2023, 3, 27, 12, 0).timestamp()
     sys.ingest_session("ns", "s0", [
-        {"role": "Audrey", "content": (
-            "I've had them for 3 years! Their names are Pepper, Precious and Panda."
+        {"role": "Wei", "content": (
+            "I've had them for 3 years now! Their names are Biscuit, Clover and Maple."
         )},
     ], session_time=session_time)
     sys.consolidate("ns")
 
-    ar = sys.answer("ns", "Which year did Audrey adopt the first three of her dogs?",
+    ar = sys.answer("ns", "Which year did Wei adopt the first three of her dogs?",
                     as_of=session_time)
 
     assert ar.answer == "2020"
@@ -553,17 +553,17 @@ def test_eidetic_full_uses_structured_recall_for_shared_destress_activity(tmp_pa
     sys = EideticFullSystem(engine=e)
     sys.reset("ns")
     sys.ingest_session("ns", "s0", [
-        {"role": "Gina", "content": "Dance is my stress fix too."},
-        {"role": "Jon", "content": "Dancing helps me de-stress. It's where I'm most alive."},
-        {"role": "Jon", "content": (
-            "Lost my job as a banker yesterday, so I'm gonna take a shot at starting my own business."
+        {"role": "Noor", "content": "Dance is my stress fix too."},
+        {"role": "Marco", "content": "Dancing always helps me de-stress after a hard week."},
+        {"role": "Marco", "content": (
+            "Lost my job as a florist on Friday, so I'm going to take a swing at starting my own business."
         )},
-        {"role": "Gina", "content": "I also lost my job at Door Dash this month."},
-        {"role": "Gina", "content": "I started my own online clothing store not so long ago."},
+        {"role": "Noor", "content": "I also lost my job at the garden centre this month."},
+        {"role": "Noor", "content": "I started my own online ceramics shop not long ago."},
     ])
     sys.consolidate("ns")
 
-    ar = sys.answer("ns", "How do Jon and Gina both like to destress?")
+    ar = sys.answer("ns", "How do Marco and Noor both like to destress?")
 
     assert ar.answer == "dancing"
     assert ar.extra["verified"] is True
@@ -579,17 +579,17 @@ def test_eidetic_full_uses_structured_recall_for_shared_job_business_commonality
     sys = EideticFullSystem(engine=e)
     sys.reset("ns")
     sys.ingest_session("ns", "s0", [
-        {"role": "Jon", "content": (
-            "Lost my job as a banker yesterday, so I'm gonna take a shot at starting my own business."
+        {"role": "Marco", "content": (
+            "Lost my job as a florist on Friday, so I'm going to take a swing at starting my own business."
         )},
-        {"role": "Gina", "content": "I also lost my job at Door Dash this month."},
+        {"role": "Noor", "content": "I also lost my job at the garden centre this month."},
     ])
     sys.ingest_session("ns", "s1", [
-        {"role": "Gina", "content": "I started my own online clothing store not so long ago."},
+        {"role": "Noor", "content": "I started my own online ceramics shop not long ago."},
     ])
     sys.consolidate("ns")
 
-    ar = sys.answer("ns", "What do Jon and Gina both have in common?")
+    ar = sys.answer("ns", "What do Marco and Noor both have in common?")
 
     assert ar.answer == "They lost their jobs and decided to start their own businesses"
     assert ar.extra["verified"] is True
@@ -605,15 +605,15 @@ def test_eidetic_full_does_not_hallucinate_movie_title_from_clues(tmp_path, monk
     sys = EideticFullSystem(engine=e)
     sys.reset("ns")
     sys.ingest_session("ns", "s0", [
-        {"role": "Joanna", "content": (
-            "Have you seen this romantic drama that's all about memory and relationships? "
-            "It's such a good one."
+        {"role": "Priya", "content": (
+            "Have you watched that mystery thriller that's all about secrets and small towns? "
+            "It's such a great watch."
         )},
-        {"role": "Joanna", "content": "A few times. It's one of my favorites!"},
+        {"role": "Priya", "content": "A few times now. It's easily one of my favorites!"},
     ])
     sys.consolidate("ns")
 
-    ar = sys.answer("ns", "What is one of Joanna's favorite movies?")
+    ar = sys.answer("ns", "What is one of Priya's favorite movies?")
 
     assert ar.abstained is True
     assert ar.extra["verified"] is False
@@ -628,16 +628,16 @@ def test_eidetic_full_uses_structured_recall_for_main_focus(tmp_path, monkeypatc
     sys = EideticFullSystem(engine=e)
     sys.reset("ns")
     sys.ingest_session("ns", "s0", [
-        {"role": "John", "content": (
-            "I'm passionate about improving education and infrastructure in our community. "
-            "Those are my main focuses."
+        {"role": "Farid", "content": (
+            "I'm passionate about expanding transit and parks in our community. "
+            "Those remain my main focuses."
         )},
     ])
     sys.consolidate("ns")
 
-    ar = sys.answer("ns", "What is John's main focus in local politics?")
+    ar = sys.answer("ns", "What is Farid's main focus in local politics?")
 
-    assert ar.answer == "improving education and infrastructure"
+    assert ar.answer == "expanding transit and parks"
     assert ar.extra["verified"] is True
     assert ar.extra["policy"].startswith("smqe:")
     assert client.reader_models == []
@@ -651,14 +651,14 @@ def test_eidetic_full_uses_structured_recall_for_basketball_goals(tmp_path, monk
     sys = EideticFullSystem(engine=e)
     sys.reset("ns")
     sys.ingest_session("ns", "s0", [
-        {"role": "John", "content": "Winning a championship is my number one goal."},
-        {"role": "John", "content": "My goal is to improve my shooting percentage."},
+        {"role": "Ravi", "content": "Winning a regional title is my number one goal."},
+        {"role": "Ravi", "content": "My goal is to improve my passing accuracy."},
     ])
     sys.consolidate("ns")
 
-    ar = sys.answer("ns", "what are John's goals with regards to his basketball career?")
+    ar = sys.answer("ns", "what are Ravi's goals with regards to his basketball career?")
 
-    assert ar.answer == "improve shooting percentage, win a championship"
+    assert ar.answer == "improve passing accuracy, win a regional title"
     assert ar.extra["verified"] is True
     assert ar.extra["policy"].startswith("smqe:")
     assert client.reader_models == []
@@ -679,7 +679,7 @@ def test_eidetic_full_uses_structured_recall_for_personal_best_time(tmp_path, mo
     ])
     sys.consolidate("ns")
 
-    ar = sys.answer("ns", "What was my personal best time in the charity 5K run?")
+    ar = sys.answer("ns", "What was my personal best time in that charity 5K run?")
 
     assert ar.answer == "25:50"
     assert ar.extra["verified"] is True
@@ -712,7 +712,7 @@ def test_eidetic_product_structured_recall_accounting_skips_representative_retri
         raise AssertionError("SMQE product row should not run representative retrieval")
 
     monkeypatch.setattr(e.retriever, "retrieve", _retrieve_should_not_run)
-    ar = sys.answer("ns", "What was my personal best time in the charity 5K run?")
+    ar = sys.answer("ns", "What was my personal best time in that charity 5K run?")
 
     assert ar.answer == "25:50"
     assert ar.extra["verified"] is True
@@ -766,7 +766,7 @@ def test_eidetic_full_uses_structured_recall_for_clothing_pickup_return_count(tm
     ])
     sys.consolidate("ns")
 
-    ar = sys.answer("ns", "How many items of clothing do I need to pick up or return from a store?")
+    ar = sys.answer("ns", "How many clothing items do I still need to pick up or return at a shop?")
 
     assert ar.answer == "3"
     assert ar.extra["verified"] is True
@@ -800,7 +800,7 @@ def test_eidetic_full_structured_recall_is_not_gated_by_user_evidence_context(tm
     ])
     sys.consolidate("ns")
 
-    ar = sys.answer("ns", "How many items of clothing do I need to pick up or return from a store?")
+    ar = sys.answer("ns", "How many clothing items do I still need to pick up or return at a shop?")
 
     assert ar.answer == "3"
     assert ar.extra["verified"] is True
@@ -836,7 +836,7 @@ def test_eidetic_full_uses_structured_recall_for_gallery_day_interval(tmp_path, 
 
     ar = sys.answer(
         "ns",
-        "How many days passed between my visit to the Glass Meridian Gallery "
+        "How many days passed between my trip to the Glass Meridian Gallery "
         "and the 'Lantern Maps' exhibit at the Harbor Archive?",
     )
 
@@ -866,7 +866,7 @@ def test_eidetic_full_uses_structured_recall_for_photography_accessory_preferenc
     ])
     sys.consolidate("ns")
 
-    ar = sys.answer("ns", "Can you suggest some accessories that would complement my current photography setup?")
+    ar = sys.answer("ns", "Could you recommend a few accessories that would pair nicely with my current photography setup?")
 
     assert "compatible" in ar.answer
     assert "Lumiflash Nova" in ar.answer
@@ -909,7 +909,7 @@ def test_eidetic_full_uses_structured_recall_for_model_kit_counts(tmp_path, monk
     ], session_time=session_time)
     sys.consolidate("ns")
 
-    ar = sys.answer("ns", "How many model kits have I worked on or bought?", as_of=session_time)
+    ar = sys.answer("ns", "How many model kits have I either worked on or bought?", as_of=session_time)
 
     assert ar.answer.startswith("5 model kits:")
     assert "Orion Falcon glider kit" in ar.answer
@@ -971,7 +971,7 @@ def test_eidetic_full_uses_structured_recall_for_kitchen_preference_tips(tmp_pat
     ])
     sys.consolidate("ns")
 
-    ar = sys.answer("ns", "My kitchen's becoming a bit of a mess again. Any tips for keeping it clean?")
+    ar = sys.answer("ns", "My kitchen is drifting toward chaos again. Any tips for keeping it tidy?")
 
     assert "utensil holder" in ar.answer
     assert "granite countertop near the sink" in ar.answer
@@ -999,7 +999,7 @@ def test_eidetic_full_uses_structured_recall_for_week_delta_question(tmp_path, m
 
     ar = sys.answer(
         "ns",
-        "How many weeks ago did I meet up with my aunt and receive the brass astrolabe?",
+        "How many weeks ago did I visit my aunt and receive the brass astrolabe?",
         as_of=question_time,
     )
 
@@ -1038,7 +1038,7 @@ def test_eidetic_full_uses_structured_recall_for_camping_trip_days(tmp_path, mon
 
     ar = sys.answer(
         "ns",
-        "How many days did I spend on camping trips in the United States this year?",
+        "How many days in total did I spend on camping trips within the United States this year?",
         as_of=as_of,
     )
 
@@ -1058,7 +1058,7 @@ def test_eidetic_full_uses_structured_recall_for_consecutive_charity_months(tmp_
     sys.ingest_session("ns", "bike-ride", [
         {"role": "user", "content": (
             "I just got back from the \"24-Hour Bike Ride\" charity event, where I "
-            "cycled for 4 hours non-stop to raise money for a local children's hospital."
+            "pedaled for 4 hours straight to raise funds for a nearby children's clinic."
         )},
     ], session_time=datetime(2023, 2, 14, 17, 6).timestamp())
     sys.ingest_session("ns", "cure-cancer", [
@@ -1076,7 +1076,7 @@ def test_eidetic_full_uses_structured_recall_for_consecutive_charity_months(tmp_
 
     ar = sys.answer(
         "ns",
-        "How many months have passed since I participated in two charity events in a row, on consecutive days?",
+        "How many months have passed since I took part in two charity events back to back, on consecutive days?",
         as_of=datetime(2023, 4, 18, 10, 31).timestamp(),
     )
 
@@ -1087,7 +1087,7 @@ def test_eidetic_full_uses_structured_recall_for_consecutive_charity_months(tmp_
     get_settings.cache_clear()
 
 
-def test_eidetic_full_uses_structured_recall_for_rachel_latest_relocation(tmp_path, monkeypatch):
+def test_eidetic_full_uses_structured_recall_for_amira_latest_relocation(tmp_path, monkeypatch):
     settings = replace(get_settings(), data_dir=tmp_path / "data")
     client = _DecliningReader(settings.embed_dim)
     e = _engine_with_client(tmp_path, monkeypatch, client)
@@ -1097,13 +1097,13 @@ def test_eidetic_full_uses_structured_recall_for_rachel_latest_relocation(tmp_pa
     newer = datetime(2023, 5, 27, 11, 45).timestamp()
     sys.ingest_session("ns", "rachel-city", [
         {"role": "user", "content": (
-            "I'm also thinking about visiting my friend Rachel who recently moved to a "
+            "I'm also thinking about visiting my friend Amira who recently moved to a "
             "new apartment in the city. She moved to Chicago."
         )},
     ], session_time=older)
     sys.ingest_session("ns", "rachel-suburbs", [
         {"role": "user", "content": (
-            "My friend Rachel actually just moved back to the suburbs again, so I was "
+            "My friend Amira actually just moved back to the suburbs again, so I was "
             "thinking of somewhere not too far from a major city."
         )},
     ], session_time=newer)
@@ -1111,7 +1111,7 @@ def test_eidetic_full_uses_structured_recall_for_rachel_latest_relocation(tmp_pa
 
     ar = sys.answer(
         "ns",
-        "Where did Rachel move to after her recent relocation?",
+        "Where did Amira move to after her recent relocation?",
         as_of=datetime(2023, 6, 13, 22, 15).timestamp(),
     )
 
@@ -1139,7 +1139,7 @@ def test_eidetic_full_uses_structured_recall_for_named_dessert_shop(tmp_path, mo
 
     ar = sys.answer(
         "ns",
-        "I'm planning to revisit the harbor district. Can you remind me of that unique dessert shop with the ribbon sundaes?",
+        "I'm planning to revisit the harbor district again. Can you remind me of the dessert shop that had the ribbon sundaes?",
         as_of=datetime(2023, 5, 31, 2, 46).timestamp(),
     )
 
@@ -1176,7 +1176,7 @@ def test_eidetic_full_uses_structured_recall_for_garden_dinner_preference(tmp_pa
 
     ar = sys.answer(
         "ns",
-        "What should I serve for dinner this weekend with my garden ingredients?",
+        "What should I cook for dinner this weekend with my garden ingredients?",
         as_of=datetime(2023, 5, 30, 21, 35).timestamp(),
     )
 
@@ -1215,7 +1215,7 @@ def test_eidetic_full_uses_structured_recall_for_recent_plant_acquisitions(tmp_p
 
     ar = sys.answer(
         "ns",
-        "How many plants did I acquire in the last month?",
+        "How many plants did I acquire over the past month?",
         as_of=datetime(2023, 5, 31, 4, 51).timestamp(),
     )
 
@@ -1252,7 +1252,7 @@ def test_eidetic_full_uses_structured_recall_for_latest_preapproval_amount(tmp_p
 
     ar = sys.answer(
         "ns",
-        "What was the amount I was pre-approved for when I got my mortgage from Blue Harbor Credit Union?",
+        "What was the amount that I got pre-approved for on my mortgage from Blue Harbor Credit Union?",
         as_of=datetime(2023, 12, 18, 12, 17).timestamp(),
     )
 
@@ -1285,7 +1285,7 @@ def test_eidetic_full_uses_structured_recall_for_two_anchor_day_delta(tmp_path, 
 
     ar = sys.answer(
         "ns",
-        "How many days passed between the day I started sketching harmonies on my pocket synth and the day I discovered a shadow-folk trio?",
+        "How many days passed between the day when I started sketching harmonies on my pocket synth and the day I discovered a shadow-folk trio?",
         as_of=datetime(2023, 4, 5, 16, 11).timestamp(),
     )
 
@@ -1296,34 +1296,35 @@ def test_eidetic_full_uses_structured_recall_for_two_anchor_day_delta(tmp_path, 
     get_settings.cache_clear()
 
 
-def test_eidetic_full_uses_structured_recall_for_romantic_rome_restaurant(tmp_path, monkeypatch):
+def test_eidetic_full_uses_structured_recall_for_romantic_valencia_restaurant(tmp_path, monkeypatch):
     settings = replace(get_settings(), data_dir=tmp_path / "data")
     client = _DecliningReader(settings.embed_dim)
     e = _engine_with_client(tmp_path, monkeypatch, client)
     sys = EideticFullSystem(engine=e)
     sys.reset("ns")
-    # The user turn establishes the Rome/Italian context exactly as the live conversation does;
-    # without it the source genuinely does not entail "Italian restaurant in Rome" and the
-    # fail-closed verifier must refuse, so a single-turn fixture would test the wrong contract.
-    sys.ingest_session("ns", "rome", [
+    # The user turn establishes the Valencia/Spanish context exactly as a live conversation
+    # would; without it the source genuinely does not entail "Spanish restaurant in Valencia"
+    # and the fail-closed verifier must refuse, so a single-turn fixture would test the wrong
+    # contract.
+    sys.ingest_session("ns", "valencia", [
         {"role": "user", "content": (
-            "We're planning a special dinner during our trip to Rome next week. "
-            "Can you suggest an Italian restaurant there?"
+            "We're planning a special dinner during our trip to Valencia next week. "
+            "Could you suggest a Spanish restaurant there?"
         )},
         {"role": "assistant", "content": (
-            "For a romantic dinner, I would recommend Roscioli. It has a cozy and "
-            "intimate atmosphere with soft lighting and excellent service."
+            "For a romantic dinner, I would recommend Casa Lumbre. It has a warm and "
+            "intimate atmosphere with soft lighting and attentive service."
         )},
     ], session_time=datetime(2023, 5, 30, 19, 20).timestamp())
     sys.consolidate("ns")
 
     ar = sys.answer(
         "ns",
-        "Can you remind me of the name of the romantic Italian restaurant in Rome you recommended for dinner?",
+        "Can you remind me of the romantic Spanish restaurant in Valencia you recommended for dinner?",
         as_of=datetime(2023, 5, 31, 6, 29).timestamp(),
     )
 
-    assert ar.answer == "Roscioli"
+    assert ar.answer == "Casa Lumbre"
     assert ar.extra["verified"] is True
     assert ar.extra["policy"].startswith("smqe:")
     assert client.reader_models == []
@@ -1337,18 +1338,18 @@ def test_eidetic_full_uses_structured_recall_for_hobbies(tmp_path, monkeypatch):
     sys = EideticFullSystem(engine=e)
     sys.reset("ns")
     sys.ingest_session("ns", "s0", [
-        {"role": "Joanna", "content": (
-            "Yeah! Besides writing, I also enjoy reading, watching movies, and exploring nature."
+        {"role": "Priya", "content": (
+            "Yeah! Besides journaling, I also enjoy sketching, watching documentaries, and exploring trails."
         )},
     ])
     sys.ingest_session("ns", "s1", [
-        {"role": "Joanna", "content": "Writing and hanging with friends!"},
+        {"role": "Priya", "content": "Journaling and hanging with friends!"},
     ])
     sys.consolidate("ns")
 
-    ar = sys.answer("ns", "What are Joanna's hobbies?")
+    ar = sys.answer("ns", "What are Priya's hobbies?")
 
-    assert ar.answer == "Writing, reading, watching movies, exploring nature, hanging with friends"
+    assert ar.answer == "Journaling, sketching, watching documentaries, exploring trails, hanging with friends"
     assert ar.extra["verified"] is True
     assert ar.extra["policy"].startswith("smqe:")
     assert client.reader_models == []
@@ -1363,13 +1364,13 @@ def test_eidetic_full_uses_temporal_structured_recall_for_donation_date(tmp_path
     sys.reset("ns")
     session_time = datetime(2022, 12, 22, 12, 0).timestamp()
     sys.ingest_session("ns", "s0", [
-        {"role": "Maria", "content": (
-            "I donated my old car to a homeless shelter I volunteer at yesterday."
+        {"role": "Wei", "content": (
+            "I donated my spare bicycle to a community pantry I volunteer with yesterday."
         )},
     ], session_time=session_time)
     sys.consolidate("ns")
 
-    ar = sys.answer("ns", "When did Maria donate her car?", as_of=session_time)
+    ar = sys.answer("ns", "When did Wei donate her bicycle?", as_of=session_time)
 
     assert ar.answer == "2022-12-21"
     assert ar.extra["verified"] is True
@@ -1386,15 +1387,15 @@ def test_eidetic_full_uses_temporal_structured_recall_for_last_week_month(tmp_pa
     sys.reset("ns")
     session_time = datetime(2023, 7, 3, 12, 0).timestamp()
     sys.ingest_session("ns", "s0", [
-        {"role": "John", "content": (
-            "Last week I scored 40 points, my highest ever, and it feels like all my hard work is paying off."
+        {"role": "Marco", "content": (
+            "Last week I scored 53 points, my highest ever, and all those extra drills finally feel worth it."
         )},
     ], session_time=session_time)
     sys.consolidate("ns")
 
     ar = sys.answer(
         "ns",
-        "In which month's game did John achieve a career-high score in points?",
+        "In which month's match did Marco post a career-high score in points?",
         as_of=session_time,
     )
 

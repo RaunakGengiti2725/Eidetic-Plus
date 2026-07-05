@@ -40,27 +40,27 @@ def _ask(store, scope, q):
 
 def test_write_time_tags_carry_lemma_head_date_precision():
     scope = Scope(namespace="tags")
-    rec = _rec("Vale: My record finally dropped on the 11th, wild feeling.",
+    rec = _rec("Priya: My mixtape finally dropped on the 9th, what a rush.",
                datetime(2023, 9, 13, 12, 0), scope, 0)
     tagged = [c for c in claims_for_record(rec) if c.filters.get("lemma")]
     assert tagged
     f = tagged[0].filters
-    assert f["lemma"] == "release" and f["obj_head"] == "record"
-    assert f["event_date"] == "2023-09-11"
+    assert f["lemma"] == "release" and f["obj_head"] == "mixtape"
+    assert f["event_date"] == "2023-09-09"
     assert f["date_precision"] == ei.PRECISION_RELATIVE_DAY
 
 
 def test_release_instance_beats_the_later_party(tmp_path):
     store, scope = _store_with(tmp_path, [
-        ("Vale: My record finally dropped on the 11th and it was a wild feeling.",
+        ("Priya: My mixtape finally dropped on the 9th and it was a total rush.",
          datetime(2023, 9, 13, 12, 0)),
-        ("Vale: Last week I threw a small party at my place for my new record.",
+        ("Priya: Last week I threw a tiny bash at my flat for my new mixtape.",
          datetime(2023, 11, 3, 12, 0)),
     ])
-    res = _ask(store, scope, "When was Vale's record released?")
-    assert res is not None and res.answer == "2023-09-11"
+    res = _ask(store, scope, "When was Priya's mixtape released?")
+    assert res is not None and res.answer == "2023-09-09"
     assert ":event_instance" in res.note
-    assert "dropped on the 11th" in res.supports[0].proof_atom
+    assert "dropped on the 9th" in res.supports[0].proof_atom
 
 
 def test_statement_report_beats_later_retelling_window(tmp_path):
@@ -75,12 +75,12 @@ def test_statement_report_beats_later_retelling_window(tmp_path):
 
 def test_team_up_particle_verb_answers_month(tmp_path):
     store, scope = _store_with(tmp_path, [
-        ("Mira: I teamed up with a local artist for some cool designs!",
+        ("Noor: I teamed up with a nearby ceramicist for some fresh mug designs!",
          datetime(2023, 2, 1, 12, 0)),
-        ("Mira: The local artist and I are planning a summer collection together.",
+        ("Noor: The nearby ceramicist and I are planning a spring collection together.",
          datetime(2023, 5, 10, 12, 0)),
     ])
-    res = _ask(store, scope, "When did Mira team up with a local artist?")
+    res = _ask(store, scope, "When did Noor team up with a nearby ceramicist?")
     assert res is not None and res.answer == "February 2023"
 
 
@@ -107,28 +107,28 @@ def test_claim_tier_count_selects_by_head_verb_sense(tmp_path):
     cinema never counts as a book and each counted item carries its own proof atom.
     Thinner-than-two evidence stays with the legacy collectors."""
     store, scope = _store_with(tmp_path, [
-        ("Tim: I read Winter Crossing this month, it was fantastic.",
+        ("Ravi: I read Winter Crossing this month, it was fantastic.",
          datetime(2023, 3, 4, 12, 0)),
-        ("Tim: I've read The Long Field recently. Highly recommend.",
+        ("Ravi: I've read The Long Field recently. Highly recommend.",
          datetime(2023, 3, 10, 12, 0)),
-        ("Tim: I read Salt Roads last night, could not put it down.",
+        ("Ravi: I read Salt Roads last night, could not put it down.",
          datetime(2023, 3, 20, 12, 0)),
-        ("Tim: We saw Arrival at the cinema, great film.", datetime(2023, 3, 22, 12, 0)),
-        ("Tim: I was in Chicago for the finals.", datetime(2023, 4, 2, 12, 0)),
-        ("Tim: Oh, I've been to Paris yesterday.", datetime(2023, 4, 9, 12, 0)),
+        ("Ravi: We saw Arrival at the cinema, great film.", datetime(2023, 3, 22, 12, 0)),
+        ("Ravi: I was in Chicago for the finals.", datetime(2023, 4, 2, 12, 0)),
+        ("Ravi: Oh, I've been to Paris yesterday.", datetime(2023, 4, 9, 12, 0)),
     ])
-    res = _ask(store, scope, "How many books did Tim read?")
+    res = _ask(store, scope, "How many books did Ravi read?")
     assert res is not None and res.answer == "3"
     assert ":claim_count" in res.note
     assert len(res.supports) == 3
 
-    res2 = _ask(store, scope, "How many cities has Tim visited?")
+    res2 = _ask(store, scope, "How many cities has Ravi visited?")
     assert res2 is not None and res2.answer == "2"
 
     lone, lscope = _store_with(tmp_path / "lone", [
-        ("Tim: I read Winter Crossing this month.", datetime(2023, 3, 4, 12, 0)),
+        ("Ravi: I read Winter Crossing this month.", datetime(2023, 3, 4, 12, 0)),
     ])
-    res3 = _ask(lone, lscope, "How many books did Tim read?")
+    res3 = _ask(lone, lscope, "How many books did Ravi read?")
     assert res3 is None or ":claim_count" not in (res3.note or "")
 
 
@@ -173,14 +173,14 @@ def test_started_working_on_shape_tags_open_lemma():
 
 
 def test_action_object_boundaries_cut_temporal_tails():
-    """Wave-K diagnosis fix: 'I started surfing five years ago' produced a sentence-length
+    """Wave-K diagnosis fix: 'I started fencing six years ago' produced a sentence-length
     object, starving the enumerator of exactly the doing-evidence it needs. Numeric and
     temporal tails terminate the object capture."""
     scope = Scope(namespace="bounds")
-    rec = _rec("John: I started surfing five years ago and it's been great. "
-               "I tried rock climbing two months ago too.",
+    rec = _rec("Marco: I started fencing six years ago and it's been brilliant. "
+               "I tried ice skating three months ago too.",
                datetime(2023, 5, 1, 12, 0), scope, 0)
     objs = {(c.predicate, c.object) for c in claims_for_record(rec)
             if c.claim_type == "event"}
-    assert ("started", "surfing") in objs
-    assert ("tried", "rock climbing") in objs
+    assert ("started", "fencing") in objs
+    assert ("tried", "ice skating") in objs

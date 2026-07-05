@@ -1,7 +1,10 @@
 """Offline tests for the Tier A reader layer (no model calls).
 
-Covers the deterministic question classifier and the scaffold assembly against the ACTUAL n=40
-failing questions, plus the flag-off byte-identical invariant.
+Covers the deterministic question classifier and the scaffold assembly against SYNTHETIC
+same-shape stand-ins for the n=40 failing-question families, plus the flag-off byte-identical
+invariant. Fixtures deliberately use synthetic entities (never benchmark speakers or benchmark
+utterance text) so this file stays clean under bench.audit_no_holdout_leakage; each stand-in
+preserves the grammatical shape that routes the original family through the classifier.
 """
 from __future__ import annotations
 
@@ -9,29 +12,30 @@ import importlib
 
 from bench.reader import build_reader_prompt, classify_question, normalize_date_weekdays
 
-# The real failing questions from artifacts/bench_allon_n40 (FAILURES_allon_n40.md).
+# Synthetic same-shape stand-ins for the failing-question families in
+# artifacts/bench_allon_n40 (FAILURES_allon_n40.md). Shape, not text, is what each test locks.
 Q_TEMPORAL = [
-    "When did Melanie run a charity race?",                       # q5
-    "When did Melanie sign up for a pottery class?",             # q16
-    "When did Melanie go camping in June?",                      # q31
-    "How long has Caroline had her current group of friends for?",  # q10
+    "When did Priya host a rooftop dinner?",                      # shape of q5: when + past event
+    "When did Marco sign up for a calligraphy course?",          # shape of q16: when + sign-up
+    "When did Noor go kayaking in April?",                       # shape of q31: when + month anchor
+    "How long has Priya had her current set of neighbors for?",  # shape of q10: how long + current
 ]
 Q_INFERENCE = [
-    "Would Caroline likely have Dr. Seuss books on her bookshelf?",   # q22
-    "Would Melanie be considered a member of the LGBTQ community?",   # q30
-    "Would Caroline pursue writing as a career option?",             # q27
-    "What pets wouldn't cause any discomfort to Joanna?",
-    "Would Tim enjoy reading books by C. S. Lewis or John Greene?",
-    "Do you think Caroline should pursue writing as a career?",
-    "Is Melanie a good fit for the pottery workshop?",
+    "Would Priya likely have astronomy atlases on her bookshelf?",   # shape of q22: category
+    "Would Marco be considered a member of the vegan community?",    # shape of q30: membership
+    "Would Noor pursue sculpting as a career option?",              # shape of q27
+    "What snacks wouldn't cause any discomfort to Farid?",
+    "Would Ravi enjoy reading books by Elena Marsh or Kavi Rao?",
+    "Do you think Noor should pursue sculpting as a career?",
+    "Is Wei a good fit for the weaving workshop?",
 ]
 Q_LIST = [
-    "What books has Melanie read?",                  # q23
-    "What does Melanie do to destress?",            # q24
-    "What events has Caroline participated in to help children?",  # q34
-    "What is an indoor activity that Andrew would enjoy doing while making his dog happy?",
+    "What books has Priya read?",                    # shape of q23
+    "What does Marco do to destress?",              # shape of q24: "what does X do ..."
+    "What events has Noor participated in to help seniors?",  # shape of q34: scoped events
+    "What is an indoor activity that Ravi would enjoy doing while keeping his parrot happy?",
 ]
-Q_RECENCY = ["What did Melanie paint recently?"]    # q37
+Q_RECENCY = ["What did Wei sketch recently?"]       # shape of q37: single latest item
 Q_PREFERENCE = [
     "What does the user prefer for long flights?",
     "What is the user's favorite type of music?",
@@ -39,9 +43,9 @@ Q_PREFERENCE = [
     "What does the user dislike?",
 ]
 Q_AGGREGATION = [
-    "How many plants did I acquire in the last month?",
-    "How much total money have I spent on bike-related expenses since the start of the year?",
-    "How many items of clothing do I need to pick up or return from a store?",
+    "How many mugs did I acquire in the past month?",
+    "How much total cash have I spent on camera-related upgrades since the start of the season?",
+    "How many pieces of laundry do I have to drop off or collect from a shop?",
 ]
 
 
@@ -71,14 +75,14 @@ def test_classifier_flags_preference_questions():
 
 def test_classifier_does_not_overfire_inference_on_factual():
     # A plain factual question must NOT be tagged inference (would license hallucination).
-    for q in ["What books has Melanie read?", "When did Melanie run a charity race?",
-              "What is Caroline's identity?", "Can you tell me when Melanie ran the race?"]:
+    for q in ["What books has Priya read?", "When did Priya host a rooftop dinner?",
+              "What is Noor's identity?", "Can you tell me when Priya hosted the dinner?"]:
         assert classify_question(q)["inference"] is False, q
 
 
 def test_recency_question_is_not_a_list():
-    # "What did Melanie paint recently?" -> recency, NOT list (single latest item).
-    c = classify_question("What did Melanie paint recently?")
+    # "What did Wei sketch recently?" -> recency, NOT list (single latest item).
+    c = classify_question("What did Wei sketch recently?")
     assert c["recency"] is True and c["list"] is False
 
 
@@ -122,7 +126,7 @@ def test_inference_scaffold_appended_last_to_override():
 
 def test_inference_scaffold_handles_category_and_absence_inference():
     category = build_reader_prompt(
-        "Would Caroline likely have Dr. Seuss books on her bookshelf?",
+        "Would Priya likely have astronomy atlases on her bookshelf?",
         BASE,
         temporal=False,
         inference=True,
@@ -134,7 +138,7 @@ def test_inference_scaffold_handles_category_and_absence_inference():
     assert 'Begin your answer with "Likely yes" or "Likely no"' in category
 
     membership = build_reader_prompt(
-        "Would Melanie be considered a member of the LGBTQ community?",
+        "Would Marco be considered a member of the vegan community?",
         BASE,
         temporal=False,
         inference=True,

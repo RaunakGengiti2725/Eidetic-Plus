@@ -55,10 +55,10 @@ def test_copular_list_emits_one_claim_per_item_with_shared_list_id():
 
 def test_like_list_labels_items_with_head_noun():
     scope = Scope(namespace="like")
-    rec = _rec("Bram: They can do tricks like sit, stay, paw, and rollover.",
+    rec = _rec("Priya: They can do tricks like flip, spin, twirl, and bow.",
                datetime(2024, 4, 1, 12, 0), scope, 0)
     claims = _list_claims(rec)
-    assert {c.object for c in claims} == {"sit", "stay", "paw", "rollover"}
+    assert {c.object for c in claims} == {"flip", "spin", "twirl", "bow"}
     assert all(c.filters["list_label"] == "tricks" for c in claims)
 
 
@@ -121,13 +121,13 @@ def test_latest_list_wins_the_existence_count(tmp_path):
 
 def test_enumeration_composes_from_list_label_claims(tmp_path):
     store, scope = _store_with(tmp_path, [
-        ("Bram: They can do tricks like sit, stay, paw, and rollover.",
+        ("Priya: They can do tricks like flip, spin, twirl, and bow.",
          datetime(2024, 4, 1, 12, 0)),
-        ("Bram: The vet visit went fine.", datetime(2024, 4, 2, 12, 0)),
+        ("Priya: The recital went fine.", datetime(2024, 4, 2, 12, 0)),
     ])
-    res = _ask(store, scope, "What tricks do Bram's dogs know?")
+    res = _ask(store, scope, "What tricks do Priya's parrots know?")
     assert res is not None
-    for item in ("sit", "stay", "paw", "rollover"):
+    for item in ("flip", "spin", "twirl", "bow"):
         assert item in res.answer
 
 
@@ -147,7 +147,7 @@ def test_third_person_lists_are_not_speaker_claims():
 
 def test_predicate_adjective_soup_is_not_a_list():
     scope = Scope(namespace="soup")
-    rec = _rec("Sam: The activities are canceled, refunded and rescheduled. "
+    rec = _rec("Marco: The activities are canceled, refunded and rescheduled. "
                "Nina: My symptoms are gone, thankfully, and finally.",
                datetime(2024, 5, 8, 12, 0), scope, 0)
     assert _list_claims(rec) == []
@@ -155,7 +155,7 @@ def test_predicate_adjective_soup_is_not_a_list():
 
 def test_clause_boundary_stops_verb_list_capture():
     scope = Scope(namespace="clause")
-    rec = _rec("Melanie: I love hiking and swimming, and I tried judo, karate, and aikido.",
+    rec = _rec("Noor: I love hiking and swimming, and I tried judo, karate, and aikido.",
                datetime(2024, 5, 8, 12, 0), scope, 0)
     claims = _list_claims(rec)
     love = {c.object for c in claims if c.predicate == "love"}
@@ -167,7 +167,7 @@ def test_clause_boundary_stops_verb_list_capture():
 
 def test_social_media_likes_count_not_answered_with_foods(tmp_path):
     store, scope = _store_with(tmp_path, [
-        ("Sam: I like pizza, sushi and ramen.", datetime(2024, 5, 8, 12, 0)),
+        ("Marco: I like pizza, sushi and ramen.", datetime(2024, 5, 8, 12, 0)),
     ])
     res = _ask(store, scope, "How many likes did my post get?")
     assert res is None or "pizza" not in (res.answer or "")
@@ -178,7 +178,7 @@ def test_count_requires_person_match(tmp_path):
         ("Caleb: My allergies are peanuts, shellfish, and dust.",
          datetime(2024, 5, 8, 12, 0)),
     ])
-    res = _ask(store, scope, "How many allergies does Melanie have?")
+    res = _ask(store, scope, "How many allergies does Noor have?")
     assert res is None or ":claim_list_count" not in (res.note or "")
 
 
@@ -206,13 +206,13 @@ def test_short_item_list_enum_survives_verify_form_floor(tmp_path):
             return (NLILabel.ENTAILMENT, 1.0) if ok else (NLILabel.NEUTRAL, 0.0)
 
     store, scope = _store_with(tmp_path, [
-        ("Bram: They can do tricks like sit, stay, paw, and rollover.",
+        ("Priya: They can do tricks like flip, spin, twirl, and bow.",
          datetime(2024, 4, 1, 12, 0)),
     ])
-    ans = structured_answer(_R(store), "What tricks do Bram's dogs know?",
+    ans = structured_answer(_R(store), "What tricks do Priya's parrots know?",
                             at=1_800_000_000, verify=True, scope=scope)
     assert ans is not None and ans.verified
-    for item in ("sit", "stay", "paw", "rollover"):
+    for item in ("flip", "spin", "twirl", "bow"):
         assert item in ans.answer
 
 
@@ -243,25 +243,25 @@ def test_fragment_soup_without_claim_backing_still_refused(tmp_path):
 
 def test_who_gave_answers_from_support_relation_claim(tmp_path):
     store, scope = _store_with(tmp_path, [
-        ("Mara: When I was younger, we had some money problems and had to rely on "
-         "outside help from out auntie.", datetime(2024, 4, 1, 12, 0)),
-        ("Mara: The garden is doing great this spring.", datetime(2024, 4, 2, 12, 0)),
+        ("Priya: When I was in school, we hit some cash troubles and had to lean on "
+         "outside help from out cousin.", datetime(2024, 4, 1, 12, 0)),
+        ("Priya: The balcony plants are doing great this month.", datetime(2024, 4, 2, 12, 0)),
     ])
     res = _ask(store, scope,
-               "Who gave Mara's family money when she was going through tough times?")
-    assert res is not None and res.answer == "auntie"
+               "Who gave Priya's family cash when she was going through a rough patch?")
+    assert res is not None and res.answer == "cousin"
     assert res.backend == "claim"
 
 
 def test_visited_question_never_composes_from_favorite_list_claims():
     from eidetic.smqe.qa_ops import _claim_enumeration_answer
     scope = Scope(namespace="fav")
-    rec = _rec("Jon: My favorite cities are Rome and Lisbon.",
+    rec = _rec("Farid: My favorite cities are Rome and Lisbon.",
                datetime(2024, 5, 8, 12, 0), scope, 0)
     atoms = [(1.0, c, c.proof_atom) for c in claims_for_record(rec)
              if c.filters.get("list") == "item"]
     assert atoms
-    answer, _sel = _claim_enumeration_answer("Which cities has Jon visited?", atoms)
+    answer, _sel = _claim_enumeration_answer("Which cities has Farid visited?", atoms)
     assert answer == ""
-    answer2, _sel2 = _claim_enumeration_answer("What cities does Jon like?", atoms)
+    answer2, _sel2 = _claim_enumeration_answer("What cities does Farid like?", atoms)
     assert "Rome" in answer2 and "Lisbon" in answer2

@@ -522,7 +522,7 @@ def test_aggregation_scope_prefers_model_kits_over_product_model_noise():
         scope=scope,
         valid_at=2.0,
     )
-    query = "How many model kits have I worked on or bought?"
+    query = "How many model kits have I assembled or picked up?"
     matches = _aggregation_matches(query, parse_query(query, 3.0, []), [laptop, kit], at=3.0)
     ids = [rec.memory_id for _score, rec, _snippet in matches]
 
@@ -624,16 +624,16 @@ def test_product_structured_recall_answers_relative_yesterday_before_generator(f
     scope = Scope(namespace="deprecated-structured-scan")
     valid_at = datetime(2023, 1, 20, 12, 0).timestamp()
     rec = MemoryRecord(
-        memory_id="jon-job",
-        content_hash="h-jon-job",
-        text="Jon: Lost my job as a banker yesterday.",
+        memory_id="marco-job",
+        content_hash="h-marco-job",
+        text="Marco: Lost my job as a florist yesterday.",
         scope=scope,
         valid_at=valid_at,
     )
 
     ans = _structured_recall_answer(
         fresh_settings,
-        "When Jon has lost his job as a banker?",
+        "When Marco has lost his job as a florist?",
         rec,
         at=valid_at,
     )
@@ -739,16 +739,16 @@ def test_retriever_smqe_candidate_path_upserts_only_active_records(fresh_setting
 def test_product_structured_recall_abstains_on_unsupported_financial_inference(fresh_settings):
     scope = Scope(namespace="deprecated-structured-scan")
     rec = MemoryRecord(
-        memory_id="john-family-resources",
-        content_hash="h-john-family-resources",
-        text="John: My kids have so much already, so we donated extra toys this year.",
+        memory_id="farid-family-resources",
+        content_hash="h-farid-family-resources",
+        text="Farid: My kids have so much already, so we donated extra toys this year.",
         scope=scope,
         valid_at=1.0,
     )
 
     ans = _structured_recall_answer(
         fresh_settings,
-        "What might John's financial status be?",
+        "What might Farid's financial status be?",
         rec,
         at=2.0,
     )
@@ -759,11 +759,11 @@ def test_product_structured_recall_abstains_on_unsupported_financial_inference(f
 def test_product_structured_recall_preempts_current_value_resolver_for_compound_focus(fresh_settings):
     scope = Scope(namespace="deprecated-structured-scan")
     rec = MemoryRecord(
-        memory_id="john-local-politics",
-        content_hash="h-john-local-politics",
+        memory_id="priya-local-politics",
+        content_hash="h-priya-local-politics",
         text=(
-            "John: I'm passionate about improving education and infrastructure "
-            "in our community. Those are my main focuses."
+            "Priya: I'm passionate about improving transit and sanitation "
+            "in our district. Those are my main focuses."
         ),
         scope=scope,
         valid_at=1.0,
@@ -771,12 +771,12 @@ def test_product_structured_recall_preempts_current_value_resolver_for_compound_
 
     ans = _structured_recall_answer(
         fresh_settings,
-        "What is John's main focus in local politics?",
+        "What is Priya's main focus in district politics?",
         rec,
         at=2.0,
     )
 
-    assert ans.answer == "improving education and infrastructure"
+    assert ans.answer == "improving transit and sanitation"
     assert ans.verified is True
     assert ans.note.startswith("smqe:")
 
@@ -784,11 +784,11 @@ def test_product_structured_recall_preempts_current_value_resolver_for_compound_
 def test_product_structured_recall_does_not_resolve_movie_title_from_description_only(fresh_settings):
     scope = Scope(namespace="deprecated-structured-scan")
     rec = MemoryRecord(
-        memory_id="joanna-movie",
-        content_hash="h-joanna-movie",
+        memory_id="noor-movie",
+        content_hash="h-noor-movie",
         text=(
-            "Joanna: Yeah, totally! Have you seen this romantic drama that's all "
-            "about memory and relationships? It's such a good one."
+            "Noor: Oh, totally! Have you seen this heist caper that's all "
+            "about loyalty and timing? It's such a fun one."
         ),
         scope=scope,
         valid_at=1.0,
@@ -796,7 +796,7 @@ def test_product_structured_recall_does_not_resolve_movie_title_from_description
 
     ans = _structured_recall_answer(
         fresh_settings,
-        "What is one of Joanna's favorite movies?",
+        "What is one of Noor's favorite movies?",
         rec,
         at=2.0,
     )
@@ -806,19 +806,19 @@ def test_product_structured_recall_does_not_resolve_movie_title_from_description
 
 def test_product_structured_recall_dates_month_from_the_specific_marker(fresh_settings):
     """REVERSED expectation: this test previously demanded 'June 2023' from a July-16
-    session whose sentence says 'LAST WEEK I scored 40 points' (July 9-15) -- it codified
-    a dataset annotation that anchored on the vague 'so much happened in the last month'
-    preamble. The specific temporal marker attached to the event wins; boundary weeks
-    that genuinely start in the prior month still answer that month (covered by the
-    session-July-3 fixture elsewhere)."""
+    session whose sentence carries a 'LAST WEEK' scoring marker (July 9-15) -- it codified
+    a dataset annotation that anchored on the vague this-past-month preamble. The specific
+    temporal marker attached to the event wins; boundary weeks that genuinely start in the
+    prior month still answer that month (covered by the session-July-3 fixture
+    elsewhere)."""
     scope = Scope(namespace="deprecated-structured-scan")
     valid_at = datetime(2023, 7, 16, 12, 0).timestamp()
     rec = MemoryRecord(
-        memory_id="john-career-high",
-        content_hash="h-john-career-high",
+        memory_id="marco-career-high",
+        content_hash="h-marco-career-high",
         text=(
-            "John: So much has happened in the last month - on and off the court. "
-            "Last week I scored 40 points, my highest ever."
+            "Marco: So many things have changed this past month - on and off the pitch. "
+            "Last week I scored 4 goals, my highest ever."
         ),
         scope=scope,
         valid_at=valid_at,
@@ -826,7 +826,7 @@ def test_product_structured_recall_dates_month_from_the_specific_marker(fresh_se
 
     ans = _structured_recall_answer(
         fresh_settings,
-        "In which month's game did John achieve a career-high score in points?",
+        "In which month's match did Marco achieve a career-high score in goals?",
         rec,
         at=valid_at,
     )
@@ -839,11 +839,11 @@ def test_product_structured_recall_dates_month_from_the_specific_marker(fresh_se
 def test_product_structured_recall_abstains_on_unsupported_cross_speaker_activity_inference(fresh_settings):
     scope = Scope(namespace="deprecated-structured-scan")
     rec = MemoryRecord(
-        memory_id="andrew-dog-treats",
-        content_hash="h-andrew-dog-treats",
+        memory_id="farid-cat-treats",
+        content_hash="h-farid-cat-treats",
         text=(
-            "Andrew: Lately I've been getting into cooking more and trying out new recipes.\n"
-            "Audrey: I made some goodies recently to thank my neighbors for their pup-friendly homes."
+            "Farid: Lately I've gotten really into baking bread and testing sourdough starters.\n"
+            "Noor: I baked some treats this week to thank my landlords for their cat-friendly units."
         ),
         scope=scope,
         valid_at=1.0,
@@ -851,7 +851,7 @@ def test_product_structured_recall_abstains_on_unsupported_cross_speaker_activit
 
     ans = _structured_recall_answer(
         fresh_settings,
-        "What is an indoor activity that Andrew would enjoy doing while make his dog happy?",
+        "What is an indoor activity that Farid would enjoy doing while keeping his cat happy?",
         rec,
         at=2.0,
     )
@@ -862,13 +862,13 @@ def test_product_structured_recall_abstains_on_unsupported_cross_speaker_activit
 def test_product_structured_recall_answers_shared_job_business_commonality(fresh_settings):
     scope = Scope(namespace="deprecated-structured-scan")
     rec = MemoryRecord(
-        memory_id="jon-gina-common",
-        content_hash="h-jon-gina-common",
+        memory_id="marco-priya-common",
+        content_hash="h-marco-priya-common",
         text=(
-            "Jon: Lost my job as a banker yesterday.\n"
-            "Jon: I'm starting a dance studio now.\n"
-            "Gina: Since I lost my job at Door Dash, I've been working hard.\n"
-            "Gina: My online clothes store is open!"
+            "Marco: Lost my job as a florist yesterday.\n"
+            "Marco: I'm starting a pottery studio now.\n"
+            "Priya: Since I lost my job at the courier depot, I've been working hard.\n"
+            "Priya: My online fabric store is open!"
         ),
         scope=scope,
         valid_at=1.0,
@@ -876,7 +876,7 @@ def test_product_structured_recall_answers_shared_job_business_commonality(fresh
 
     ans = _structured_recall_answer(
         fresh_settings,
-        "What do Jon and Gina both have in common?",
+        "What do Marco and Priya both have in common?",
         rec,
         at=2.0,
     )
@@ -889,36 +889,36 @@ def test_product_structured_recall_answers_shared_job_business_commonality(fresh
 def test_product_structured_recall_answers_named_research_and_charity_awareness(fresh_settings):
     scope = Scope(namespace="deprecated-structured-scan")
     research = MemoryRecord(
-        memory_id="mira-research",
-        content_hash="h-mira-research",
-        text="Mira: Researching adoption agencies - it's been a dream to have a family.",
+        memory_id="wei-research",
+        content_hash="h-wei-research",
+        text="Wei: Researching ceramics residencies - it's been a dream to open a studio.",
         scope=scope,
         valid_at=1.0,
     )
     charity = MemoryRecord(
-        memory_id="mira-charity",
-        content_hash="h-mira-charity",
-        text="Mira: I ran a charity race for mental health last Saturday.",
+        memory_id="noor-charity",
+        content_hash="h-noor-charity",
+        text="Noor: I ran a charity race for coastal cleanup last Sunday.",
         scope=scope,
         valid_at=2.0,
     )
 
     ans_research = _structured_recall_answer(
         fresh_settings,
-        "What did Mira research?",
+        "What did Wei research?",
         research,
         at=3.0,
     )
     ans_charity = _structured_recall_answer(
         fresh_settings,
-        "What did the charity race raise awareness for?",
+        "What was the charity race raising awareness for?",
         charity,
         at=3.0,
     )
 
-    assert ans_research.answer == "Adoption agencies"
+    assert ans_research.answer == "Ceramics residencies"
     assert ans_research.verified is True
-    assert ans_charity.answer == "mental health"
+    assert ans_charity.answer == "coastal cleanup"
     assert ans_charity.verified is True
 
 
@@ -928,8 +928,8 @@ def test_product_structured_recall_answers_latest_personal_best_time(fresh_setti
         memory_id="older-5k",
         content_hash="h-older-5k",
         text=(
-            "user: I recently set a personal best time in a charity 5K run "
-            "with a time of 27:12."
+            "user: I recently set a personal best time in a trail 10K run "
+            "with a time of 52:12."
         ),
         scope=scope,
         valid_at=datetime(2023, 5, 23, 12, 0).timestamp(),
@@ -937,20 +937,20 @@ def test_product_structured_recall_answers_latest_personal_best_time(fresh_setti
     latest = MemoryRecord(
         memory_id="latest-5k",
         content_hash="h-latest-5k",
-        text="user: I'm hoping to beat my personal best time of 25:50 this time around.",
+        text="user: I'm hoping to beat my personal best time of 49:50 this time around.",
         scope=scope,
         valid_at=datetime(2023, 5, 30, 12, 0).timestamp(),
     )
 
     ans = _structured_recall_answer_records(
         fresh_settings,
-        "What was my personal best time in the charity 5K run?",
+        "What was my personal best time for the trail 10K run?",
         [old, latest],
         at=datetime(2023, 6, 1, 12, 0).timestamp(),
         scope=scope,
     )
 
-    assert ans.answer == "25:50"
+    assert ans.answer == "49:50"
     assert ans.verified is True
     assert ans.note.startswith("smqe:")
 
@@ -1005,7 +1005,7 @@ def test_product_structured_recall_answers_clothing_pickup_return_count(fresh_se
 
     ans = _structured_recall_answer_records(
         fresh_settings,
-        "How many items of clothing do I need to pick up or return from a store?",
+        "How many clothing items do I still need to pick up or eventually return from a shop?",
         [blazer, boots],
         at=3.0,
         scope=scope,
@@ -1041,8 +1041,8 @@ def test_product_structured_recall_answers_gallery_day_interval(fresh_settings):
 
     ans = _structured_recall_answer_records(
         fresh_settings,
-        "How many days passed between my visit to the Glass Meridian Gallery and the 'Lantern Maps' "
-        "exhibit at the Harbor Archive?",
+        "How many days actually passed between my visit to the Glass Meridian Gallery and the "
+        "'Lantern Maps' exhibit at the Harbor Archive?",
         [gallery, archive],
         at=datetime(2023, 1, 16, 12, 0).timestamp(),
         scope=scope,
@@ -1072,7 +1072,7 @@ def test_product_structured_recall_answers_photography_accessory_preferences(fre
 
     ans = _structured_recall_answer(
         fresh_settings,
-        "Can you suggest some accessories that would complement my current photography setup?",
+        "Could you suggest a few accessories that would pair well with my current photography gear?",
         rec,
         at=2.0,
     )
@@ -1126,7 +1126,7 @@ def test_product_structured_recall_answers_week_delta_from_named_object(fresh_se
 
     ans = _structured_recall_answer(
         fresh_settings,
-        "How many weeks ago did I meet up with my aunt and receive the brass astrolabe?",
+        "How many weeks ago did I actually meet up with my aunt and collect the brass astrolabe?",
         rec,
         at=datetime(2023, 4, 1, 8, 9).timestamp(),
     )
@@ -1163,7 +1163,7 @@ def test_product_structured_recall_answers_duration_sum_filters_matching_trip_to
 
     ans = _structured_recall_answer_records(
         fresh_settings,
-        "How many days did I spend on camping trips this year?",
+        "How many days did I actually spend on camping trips this year?",
         records,
         at=datetime(2023, 4, 30, 6, 45).timestamp(),
         scope=scope,
@@ -1201,7 +1201,7 @@ def test_product_structured_recall_answers_consecutive_charity_event_month_delta
 
     ans = _structured_recall_answer_records(
         fresh_settings,
-        "How many months have passed since I participated in two charity events in a row, on consecutive days?",
+        "How many months have actually passed since I participated in two back-to-back charity events, on consecutive days?",
         records,
         at=datetime(2023, 4, 18, 10, 31).timestamp(),
         scope=scope,
@@ -1225,7 +1225,7 @@ def test_product_structured_recall_answers_named_dessert_shop(fresh_settings):
 
     ans = _structured_recall_answer(
         fresh_settings,
-        "I'm planning to revisit the harbor district. Can you remind me of that unique dessert shop with the ribbon sundaes?",
+        "I'm planning to revisit the harbor district. Can you remind me of that quirky dessert parlor with the ribbon sundaes?",
         rec,
         at=datetime(2023, 5, 31, 2, 46).timestamp(),
     )
@@ -1251,7 +1251,7 @@ def test_product_structured_recall_answers_garden_dinner(fresh_settings):
 
     ans = _structured_recall_answer(
         fresh_settings,
-        "What should I serve for dinner this weekend with my garden ingredients?",
+        "What should I serve at dinner this weekend using my garden ingredients?",
         rec,
         at=datetime(2023, 5, 30, 21, 35).timestamp(),
     )
@@ -1285,7 +1285,7 @@ def test_product_structured_recall_answers_recent_acquired_items_with_decoy(fres
 
     ans = _structured_recall_answer_records(
         fresh_settings,
-        "How many plants did I acquire in the last month?",
+        "How many plants did I actually acquire over the last month?",
         records,
         at=datetime(2023, 5, 31, 4, 51).timestamp(),
         scope=scope,
@@ -1318,7 +1318,7 @@ def test_product_structured_recall_answers_latest_preapproval_amount(fresh_setti
 
     ans = _structured_recall_answer_records(
         fresh_settings,
-        "What was the amount I was pre-approved for when I got my mortgage from Blue Harbor Credit Union?",
+        "What amount was I pre-approved for when I set up my mortgage with Blue Harbor Credit Union?",
         [older, latest],
         at=datetime(2023, 12, 18, 12, 17).timestamp(),
         scope=scope,
@@ -1350,7 +1350,7 @@ def test_product_structured_recall_answers_two_anchor_day_delta(fresh_settings):
 
     ans = _structured_recall_answer_records(
         fresh_settings,
-        "How many days passed between the day I started sketching harmonies on my pocket synth and the day I discovered a shadow-folk trio?",
+        "How many days actually passed between the day I started sketching harmonies on my pocket synth and the day I discovered a shadow-folk trio?",
         records,
         at=datetime(2023, 4, 5, 16, 11).timestamp(),
         scope=scope,
@@ -1405,13 +1405,13 @@ def test_product_structured_recall_answers_direct_user_slots(fresh_settings):
     )
     ans_coupon = _structured_recall_answer(
         fresh_settings,
-        "Where did I redeem a $5 coupon on coffee creamer?",
+        "Where did I redeem the $5 coupon for coffee creamer?",
         coupon,
         at=datetime(2023, 5, 4, 12, 0).timestamp(),
     )
     ans_last_name = _structured_recall_answer(
         fresh_settings,
-        "What was my last name before I changed it?",
+        "Before I changed it, what was my last name?",
         last_name,
         at=datetime(2023, 5, 5, 12, 0).timestamp(),
     )
@@ -1466,14 +1466,14 @@ def test_product_structured_recall_answers_mixed_facts_and_process_list(fresh_se
     )
     ans_frequency = _structured_recall_answer_records(
         fresh_settings,
-        "How often do I attend yoga classes to help with my anxiety?",
+        "How often do I make it to yoga classes to help with my stress?",
         [yoga_place, yoga_frequency, bedroom, workshop],
         at=datetime(2023, 12, 1, 12, 0).timestamp(),
         scope=scope,
     )
     ans_bedroom = _structured_recall_answer_records(
         fresh_settings,
-        "What color did I repaint my bedroom walls?",
+        "Which color did I end up repainting my bedroom walls?",
         [yoga_place, yoga_frequency, bedroom, workshop],
         at=datetime(2023, 12, 1, 12, 0).timestamp(),
         scope=scope,
@@ -1522,14 +1522,14 @@ def test_product_structured_recall_answers_spending_sum_and_inspiration_preferen
 
     ans_bike = _structured_recall_answer_records(
         fresh_settings,
-        "How much total money have I spent on bike-related expenses since the start of the year?",
+        "How much have I spent altogether on bike-related costs since the start of this year?",
         [bike, painting],
         at=datetime(2023, 5, 31, 12, 0).timestamp(),
         scope=scope,
     )
     ans_painting = _structured_recall_answer_records(
         fresh_settings,
-        "I've been feeling a bit stuck with my paintings lately. Do you have any ideas on how I can find new inspiration?",
+        "I've been feeling a little blocked with my paintings these days. Do you have any ideas for finding fresh inspiration?",
         [bike, painting],
         at=datetime(2023, 5, 31, 12, 0).timestamp(),
         scope=scope,
@@ -1573,7 +1573,7 @@ def test_product_structured_recall_answers_drive_hour_sum_with_range_estimate(fr
 
     ans = _structured_recall_answer_records(
         fresh_settings,
-        "How many hours in total did I spend driving to my three road trip destinations combined?",
+        "How many hours in total did I actually spend driving out to my three road trip destinations combined?",
         records,
         at=datetime(2023, 5, 31, 12, 0).timestamp(),
         scope=scope,
@@ -1597,7 +1597,7 @@ def test_product_structured_recall_answers_named_visit_month_delta(fresh_setting
 
     ans = _structured_recall_answer(
         fresh_settings,
-        "How many months have passed since I last visited a studio with a friend?",
+        "How many months have actually passed since I last visited a studio with a friend?",
         rec,
         at=datetime(2023, 3, 25, 20, 18).timestamp(),
     )
@@ -1627,7 +1627,7 @@ def test_product_structured_recall_answers_cocktail_preference_synthesis(fresh_s
 
     ans = _structured_recall_answer(
         fresh_settings,
-        "I've been thinking about making a cocktail for an upcoming get-together, but I'm not sure which one to choose. Any suggestions?",
+        "I'd like to mix up a cocktail for a get-together next weekend, but I can't decide which one to make. Any suggestions?",
         rec,
         at=datetime(2023, 5, 31, 12, 0).timestamp(),
     )
@@ -1644,14 +1644,14 @@ def test_product_structured_recall_answers_named_sale_week_delta(fresh_settings)
     rec = _source_rec(
         scope,
         "ember-lane-sale",
-        "user: Yesterday, I attended a friends and family sale at Ember Lane Outfitters "
+        "user: Yesterday, I attended an insider preview sale at Ember Lane Outfitters "
         "and picked up a few jackets and scarves for 20% off.",
         datetime(2022, 11, 18, 23, 23).timestamp(),
     )
 
     ans = _structured_recall_answer(
         fresh_settings,
-        "How many weeks ago did I attend the friends and family sale at Ember Lane Outfitters?",
+        "How many weeks ago did I actually attend the insider preview sale at Ember Lane Outfitters?",
         rec,
         at=datetime(2022, 12, 2, 3, 6).timestamp(),
     )
@@ -1676,7 +1676,7 @@ def test_product_structured_recall_answers_device_battery_preference(fresh_setti
 
     ans = _structured_recall_answer(
         fresh_settings,
-        "I've been having trouble with the battery life on my phone lately. Any tips?",
+        "I've been having some trouble with my phone's battery life recently. Any tips?",
         rec,
         at=datetime(2023, 5, 31, 12, 0).timestamp(),
     )
@@ -1706,7 +1706,7 @@ def test_product_structured_recall_answers_latest_weekday_for_recurring_class(fr
 
     ans = _structured_recall_answer_records(
         fresh_settings,
-        "What day of the week do I take a fermentation class?",
+        "On what day of the week do I go to my fermentation class?",
         [older, newer],
         at=datetime(2023, 7, 16, 12, 0).timestamp(),
         scope=scope,
@@ -1736,7 +1736,7 @@ def test_product_structured_recall_answers_latest_hours_for_project(fresh_settin
 
     ans = _structured_recall_answer_records(
         fresh_settings,
-        "How many hours have I spent on my abstract tide sculpture?",
+        "How many hours have I now spent on my abstract tide sculpture?",
         [older, newer],
         at=datetime(2023, 6, 19, 12, 0).timestamp(),
         scope=scope,
@@ -1759,7 +1759,7 @@ def test_product_structured_recall_answers_recommended_hostel_near_named_distric
 
     ans = _structured_recall_answer(
         fresh_settings,
-        "I'm planning my trip to Rivermark again and I was wondering, what was the name of that hostel near the Moon Gate District that you recommended last time?",
+        "I'm planning another trip to Rivermark and wanted to ask - what was the name of the hostel by the Moon Gate District that you recommended before?",
         rec,
         at=datetime(2023, 5, 31, 12, 0).timestamp(),
     )
@@ -1810,7 +1810,7 @@ def test_product_structured_recall_answers_time_before_related_event(fresh_setti
 
     ans = _structured_recall_answer_records(
         fresh_settings,
-        "What time did I go to bed on the day before I had a doctor's appointment?",
+        "What time did I finally get to bed on the night before my doctor's appointment?",
         [doctor, bedtime],
         at=datetime(2023, 5, 31, 12, 0).timestamp(),
         scope=scope,
@@ -1834,7 +1834,7 @@ def test_product_structured_recall_answers_named_show_example(fresh_settings):
 
     ans = _structured_recall_answer(
         fresh_settings,
-        "I wanted to check back on our previous conversation about StreamBox. I mentioned that I wanted to be able to access all seasons of old shows. Do you remember what show I used as an example, the one that only had the last season available?",
+        "I wanted to follow up on our earlier StreamBox conversation. I said I wished every season of older shows stayed available. Do you recall which show I gave as my example, the one where only the final season remained?",
         rec,
         at=datetime(2023, 5, 31, 12, 0).timestamp(),
     )
@@ -1863,7 +1863,7 @@ def test_product_structured_recall_answers_event_ordering(fresh_settings):
 
     ans = _structured_recall_answer_records(
         fresh_settings,
-        "Which event happened first, my cousin's wedding or Ravi's gallery opening?",
+        "Which came first, my cousin's wedding or Ravi's gallery opening?",
         [engagement, wedding],
         at=datetime(2023, 10, 1, 12, 0).timestamp(),
         scope=scope,
@@ -1892,7 +1892,7 @@ def test_product_structured_recall_answers_colleague_connection_preference(fresh
 
     ans = _structured_recall_answer(
         fresh_settings,
-        "I've been thinking about ways to stay connected with my colleagues. Any suggestions?",
+        "I'd love some ideas for keeping in touch with my colleagues while working remotely. Any suggestions?",
         rec,
         at=datetime(2023, 5, 31, 12, 0).timestamp(),
     )

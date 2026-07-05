@@ -75,14 +75,14 @@ def test_structured_record_recall_computes_elapsed_days_from_source_date():
     session_time = datetime(2026, 3, 12, 9, 0).timestamp()
     question_time = datetime(2026, 3, 20, 9, 0).timestamp()
     answer, supports = structured_record_recall(
-        "How many days ago did I attend the glazing workshop?",
-        [_rec("user: I attended the glazing workshop yesterday.", valid_at=session_time)],
+        "How many days ago did I visit the pottery fair?",
+        [_rec("user: I visited the pottery fair yesterday.", valid_at=session_time)],
         question_time,
     )
 
     assert answer == "9"
     assert supports
-    assert "glazing workshop" in supports[0][1]
+    assert "pottery fair" in supports[0][1]
 
 
 def test_structured_memory_answer_uses_smqe():

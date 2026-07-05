@@ -257,18 +257,18 @@ def test_relation_object_claim_answers_concisely(tmp_path):
 def test_temporal_claim_uses_speaker_acquisition_metadata(tmp_path):
     scope = Scope(namespace="temporal-acquisition")
     rec = _record(
-        "Melanie: These ceramic figurines I bought yesterday remind me of family love.",
+        "Priya: These walnut bookends I bought yesterday remind me of cozy evenings.",
         scope=scope,
         valid_at=datetime(2023, 10, 22, 12, 0).timestamp(),
     )
     claims = claims_for_record(rec)
-    acquisition = [c for c in claims if c.predicate == "buy" and c.object == "ceramic figurines"]
+    acquisition = [c for c in claims if c.predicate == "buy" and c.object == "walnut bookends"]
 
     assert acquisition
-    assert acquisition[0].subject == "Melanie"
+    assert acquisition[0].subject == "Priya"
 
-    plan = plan_query("When did Melanie buy the ceramic figurines?")
-    result = execute_plan(plan, "When did Melanie buy the ceramic figurines?", records=[rec], claims=claims)
+    plan = plan_query("When did Priya buy the walnut bookends?")
+    result = execute_plan(plan, "When did Priya buy the walnut bookends?", records=[rec], claims=claims)
 
     assert result is not None
     assert result.answer == "2023-10-21"
@@ -278,20 +278,20 @@ def test_temporal_claim_uses_speaker_acquisition_metadata(tmp_path):
 def test_temporal_claim_prefers_query_month_and_rejects_non_dates(tmp_path):
     scope = Scope(namespace="temporal-month")
     july = _record(
-        "Caroline: Last weekend our city held a pride parade!",
+        "Noor: Last weekend our town held a lantern festival!",
         scope=scope,
         valid_at=datetime(2023, 7, 21, 12, 0).timestamp(),
     )
     august = _record(
-        "Caroline: I went to a pride parade last Friday and it was awesome.",
+        "Noor: I went to a lantern festival last Friday and it was magical.",
         scope=scope,
         valid_at=datetime(2023, 8, 14, 12, 0).timestamp(),
     )
-    filler = _record("Caroline: Absolutely!", scope=scope, valid_at=datetime(2023, 8, 14, 12, 0).timestamp())
+    filler = _record("Noor: Absolutely!", scope=scope, valid_at=datetime(2023, 8, 14, 12, 0).timestamp())
     claims = claims_for_record(july) + claims_for_record(august) + claims_for_record(filler)
 
-    plan = plan_query("When did Caroline attend a pride parade in August?")
-    result = execute_plan(plan, "When did Caroline attend a pride parade in August?", records=[july, august, filler], claims=claims)
+    plan = plan_query("When did Noor attend a lantern festival in August?")
+    result = execute_plan(plan, "When did Noor attend a lantern festival in August?", records=[july, august, filler], claims=claims)
 
     assert result is not None
     assert result.answer == "2023-08-11"
@@ -301,18 +301,18 @@ def test_temporal_claim_prefers_query_month_and_rejects_non_dates(tmp_path):
 def test_duration_claim_uses_speaker_metadata_for_first_person_sentence(tmp_path):
     scope = Scope(namespace="duration-speaker")
     rec = _record(
-        "Ari: They've been there through everything, I've known these friends for 4 years.",
+        "Wei: They've stood by me through everything, I've known these teammates for 4 years.",
         scope=scope,
         valid_at=10.0,
     )
     claims = claims_for_record(rec)
-    duration = [c for c in claims if "known these friends for 4 years" in c.proof_atom]
+    duration = [c for c in claims if "known these teammates for 4 years" in c.proof_atom]
 
     assert duration
-    assert duration[0].subject == "Ari"
+    assert duration[0].subject == "Wei"
 
-    plan = plan_query("How long has Ari had her current group of friends for?")
-    result = execute_plan(plan, "How long has Ari had her current group of friends for?", records=[rec], claims=claims)
+    plan = plan_query("How long has Wei had her current group of teammates for?")
+    result = execute_plan(plan, "How long has Wei had her current group of teammates for?", records=[rec], claims=claims)
 
     assert result is not None
     assert result.answer == "4 years"
@@ -374,7 +374,7 @@ def test_smqe_fails_closed_for_plan_query_without_direct_structured_answer(tmp_p
 def test_smqe_fails_closed_for_open_inference_list_query(tmp_path):
     scope = Scope(namespace="open-list")
     rec = _record(
-        "Blair: I painted it yesterday. Blair: I've done an abstract painting too, take a look.",
+        "Blair: I painted it yesterday. Blair: I've done a landscape mural too, come see.",
         scope=scope,
         valid_at=10.0,
     )
@@ -426,7 +426,7 @@ def test_action_location_claims_scan_late_session_sentences():
     scope = Scope(namespace="action-location-late")
     filler = " ".join(f"Filler sentence {idx}." for idx in range(100))
     rec = _record(
-        f"Blair: {filler} Blair: We even went on another camping trip in the forest.",
+        f"Blair: {filler} Blair: We even went on one more camping trip in the forest.",
         scope=scope,
     )
 
@@ -686,7 +686,7 @@ def test_structured_answer_inspiration_suggestion_uses_generic_sources(tmp_path)
 
     ans = structured_answer(
         _Retriever(store),
-        "I've been feeling stuck with my sound sketches lately. Any ideas on how I can find new inspiration?",
+        "I've been feeling stuck with my sound sketches lately. Any ideas for how I could find fresh inspiration?",
         at=1_700_000_360,
         scope=scope,
     )
@@ -844,7 +844,7 @@ def test_structured_answer_affiliation_requires_wh_target_or_action(tmp_path):
     store = RecordStore(tmp_path / "affiliation-wh-target.sqlite")
     scope = Scope(namespace="affiliation-wh-target")
     rows = [
-        "Vera: My fav memory was when my team won first place at regionals.\n"
+        "Vera: My favorite moment was when my team took first place at sectionals.\n"
         "Vera: We just did a lyrical routine called Quiet Thunder.",
         "Vera: Go Dara!\nVera: I just got accepted for a textile internship!",
     ]
@@ -982,7 +982,7 @@ def test_structured_answer_handles_randomized_unseen_record_questions(tmp_path):
 
         ans = structured_answer(
             _Retriever(store),
-            f"How much total money have I spent on {topic}-related expenses?",
+            f"How much money in total have I spent on {topic}-related expenses?",
             at=1_700_000_200,
             scope=scope,
         )
@@ -1675,7 +1675,7 @@ def test_structured_answer_model_kit_count_splits_generic_scale_models(tmp_path)
 
     ans = structured_answer(
         _Retriever(store),
-        "How many model kits have I worked on or bought?",
+        "How many model kits have I bought or worked on?",
         at=1_700_000_500,
         scope=scope,
     )
@@ -1777,7 +1777,7 @@ def test_structured_answer_scalar_amount_uses_governing_phrase_and_recency(tmp_p
 
     ans = structured_answer(
         _Retriever(store),
-        "What was the amount I was pre-approved for when I got my mortgage from Blue Harbor Credit Union?",
+        "What amount was I pre-approved for when I took out my mortgage from Blue Harbor Credit Union?",
         at=datetime(2023, 12, 18, 12, 17).timestamp(),
         scope=scope,
     )
@@ -2233,7 +2233,7 @@ def test_structured_answer_duration_sum_ignores_non_distance_durations(tmp_path)
 
     ans = structured_answer(
         _Retriever(store),
-        "How many hours in total did I spend driving to my three road trip destinations combined?",
+        "How many total hours did I spend driving to reach my three road trip destinations?",
         at=1_700_000_600,
         scope=scope,
     )
@@ -2260,8 +2260,8 @@ def test_structured_answer_temporal_delta_matches_both_query_anchors(tmp_path):
 
     ans = structured_answer(
         _Retriever(store),
-        "How many days passed between the day I started calibrating the greenhouse sensor "
-        "and the day I finished installing the irrigation controller?",
+        "How many days passed between when I started calibrating the greenhouse sensor "
+        "and when I finished installing the irrigation controller?",
         at=datetime(2024, 4, 10, 12, 0).timestamp(),
         scope=scope,
     )
@@ -2348,7 +2348,7 @@ def test_structured_answer_temporal_delta_single_anchor_verb_family(tmp_path):
 
     ans = structured_answer(
         _Retriever(store),
-        "How many days ago did I buy a kiln?",
+        "How many days ago did I buy the kiln?",
         at=question_day.timestamp(),
         scope=scope,
     )
@@ -2620,17 +2620,17 @@ def test_structured_answer_latest_value_explicit_date_uses_last_night(tmp_path):
     store = RecordStore(tmp_path / "explicit-date-last-night.sqlite")
     scope = Scope(namespace="explicit-date-last-night")
     store.upsert_record(_record(
-        "Rhea: My mom and I made some dinner together last night!",
+        "Rhea: My mom and I cooked some pasta for dinner together last night!",
         scope=scope,
         valid_at=datetime(2023, 5, 4, 22, 0).timestamp(),
     ))
     store.upsert_record(_record(
-        "Rhea: When I was younger, my family and I went on a road trip to Halden.",
+        "Rhea: Back in my school days, my family drove out to Halden on a long road trip.",
         scope=scope,
         valid_at=datetime(2023, 6, 12, 9, 0).timestamp(),
     ))
     store.upsert_record(_record(
-        "Rhea: I'm off to have dinner with some friends from the gym.",
+        "Rhea: I'm heading out for dinner with some friends from the gym.",
         scope=scope,
         valid_at=datetime(2023, 7, 8, 18, 0).timestamp(),
     ))
@@ -2656,7 +2656,7 @@ def test_structured_answer_latest_value_explicit_date_no_match_abstains(tmp_path
     store = RecordStore(tmp_path / "explicit-date-no-match.sqlite")
     scope = Scope(namespace="explicit-date-no-match")
     store.upsert_record(_record(
-        "Rhea: I'm off to have dinner with some friends from the gym.",
+        "Rhea: I'm heading out for dinner with some friends from the gym.",
         scope=scope,
         valid_at=datetime(2023, 7, 8, 18, 0).timestamp(),
     ))
@@ -4102,7 +4102,7 @@ def test_open_inference_extracts_titlecase_copular_value(tmp_path):
 
     ans = structured_answer(
         _Retriever(store),
-        "What play did I attend at the local community theater?",
+        "What play did I attend at the neighborhood theater downtown?",
         at=1_800_000_000, scope=scope,
     )
 
@@ -4123,7 +4123,7 @@ def test_open_inference_copular_needs_titlecase_and_target(tmp_path):
 
     ans = structured_answer(
         _Retriever(store),
-        "What play did I attend at the local community theater?",
+        "What play did I attend at the neighborhood theater downtown?",
         at=1_800_000_000, scope=scope,
     )
 
@@ -4131,16 +4131,16 @@ def test_open_inference_copular_needs_titlecase_and_target(tmp_path):
 
 
 def test_event_order_composes_dated_timeline_for_three_events(tmp_path):
-    """'Which three events happened in the order from first to last: A, B, and C?' composes a
-    DATED timeline from anchored records - deterministic and judge-checkable, instead of
-    failing closed to a reader that echoes the question's order undated."""
+    """'Which three events took place in the order from earliest to latest: A, B, and C?'
+    composes a DATED timeline from anchored records - deterministic and judge-checkable,
+    instead of failing closed to a reader that echoes the question's order undated."""
     store = RecordStore(tmp_path / "event-order-3.sqlite")
     scope = Scope(namespace="event-order-3")
     rows = [
-        ("User: I just helped my friend prepare a nursery today.", datetime(2023, 2, 5, 12, 0)),
-        ("User: I just helped my cousin pick out some stuff for her baby shower.",
+        ("User: I just helped my friend repaint a studio today.", datetime(2023, 2, 5, 12, 0)),
+        ("User: I just helped my cousin choose decorations for her housewarming party.",
          datetime(2023, 2, 10, 12, 0)),
-        ("User: I just ordered a customized phone case for my friend's birthday today.",
+        ("User: I just ordered an engraved travel mug for my friend's birthday today.",
          datetime(2023, 2, 20, 12, 0)),
         ("User: The weather was lovely all week.", datetime(2023, 2, 12, 12, 0)),
     ]
@@ -4149,9 +4149,9 @@ def test_event_order_composes_dated_timeline_for_three_events(tmp_path):
 
     ans = structured_answer(
         _Retriever(store),
-        "Which three events happened in the order from first to last: the day I helped my "
-        "friend prepare the nursery, the day I helped my cousin pick out stuff for her baby "
-        "shower, and the day I ordered a customized phone case for my friend's birthday?",
+        "Which three events took place in the order from earliest to latest: the day I helped my "
+        "friend repaint the studio, the day I helped my cousin choose decorations for her "
+        "housewarming, and the day I ordered an engraved travel mug for my friend's birthday?",
         at=datetime(2023, 3, 1, 12, 0).timestamp(), scope=scope,
     )
 
@@ -4159,20 +4159,20 @@ def test_event_order_composes_dated_timeline_for_three_events(tmp_path):
     assert ans.verified is True
     low = ans.answer.lower()
     assert "2023-02-05" in ans.answer and "2023-02-10" in ans.answer and "2023-02-20" in ans.answer
-    assert low.index("nursery") < low.index("baby shower") < low.index("phone case")
+    assert low.index("studio") < low.index("housewarming") < low.index("travel mug")
 
 
 def test_event_order_three_events_fails_closed_when_one_unanchored(tmp_path):
     store = RecordStore(tmp_path / "event-order-miss.sqlite")
     scope = Scope(namespace="event-order-miss")
     store.upsert_record(_record(
-        "User: I just helped my friend prepare a nursery today.",
+        "User: I just helped my friend repaint a studio today.",
         scope=scope, valid_at=datetime(2023, 2, 5, 12, 0).timestamp()))
 
     ans = structured_answer(
         _Retriever(store),
-        "Which three events happened in the order from first to last: the day I helped my "
-        "friend prepare the nursery, the day I adopted the parrot, and the day I sold my "
+        "Which three events took place in the order from earliest to latest: the day I helped my "
+        "friend repaint the studio, the day I adopted the parrot, and the day I sold my "
         "kayak?",
         at=datetime(2023, 3, 1, 12, 0).timestamp(), scope=scope,
     )
@@ -4181,17 +4181,17 @@ def test_event_order_three_events_fails_closed_when_one_unanchored(tmp_path):
 
 
 def test_relative_temporal_duration_held_and_first_prefers_earliest(tmp_path):
-    """'When did X get his FIRST two turtles?' must resolve 'I've had them for 3 years now'
-    (session-dated) to session-minus-3-years and prefer the EARLIEST resolved date over a
+    """'When did X get his FIRST two geckos?' must resolve a session-dated 3-year tenure
+    statement to session-minus-3-years and prefer the EARLIEST resolved date over a
     later higher-scoring acquisition mention."""
     from eidetic.smqe.claim_extraction import claims_for_record
 
     store = RecordStore(tmp_path / "first-earliest.sqlite")
     scope = Scope(namespace="first-earliest")
     rows = [
-        ("Nate: My two turtles are doing great. I've had my turtles for 3 years now and they "
-         "bring me tons of joy!", datetime(2022, 1, 23, 12, 0)),
-        ("Nate: I saw another turtle at a pet store and just had to get him - a third turtle "
+        ("Ravi: My two geckos are doing great. I've had my geckos for 3 years now and they "
+         "make me smile every day!", datetime(2022, 1, 23, 12, 0)),
+        ("Ravi: I saw another gecko at a pet store and just had to get him - a third gecko "
          "this year!", datetime(2022, 11, 9, 12, 0)),
     ]
     for text, dt in rows:
@@ -4201,7 +4201,7 @@ def test_relative_temporal_duration_held_and_first_prefers_earliest(tmp_path):
 
     ans = structured_answer(
         _Retriever(store),
-        "When did Nate get his first two turtles?",
+        "When did Ravi get his first two geckos?",
         at=datetime(2022, 12, 1, 12, 0).timestamp(), scope=scope,
     )
 
@@ -4240,7 +4240,7 @@ def test_date_anchored_latest_value_verifies_on_the_anchor(tmp_path):
     store = RecordStore(tmp_path / "date-anchor-verify.sqlite")
     scope = Scope(namespace="date-anchor-verify")
     rec = _record(
-        "Rhea: My mom and I made some dinner together last night!",
+        "Rhea: My mom and I cooked some pasta for dinner together last night!",
         scope=scope, valid_at=datetime(2023, 5, 4, 22, 0).timestamp(),
     )
     store.upsert_record(rec)
@@ -4317,9 +4317,9 @@ def test_relative_temporal_extracts_bare_year_from_atom(tmp_path):
     store = RecordStore(tmp_path / "bare-year.sqlite")
     scope = Scope(namespace="bare-year")
     rows = [
-        ("Jolene: This pendant reminds me of my mother, she gave me the pendant in 2010 in Paris.",
+        ("Suki: This bracelet was a keepsake from my mother, she gave me the bracelet in 2010 in Lisbon.",
          datetime(2023, 1, 23, 12, 0)),
-        ("Jolene: Here's me and my partner at a retreat last year - had an awesome time!",
+        ("Suki: Here's me and my partner at a retreat last year - had an awesome time!",
          datetime(2023, 1, 25, 12, 0)),
     ]
     for text, dt in rows:
@@ -4329,7 +4329,7 @@ def test_relative_temporal_extracts_bare_year_from_atom(tmp_path):
 
     ans = structured_answer(
         _Retriever(store),
-        "When did Jolene's mom gift her the pendant?",
+        "When did Suki's mom gift her the bracelet?",
         at=datetime(2023, 8, 1, 12, 0).timestamp(), scope=scope,
     )
 
@@ -4348,12 +4348,12 @@ def test_ordinal_anchor_slot_answers_from_the_labeled_occurrence(tmp_path):
     store = RecordStore(tmp_path / "ordinal-slot.sqlite")
     scope = Scope(namespace="ordinal-slot")
     rows = [
-        ("Nate: I won my first video game tournament last week - so exciting! It was a "
-         "Tetris Masters tournament downtown.", datetime(2022, 1, 21, 12, 0)),
-        ("Nate: Last week I won my second tournament!\n"
-         "Joanna: Wow, congrats! What game were you playing?\n"
-         "Nate: I usually play chess online, but I tried my hand at the local Street Brawler "
-         "tournament this time and turns out I'm really good!", datetime(2022, 5, 2, 12, 0)),
+        ("Marco: I won my first board game tournament last week - so exciting! It was a "
+         "Pebble Rush tournament downtown.", datetime(2022, 1, 21, 12, 0)),
+        ("Marco: Last week I won my second tournament!\n"
+         "Priya: Wow, congrats! What game were you playing?\n"
+         "Marco: I usually play checkers online, but this time I entered the local Cinder Duel "
+         "tournament and turns out I'm really good!", datetime(2022, 5, 2, 12, 0)),
     ]
     for text, dt in rows:
         rec = _record(text, scope=scope, valid_at=dt.timestamp())
@@ -4362,27 +4362,27 @@ def test_ordinal_anchor_slot_answers_from_the_labeled_occurrence(tmp_path):
 
     ans = structured_answer(
         _Retriever(store),
-        "What game was the second tournament that Nate won based on?",
+        "What game was the second tournament that Marco won based on?",
         at=datetime(2022, 12, 1, 12, 0).timestamp(), scope=scope,
     )
 
     assert ans is not None
-    assert "Street Brawler" in ans.answer
-    assert "Tetris" not in ans.answer
+    assert "Cinder Duel" in ans.answer
+    assert "Pebble Rush" not in ans.answer
     assert ans.verified is True
 
 
 def test_dialogue_crystals_respect_wh_class_and_reject_pleasantries(tmp_path):
     """A recorded 'How did X go?' crystal must not answer a 'What game was X?' question
-    (wh-class mismatch), and greeting-only crystal answers ('Hey Joanna, thanks!') are never
+    (wh-class mismatch), and greeting-only crystal answers ('Hey Priya, thanks!') are never
     served as answers to anything."""
     from eidetic.smqe.claim_extraction import claims_for_record
 
     store = RecordStore(tmp_path / "crystal-wh.sqlite")
     scope = Scope(namespace="crystal-wh")
     rec = _record(
-        "Joanna: How did the last game tournament go?\n"
-        "Nate: Hey Joanna, thanks! It went really well overall.",
+        "Priya: How did the last game tournament go?\n"
+        "Marco: Hey Priya, thanks! It went really well overall.",
         scope=scope, valid_at=1_700_000_100,
     )
     store.upsert_record(rec)
@@ -4390,11 +4390,11 @@ def test_dialogue_crystals_respect_wh_class_and_reject_pleasantries(tmp_path):
 
     ans = structured_answer(
         _Retriever(store),
-        "What game was the second tournament that Nate won based on?",
+        "What game was the second tournament that Marco won based on?",
         at=1_800_000_000, scope=scope,
     )
 
-    assert ans is None or "Hey Joanna" not in ans.answer
+    assert ans is None or "Hey Priya" not in ans.answer
 
 
 def test_past_when_questions_never_answer_from_future_intent_atoms(tmp_path):
@@ -4590,53 +4590,53 @@ def test_compound_wh_questions_fail_closed_to_the_reader(tmp_path):
 
 
 def test_option_choice_answer_must_name_an_option(tmp_path):
-    """'Would Dave prefer a Dodge Charger or a Subaru Forester?' is answered by NAMING one.
-    The option-choice anchor exemption let a verbatim-but-irrelevant fragment ("ten, I've
-    been fascinated with how machines work") ship VERIFIED at n=40 because the atom quoted
-    the source while answering neither option. Deterministic form floor: exact-token overlap
-    with an option segment, every op, preference_synth included."""
+    """'Would Farid prefer a Falcon Roadster GT or a Meadow Cruiser SE?' is answered by
+    NAMING one. The option-choice anchor exemption let a verbatim-but-irrelevant fragment
+    ("nine, I've been obsessed with how engines fit together") ship VERIFIED at n=40 because
+    the atom quoted the source while answering neither option. Deterministic form floor:
+    exact-token overlap with an option segment, every op, preference_synth included."""
     store = RecordStore(tmp_path / "option-form.sqlite")
     scope = Scope(namespace="option-form")
-    rec = _record("Dave: Since I was ten, I've been fascinated with how machines work. "
-                  "Muscle cars are my passion - I'd take a Dodge Charger any day.",
+    rec = _record("Farid: Ever since I was nine, I've been obsessed with how engines fit together. "
+                  "Vintage roadsters are my passion - I'd take a Falcon Roadster GT any day.",
                   scope=scope, valid_at=1.0)
     store.upsert_record(rec)
-    query = "Would Dave prefer working on a Dodge Charger or a Subaru Forester?"
+    query = "Would Farid prefer working on a Falcon Roadster GT or a Meadow Cruiser SE?"
 
     junk = StructuredAnswerResult(
-        answer="ten, I've been fascinated with how machines work",
+        answer="nine, I've been obsessed with how engines fit together",
         op="preference_synth", backend="claim",
         supports=[StructuredSupport(memory_id=rec.memory_id,
-                                    proof_atom="ten, I've been fascinated with how machines work")],
+                                    proof_atom="nine, I've been obsessed with how engines fit together")],
         note="smqe:preference_synth:claim",
     )
     assert answer_from_result(_Retriever(store), query, junk, verify=True) is None
 
     named = StructuredAnswerResult(
-        answer="Dodge Charger",
+        answer="Falcon Roadster GT",
         op="preference_synth", backend="claim",
         supports=[StructuredSupport(memory_id=rec.memory_id,
-                                    proof_atom="I'd take a Dodge Charger any day")],
+                                    proof_atom="I'd take a Falcon Roadster GT any day")],
         note="smqe:preference_synth:claim",
     )
     ans = answer_from_result(_Retriever(store), query, named, verify=True)
-    assert ans is not None and ans.answer == "Dodge Charger"
+    assert ans is not None and ans.answer == "Falcon Roadster GT"
 
     # non-option-choice queries are untouched by the rule
     plain = StructuredAnswerResult(
-        answer="fixing cars",
+        answer="restoring roadsters",
         op="latest_value", backend="claim",
         supports=[StructuredSupport(memory_id=rec.memory_id,
-                                    proof_atom="Muscle cars are my passion")],
+                                    proof_atom="Vintage roadsters are my passion")],
         note="smqe:latest_value:claim",
     )
-    assert answer_from_result(_Retriever(store), "What is Dave's passion?", plain,
+    assert answer_from_result(_Retriever(store), "What is Farid's passion?", plain,
                               verify=True) is not None
 
 
 def test_future_polarity_atom_floors_earlier_derived_dates(tmp_path):
-    """'I took that pic in Tokyo last night' (05-16) dated the concert 05-15 while 'my
-    upcoming performance in Tokyo this month', spoken the same day, proves the event had
+    """'I snapped that photo in Oslo last night' (05-16) dated the concert 05-15 while 'my
+    upcoming performance in Oslo this month', spoken the same day, proves the event had
     not happened yet. A same-event future-polarity statement floors derived dates: earlier
     candidates are contradicted, and losing all of them fails closed (reader takes over).
     Same-event needs EVERY non-entity target term matched (event-synonym families count);
@@ -4646,105 +4646,105 @@ def test_future_polarity_atom_floors_earlier_derived_dates(tmp_path):
     store = RecordStore(tmp_path / "future-floor.sqlite")
     scope = Scope(namespace="future-floor")
     rows = [
-        ("Calvin: I took that pic in Tokyo last night.", _dt(2023, 5, 16, 12, 0)),
-        ("Calvin: Super excited for my upcoming performance in Tokyo this month.",
+        ("Wei: I snapped that photo in Oslo last night.", _dt(2023, 5, 16, 12, 0)),
+        ("Wei: Super stoked for my upcoming performance in Oslo this month.",
          _dt(2023, 5, 16, 12, 0)),
-        ("Calvin: I'm actually going to Tokyo next month after the tour ends.",
+        ("Wei: I'm actually heading to Oslo next month once the tour wraps up.",
          _dt(2023, 10, 19, 12, 0)),
     ]
     for text, dt in rows:
         store.upsert_record(_record(text, scope=scope, valid_at=dt.timestamp()))
 
     ans = structured_answer(
-        _Retriever(store), "When was Calvin's concert in Tokyo?",
+        _Retriever(store), "When was Wei's concert in Oslo?",
         at=_dt(2023, 11, 1, 12, 0).timestamp(), scope=scope,
     )
-    # the 05-15 pic date is floored by the 05-16 future statement -> fail closed
+    # the 05-15 photo date is floored by the 05-16 future statement -> fail closed
     assert ans is None or "05-15" not in (ans.answer or "")
 
     # a LATER dated same-event atom survives the floor
     store.upsert_record(_record(
-        "Calvin: The concert in Tokyo on May 28, 2023 was unreal -- the crowd was insane.",
+        "Wei: The concert in Oslo on May 28, 2023 was unreal -- the crowd was insane.",
         scope=scope, valid_at=_dt(2023, 6, 1, 12, 0).timestamp()))
     ans2 = structured_answer(
-        _Retriever(store), "When was Calvin's concert in Tokyo?",
+        _Retriever(store), "When was Wei's concert in Oslo?",
         at=_dt(2023, 11, 1, 12, 0).timestamp(), scope=scope,
     )
     assert ans2 is not None and ("2023-05-28" in ans2.answer or "May 28" in ans2.answer)
 
 
 def test_date_anchored_activity_lookup_reads_verb_form_atoms(tmp_path):
-    """'Which recreational activity was James pursuing on March 16, 2022?' abstained live:
-    the doing-atom ('yesterday I went bowling') never echoes the abstract wh-noun
+    """'Which recreational activity was Noor pursuing on March 16, 2022?' abstained live:
+    the doing-atom ('yesterday I went curling') never echoes the abstract wh-noun
     'activity', so every lexical target gate starves. Once the explicit-day window has
     proven membership deterministically, a tight verb-form extractor (went+gerund /
-    played+object) may answer; preference statements ('I love bowling') stay out."""
+    played+object) may answer; preference statements ('I love curling') stay out."""
     from datetime import datetime as _dt
 
     store = RecordStore(tmp_path / "activity-day.sqlite")
     scope = Scope(namespace="activity-day")
     rows = [
-        ("James: By the way, yesterday I went bowling and got 2 strikes. John: Nice!",
+        ("Noor: By the way, yesterday I went curling and scored 2 points. Farid: Nice!",
          _dt(2022, 3, 17, 12, 0)),
-        ("James: I love bowling! But honestly I don't play often.",
+        ("Noor: I love curling! But honestly I don't play often.",
          _dt(2022, 4, 2, 12, 0)),
     ]
     for text, dt in rows:
         store.upsert_record(_record(text, scope=scope, valid_at=dt.timestamp()))
 
     ans = structured_answer(
-        _Retriever(store), "Which recreational activity was James pursuing on March 16, 2022?",
+        _Retriever(store), "Which recreational activity was Noor pursuing on March 16, 2022?",
         at=_dt(2022, 5, 1, 12, 0).timestamp(), scope=scope,
     )
-    assert ans is not None and ans.answer == "bowling"
+    assert ans is not None and ans.answer == "curling"
     assert ":date_anchored" in ans.note
-    assert "went bowling" in ans.citations[0].snippet
+    assert "went curling" in ans.citations[0].snippet
 
     # without the explicit day there is no window proof -> the extractor must not fire
     ans2 = structured_answer(
-        _Retriever(store), "Which recreational activity does James pursue?",
+        _Retriever(store), "Which recreational activity does Noor pursue?",
         at=_dt(2022, 5, 1, 12, 0).timestamp(), scope=scope,
     )
     assert ans2 is None or ":date_anchored" not in (ans2.note or "")
 
 
 def test_duration_question_requires_target_named_in_the_duration_atom(tmp_path):
-    """'How long did it take Joanna to finish writing her book?' pulled 'I've had THEM for
-    3 years' (pets) through the pronoun-group anaphora bridge: durations are ubiquitous, so
-    a plural pronoun tied to session-level 'book' terms shipped an unrelated tenure as a
-    writing duration. Duration questions demand the target named in the atom itself, in
-    BOTH the specific and generic lookup loops; with no tied duration atom the op fails
-    closed to the reader."""
+    """'How long did it take Noor to finish writing her book?' pulled a pets tenure ('I've
+    had them for 3 years') through the pronoun-group anaphora bridge: durations are
+    ubiquitous, so a plural pronoun tied to session-level 'book' terms shipped an unrelated
+    tenure as a writing duration. Duration questions demand the target named in the atom
+    itself, in BOTH the specific and generic lookup loops; with no tied duration atom the
+    op fails closed to the reader."""
     from datetime import datetime as _dt
 
     store = RecordStore(tmp_path / "duration-tie.sqlite")
     scope = Scope(namespace="duration-tie")
     store.upsert_record(_record(
-        "Nate: I've had them for 3 years now and they bring me tons of joy! "
-        "Joanna: That's lovely. By the way, my book is coming along.",
+        "Priya: I've had them for 3 years already and they fill my days with laughter! "
+        "Noor: That's lovely. By the way, my book is coming along.",
         scope=scope, valid_at=_dt(2022, 5, 1, 12, 0).timestamp()))
 
     ans = structured_answer(
-        _Retriever(store), "How long did it take for Joanna to finish writing her book?",
+        _Retriever(store), "How long did it take for Noor to finish writing her book?",
         at=_dt(2022, 12, 1, 12, 0).timestamp(), scope=scope,
     )
     assert ans is None or "3 years" not in (ans.answer or "")
 
     # a duration atom that NAMES the target answers normally
     store.upsert_record(_record(
-        "Joanna: Writing the book took me four months in the end.",
+        "Noor: Writing the book took me four months in the end.",
         scope=scope, valid_at=_dt(2022, 10, 6, 12, 0).timestamp()))
     ans2 = structured_answer(
-        _Retriever(store), "How long did it take for Joanna to finish writing her book?",
+        _Retriever(store), "How long did it take for Noor to finish writing her book?",
         at=_dt(2022, 12, 1, 12, 0).timestamp(), scope=scope,
     )
     assert ans2 is not None and "four months" in ans2.answer
 
 
 def test_duration_questions_skip_hypotheticals_and_extract_stated_durations(tmp_path):
-    """Fresh-holdout conv7-row33 shape: 'How long have Jolene and her partner been together?'
-    shipped 'one day' VERIFIED from 'Maybe one day we will be able to watch the sunrise
-    together!' -- a hypothetical, but duration-shaped. Two rules: (1) elapsed-time questions
+    """Fresh-holdout conv7-row33 shape: 'How long have Suki and her partner been together?'
+    shipped 'one day' VERIFIED from a hypothetical sunrise-watching wish -- future-intent,
+    but duration-shaped. Two rules: (1) elapsed-time questions
     skip future-intent atoms; (2) the stated duration ('been together FOR THREE YEARS')
     outranks generic slot extraction, which returned the nearby noun 'Married'."""
     from datetime import datetime as _dt
@@ -4752,16 +4752,16 @@ def test_duration_questions_skip_hypotheticals_and_extract_stated_durations(tmp_
     store = RecordStore(tmp_path / "duration-hypo.sqlite")
     scope = Scope(namespace="duration-hypo")
     rows = [
-        ("Jolene: Maybe one day we will be able to watch the sunrise together!",
+        ("Suki: Maybe one day the two of us will get to watch the sunrise from the ridge!",
          _dt(2023, 3, 1, 12, 0)),
-        ("Jolene: We're not married yet but we've been together for three years.",
+        ("Suki: We aren't married yet, but we have been together for three years.",
          _dt(2023, 1, 23, 12, 0)),
     ]
     for text, dt in rows:
         store.upsert_record(_record(text, scope=scope, valid_at=dt.timestamp()))
 
     ans = structured_answer(
-        _Retriever(store), "How long have Jolene and her partner been together?",
+        _Retriever(store), "How long have Suki and her partner been together?",
         at=_dt(2023, 8, 1, 12, 0).timestamp(), scope=scope,
     )
     assert ans is not None and ans.answer == "three years"
@@ -4769,21 +4769,21 @@ def test_duration_questions_skip_hypotheticals_and_extract_stated_durations(tmp_
 
 
 def test_zero_information_answers_are_refused(tmp_path):
-    """Fresh-holdout conv5-row3 shape: 'My girlfriend' shipped VERIFIED for 'what kind of places
-    have Andrew and his girlfriend checked out?' -- every content token already sits in the
+    """Fresh-holdout conv5-row3 shape: 'My girlfriend' shipped VERIFIED for 'what kind of spots
+    have Ravi and his girlfriend been checking out?' -- every content token already sits in the
     question, so the answer restates it. Deterministic form floor; clock-time answers
     ('11 pm') tokenize to nothing and must fail OPEN."""
     from eidetic.smqe.verify import _answer_adds_information
 
-    q = "What kind of places have Andrew and his girlfriend checked out around the city?"
+    q = "What kind of spots have Ravi and his girlfriend been checking out around town?"
     assert not _answer_adds_information(q, "My girlfriend")
-    assert not _answer_adds_information(q, "checked out the city")
+    assert not _answer_adds_information(q, "checking out around town")
     assert _answer_adds_information(q, "cafes, hikes, a pet shelter")
     assert _answer_adds_information("What time did I go to bed?", "11 pm")
 
     store = RecordStore(tmp_path / "zero-info.sqlite")
     scope = Scope(namespace="zero-info")
-    rec = _record("Andrew: My girlfriend and I checked out the city.", scope=scope, valid_at=1.0)
+    rec = _record("Ravi: My girlfriend and I have been checking out spots around town.", scope=scope, valid_at=1.0)
     store.upsert_record(rec)
     junk = StructuredAnswerResult(
         answer="My girlfriend", op="latest_value", backend="claim",
@@ -4794,26 +4794,26 @@ def test_zero_information_answers_are_refused(tmp_path):
 
 
 def test_bare_day_of_month_resolves_against_session_date(tmp_path):
-    """Fresh-holdout conv7-row57 shape: 'I bought a console for my partner as a gift ON THE
-    17TH' (spoken Aug 19) names Aug 17, but no extractor knew the bare day-of-month form,
-    so a January 'last week' console atom outscored the exact statement and shipped a wrong
-    week window verified. The session month anchors the day; a day after the session date
-    in non-future speech is the previous month's instance."""
+    """Fresh-holdout conv7-row57 shape: 'I bought a handheld for my partner as a birthday
+    gift ON THE 17TH' (spoken Aug 19) names Aug 17, but no extractor knew the bare
+    day-of-month form, so a January 'last week' handheld atom outscored the exact statement
+    and shipped a wrong week window verified. The session month anchors the day; a day
+    after the session date in non-future speech is the previous month's instance."""
     from datetime import datetime as _dt
 
     store = RecordStore(tmp_path / "bare-day.sqlite")
     scope = Scope(namespace="bare-day")
     rows = [
-        ("Jolene: We played the game Detroit on the console last week.",
+        ("Suki: We played the game Skylane on the handheld last week.",
          _dt(2023, 1, 27, 12, 0)),
-        ("Jolene: I bought a console for my partner as a gift on the 17th and it's so much fun!",
+        ("Suki: I bought a handheld for my partner as a birthday gift on the 17th and it's such a blast!",
          _dt(2023, 8, 19, 12, 0)),
     ]
     for text, dt in rows:
         store.upsert_record(_record(text, scope=scope, valid_at=dt.timestamp()))
 
     ans = structured_answer(
-        _Retriever(store), "When did Jolene gift her partner a new console?",
+        _Retriever(store), "When did Suki gift her partner a new handheld?",
         at=_dt(2023, 9, 1, 12, 0).timestamp(), scope=scope,
     )
     assert ans is not None and ans.answer == "2023-08-17"
@@ -4821,7 +4821,7 @@ def test_bare_day_of_month_resolves_against_session_date(tmp_path):
 
 
 def test_ordinal_kth_event_interpolates_between_numbered_anchors(tmp_path):
-    """Fresh-holdout conv3-row26 shape: 'when did Nate win his THIRD tourney?' shipped a late
+    """Fresh-holdout conv3-row26 shape: 'when did Marco win his THIRD tourney?' shipped a late
     unrelated mention verified -- the generic loop has no counting semantics. The kth
     instance is the earliest unnumbered same-event atom strictly between the (k-1)th and
     (k+1)th anchors ('my second' 05-02, 'my fourth' 07-10 bound the 06-04 'another regional
@@ -4831,20 +4831,20 @@ def test_ordinal_kth_event_interpolates_between_numbered_anchors(tmp_path):
     store = RecordStore(tmp_path / "ordinal-k.sqlite")
     scope = Scope(namespace="ordinal-k")
     rows = [
-        ("Nate: I won my first video game tournament last week - so exciting!",
+        ("Marco: I won my first board game tournament last week - so exciting!",
          _dt(2022, 1, 22, 12, 0)),
-        ("Nate: Last week I won my second tournament!", _dt(2022, 5, 2, 12, 0)),
-        ("Nate: I've been doing great - I just won another regional video game tournament "
+        ("Marco: Last week I won my second tournament!", _dt(2022, 5, 2, 12, 0)),
+        ("Marco: Things are going great - I just won another regional board game tournament "
          "last week!", _dt(2022, 6, 4, 12, 0)),
-        ("Nate: I won my fourth video game tournament on Friday!", _dt(2022, 7, 10, 12, 0)),
-        ("Nate: My game tournament got pushed back, so I tried out some cooking.",
+        ("Marco: I won my fourth board game tournament on Friday!", _dt(2022, 7, 10, 12, 0)),
+        ("Marco: My game tournament got postponed, so I tried out some baking.",
          _dt(2022, 11, 10, 12, 0)),
     ]
     for text, dt in rows:
         store.upsert_record(_record(text, scope=scope, valid_at=dt.timestamp()))
 
     ans = structured_answer(
-        _Retriever(store), "When did Nate win his third tourney?",
+        _Retriever(store), "When did Marco win his third tourney?",
         at=_dt(2022, 12, 1, 12, 0).timestamp(), scope=scope,
     )
     assert ans is not None
@@ -4853,14 +4853,14 @@ def test_ordinal_kth_event_interpolates_between_numbered_anchors(tmp_path):
 
     # an explicit ordinal atom anchors directly
     ans2 = structured_answer(
-        _Retriever(store), "When did Nate win his second tourney?",
+        _Retriever(store), "When did Marco win his second tourney?",
         at=_dt(2022, 12, 1, 12, 0).timestamp(), scope=scope,
     )
     assert ans2 is not None and "2022-04" in ans2.answer  # 'last week' of 05-02
 
     # no (k-1) anchor -> fail closed, never the generic junk
     ans3 = structured_answer(
-        _Retriever(store), "When did Nate win his seventh tourney?",
+        _Retriever(store), "When did Marco win his seventh tourney?",
         at=_dt(2022, 12, 1, 12, 0).timestamp(), scope=scope,
     )
     assert ans3 is None
@@ -4877,7 +4877,7 @@ def test_favorite_category_noun_gates_preference_atoms(tmp_path):
     scope = Scope(namespace="fav-category")
     rows = [
         "Arlo: Harbor walks at dusk are one of my favorites - great for unwinding after work.",
-        "Arlo: I'm cutting back on fried food and sugary snacks, even though I love oat biscuits.",
+        "Arlo: I'm cutting back on fried food and salty snacks, even though I love oat biscuits.",
     ]
     for i, text in enumerate(rows):
         store.upsert_record(_record(text, scope=scope, valid_at=float(i + 1)))
@@ -5003,16 +5003,16 @@ def test_last_monthname_resolves_against_statement_date(tmp_path):
     store = RecordStore(tmp_path / "last-month.sqlite")
     scope = Scope(namespace="last-month")
     rows = [
-        ("John: I attended a local restaurant with some new teammates last week.",
+        ("Farid: I attended a neighborhood bistro with some new teammates last week.",
          _dt(2023, 9, 22, 12, 0)),
-        ("John: Last August I told you about my fun time at a charity event with "
+        ("Farid: Last August I told you about my great evening at a fundraiser event with "
          "a big movie trivia contest.", _dt(2023, 12, 9, 12, 0)),
     ]
     for text, dt in rows:
         store.upsert_record(_record(text, scope=scope, valid_at=dt.timestamp()))
 
     ans = structured_answer(
-        _Retriever(store), "When did John attend the movie trivia contest?",
+        _Retriever(store), "When did Farid attend the movie trivia contest?",
         at=_dt(2023, 12, 20, 12, 0).timestamp(), scope=scope,
     )
     assert ans is not None and ans.answer == "August 2023"
@@ -5020,17 +5020,17 @@ def test_last_monthname_resolves_against_statement_date(tmp_path):
 
     # 'last May' spoken in March reaches back to the PREVIOUS year
     store.upsert_record(_record(
-        "John: Last May we hosted the bake sale.", scope=scope,
+        "Farid: Last May we hosted the bake sale.", scope=scope,
         valid_at=_dt(2024, 3, 10, 12, 0).timestamp()))
     ans2 = structured_answer(
-        _Retriever(store), "When did John host the bake sale?",
+        _Retriever(store), "When did Farid host the bake sale?",
         at=_dt(2024, 4, 1, 12, 0).timestamp(), scope=scope,
     )
     assert ans2 is not None and ans2.answer == "May 2023"
 
 
 def test_how_old_answers_stated_age_and_defers_inference(tmp_path):
-    """Fresh-holdout shape: 'How old is Max?' ABSTAINED while 'Max is already old, he is
+    """Fresh-holdout shape: 'How old is Bruno?' ABSTAINED while 'Bruno is getting old, he is
     8 years old' sat in the store -- no extractor knew age statements. Entity-tied stated
     ages answer directly (latest statement wins); with no age atom the op falls through so
     the reader can still INFER a range ('likely under 30, she's in school')."""
@@ -5039,24 +5039,24 @@ def test_how_old_answers_stated_age_and_defers_inference(tmp_path):
     store = RecordStore(tmp_path / "age.sqlite")
     scope = Scope(namespace="age")
     rows = [
-        ("Jolene: Moreover, Max is already old, he is 8 years old.", _dt(2023, 8, 27, 12, 0)),
-        ("Jolene: When Max was a puppy he was 1 year old obviously!", _dt(2020, 1, 1, 12, 0)),
+        ("Suki: Honestly, Bruno is getting old, he is 8 years old.", _dt(2023, 8, 27, 12, 0)),
+        ("Suki: When Bruno was a puppy he was 1 year old obviously!", _dt(2020, 1, 1, 12, 0)),
     ]
     for text, dt in rows:
         store.upsert_record(_record(text, scope=scope, valid_at=dt.timestamp()))
 
-    ans = structured_answer(_Retriever(store), "How old is Max?",
+    ans = structured_answer(_Retriever(store), "How old is Bruno?",
                             at=_dt(2023, 12, 1, 12, 0).timestamp(), scope=scope)
     assert ans is not None and ans.answer == "8 years old"   # latest statement wins
     assert "8 years old" in ans.citations[0].snippet
 
-    ans2 = structured_answer(_Retriever(store), "How old is Deborah?",
+    ans2 = structured_answer(_Retriever(store), "How old is Tamsin?",
                              at=_dt(2023, 12, 1, 12, 0).timestamp(), scope=scope)
     assert ans2 is None                                       # no stated age -> reader owns it
 
 
 def test_dialogue_crystal_requires_full_query_term_coverage(tmp_path):
-    """Fresh-holdout wrong-instance class: 'What is Jon working on OPENING?' matched a
+    """Fresh-holdout wrong-instance class: 'What is Ravi working on OPENING?' matched a
     broader working-on crystal whose reply never mentions opening -- the slot-defining
     term was covered by nothing and the wrong instance shipped verified. Every query
     content term must appear in the recorded question or its answer; the correctly-tied
@@ -5071,10 +5071,10 @@ def test_dialogue_crystal_requires_full_query_term_coverage(tmp_path):
     store = RecordStore(tmp_path / "crystal-cover.sqlite")
     scope = Scope(namespace="crystal-cover")
     rows = [
-        ("Gina: What are you working on these days, Jon? "
-         "Jon: I'm wrapping up the business plan and looking for investors.",
+        ("Priya: What are you working on these days, Ravi? "
+         "Ravi: I'm refining the business plan and lining up investors.",
          _dt(2023, 6, 25, 12, 0)),
-        ("Jon: Still working on opening a dance studio. It takes a while!",
+        ("Ravi: Still working on opening a dance studio. It takes a while!",
          _dt(2023, 6, 19, 12, 0)),
     ]
     for text, dt in rows:
@@ -5082,7 +5082,7 @@ def test_dialogue_crystal_requires_full_query_term_coverage(tmp_path):
         store.upsert_record(rec)
         store.add_claims(claims_for_record(rec))
 
-    ans = structured_answer(_Retriever(store), "What is Jon working on opening?",
+    ans = structured_answer(_Retriever(store), "What is Ravi working on opening?",
                             at=_dt(2023, 8, 1, 12, 0).timestamp(), scope=scope)
     assert ans is not None
     assert "dance studio" in ans.answer
@@ -5090,33 +5090,33 @@ def test_dialogue_crystal_requires_full_query_term_coverage(tmp_path):
 
 
 def test_reader_form_floor_wh_temporal_type_agreement():
-    """Slice-3 catches: 'When did Joanna make the tart?' shipped the recipe INGREDIENTS
+    """Slice-3 catches: 'When did Noor make the torte?' shipped the recipe INGREDIENTS
     verified (no temporal token); a what-question shipped a bare date; a what-question
     shipped junk wearing a 'Yes'. Type agreement both directions, yes/no exempt only for
     polarity questions; granular date answers keep passing when-questions."""
     from eidetic.smqe.verify import reader_answer_form_credible as f
 
-    assert not f("When did Joanna make a chocolate tart with raspberries?",
-                 "I make it with almond flour, coconut oil, chocolate and raspberries")
-    assert not f("When did Melanie go camping in July?", "We're thinking about going camping")
-    assert f("When did Joanna make a chocolate tart?", "on 5 October, 2022")
-    assert f("When did John attend the contest?", "August 2023")
+    assert not f("When did Noor make a hazelnut torte with cherries?",
+                 "I make it with rye flour, sesame oil, hazelnut and cherries")
+    assert not f("When did Priya go camping in July?", "We're thinking about going camping")
+    assert f("When did Noor make a hazelnut torte?", "on 5 October, 2022")
+    assert f("When did Farid attend the contest?", "August 2023")
 
-    assert not f("What did he and his father do in the garage?", "2023-10-05")
-    assert f("What did he and his father do in the garage?", "tinkering with car engines")
+    assert not f("What did he and his uncle do in the workshop?", "2023-10-05")
+    assert f("What did he and his uncle do in the workshop?", "tinkering with motorbike engines")
 
-    assert not f("What would Caroline's political leaning likely be?",
-                 "Yes - Glad you've got people to lean on, Melanie")
-    assert f("Did Dave fix the Charger?", "Yes, he finished the restoration last week")
+    assert not f("What would Priya's political leaning likely be?",
+                 "Yes - Glad you've got folks to count on, Priya")
+    assert f("Did Farid fix the roadster?", "Yes, he finished the restoration last week")
 
     # junk-head enumeration item ('up with developer forums') disqualifies the list
-    assert not f("Where does James get his ideas from?",
+    assert not f("Where does Marco get his ideas from?",
                  "books, movies, various sources, up with developer forums for i")
 
 
 def test_first_instance_uses_explicit_ordinal_anchor_and_skips_future_placements(tmp_path):
-    """Slice-3 catch: 'when did Nate win his FIRST tournament?' shipped May 2022 verified
-    from 'I've got a gaming tournament NEXT MONTH' -- a forward placement with no
+    """Slice-3 catch: 'when did Marco win his FIRST tournament?' shipped May 2022 verified
+    from 'I've got a board game tournament NEXT MONTH' -- a forward placement with no
     will/going-to, invisible to the intent detector, and the explicit 'my first' anchor
     was ignored. Future-polarity now covers next-week/month/year placements, and k=1
     ordinal questions answer directly from an explicit first-anchor atom."""
@@ -5125,17 +5125,17 @@ def test_first_instance_uses_explicit_ordinal_anchor_and_skips_future_placements
     store = RecordStore(tmp_path / "first-anchor.sqlite")
     scope = Scope(namespace="first-anchor")
     rows = [
-        ("Nate: I won my first video game tournament last week - so exciting!",
+        ("Marco: I won my first board game tournament last week - so exciting!",
          _dt(2022, 1, 22, 12, 0)),
-        ("Nate: I've got a gaming tournament next month and I'm feeling good about it.",
+        ("Marco: I've got a board game tournament next month and I'm feeling ready for it.",
          _dt(2022, 4, 22, 12, 0)),
-        ("Nate: Last week I won my second tournament!", _dt(2022, 5, 2, 12, 0)),
+        ("Marco: Last week I won my second tournament!", _dt(2022, 5, 2, 12, 0)),
     ]
     for text, dt in rows:
         store.upsert_record(_record(text, scope=scope, valid_at=dt.timestamp()))
 
     ans = structured_answer(
-        _Retriever(store), "When did Nate win his first video game tournament?",
+        _Retriever(store), "When did Marco win his first board game tournament?",
         at=_dt(2022, 12, 1, 12, 0).timestamp(), scope=scope,
     )
     assert ans is not None
@@ -5180,13 +5180,13 @@ def test_form_floor_quoted_names_and_them_head(tmp_path):
     hits the enumeration head-stop ('them' was missing from the set)."""
     from eidetic.smqe.verify import reader_answer_form_credible as f
 
-    q = "What is one of Tim's favorite fantasy TV shows, as mentioned on November 11, 2023?"
-    a = '"That" is one of Tim\'s favorite fantasy TV shows, as mentioned on November 11, 2023'
+    q = "What is one of Marco's favorite mystery TV shows, as mentioned on November 14, 2023?"
+    a = '"That" is one of Marco\'s favorite mystery TV shows, as mentioned on November 14, 2023'
     assert f(q, a)                                # quoted name = information
 
     junk = ("difference regarding, them looking good, Regular, Regular grooming, "
-            "dog grooming course, Toby, groom Toby, and learn dog grooming")
-    assert not f("What advice did Audrey give to Andrew regarding grooming Toby?", junk)
+            "dog grooming course, Biscuit, groom Biscuit, and learn dog grooming")
+    assert not f("What advice did Priya give to Ravi regarding grooming Biscuit?", junk)
 
 
 def test_when_question_verb_selects_the_event_instance(tmp_path):
@@ -5200,15 +5200,15 @@ def test_when_question_verb_selects_the_event_instance(tmp_path):
     store = RecordStore(tmp_path / "lemma-instance.sqlite")
     scope = Scope(namespace="lemma-instance")
     rows = [
-        ("Calvin: My album finally dropped on the 11th and it was a wild feeling.",
+        ("Wei: My album officially dropped on the 11th and it felt surreal.",
          _dt(2023, 9, 13, 12, 0)),
-        ("Calvin: Last week I threw a small party at my Japanese house for my new album.",
+        ("Wei: Last week I hosted a small gathering at my lakeside house for my new album.",
          _dt(2023, 11, 3, 12, 0)),
     ]
     for text, dt in rows:
         store.upsert_record(_record(text, scope=scope, valid_at=dt.timestamp()))
 
-    ans = structured_answer(_Retriever(store), "When was Calvin's album released?",
+    ans = structured_answer(_Retriever(store), "When was Wei's album released?",
                             at=_dt(2023, 12, 1, 12, 0).timestamp(), scope=scope)
     assert ans is not None and ans.answer == "2023-09-11"
     assert "dropped on the 11th" in ans.citations[0].snippet
@@ -5266,23 +5266,23 @@ def test_month_of_superlative_ties_the_metric_unit(tmp_path):
     store = RecordStore(tmp_path / "month-sup.sqlite")
     scope = Scope(namespace="month-sup")
     rows = [
-        ("John: Last week I scored 40 points, my highest ever, and it feels great.",
+        ("Farid: Last week I dropped 40 points, my highest ever, in our league game.",
          _dt(2023, 7, 16, 12, 0)),
-        ("John: By the way, I had a career-high in assists last Friday in our big game.",
+        ("Farid: By the way, I posted a career-high in assists this past Friday in our derby match.",
          _dt(2023, 12, 12, 12, 0)),
     ]
     for text, dt in rows:
         store.upsert_record(_record(text, scope=scope, valid_at=dt.timestamp()))
 
     ans = structured_answer(
-        _Retriever(store), "In which month's game did John achieve a career-high score in points?",
+        _Retriever(store), "In which month's game did Farid achieve a career-high score in points?",
         at=_dt(2024, 1, 1, 12, 0).timestamp(), scope=scope,
     )
     assert ans is not None and ans.answer == "July 2023"
     assert "40 points" in ans.citations[0].snippet
 
     ans2 = structured_answer(
-        _Retriever(store), "In which month did John achieve a career-high in assists?",
+        _Retriever(store), "In which month did Farid achieve a career-high in assists?",
         at=_dt(2024, 1, 1, 12, 0).timestamp(), scope=scope,
     )
     assert ans2 is not None and ans2.answer == "December 2023"
@@ -5294,5 +5294,5 @@ def test_iso_date_answers_are_never_query_echoes():
     token. A full ISO date is always information unless the query quotes it exactly."""
     from eidetic.smqe.verify import reader_answer_form_credible as f
 
-    assert f("When did John meet back up with his teammates after his trip in August 2023?",
+    assert f("When did Farid link up with his crew again after his trip in August 2023?",
              "2023-08-15")

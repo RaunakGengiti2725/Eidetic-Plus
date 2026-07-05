@@ -24,10 +24,10 @@ def test_extractive_entailment_rejects_tiny_or_unsupported_fragments():
 
 
 def test_extractive_entailment_normalizes_duration_number_words():
-    premise = "Caroline has had her current group of friends for four years."
+    premise = "Priya has had her current circle of pen pals for four years."
     assert _extractive_entailment(premise, "4 years [S2]")
     assert _extractive_entailment("The job lasted a couple of months.", "2 months [S3]")
-    assert not _extractive_entailment("Caroline met her friends for a picnic.", "4 years [S2]")
+    assert not _extractive_entailment("Priya met her pen pals for a picnic.", "4 years [S2]")
 
 
 def test_extractive_entailment_canonicalizes_user_preferences():
@@ -37,40 +37,40 @@ def test_extractive_entailment_canonicalizes_user_preferences():
 
 
 def test_extractive_entailment_proves_session_relative_yesterday_date():
-    premise = "Caroline: I went to a LGBTQ support group yesterday and it was powerful."
+    premise = "Noor: I went to a chess club meetup yesterday and it was energizing."
     valid_at = datetime(2023, 5, 8, 12, 0, 0).timestamp()
     assert _extractive_entailment(premise, "2023-05-07 (Sunday) [S20]", valid_at)
     assert _extractive_entailment(premise, "7 May 2023 [S20]", valid_at)
     assert _extractive_entailment(
         premise,
-        "Caroline went to a LGBTQ support group on 2023-05-07 [S20]",
+        "Noor went to a chess club meetup on 2023-05-07 [S20]",
         valid_at,
     )
     assert not _extractive_entailment(premise, "2023-05-07 (Monday) [S20]", valid_at)
     assert not _extractive_entailment(premise, "2023-05-06 (Saturday) [S20]", valid_at)
     assert not _extractive_entailment(
         premise,
-        "Caroline went to the adoption agency on 2023-05-07 [S20]",
+        "Noor went to the farmers market on 2023-05-07 [S20]",
         valid_at,
     )
 
 
 def test_extractive_entailment_proves_strict_qa_temporal_answer_only_when_topic_supported():
-    premise = "Melanie: I just signed up for a pottery class yesterday."
+    premise = "Ravi: I just signed up for a fencing class yesterday."
     valid_at = datetime(2023, 7, 3, 12, 0, 0).timestamp()
     assert _extractive_entailment(
         premise,
-        "Question: When did Melanie sign up for a pottery class?\nAnswer: 2023-07-02",
+        "Question: When did Ravi sign up for a fencing class?\nAnswer: 2023-07-02",
         valid_at,
     )
     assert not _extractive_entailment(
         premise,
-        "Question: When did Melanie adopt a cat?\nAnswer: 2023-07-02",
+        "Question: When did Ravi adopt a parrot?\nAnswer: 2023-07-02",
         valid_at,
     )
     assert not _extractive_entailment(
-        "Melanie: Absolutely!",
-        "Question: When did Melanie buy the figurines?\nAnswer: Absolutely",
+        "Ravi: Absolutely!",
+        "Question: When did Ravi buy the lanterns?\nAnswer: Absolutely",
         valid_at,
     )
 
@@ -82,8 +82,8 @@ def test_extractive_entailment_proves_strict_qa_duration_answer_only_when_topic_
         "Question: How long has Blair been married?\nAnswer: 5 years",
     )
     assert _extractive_entailment(
-        "Caroline: They've been there through everything, I've known these friends for 4 years.",
-        "Question: How long has Caroline had her current group of friends for?\nAnswer: 4 years",
+        "Marco: They've stood by me through it all, I've known these teammates for 4 years.",
+        "Question: How long has Marco had his current group of teammates for?\nAnswer: 4 years",
     )
     assert not _extractive_entailment(
         premise,
@@ -92,27 +92,27 @@ def test_extractive_entailment_proves_strict_qa_duration_answer_only_when_topic_
 
 
 def test_extractive_entailment_proves_last_weekday_from_session_date():
-    premise = "Caroline: I went to a pride parade last Friday."
+    premise = "Wei: I went to a jazz concert last Friday."
     valid_at = datetime(2023, 8, 14, 12, 0, 0).timestamp()
     assert _extractive_entailment(premise, "August 11, 2023 (Friday) [S14]", valid_at)
     assert not _extractive_entailment(premise, "August 4, 2023 (Friday) [S14]", valid_at)
 
 
 def test_extractive_entailment_bridges_trans_woman_alias():
-    premise = "Caroline: I made this painting to show my path as a trans woman."
-    assert _extractive_entailment(premise, "Caroline is a transgender woman [S0]")
+    premise = "Priya: I painted this mural to celebrate my journey as a trans woman."
+    assert _extractive_entailment(premise, "Priya is a transgender woman [S0]")
     assert _extractive_entailment(premise, "transgender woman [S0]")
     assert not _extractive_entailment(
-        "Caroline: I mentor a transgender teen just like me.",
-        "Caroline is a transgender woman [S0]",
+        "Priya: I tutor a transgender teen in my art class.",
+        "Priya is a transgender woman [S0]",
     )
 
 
 def test_extractive_entailment_requires_title_to_appear_in_premise():
-    premise = "Joanna: The Lighthouse Bell is one of my favorite movies."
+    premise = "Farid: The Lighthouse Bell is one of my favorite movies."
     assert _extractive_entailment(premise, "The Lighthouse Bell [S0]")
     assert not _extractive_entailment(
-        "Joanna: I like old coastal thrillers with foghorns.",
+        "Farid: I like old coastal thrillers with foghorns.",
         "The Lighthouse Bell [S0]",
     )
 
@@ -134,34 +134,34 @@ def test_extractive_entailment_proves_markdown_schedule_table_cell():
 
 
 def test_extractive_entailment_proves_next_month_named_month():
-    premise = "Melanie: We're thinking about going camping next month."
+    premise = "Wei: We're thinking about going kayaking next month."
     valid_at = datetime(2023, 5, 25, 12, 0, 0).timestamp()
     assert _extractive_entailment(
         premise,
-        "Melanie planned on going camping in June 2023 [S1]",
+        "Wei planned on going kayaking in June 2023 [S1]",
         valid_at,
     )
     assert not _extractive_entailment(
         premise,
-        "Melanie planned on going camping in July 2023 [S1]",
+        "Wei planned on going kayaking in July 2023 [S1]",
         valid_at,
     )
 
 
 def test_extractive_entailment_proves_last_week_session_anchor():
     premise = (
-        "Caroline: My friends, family and mentors are my rocks. "
-        "Here's a pic from when we met up last week!"
+        "Noor: My cousins, neighbors and coaches are my anchors. "
+        "Here's a photo from when we met up last week!"
     )
     valid_at = datetime(2023, 6, 9, 12, 0, 0).timestamp()
     assert _extractive_entailment(
         premise,
-        "Caroline met up with her friends, family, and mentors the week before 9 June 2023 [S2]",
+        "Noor met up with her cousins, neighbors, and coaches the week before 9 June 2023 [S2]",
         valid_at,
     )
     assert not _extractive_entailment(
         premise,
-        "Caroline met up with her coworkers the week before 9 June 2023 [S2]",
+        "Noor met up with her coworkers the week before 9 June 2023 [S2]",
         valid_at,
     )
 

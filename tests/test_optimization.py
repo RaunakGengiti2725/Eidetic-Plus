@@ -1128,18 +1128,18 @@ def test_user_evidence_context_keeps_nearby_user_store_context(fresh_settings):
     engine.store.upsert_record(MemoryRecord(
         memory_id="coupon", content_hash="coupon",
         text=("assistant: Any coupon organization tools?\n"
-              "user: I've been using the Cartwheel app from Target for household items.\n"
+              "user: I've been using the SnipSave app from GreenGrocer for pantry staples.\n"
               "assistant: Great, keep those offers organized.\n"
-              "user: I actually redeemed a $5 coupon on coffee creamer last Sunday."),
-        scope=scope, valid_at=t, entities=["Target", "coffee creamer"],
+              "user: I actually redeemed a $4 coupon on almond butter last Tuesday."),
+        scope=scope, valid_at=t, entities=["GreenGrocer", "almond butter"],
     ))
 
     blocks = engine.retriever.assemble_context(
-        "Where did I redeem a $5 coupon on coffee creamer?", [], at=t + 10, scope=scope)
+        "Where did I redeem a $4 coupon on almond butter?", [], at=t + 10, scope=scope)
     joined = "\n".join(blocks)
     assert "User evidence audit" in joined
-    assert "Cartwheel app from Target" in joined
-    assert "redeemed a $5 coupon on coffee creamer" in joined
+    assert "SnipSave app from GreenGrocer" in joined
+    assert "redeemed a $4 coupon on almond butter" in joined
 
 
 def test_user_evidence_context_keeps_current_match_before_long_prior_context(fresh_settings):
@@ -1276,43 +1276,43 @@ def test_aggregation_audit_completes_amount_sources(monkeypatch, tmp_path):
             valid_at=datetime(2023, 5, day, 12, 0, 0).timestamp(),
         )
 
-    gown = rec(
-        "gown",
-        "user: I recently bought a luxury evening gown for a wedding. It was a big purchase, $800. "
+    espresso = rec(
+        "espresso",
+        "user: I recently bought a premium espresso machine for my kitchen. It was a big purchase, $800. "
         "assistant: Example budget: Entertainment: $800; Food: $500.",
         24,
     )
-    handbag = rec(
-        "handbag",
-        "user: I splurge on luxury items, like that designer handbag I just got from Gucci for $1,200.",
+    bike = rec(
+        "bike",
+        "user: I splurge on premium gear, like that carbon road bike I just got from Velora for $1,200.",
         25,
     )
-    boots = rec(
-        "boots",
-        "user: I recently bought a pack of graphic tees from H&M for $20, which is a steal. "
-        "But I've also made some luxury purchases, like a pair of leather boots from a "
-        "high-end Italian designer that I got for $500.",
+    shoes = rec(
+        "shoes",
+        "user: I recently bought a pack of plain socks from Uniqlo for $20, which is a steal. "
+        "But I've also made some premium purchases, like a pair of trail shoes from a "
+        "high-end Japanese maker that I got for $500.",
         29,
     )
-    old_watch = MemoryRecord(
-        memory_id="old-watch", content_hash="old-watch",
-        text="user: I bought a luxury watch for $900 years ago.", source="old-watch",
+    old_scope = MemoryRecord(
+        memory_id="old-telescope", content_hash="old-telescope",
+        text="user: I bought a premium telescope for $900 years ago.", source="old-telescope",
         scope=scope, valid_at=datetime(2022, 1, 1, 12, 0, 0).timestamp(),
     )
-    q = "What is the total amount I spent on luxury items in the past few months?"
+    q = "What is the combined total I spent on premium gear in the past few months?"
     parsed = parse_query(q, ref)
-    current = [RetrievalCandidate(record=boots)]
-    records = {r.memory_id: r for r in [gown, handbag, boots, old_watch]}
+    current = [RetrievalCandidate(record=shoes)]
+    records = {r.memory_id: r for r in [espresso, bike, shoes, old_scope]}
 
     ensured = engine.retriever._ensure_aggregation_candidates(q, parsed, current, records, ref)
-    assert {c.record.memory_id for c in ensured} == {"gown", "handbag", "boots"}
+    assert {c.record.memory_id for c in ensured} == {"espresso", "bike", "shoes"}
 
     blocks = engine.retriever.assemble_context(q, ensured, at=ref, scope=scope)
     audit = next(b for b in blocks if b.startswith("Aggregation evidence audit"))
-    assert "luxury evening gown" in audit and "$800" in audit
-    assert "designer handbag" in audit and "$1,200" in audit
-    assert "leather boots" in audit and "$500" in audit
-    assert "luxury watch" not in audit
+    assert "premium espresso machine" in audit and "$800" in audit
+    assert "carbon road bike" in audit and "$1,200" in audit
+    assert "trail shoes" in audit and "$500" in audit
+    assert "premium telescope" not in audit
     assert "Entertainment: $800" not in audit
 
     engine.retriever.verify_citation = lambda _rec, _text: (NLILabel.NEUTRAL, 0.0)
@@ -1320,7 +1320,7 @@ def test_aggregation_audit_completes_amount_sources(monkeypatch, tmp_path):
         ensured, "$1,200 + $500 + $800 = $2,500", True, query=q, at=ref)
     assert entailed == 3
     assert {c.memory_id for c in citations if c.nli_label == NLILabel.ENTAILMENT} == {
-        "gown", "handbag", "boots"
+        "espresso", "bike", "shoes"
     }
     bad_citations, bad_entailed = engine.retriever._verify_candidates(
         ensured, "$500 + $1,200 = $1,700", True, query=q, at=ref)
@@ -1423,11 +1423,11 @@ def test_list_audit_excludes_related_but_off_scope_events(fresh_settings):
         engine.store.upsert_record(item)
         return item
 
-    mentor = rec("mentor", "Caroline joined a mentorship program to help children with school.", 4)
-    speech = rec("speech", "Caroline gave a speech at a school to encourage children.", 8)
-    school = rec("school", "Caroline attended a school board meeting with parents.", 10)
-    pride = rec("pride", "Caroline participated in a pride event for LGBTQ adults.", 12)
-    q = "What events has Caroline participated in to help children?"
+    mentor = rec("mentor", "Priya joined a tutoring program to help refugees with language skills.", 4)
+    speech = rec("speech", "Priya gave a lecture at a community center to encourage refugees.", 8)
+    school = rec("school", "Priya attended a community center board meeting with volunteers.", 10)
+    pride = rec("pride", "Priya participated in a game night for local adults.", 12)
+    q = "What events has Priya participated in to help refugees?"
     parsed = parse_query(q, ref)
 
     ensured = engine.retriever._ensure_list_candidates(
@@ -1439,10 +1439,10 @@ def test_list_audit_excludes_related_but_off_scope_events(fresh_settings):
 
     blocks = engine.retriever.assemble_context(q, ensured, at=ref, scope=scope)
     audit = next(b for b in blocks if b.startswith("List evidence audit"))
-    assert "mentorship program to help children" in audit
-    assert "speech at a school" in audit
-    assert "school board meeting" not in audit
-    assert "pride event" not in audit
+    assert "tutoring program to help refugees" in audit
+    assert "lecture at a community center" in audit
+    assert "board meeting" not in audit
+    assert "game night" not in audit
 
 
 def test_temporal_evidence_audit_preserves_relative_date_source(fresh_settings):
@@ -1500,17 +1500,17 @@ def test_temporal_evidence_audit_matches_speech_to_talk(fresh_settings):
     ref = datetime(2023, 6, 9, 12, 0, 0).timestamp()
     hit = MemoryRecord(
         memory_id="school-talk", content_hash="school-talk",
-        text="Caroline gave a talk about her transgender journey at a school event last week.",
+        text="Noor gave a talk about her documentary project at a library event last week.",
         source="school-talk", scope=scope, valid_at=ref,
     )
     distractor = MemoryRecord(
         memory_id="school-board", content_hash="school-board",
-        text="Caroline attended a school board meeting today.",
+        text="Noor attended a library board meeting today.",
         source="school-board", scope=scope, valid_at=ref,
     )
     for item in [hit, distractor]:
         engine.store.upsert_record(item)
-    q = "When did Caroline give a speech at a school?"
+    q = "When did Noor give a speech at a library?"
     parsed = parse_query(q, ref)
 
     ensured = engine.retriever._ensure_temporal_evidence_candidates(
@@ -1522,7 +1522,7 @@ def test_temporal_evidence_audit_matches_speech_to_talk(fresh_settings):
     blocks = engine.retriever.assemble_context(q, ensured, at=ref, scope=scope)
     audit = next(b for b in blocks if b.startswith("Temporal evidence audit"))
     assert "gave a talk" in audit
-    assert "school board meeting" not in audit
+    assert "library board meeting" not in audit
 
 
 def test_temporal_evidence_audit_surfaces_year_only_event_source(fresh_settings):
@@ -1603,17 +1603,17 @@ def test_temporal_evidence_audit_surfaces_duration_without_calendar_date(fresh_s
 
     duration = MemoryRecord(
         memory_id="duration", content_hash="duration",
-        text="Caroline has had her current group of friends for four years.",
+        text="Wei has had her current circle of teammates for four years.",
         source="duration", scope=scope, valid_at=ref,
     )
     distractor = MemoryRecord(
         memory_id="picnic", content_hash="picnic",
-        text="Caroline met her friends for a picnic and brought snacks.",
+        text="Wei met her teammates for a picnic and brought snacks.",
         source="picnic", scope=scope, valid_at=ref,
     )
     engine.store.upsert_record(duration)
     engine.store.upsert_record(distractor)
-    q = "How long has Caroline had her current group of friends for?"
+    q = "How long has Wei had her current circle of teammates for?"
     parsed = parse_query(q, ref)
 
     ensured = engine.retriever._ensure_temporal_evidence_candidates(
@@ -1625,8 +1625,8 @@ def test_temporal_evidence_audit_surfaces_duration_without_calendar_date(fresh_s
 
     blocks = engine.retriever.assemble_context(q, ensured, at=ref, scope=scope)
     audit = next(b for b in blocks if b.startswith("Temporal evidence audit"))
-    assert "current group of friends for four years" in audit
-    assert "friends for a picnic" not in audit
+    assert "current circle of teammates for four years" in audit
+    assert "teammates for a picnic" not in audit
 
 
 def test_temporal_anchor_audit_uses_session_dates_for_between_question(fresh_settings):
@@ -1639,43 +1639,43 @@ def test_temporal_anchor_audit_uses_session_dates_for_between_question(fresh_set
     scope = Scope(namespace="temporal-anchor-between")
     ref = datetime(2023, 2, 20, 12, 0, 0).timestamp()
 
-    moma = MemoryRecord(
-        memory_id="moma", content_hash="moma",
-        text="I visited the Museum of Modern Art (MoMA) and loved the photography wing.",
-        source="moma", scope=scope, valid_at=datetime(2023, 2, 3, 12, 0, 0).timestamp(),
+    science = MemoryRecord(
+        memory_id="science", content_hash="science",
+        text="I visited the Harborview Science Center and loved the planetarium wing.",
+        source="science", scope=scope, valid_at=datetime(2023, 2, 3, 12, 0, 0).timestamp(),
     )
-    met = MemoryRecord(
-        memory_id="met", content_hash="met",
-        text="I went to the Ancient Civilizations exhibit at the Metropolitan Museum of Art.",
-        source="met", scope=scope, valid_at=datetime(2023, 2, 10, 12, 0, 0).timestamp(),
+    botany = MemoryRecord(
+        memory_id="botany", content_hash="botany",
+        text="I went to the Desert Botany exhibit at the Riverside Natural History Museum.",
+        source="botany", scope=scope, valid_at=datetime(2023, 2, 10, 12, 0, 0).timestamp(),
     )
     unrelated = MemoryRecord(
         memory_id="unrelated", content_hash="unrelated",
-        text="I walked through an art supply store and bought brushes.",
+        text="I walked through a natural foods store and bought granola.",
         source="unrelated", scope=scope, valid_at=datetime(2023, 2, 4, 12, 0, 0).timestamp(),
     )
-    for item in [moma, met, unrelated]:
+    for item in [science, botany, unrelated]:
         engine.store.upsert_record(item)
     q = (
-        "How many days passed between my visit to MoMA and the 'Ancient Civilizations' "
-        "exhibit at the Metropolitan Museum of Art?"
+        "How many days passed between my trip to the Harborview Science Center and the "
+        "'Desert Botany' exhibit at the Riverside Natural History Museum?"
     )
     parsed = parse_query(q, ref)
 
     ensured = engine.retriever._ensure_temporal_evidence_candidates(
         q, parsed, [RetrievalCandidate(record=unrelated, fused_score=1.0)],
-        {r.memory_id: r for r in [moma, met, unrelated]},
+        {r.memory_id: r for r in [science, botany, unrelated]},
         ref,
     )
-    assert {c.record.memory_id for c in ensured} == {"unrelated", "moma", "met"}
+    assert {c.record.memory_id for c in ensured} == {"unrelated", "science", "botany"}
 
     blocks = engine.retriever.assemble_context(q, ensured, at=ref, scope=scope)
     audit = next(b for b in blocks if b.startswith("Temporal anchor audit"))
     assert "[2023-02-03]" in audit
     assert "[2023-02-10]" in audit
-    assert "Museum of Modern Art" in audit
-    assert "Ancient Civilizations exhibit" in audit
-    assert "art supply store" not in audit
+    assert "Harborview Science Center" in audit
+    assert "Desert Botany exhibit" in audit
+    assert "natural foods store" not in audit
 
 
 def test_temporal_anchor_audit_filters_single_word_pair_distractors(fresh_settings):
@@ -1690,22 +1690,22 @@ def test_temporal_anchor_audit_filters_single_word_pair_distractors(fresh_settin
 
     gala = MemoryRecord(
         memory_id="gala", content_hash="gala",
-        text="I participated in the charity gala and helped with the donor table.",
+        text="I participated in the winter book fair and helped with the vendor table.",
         source="gala", scope=scope, valid_at=datetime(2023, 7, 5, 12, 0, 0).timestamp(),
     )
     bake = MemoryRecord(
         memory_id="bake", content_hash="bake",
-        text="I joined the charity bake sale and boxed cupcakes for guests.",
+        text="I joined the winter book swap and boxed paperbacks for guests.",
         source="bake", scope=scope, valid_at=datetime(2023, 7, 12, 12, 0, 0).timestamp(),
     )
     run = MemoryRecord(
         memory_id="run", content_hash="run",
-        text="I ran a charity race for mental health.",
+        text="I ran a winter fun run for road safety.",
         source="run", scope=scope, valid_at=datetime(2023, 7, 1, 12, 0, 0).timestamp(),
     )
     for item in [gala, bake, run]:
         engine.store.upsert_record(item)
-    q = "Which event happened first, the charity gala or the charity bake sale?"
+    q = "Which event happened first, the winter book fair or the winter book swap?"
     parsed = parse_query(q, ref)
 
     ensured = engine.retriever._ensure_temporal_evidence_candidates(
@@ -1717,15 +1717,15 @@ def test_temporal_anchor_audit_filters_single_word_pair_distractors(fresh_settin
 
     blocks = engine.retriever.assemble_context(q, ensured, at=ref, scope=scope)
     audit = next(b for b in blocks if b.startswith("Temporal anchor audit"))
-    assert audit.index("charity gala") < audit.index("charity bake sale")
-    assert "charity race" not in audit
+    assert audit.index("winter book fair") < audit.index("winter book swap")
+    assert "fun run" not in audit
 
 
 def test_temporal_anchor_audit_does_not_fire_for_non_temporal_between_query():
     from eidetic.events import parse_query
     from eidetic.retrieval import _is_temporal_evidence_query, _temporal_anchor_groups
 
-    q = "What is the difference in price between my luxury boots and the similar budget pair?"
+    q = "What is the gap in cost between my premium sneakers and the cheaper backup pair?"
     parsed = parse_query(q)
 
     assert _temporal_anchor_groups(q) == []

@@ -128,9 +128,9 @@ def test_conflict_resolver_reaches_fixed_reader_context(tmp_path, monkeypatch):
 def test_conflict_resolver_skips_hypothetical_activity_questions():
     assert is_current_value_query("Where does Alice work now?") is True
     assert is_current_value_query(
-        "What is an indoor activity that Andrew would enjoy doing while making his dog happy?"
+        "What is an outdoor activity that Priya would enjoy doing while keeping her parrot entertained?"
     ) is False
-    assert is_current_value_query("What activity would Andrew enjoy?") is False
+    assert is_current_value_query("What activity would Priya enjoy?") is False
 
 
 def test_conflict_resolver_fail_open_on_extractor_error(tmp_path, monkeypatch):

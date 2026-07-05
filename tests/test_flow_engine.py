@@ -114,8 +114,8 @@ def test_ask_smqe_fast_path_skips_embedding_retrieval_and_generation(fresh_setti
     e = Engine(s, client=client)
     scope = Scope(namespace="fast-smqe")
     e.ingest_text(
-        "user: I'm training for a charity 5K run and hoping to beat my personal "
-        "best time of 25:50 this time around.",
+        "user: I'm training for a lakeside 10K relay and hoping to beat my fastest "
+        "race time of 47:15 this season.",
         consolidate_now=False,
         scope=scope,
     )
@@ -125,9 +125,9 @@ def test_ask_smqe_fast_path_skips_embedding_retrieval_and_generation(fresh_setti
         raise AssertionError("SMQE answer should skip retrieval")
 
     monkeypatch.setattr(e.retriever, "retrieve", _retrieve_should_not_run)
-    ans = e.ask("What was my personal best time in the charity 5K run?", scope=scope)
+    ans = e.ask("What was my fastest race time in the lakeside 10K relay?", scope=scope)
 
-    assert ans.answer == "25:50"
+    assert ans.answer == "47:15"
     assert ans.verified is True
     assert ans.generated_by == "smqe"
     assert ans.note == "smqe:latest_value:record"

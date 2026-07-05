@@ -123,9 +123,9 @@ def test_reader_prompt_anchors_event_order_questions(monkeypatch):
 
     monkeypatch.setattr(c, "chat_json", fake_chat_json)
     c.generate_answer(
-        "Which three events happened in the order from first to last: the fair, the recital, "
-        "and the workshop?",
-        ["[2024-02-05] the fair", "[2024-03-01] the recital"],
+        "Which three ceremonies took place, from first to last: the regatta, the mural "
+        "unveiling, and the lantern festival?",
+        ["[2024-02-05] the regatta", "[2024-03-01] the mural unveiling"],
     )
     assert "chronological" in seen["system"].lower()
     assert "date" in seen["system"].lower()
@@ -146,7 +146,7 @@ def test_reader_prompt_excludes_established_items_on_other_questions(monkeypatch
         return {"answer": "ok"}
 
     monkeypatch.setattr(c, "chat_json", fake_chat_json)
-    for q in ("What other exercises can help John with his basketball performance?",
+    for q in ("What other drills can help Priya with her archery accuracy?",
               "Besides painting, what hobbies does Maya have?",
               "What else did she pack apart from the tent?"):
         c.generate_answer(q, ["[S0] ctx"])

@@ -34,18 +34,18 @@ def test_past_week_bare_unit_window():
 
 def test_recent_query_selects_latest_matching_event_first():
     old = EventRecord(
-        subject="Melanie", verb="painted", object="horse",
-        fact="Melanie painted a horse",
+        subject="Noor", verb="painted", object="horse",
+        fact="Noor painted a horse",
         start=datetime(2026, 6, 18).timestamp(),
         end=datetime(2026, 6, 18).timestamp(),
     )
     new = EventRecord(
-        subject="Melanie", verb="painted", object="sunset",
-        fact="Melanie painted a sunset",
+        subject="Noor", verb="painted", object="sunset",
+        fact="Noor painted a sunset",
         start=datetime(2026, 6, 22).timestamp(),
         end=datetime(2026, 6, 22).timestamp(),
     )
-    parsed = parse_query("What did Melanie paint recently?", REF, [old, new])
+    parsed = parse_query("What did Noor paint recently?", REF, [old, new])
     assert parsed["temporal_order"] == "desc"
     assert [e.object for e in select_for_query([old, new], parsed, REF)] == ["sunset", "horse"]
 
@@ -66,36 +66,36 @@ def test_event_aliases_preserve_specific_source_object_phrase():
 
 def test_last_week_query_keeps_chronological_event_order():
     old = EventRecord(
-        subject="Melanie", verb="painted", object="horse",
-        fact="Melanie painted a horse",
+        subject="Noor", verb="painted", object="horse",
+        fact="Noor painted a horse",
         start=datetime(2026, 6, 17).timestamp(),
         end=datetime(2026, 6, 17).timestamp(),
     )
     new = EventRecord(
-        subject="Melanie", verb="painted", object="sunset",
-        fact="Melanie painted a sunset",
+        subject="Noor", verb="painted", object="sunset",
+        fact="Noor painted a sunset",
         start=datetime(2026, 6, 19).timestamp(),
         end=datetime(2026, 6, 19).timestamp(),
     )
-    parsed = parse_query("What did Melanie paint last week?", REF, [old, new])
+    parsed = parse_query("What did Noor paint last week?", REF, [old, new])
     assert parsed["temporal_order"] is None
     assert [e.object for e in select_for_query([new, old], parsed, REF)] == ["horse", "sunset"]
 
 
 def test_bare_last_query_selects_latest_matching_event_first():
     old = EventRecord(
-        subject="Melanie", verb="painted", object="horse",
-        fact="Melanie painted a horse",
+        subject="Noor", verb="painted", object="horse",
+        fact="Noor painted a horse",
         start=datetime(2026, 6, 17).timestamp(),
         end=datetime(2026, 6, 17).timestamp(),
     )
     new = EventRecord(
-        subject="Melanie", verb="painted", object="sunset",
-        fact="Melanie painted a sunset",
+        subject="Noor", verb="painted", object="sunset",
+        fact="Noor painted a sunset",
         start=datetime(2026, 6, 19).timestamp(),
         end=datetime(2026, 6, 19).timestamp(),
     )
-    parsed = parse_query("What did Melanie paint last?", REF, [old, new])
+    parsed = parse_query("What did Noor paint last?", REF, [old, new])
     assert parsed["temporal_order"] == "desc"
     assert [e.object for e in select_for_query([old, new], parsed, REF)] == ["sunset", "horse"]
 
@@ -161,11 +161,11 @@ def test_event_relative_counted_and_following_day_anchor():
 
 
 def test_absolute_anchor_counted_relative_dates():
-    got = _by_expr("Melanie signed up two days before July 4, 2023.")
+    got = _by_expr("Noor signed up two days before July 4, 2023.")
     assert got["two days before july 4, 2023"] == (
         "2023-07-02T00:00:00", "2023-07-02T23:59:59"
     )
-    after = _by_expr("Melanie went back two days after July 4, 2023.")
+    after = _by_expr("Noor went back two days after July 4, 2023.")
     assert after["two days after july 4, 2023"] == (
         "2023-07-06T00:00:00", "2023-07-06T23:59:59"
     )
@@ -183,44 +183,44 @@ def test_absolute_anchor_previous_week_range():
 
 
 def test_between_date_interval_inherits_endpoint_year():
-    got = normalize_dates("Where was John between August 11 and August 15 2023?", REF)
+    got = normalize_dates("Where was Priya between March 9 and March 13 2024?", REF)
     interval = next(r for r in got if r.get("interval"))
-    assert interval["expr"] == "between august 11 and august 15 2023"
-    assert interval["start"] == "2023-08-11T00:00:00"
-    assert interval["end"] == "2023-08-15T23:59:59"
+    assert interval["expr"] == "between march 9 and march 13 2024"
+    assert interval["start"] == "2024-03-09T00:00:00"
+    assert interval["end"] == "2024-03-13T23:59:59"
 
 
 def test_effective_date_ranges_prefer_intended_relative_or_interval_range():
-    week = normalize_dates("What did John do the week before August 3, 2023?", REF)
-    assert [r["expr"] for r in effective_date_ranges(week)] == ["the week before august 3, 2023"]
+    week = normalize_dates("What did Marco do the week before October 6, 2024?", REF)
+    assert [r["expr"] for r in effective_date_ranges(week)] == ["the week before october 6, 2024"]
 
-    interval = normalize_dates("Where was John between August 11 and August 15 2023?", REF)
+    interval = normalize_dates("Where was Priya between March 9 and March 13 2024?", REF)
     assert [r["expr"] for r in effective_date_ranges(interval)] == [
-        "between august 11 and august 15 2023"
+        "between march 9 and march 13 2024"
     ]
 
 
 def test_select_for_query_uses_interval_not_broad_year_range():
     before = EventRecord(
-        subject="John", verb="visited", object="Chicago",
-        fact="John visited Chicago",
-        start=datetime(2023, 8, 10).timestamp(),
-        end=datetime(2023, 8, 10).timestamp(),
+        subject="Priya", verb="visited", object="Lisbon",
+        fact="Priya visited Lisbon",
+        start=datetime(2024, 3, 8).timestamp(),
+        end=datetime(2024, 3, 8).timestamp(),
     )
     inside = EventRecord(
-        subject="John", verb="visited", object="Seattle",
-        fact="John visited Seattle",
-        start=datetime(2023, 8, 12).timestamp(),
-        end=datetime(2023, 8, 12).timestamp(),
+        subject="Priya", verb="visited", object="Osaka",
+        fact="Priya visited Osaka",
+        start=datetime(2024, 3, 11).timestamp(),
+        end=datetime(2024, 3, 11).timestamp(),
     )
     after = EventRecord(
-        subject="John", verb="visited", object="Boston",
-        fact="John visited Boston",
-        start=datetime(2023, 9, 1).timestamp(),
-        end=datetime(2023, 9, 1).timestamp(),
+        subject="Priya", verb="visited", object="Nairobi",
+        fact="Priya visited Nairobi",
+        start=datetime(2024, 4, 2).timestamp(),
+        end=datetime(2024, 4, 2).timestamp(),
     )
-    parsed = parse_query("Where was John between August 11 and August 15 2023?", REF)
-    assert [e.object for e in select_for_query([before, inside, after], parsed, REF)] == ["Seattle"]
+    parsed = parse_query("Where was Priya between March 9 and March 13 2024?", REF)
+    assert [e.object for e in select_for_query([before, inside, after], parsed, REF)] == ["Osaka"]
 
 
 def test_event_relative_anchor_ignores_stopword_only_matches():

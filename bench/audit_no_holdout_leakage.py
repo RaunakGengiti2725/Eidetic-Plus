@@ -14,8 +14,9 @@ DEFAULT_DATASET_DIR = Path("data/bench")
 # benchmark content by shape, but verification/extraction code must never special-case
 # a benchmark speaker (the _identity_entailment lesson).
 DEFAULT_RUNTIME_ROOTS = ("eidetic",)
-# Conversation-shingle scan roots: runtime code plus the bench harness itself.
-DEFAULT_SHINGLE_ROOTS = ("eidetic", "bench")
+# Conversation-shingle scan roots: runtime code, the bench harness, and tests.
+# tests/ was scrubbed to zero hits (2026-07-04) and is now an enforced root.
+DEFAULT_SHINGLE_ROOTS = ("eidetic", "bench", "tests")
 FORBIDDEN_POLICY_STRINGS = (
     "product-" + "source-scan",
     "long" + "memeval-direct",
@@ -285,10 +286,10 @@ def audit(
     # code, question texts) must never appear near-verbatim in code. Speaker renames /
     # single-noun swaps do not defeat 8-gram shingles the way they defeat the
     # entity-name scan. Runtime roots are held to the strictest standard; the bench
-    # harness is scanned against conversation text only (its synthetic generators
-    # legitimately mirror question SHAPES); tests/ carries known pre-existing
-    # reproductions and is tracked as separate debt (pass explicit shingle_roots to
-    # widen the net).
+    # harness and tests/ are scanned against conversation text only (their synthetic
+    # generators/fixtures legitimately mirror question SHAPES). tests/ was fully
+    # scrubbed of benchmark reproductions (2026-07-04) and is now an enforced
+    # default shingle root.
     runtime_root_names = {str(r) for r in
                           (runtime_roots if runtime_roots is not None
                            else DEFAULT_RUNTIME_ROOTS)}
