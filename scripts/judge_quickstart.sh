@@ -40,8 +40,9 @@ step "5/5 Where the numbers live (every public number ties to a run_manifest.jso
 cat <<'EOF'
   docs/PUBLIC_CLAIMS.md                        -- the claims, each with its artifact path
   docs/claims.md                               -- what we refuse to claim, and why
-  artifacts/holdout_rotation_r7_codex/         -- slice 7: scoreboard.{md,json}, run_manifest.json,
-                                                  launch_A.log (pinned SHA + profile), raw jsonl logs
+  artifacts/holdout_rotation_r8_codex/         -- slice 8 (freshest): scoreboard.{md,json},
+                                                  run_manifest.json, launch_A.log (pinned SHA +
+                                                  product_cost profile), raw jsonl logs
   bench/COST_AB.md                             -- dev-split cost A/B ledger (median qtok 83 arm)
   python -m bench.release_gate --out <dir>     -- the fail-closed public-claim gate
 
