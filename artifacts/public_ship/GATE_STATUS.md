@@ -31,7 +31,7 @@ the claim scope is `limited` accordingly (`claim_scope.json`).
 | LongMemEval categories | ~19 | LoCoMo-only window | full sweep |
 | abstention calibration | 11 | ABSTENTION_V2 on, no ≥50-sample dev calibration report | run the calibration on dev |
 | ablation evidence | 2 | no ablation dirs in this artifact | `python -m bench.run_dev_ablation` |
-| slice_invariant | 3 | sidecar not produced (5-draw harness out of tonight's scope) | `bench.run_slice_invariant_eval` |
+| slice_invariant | 3 | single directional draw per dataset committed (LME 11/24 vc, LoCoMo 10/20 vc); gate standard is 5 fresh draws | rerun `bench.run_slice_invariant_eval` with --draws 5 |
 | integrity: verified_accuracy 45% < 50% | 1 | r7's real vc is 18/40 — the hard window's true number | better build, more windows; not editable |
 | integrity: unverified_answered 2 | 1 | two correct-but-unverified rows in r7 logs | real behavior, reported as-is |
 | smqe log policy structured_rate 32.5% < 80% | 1 | r7 structured coverage 13/40 — the real gap this program is closing | write-side claim families (see COST_ROADMAP) |

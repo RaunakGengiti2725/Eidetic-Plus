@@ -404,8 +404,8 @@
     },
     {
       "name": "slice_invariant:valid_json",
-      "pass": false,
-      "detail": "missing"
+      "pass": true,
+      "detail": "valid"
     },
     {
       "name": "slice_invariant:pass",
@@ -3902,11 +3902,6 @@
       ]
     },
     {
-      "name": "slice_invariant:valid_json",
-      "pass": false,
-      "detail": "missing"
-    },
-    {
       "name": "slice_invariant:pass",
       "pass": false,
       "detail": "<missing>"
@@ -7005,6 +7000,10 @@
     "findings": [],
     "needles_checked": 1670,
     "holdout_needles_checked": 1639,
+    "entity_names_checked": 18,
+    "entity_scan_roots": [
+      "eidetic"
+    ],
     "legacy_policy_scan_enabled": true,
     "forbidden_policy_strings_checked": 5,
     "forbidden_fixed_answer_strings_checked": 12,

@@ -1,0 +1,25 @@
+{
+  "note": "DIRECTIONAL ONLY: one stratified draw per dataset (goal-scoped), not the 5-draw release standard; release_gate correctly fails this sidecar and GATE_STATUS.md says so.",
+  "draws_per_dataset": 1,
+  "datasets": {
+    "longmemeval": {
+      "seed": 1552199281,
+      "subset": 24,
+      "pool_unique_sample_ids": 408,
+      "verified_correct": 11,
+      "total": 24,
+      "verified_accuracy": 0.4583333333333333,
+      "sidecar": "slice_invariant/longmemeval/slice_invariant.json"
+    },
+    "locomo": {
+      "seed": 2088565414,
+      "subset": 20,
+      "pool_unique_sample_ids": 1218,
+      "verified_correct": 10,
+      "total": 20,
+      "verified_accuracy": 0.5,
+      "sidecar": "slice_invariant/locomo/slice_invariant.json"
+    }
+  },
+  "combined_verified_correct": "21/44"
+}

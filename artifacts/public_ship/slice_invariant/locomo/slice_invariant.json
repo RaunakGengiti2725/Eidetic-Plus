@@ -1,0 +1,82 @@
+{
+  "dataset": "locomo",
+  "split": "test",
+  "holdout_profile": "holdout",
+  "draws": 1,
+  "subset": 20,
+  "seed": 2088565414,
+  "seed_mode": "random",
+  "draw_seeds": [
+    2088565414
+  ],
+  "pool_unique_sample_ids": 1218,
+  "required_unique_sample_ids": 20,
+  "unique_sample_ids": 20,
+  "system_under_test": "eidetic-plus-full",
+  "pass": false,
+  "failures": [
+    "draw1:score:false"
+  ],
+  "runs": [
+    {
+      "draw": 1,
+      "seed": 2088565414,
+      "samples_file": "artifacts/public_ship/slice_invariant/locomo/draw_1.samples.json",
+      "sample_ids": [
+        "c0_q75",
+        "c7_q70",
+        "c7_q169",
+        "c6_q52",
+        "c2_q18",
+        "c4_q15",
+        "c1_q2",
+        "c5_q10",
+        "c3_q34",
+        "c3_q84",
+        "c6_q125",
+        "c1_q11",
+        "c8_q54",
+        "c8_q46",
+        "c6_q144",
+        "c3_q26",
+        "c2_q62",
+        "c9_q21",
+        "c3_q149",
+        "c7_q12"
+      ],
+      "command": [
+        "/Users/raunakgengiti/Eidetic-Plus/.venv/bin/python",
+        "-m",
+        "bench.run",
+        "--systems",
+        "eidetic-full",
+        "--dataset",
+        "locomo",
+        "--variant",
+        "longmemeval_s",
+        "--split",
+        "test",
+        "--samples-file",
+        "artifacts/public_ship/slice_invariant/locomo/draw_1.samples.json",
+        "--holdout-profile",
+        "holdout",
+        "--out",
+        "artifacts/public_ship/slice_invariant/locomo/draw_1",
+        "--runs",
+        "1",
+        "--overwrite"
+      ],
+      "executed": true,
+      "returncode": 0,
+      "output_tail": "Judge: {'judge_model': 'qwen3-max', 'judge_backend': 'dashscope'}\nLoaded 20 samples (locomo, split=test); categories: {'multi-hop': 5, 'open-domain': 5, 'single-hop': 5, 'temporal': 5}\nRunning eidetic-plus-full: 20 samples x 1 run(s)...\n\nScoreboard -> artifacts/public_ship/slice_invariant/locomo/draw_1/scoreboard.md\nCurves     -> {'ok': True, 'recall_png': 'artifacts/public_ship/slice_invariant/locomo/draw_1/recall_vs_age.png', 'latency_png': 'artifacts/public_ship/slice_invariant/locomo/draw_1/latency_vs_age.png', 'slopes': {'eidetic-plus-full': {'recall_slope_per_year': -2.01600048118803, 'latency_slope_ms_per_year': 151250.19241890628}}}\nManifest   -> artifacts/public_ship/slice_invariant/locomo/draw_1/run_manifest.json\nReproduce (full, >=10 runs): bash bench/reproduce.sh\n",
+      "score": {
+        "pass": false,
+        "verified": true,
+        "verified_correct": 10,
+        "correct": 10,
+        "total": 20,
+        "verified_accuracy": 0.5
+      }
+    }
+  ]
+}

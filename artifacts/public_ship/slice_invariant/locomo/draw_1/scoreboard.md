@@ -1,0 +1,51 @@
+# Eidetic-Plus benchmark scoreboard
+
+_Judge: **qwen3-max** (dashscope), one fixed judge + one fixed reader across all systems. Per-category accuracy = mean±std over runs; CI = Wilson 95% interval over logged questions._
+
+## locomo - accuracy by category (%), mean±std; n = questions/run
+
+| category (n) | eidetic-plus-full |
+|---|---|
+| single-hop (n=5) | 60.0±0.0 |
+| multi-hop (n=5) | 20.0±0.0 |
+| temporal (n=5) | 60.0±0.0 |
+| open-domain (n=5) | 60.0±0.0 |
+
+## locomo - Wilson 95% CI by category
+
+| category | eidetic-plus-full |
+|---|---|
+| single-hop | 3/5, 23.1-88.2 |
+| multi-hop | 1/5, 3.6-62.4 |
+| temporal | 3/5, 23.1-88.2 |
+| open-domain | 3/5, 23.1-88.2 |
+
+## Cost (approx tokens, uniform ~4 chars/token across all systems)
+
+| system | tokens / write (per conversation) | tokens / query |
+|---|---|---|
+| eidetic-plus-full | 21604 | 2861 |
+
+## Latency (ms)
+
+| system | search p50 | search p95 | e2e p50 | e2e p95 |
+|---|---|---|---|---|
+| eidetic-plus-full | 3553.4 | 27653.9 | 10683.9 | 39610.8 |
+
+## Consolidation Health
+
+_Counts are logged once per ingested conversation/run. Timeouts mean the record stayed searchable as raw memory, but did not finish fact/event extraction within the configured sleep deadline._
+
+| system | groups | pending processed | facts | events | extraction timed out | extraction deferred | windows planned | windows submitted | raw-only bounded | record raw-only | partial bounded | long-haystack bounded | long-haystack raw-only |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| eidetic-plus-full | 10 | 240 | 1073 | 1073 | 0 | 0 | 248 | 248 | 0 | 0 | 0 | 0 | 0 |
+
+## Integrity (verified recall) - from logged verify/abstain flags
+
+_verified accuracy = correct AND entailment-proven, over ALL questions (so abstentions and unverifiable categories depress it -- it is a recall metric, not comparable to judge accuracy). unproven-answer rate = answered WITHOUT an entailment proof (NOT a fabrication count: an unproven answer can still be correct). abstention rate = declined for lack of evidence. Systems without a verify step (rag-full / rag-vector / mem0) show N/A -- they emit no proofs by construction, which is not the same as fabricating._
+
+| system | n | verified accuracy (/n) | unproven-answer rate | abstention rate |
+|---|---:|---:|---:|---:|
+| eidetic-plus-full | 20 | 50.0% | 5.0% | 10.0% |
+
+> **Honest frontier note.** Cross-session contradiction resolution at BEAM scale (1M->10M tokens) is unsolved across the field (best public BEAM-1M contradiction ~0.357). Eidetic-Plus targets the LongMemEval + LoCoMo categories above and the two categorical wins no competitor has (flat recall-vs-age, verified recall with a citable immutable source); BEAM-10M contradiction is presented as the frontier, not a solved box.

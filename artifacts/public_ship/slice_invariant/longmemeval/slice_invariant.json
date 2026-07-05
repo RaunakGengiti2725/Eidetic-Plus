@@ -1,0 +1,86 @@
+{
+  "dataset": "longmemeval",
+  "split": "test",
+  "holdout_profile": "holdout",
+  "draws": 1,
+  "subset": 24,
+  "seed": 1552199281,
+  "seed_mode": "random",
+  "draw_seeds": [
+    1552199281
+  ],
+  "pool_unique_sample_ids": 408,
+  "required_unique_sample_ids": 24,
+  "unique_sample_ids": 24,
+  "system_under_test": "eidetic-plus-full",
+  "pass": false,
+  "failures": [
+    "draw1:score:false"
+  ],
+  "runs": [
+    {
+      "draw": 1,
+      "seed": 1552199281,
+      "samples_file": "artifacts/public_ship/slice_invariant/longmemeval/draw_1.samples.json",
+      "sample_ids": [
+        "4d6b87c8",
+        "078150f1",
+        "dc439ea3",
+        "0a34ad58",
+        "25e5aa4f",
+        "gpt4_213fd887",
+        "7a87bd0c",
+        "6cb6f249",
+        "58470ed2",
+        "6b7dfb22",
+        "577d4d32",
+        "4dfccbf8",
+        "c6853660",
+        "4bc144e2",
+        "89527b6b",
+        "b6025781",
+        "29f2956b",
+        "gpt4_8e165409",
+        "945e3d21",
+        "80ec1f4f",
+        "0e5e2d1a",
+        "1da05512",
+        "8a137a7f",
+        "gpt4_2487a7cb"
+      ],
+      "command": [
+        "/Users/raunakgengiti/Eidetic-Plus/.venv/bin/python",
+        "-m",
+        "bench.run",
+        "--systems",
+        "eidetic-full",
+        "--dataset",
+        "longmemeval",
+        "--variant",
+        "longmemeval_s",
+        "--split",
+        "test",
+        "--samples-file",
+        "artifacts/public_ship/slice_invariant/longmemeval/draw_1.samples.json",
+        "--holdout-profile",
+        "holdout",
+        "--out",
+        "artifacts/public_ship/slice_invariant/longmemeval/draw_1",
+        "--runs",
+        "1",
+        "--overwrite"
+      ],
+      "executed": true,
+      "returncode": 0,
+      "output_tail": "Judge: {'judge_model': 'qwen3-max', 'judge_backend': 'dashscope'}\nLoaded 24 samples (longmemeval, split=test); categories: {'knowledge-update': 4, 'multi-session': 4, 'single-session-assistant': 4, 'single-session-preference': 4, 'single-session-user': 4, 'temporal-reasoning': 4}\nRunning eidetic-plus-full: 24 samples x 1 run(s)...\n\nScoreboard -> artifacts/public_ship/slice_invariant/longmemeval/draw_1/scoreboard.md\nCurves     -> {'ok': True, 'recall_png': 'artifacts/public_ship/slice_invariant/longmemeval/draw_1/recall_vs_age.png', 'latency_png': 'artifacts/public_ship/slice_invariant/longmemeval/draw_1/latency_vs_age.png', 'slopes': {'eidetic-plus-full': {'recall_slope_per_year': 1.554950868365733, 'latency_slope_ms_per_year': -41814.36547945305}}}\nManifest   -> artifacts/public_ship/slice_invariant/longmemeval/draw_1/run_manifest.json\nReproduce (full, >=10 runs): bash bench/reproduce.sh\n",
+      "score": {
+        "pass": false,
+        "verified": true,
+        "verified_correct": 11,
+        "correct": 11,
+        "total": 24,
+        "verified_accuracy": 0.4583333333333333
+      }
+    }
+  ]
+}

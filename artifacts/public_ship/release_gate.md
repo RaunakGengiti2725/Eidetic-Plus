@@ -62,7 +62,7 @@ Log fingerprint: `51d0cbaa5ce98b3c4ed84ec2e5e83813be041e5fdf7f0b5b9781a4890d838e
 | region_routing:evidence | PASS | 288/288 checks, proof links 48 |
 | reflex_recall:valid_json | PASS | valid |
 | reflex_recall:evidence | PASS | 288/288 checks, p95 1.130575 ms |
-| slice_invariant:valid_json | FAIL | missing |
+| slice_invariant:valid_json | PASS | valid |
 | slice_invariant:pass | FAIL | <missing> |
 | slice_invariant:evidence | FAIL | dataset:<missing>; missing:locomo,longmemeval |
 | smqe_planner:valid_json | PASS | valid |

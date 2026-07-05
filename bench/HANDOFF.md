@@ -182,3 +182,12 @@ probe product3 launched for the +2-structured/zero-vc-regression re-run decision
 - [ ] Tag v1.0.0-public (after probe verdict recorded).
 - [ ] PyPI publish + public announcement remain authorization-gated (wheel built,
       twine one-liner in SHIPPED TO USER #1 above).
+
+## Slice-invariant single draws (directional, 2026-07-04 late)
+
+One stratified test-split draw per dataset with the product_cost stack (pinned in each
+draw's run_manifest): LME 11/24 vc (single-session-user 4/4, knowledge-update 3/4,
+preference 0/4), LoCoMo 10/20 vc, structured 8/20, temporal 3/5. Combined 21/44
+verified-correct. artifacts/public_ship/slice_invariant.json + per-dataset sidecars.
+NOT the 5-draw standard; gate fails it correctly; directional evidence that the
+rotation-window band (~45-60%) holds under stratified random draws too.
