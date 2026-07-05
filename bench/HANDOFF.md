@@ -191,3 +191,23 @@ preference 0/4), LoCoMo 10/20 vc, structured 8/20, temporal 3/5. Combined 21/44
 verified-correct. artifacts/public_ship/slice_invariant.json + per-dataset sidecars.
 NOT the 5-draw standard; gate fails it correctly; directional evidence that the
 rotation-window band (~45-60%) holds under stratified random draws too.
+
+## SLICE 8 FINAL (r8, h2h landed) -- new-build validation, largest margin
+
+h2h: eidetic 23/40 (58%) vs mem0 9/40 (23%), margin +14 (LARGEST of eight windows).
+First holdout carrying VW-killer + event-date family + date-overflow fix on
+product_cost. Temporal 6/9 vs 0/9, verified 36 vs 0, ZERO errors (crash class closed).
+Partial-list VW 5->2, no junk fragments. tok/vc 31,761 (best of series). Rolling n=320:
+182/320 (57%) vs 140/320 (44%), +42, verified 277 vs 0, six consecutive wins.
+
+| window | eidetic correct | eidetic verified | eidetic structured | eidetic qtok med | mem0 correct | margin |
+|---|---|---|---|---|---|---|
+| holdout_rotation_r1_codex | 23/40 | 34 | 11/40 | 5344.5 | 22/40 | +1 |
+| holdout_rotation_r2_codex | 17/40 | 33 | 17/40 | 4900.5 | 18/40 | -1 |
+| holdout_rotation_r3_codex | 27/40 | 38 | 15/40 | 5016.5 | 23/40 | +4 |
+| holdout_rotation_r4_codex | 23/40 | 33 | 16/40 | 5138.5 | 21/40 | +2 |
+| holdout_rotation_r5_codex | 24/40 | 35 | 12/40 | 5438.0 | 17/40 | +7 |
+| holdout_rotation_r6_codex | 25/40 | 36 | 17/40 | 4898.5 | 18/40 | +7 |
+| holdout_rotation_r7_codex | 20/40 | 32 | 13/40 | 4029.0 | 12/40 | +8 |
+| holdout_rotation_r8_codex | 23/40 | 36 | 14/40 | 4029.0 | 9/40 | +14 |
+| **rolling** | **182/320** | **277** | **115/320** | | **140/320** | **+42** |
