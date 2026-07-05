@@ -1938,3 +1938,30 @@ window). Scoreboard, curves, and manifest rendered in artifacts/holdout_rotation
 | holdout_rotation_r6_codex | 25/40 | 36 | 17/40 | 4898.5 | 18/40 | +7 |
 | holdout_rotation_r7_codex | 20/40 | 32 | 13/40 | 4029.0 | 12/40 | +8 |
 | **rolling** | **159/280** | **241** | **101/280** | | **131/280** | **+28** |
+
+## SLICE 8 (r8, window 7, digest 52b76783, SHA 6551ac048) -- LARGEST MARGIN, new-build validation
+
+First holdout window carrying the VW-killer wave (enum completion sweep + preference
+form floor), the event-date claim family, and the date-overflow write-path fix, on the
+product_cost stack. Fully disjoint from r1-r7 (0 overlap, verified).
+
+| | correct | verified | temporal | multi-hop | qtok med | tok/vc |
+|---|---|---|---|---|---|---|
+| eidetic-plus-full | 23/40 (58%) | 36 | 6/9 | 2/7 | 4,029 | 31,761 |
+| mem0 | 9/40 (23%) | 0 | 0/9 | 1/7 | 398 | infinite |
+
+Margin +14 -- the LARGEST of eight disjoint never-touched windows. vc 23 (best
+new-build window), temporal 6/9 (event-date family + date-fix), ZERO benchmark errors
+(the OverflowError crash class is closed). tok/verified-answer 31,761, the best of the
+rolling series (r6 41,322 -> r7 36,317 -> r8 31,761) as accuracy and structured
+coverage rise together.
+
+VW-killer validated on holdout: partial-list verified-wrong dropped 5 (r7) -> 2 (r8);
+zero preference_synth junk fragments shipped (r7 had one); the structured verified-wrong
+rows are wrong-instance temporals + content misses, not the targeted junk classes.
+Structured coverage 14/40 held (write-side coverage remains the lever; the fixes moved
+precision, not yet count).
+
+Rolling n=320: 182/320 (57%) vs 140/320 (44%), +42; verified 277 vs 0; temporal 25/60
+vs 3/60. Window margins: +1, -1, +4, +2, +7, +7, +8, +14 (SIX consecutive wins, margin
+monotonically rising over the last four windows).
