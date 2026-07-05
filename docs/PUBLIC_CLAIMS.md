@@ -76,6 +76,27 @@ substrate refuses deletion by design (`tests/test_no_delete_on_forget.py`,
 answers, banned rescue-policy symbols) scanned over `eidetic/ bench/ tests/ docs/`,
 fails closed on empty registry. Current status: PASS.
 
+## The named comparators, with receipts
+
+We researched and source-verified the published numbers for the four systems our own
+release gate names as required for any SOTA wording
+(`artifacts/public_ship/comparator_research.json`, fetched + adversarially re-verified
+2026-07-04): Chronos reports 92.6–95.6% on LongMemEval-S (no LoCoMo results exist);
+Mastra reports 94.87% LME-S with a gpt-5-mini actor (84.23% on gpt-4o); ByteRover
+reports 96.1% LoCoMo / 92.8% LME-S; Hindsight reports 83.2–92.0% LoCoMo and
+83.6–94.6% LME-S depending on backbone. Every one of those numbers is vendor/author
+self-reported, single-run, with no independent reproduction found, and each rides a
+different frontier reader (GPT-5 / Gemini-3 Pro / Claude Opus) and its own judge.
+
+Our regime is deliberately different: one fixed modest reader (qwen-plus) and one
+fixed judge for every system in the harness, verify-or-abstain with citations, and
+never-touched holdout windows. Those published numbers and ours are not
+commensurable — and we say plainly: we do NOT claim to beat these systems. What no
+comparator publishes is our governance axis: per-answer NLI-verified citations to an
+immutable substrate (241 verified answers vs Mem0's 0 under identical conditions),
+100% snap-back fidelity, and a fail-closed release gate whose FAIL report ships in
+the repo.
+
 ## What we refuse to claim
 
 - **SOTA / best-in-world.** Requires `bench/reproduce.sh` (≥10 runs, held-out test

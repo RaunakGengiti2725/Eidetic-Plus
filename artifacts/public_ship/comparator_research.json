@@ -1,0 +1,486 @@
+{
+  "sweeps": [
+    {
+      "system": "Chronos memory agent (arXiv 2603.16862: \"Chronos: Temporal-Aware Conversational Agents with Structured Event Retrieval for Long-Term Memory\" \u2014 Sahil Sen, Elias Lumer, Anmol Gulati, Vamse Kumar Subbiah). Distinct from Amazon's Chronos time-series model and from enginechronos/chronos-engine (game NPC memory) \u2014 those are unrelated namesakes with no LoCoMo/LongMemEval results.",
+      "findings": [
+        {
+          "dataset": "LongMemEval-S (500 questions, 6 categories: KU/MS/SSA/SSP/SSU/TR)",
+          "metric": "Overall accuracy, LongMemEval official LLM-as-judge (category-specific prompts; judge model not explicitly named in paper)",
+          "value": "Chronos Low = 92.60% (GPT-4o backbone). Per-category: KU 96.15, MS 91.73, SSA 100.00, SSP 80.00, SSU 94.29, TR 90.23",
+          "n": "500 questions",
+          "runs": "Not reported (no seeds/CIs; temperature 0 for determinism; single run implied)",
+          "source_url": "https://arxiv.org/abs/2603.16862",
+          "source_type": "arXiv paper (v1), verified against abstract page and full HTML (https://arxiv.org/html/2603.16862v1)",
+          "date": "2026-03-17 (arXiv v1 submission)",
+          "caveats": "Self-reported by authors; no code/GitHub release found. Baseline table mixes non-comparable configs (Honcho baseline ran on Claude Haiku 4.5 not GPT-4o; Hindsight used OSS-20B actor + OSS-120B judge; other baselines cited from prior work, not re-run). Authors themselves flag LLM-judge validity issues and known benchmark label errors (e.g., question 6d550036 has wrong reference answer). Dynamic-prompting component uses Gemini 3 Flash as a helper model."
+        },
+        {
+          "dataset": "LongMemEval-S (500 questions, 6 categories)",
+          "metric": "Overall accuracy, LongMemEval official LLM-as-judge",
+          "value": "Chronos High = 95.60% (Claude Opus 4.6 backbone); claimed SOTA. Per-category: KU 100.00, MS 88.72, SSA 100.00, SSP 100.00, SSU 98.57, TR 95.50. Abstract claims +7.67% over best prior system",
+          "n": "500 questions",
+          "runs": "Not reported (single run implied, temperature 0)",
+          "source_url": "https://arxiv.org/abs/2603.16862",
+          "source_type": "arXiv paper (v1)",
+          "date": "2026-03-17",
+          "caveats": "Self-reported; 'stronger models' comparison table (vs Mastra 92.80, Hindsight 91.40, Supermemory 85.20) again mixes backbones/judges across rows. No human eval or judge-calibration study. A third-party repo (github.com/JordanMcCann/agentmemory) claims 96.2% (481/500) and to beat Chronos \u2014 self-reported, unreviewed, included only as leaderboard context."
+        },
+        {
+          "dataset": "LongMemEval-S (500 questions) \u2014 backbone sweep (Appendix A)",
+          "metric": "Overall accuracy, LongMemEval LLM-as-judge",
+          "value": "Chronos by backbone: Claude Opus 4.6 95.60; GPT-5-mini 94.20; Claude Sonnet 4.5 94.20; Claude Haiku 4.5 94.00; GPT-5.2 93.80; GPT-4o 92.60; Claude Code Sonnet 88.60 (8 LLMs total per abstract)",
+          "n": "500 questions per backbone",
+          "runs": "Not reported",
+          "source_url": "https://arxiv.org/html/2603.16862v1",
+          "source_type": "arXiv paper (v1) appendix",
+          "date": "2026-03-17",
+          "caveats": "Self-reported; extracted from HTML render of the paper \u2014 spot-verify against the PDF table before citing in print."
+        },
+        {
+          "dataset": "LongMemEval-S SUBSET (116-question sample) \u2014 ablations (Table 3)",
+          "metric": "Overall accuracy, LLM-as-judge",
+          "value": "Full Chronos (Low) 93.1%; Turns-only (no events calendar) 58.6% \u2014 the events calendar is the dominant component (paper frames this as a 58.9% gain over the turns-only baseline); other ablations (no initial retrieval 76.7, no dynamic prompting 78.4, no rerank 81.0, no date filter 78.4, grep-only 77.6, vector-only 80.2)",
+          "n": "116 questions (subset, NOT the full 500)",
+          "runs": "Not reported",
+          "source_url": "https://arxiv.org/html/2603.16862v1",
+          "source_type": "arXiv paper (v1)",
+          "date": "2026-03-17",
+          "caveats": "Ablations run on a 116-question subsample only \u2014 not directly comparable to full-500 headline numbers (full Chronos scores 93.1 on subset vs 92.6 on full set)."
+        },
+        {
+          "dataset": "LoCoMo",
+          "metric": "Any (judge-correct / F1 / accuracy)",
+          "value": "NO PUBLISHED RESULTS. The Chronos paper evaluates LongMemEval-S only; LoCoMo appears only in related work. A secondary analysis (EmergentMind) explicitly lists it as a knowledge gap: 'performance on naturalistic, noisy, months-long production conversations (e.g., LoCoMo or enterprise logs) is not assessed.'",
+          "n": "n/a",
+          "runs": "n/a",
+          "source_url": "https://www.emergentmind.com/papers/2603.16862",
+          "source_type": "Absence-of-evidence finding, cross-checked against the paper itself (https://arxiv.org/html/2603.16862v1) and web searches for \"Chronos\" + \"LoCoMo\"",
+          "date": "checked 2026-07-04",
+          "caveats": "Searched arXiv paper full text, GitHub, blogs, and leaderboards; no Chronos LoCoMo number exists as of 2026-07-04. Do not cite any LoCoMo figure for Chronos."
+        }
+      ],
+      "no_published_results": false,
+      "notes": "Split verdict: Chronos HAS published LongMemEval-S results (92.60% Low / 95.60% High, n=500, arXiv 2603.16862, 2026-03-17, single-run, LLM-judge, author-self-reported, no code release found) but has ZERO published LoCoMo results \u2014 so no_published_results=false overall, yet for LoCoMo specifically the answer is 'none exist' (finding 5). Comparison caveats matter for any head-to-head against Eidetic: baselines in the Chronos tables use mismatched backbones/judges, no confidence intervals or multi-run variance, and the paper acknowledges LongMemEval label errors and judge variability. Authors: Sen, Lumer, Gulati, Subbiah (affiliations not shown on arXiv abstract page). No official GitHub/blog/leaderboard entry for Chronos was found beyond the paper; the only leaderboard-adjacent mention is a competitor repo (JordanMcCann/agentmemory) claiming to beat it. Beware Chronos namesakes: Amazon Chronos (time-series forecasting) and chronos-engine (game NPC memory) are unrelated."
+    },
+    {
+      "system": "Mastra memory (Observational Memory + earlier semantic-recall/working-memory in the Mastra TypeScript agent framework)",
+      "findings": [
+        {
+          "dataset": "LongMemEval (longmemeval_s, 500 questions, ~57M tokens, 6 categories)",
+          "metric": "Overall QA accuracy (LLM-as-judge, binary correct/incorrect, unweighted average across 6 categories)",
+          "value": "94.87% (Mastra Observational Memory, actor=gpt-5-mini)",
+          "n": "500 questions",
+          "runs": "Not specified; page states results 'generally stable across runs'",
+          "source_url": "https://mastra.ai/research/observational-memory",
+          "source_type": "Official vendor research page (self-reported)",
+          "date": "2026-02-09",
+          "caveats": "Self-reported by Mastra, no independent replication found. Judge is LLM-as-judge with benchmark-provided question-specific prompts. Observer/Reflector compression agents used gemini-2.5-flash during ingestion; only the Actor (answering) model varied. Claimed as 'highest score ever recorded on LongMemEval' (>3 pts above prior SOTA). Single-session-preference category has only 30 questions (noisy)."
+        },
+        {
+          "dataset": "LongMemEval (longmemeval_s, 500 questions)",
+          "metric": "Overall QA accuracy (LLM-as-judge, binary)",
+          "value": "84.23% (Mastra OM, actor=gpt-4o); also 93.27% gemini-3-pro-preview, 89.20% gemini-3-flash-preview",
+          "n": "500 questions",
+          "runs": "Not specified",
+          "source_url": "https://mastra.ai/research/observational-memory",
+          "source_type": "Official vendor research page (self-reported)",
+          "date": "2026-02-09",
+          "caveats": "gpt-4o is the official benchmark model. Mastra's comparison on gpt-4o: oracle baseline 82.40%, Supermemory 81.60%, Zep 71.20% \u2014 i.e., Mastra claims to beat the oracle by ~2 pts and prior gpt-4o SOTA (Supermemory) by 2.6 pts. Comparator scores are as compiled by Mastra, not re-run independently. Corroborating third-party coverage (The Decoder 2026-02-15, https://the-decoder.com/mastras-open-source-ai-memory-uses-traffic-light-emojis-for-more-efficient-compression/; VentureBeat) explicitly frames all numbers as 'according to Mastra'."
+        },
+        {
+          "dataset": "LongMemEval (longmemeval_s, 500 questions, GPT-4o)",
+          "metric": "Overall QA accuracy",
+          "value": "80.05% (semantic recall RAG, topK=20); 78.59% topK=10; 73.98% topK=5; 63.41% topK=2; working-memory-only: 35.40% generic template / 57.34% tailored template",
+          "n": "500 questions",
+          "runs": "Not specified",
+          "source_url": "https://mastra.ai/blog/use-rag-for-agent-memory",
+          "source_type": "Official vendor blog (self-reported)",
+          "date": "2025-07-17",
+          "caveats": "Earlier generation of Mastra memory (RAG semantic recall + working memory templates), superseded by Observational Memory. Post positioned as rebuttal to Zep's 'stop using RAG' claim (Mastra 80% vs Zep's reported 72%). At publication, benchmark data/result files were not yet public on GitHub despite code release. Latency analysis omitted."
+        },
+        {
+          "dataset": "LoCoMo",
+          "metric": "N/A \u2014 no published result",
+          "value": "NONE. Mastra explicitly declined to publish LoCoMo results",
+          "source_url": "https://mastra.ai/research/observational-memory",
+          "source_type": "Official vendor research page",
+          "date": "2026-02-09",
+          "caveats": "Mastra's research page states they chose not to publish LoCoMo results, citing unreliable F1 similarity scoring and lack of standardized evaluation criteria across published results. No third-party LoCoMo measurement of Mastra found either (Mem0's 2026 state-of-agent-memory report mentions Mastra only as an integration framework with no benchmark numbers: https://mem0.ai/blog/state-of-ai-agent-memory-2026). Independent context: a Penfield Labs audit found 6.4% of LoCoMo's answer key is wrong (https://dev.to/penfieldlabs/we-audited-locomo-64-of-the-answer-key-is-wrong-and-the-judge-accepts-up-to-63-of-intentionally-33lg), which aligns with Mastra's stated reason for skipping it."
+        }
+      ],
+      "no_published_results": false,
+      "notes": "Split verdict: Mastra HAS published LongMemEval numbers (self-reported, headline 94.87% with gpt-5-mini and 84.23% with gpt-4o on LongMemEval-S, published 2026-02-09 for Observational Memory; earlier 80.05% gpt-4o RAG semantic-recall result from 2025-07-17). Mastra has NO published LoCoMo numbers \u2014 the omission is deliberate and documented on their research page (they distrust LoCoMo's F1-based scoring). All Mastra numbers are vendor self-reported; no independent replication or peer-reviewed paper found. Third-party press (The Decoder 2026-02-15, VentureBeat) merely reprints Mastra's figures with 'according to Mastra' framing. Run counts are unspecified on all Mastra results (research page only says 'generally stable across runs'). For head-to-head comparison with Eidetic-Plus: Mastra's judge is LongMemEval's question-specific LLM-judge prompts (binary), category-unweighted average \u2014 verify the same judge/split before comparing. Note the search-result snippet claiming a 'Mastra full-context baseline 60.20%' on LoCoMo appears to be a conflation with their LongMemEval full-context baseline; it is not a published LoCoMo number and was excluded."
+    },
+    {
+      "system": "ByteRover (byterover.dev; open-source CLI: campfirein/byterover-cli, formerly Cipher) \u2014 LLM-curated hierarchical \"Context Tree\" memory layer for coding agents",
+      "findings": [
+        {
+          "dataset": "LoCoMo",
+          "metric": "Overall LLM-as-Judge accuracy",
+          "value": "96.1%",
+          "n": "1,982 questions, 272 sessions/docs (10 conversations)",
+          "runs": "not stated in paper extract",
+          "date": "2026-04-02 (arXiv v1)",
+          "source_type": "arXiv paper by ByteRover team (self-reported)",
+          "source_url": "https://arxiv.org/abs/2604.01599",
+          "caveats": "Self-reported; authors are the ByteRover team (Andy Nguyen et al., 'ByteRover: Agent-Native Memory Through LLM-Curated Hierarchical Context'). ByteRover v2.1.5. Judge = Gemini 3 Flash (temp 0.0), reader/justifier also Gemini-family \u2014 NOT the GPT-4-judge setup of the original LoCoMo paper, so not directly comparable to numbers judged by other models. Baseline rows marked with a dagger used different backbones/judge configs (paper itself flags limited comparability). Per-category: single-hop 97.5%, multi-hop 93.3%, temporal 97.8%, open-domain 85.9% (loses open-domain to Hindsight 95.1%). Baselines as reported by ByteRover: HonCho 89.9%, Hindsight 89.6%, Memobase 75.8%, Zep 75.1%, Mem0 66.9%, OpenAI Memory 52.9%. Company's earlier Feb 2026 blog reported adversarial category (446 q) excluded from the overall score \u2014 likely the same protocol here. Note the jump from 92.2% (v2.0, Feb 2026 blog) to 96.1% (v2.1.5, Apr 2026 paper) in ~5 weeks."
+        },
+        {
+          "dataset": "LoCoMo",
+          "metric": "Overall LLM-as-Judge accuracy (ByteRover 2.0, earlier result)",
+          "value": "92.2% (best run; run 1 = 90.9%)",
+          "n": "1,982 questions; adversarial category (446 q) explicitly excluded from overall score. Category n: single-hop 841, multi-hop 282, temporal 321, open-domain 92",
+          "runs": "2 runs (run 1: Gemini 3 Flash justifier = 90.9%; run 2: Gemini 3 Pro justifier = 92.2%)",
+          "date": "2026-02-27 (blog post)",
+          "source_type": "Official vendor blog (self-reported)",
+          "source_url": "https://www.byterover.dev/blog/benchmark-ai-agent-memory",
+          "caveats": "Self-reported vendor blog ('ByteRover 2.0 Scores 92.2% and Rewrites the LoCoMo Leaderboard'). Judge = Gemini 3 Flash; reused Hindsight's evaluation prompt; no conversation-ID hints given. Per-category (run 2): single-hop 95.4%, multi-hop 85.1%, temporal 94.4%, open-domain 77.2%. Superseded by the 96.1% v2.1.5 paper number \u2014 useful as evidence that scores moved +3.9 pts between versions under the vendor's own harness."
+        },
+        {
+          "dataset": "LongMemEval-S",
+          "metric": "Overall LLM-as-Judge accuracy",
+          "value": "92.8% (464/500 correct)",
+          "n": "500 questions, ~23,867 docs (~48 sessions, >100K tokens context per question)",
+          "runs": "2 runs; winning config: curation = Gemini 3 Flash, justifier = Gemini 3.1 Pro (32,768 tok, low thinking budget), judge = Gemini 3 Flash",
+          "date": "2026-06-30 (blog); also in arXiv 2604.01599 (2026-04-02)",
+          "source_type": "Official vendor blog + arXiv paper by ByteRover team (self-reported)",
+          "source_url": "https://www.byterover.dev/blog/benchmark_ai_agent_memory_real_production_byterover_top_market_accuracy_longmemeval",
+          "caveats": "Self-reported ('Top Market Accuracy' framing). ByteRover v2.1.5. Gemini-family judge, not the GPT-4o judge of the original LongMemEval paper \u2014 cross-paper comparisons unsafe. Per-category: knowledge-update 98.7% (77/78), single-session-user 98.6% (69/70), single-session-assistant 98.2% (55/56), single-session-preference 96.7% (29/30), temporal reasoning 91.7% (122/133), multi-session 84.2% (112/133) \u2014 multi-session is its weakest category and loses to Chronos-Low 91.7%. Baselines as reported by ByteRover: Chronos-Low 92.6% (different backbone: GPT-4o, dagger-flagged), Hindsight 91.4%, HonCho 90.4%, SmartSearch 88.4% \u2014 margin over Chronos is only 0.2 pts under non-matched configs. Latency also reported: mean 1.3s, p50 1.6s, p95 2.3s, p99 2.5s cold queries (LoCoMo: p50 1.2s, p95 1.4s, p99 1.7s)."
+        },
+        {
+          "dataset": "LoCoMo + LongMemEval-S (headline repeats)",
+          "metric": "LLM-as-Judge accuracy (%)",
+          "value": "LoCoMo 96.1% (1,982 q, 272 docs); LongMemEval-S 92.8% (500 q, 23,867 docs)",
+          "n": "as stated",
+          "runs": "not stated",
+          "date": "current as of 2026-07-04",
+          "source_type": "GitHub README (self-reported)",
+          "source_url": "https://github.com/campfirein/byterover-cli/blob/main/README.md",
+          "caveats": "Same numbers as the paper/blogs, repeated in the open-source repo README. Notable claim: 'All benchmarks are run using the production byterover-cli codebase in this repository \u2014 no separate research prototype.' A companion benchmark harness repo exists (https://github.com/campfirein/brv-bench), meaning the runs are in principle reproducible, but no third-party reproduction was found."
+        }
+      ],
+      "no_published_results": false,
+      "notes": "ByteRover HAS abundant published numbers on both LoCoMo and LongMemEval-S, but every number traces to ByteRover itself: two official blog posts, an arXiv paper (2604.01599, authored by the ByteRover team, v1 2026-04-02), and the byterover-cli GitHub README. No independent third-party reproduction, leaderboard entry, or academic citation with re-run numbers was found: the AgentIR paper (arXiv 2605.25092, May 2026) on long-term conversational memory does not mention ByteRover at all (verified by fetching the PDF). Key comparability caveats for any head-to-head vs our (Eidetic) runs: (1) all-Gemini judge/justifier stack (Gemini 3 Flash judge; Gemini 3 Pro / 3.1 Pro justifier) reusing Hindsight's eval prompts \u2014 different judge than LoCoMo/LongMemEval originals and than typical Mem0/Zep runs; (2) LoCoMo adversarial category (446 q) excluded from the overall in the Feb blog protocol; (3) LoCoMo overall jumped 92.2% -> 96.1% between v2.0 (Feb 2026) and v2.1.5 (Apr 2026) on the vendor's own harness; (4) ByteRover's own tables show it losing LoCoMo open-domain (85.9% vs Hindsight 95.1%) and LongMemEval multi-session (84.2% vs Chronos 91.7%); (5) LongMemEval-S margin over next-best is 0.2 pts against a dagger-flagged different-backbone baseline. Latency self-reported: ~1.2-1.6s p50 cold. Reproduction harness published at github.com/campfirein/brv-bench but no external runs located."
+    },
+    {
+      "system": "Hindsight (open-source agent memory system by Vectorize, github.com/vectorize-io/hindsight; paper \"Hindsight is 20/20\", arXiv:2512.12818, authors from Vectorize + Virginia Tech + The Washington Post)",
+      "findings": [
+        {
+          "dataset": "LongMemEval (S setting)",
+          "metric": "Overall accuracy, LLM-as-judge (GPT-OSS-120B judge, binary 0/1)",
+          "value": "83.6% \u2014 Hindsight (GPT-OSS-20B backbone). Categories: single-session-user 95.7, single-session-assistant 94.6, single-session-preference 66.7, knowledge-update 84.6, temporal-reasoning 79.7, multi-session 79.7",
+          "n": "500 questions",
+          "runs": "Not reported (single run implied; no seeds/error bars in paper)",
+          "source_url": "https://arxiv.org/abs/2512.12818",
+          "source_type": "arXiv paper (Table 3, p.19 of PDF)",
+          "date": "2025-12-14 (v1 submission)",
+          "caveats": "Self-reported by system authors. Hindsight rows judged with GPT-OSS-120B; baseline rows (Full-context GPT-4o 60.2, Zep+GPT-4o 71.2, Supermemory+GPT-4o 81.6 / +GPT-5 84.6 / +Gemini-3 85.2) are copied from the Supermemory technical report which used a GPT-4o judge \u2014 cross-system comparison mixes judges. Paper releases eval code and per-question results viewer (hindsight-benchmarks.vercel.app)."
+        },
+        {
+          "dataset": "LongMemEval (S setting)",
+          "metric": "Overall accuracy, LLM-as-judge (GPT-OSS-120B judge)",
+          "value": "89.0% \u2014 Hindsight (GPT-OSS-120B backbone). Categories: ss-user 100.0, ss-assistant 98.2, ss-preference 86.7, knowledge-update 92.3, temporal 85.7, multi-session 81.2",
+          "n": "500 questions",
+          "runs": "Not reported",
+          "source_url": "https://arxiv.org/abs/2512.12818",
+          "source_type": "arXiv paper (Table 3)",
+          "date": "2025-12-14",
+          "caveats": "Same judge-mixing caveat as above; self-reported."
+        },
+        {
+          "dataset": "LongMemEval (S setting)",
+          "metric": "Overall accuracy, LLM-as-judge (GPT-OSS-120B judge)",
+          "value": "91.4% \u2014 Hindsight (Gemini-3 Pro). Categories: ss-user 97.1, ss-assistant 96.4, ss-preference 80.0, knowledge-update 94.9, temporal 91.0, multi-session 87.2. Claimed as best across all systems in their table",
+          "n": "500 questions",
+          "runs": "Not reported",
+          "source_url": "https://arxiv.org/abs/2512.12818",
+          "source_type": "arXiv paper (Table 3); corroborated by PRNewswire release 2025-12-16 (https://www.prnewswire.com/news-releases/vectorize-breaks-90-on-longmemeval-with-open-source-ai-agent-memory-system-302643146.html) and VentureBeat coverage",
+          "date": "2025-12-14",
+          "caveats": "IMPORTANT: Gemini-3 Pro is ONLY the final answer generator; memory architecture (fact extraction, graph, retrieval) and the judge remain GPT-OSS-120B. Self-reported; judge differs from baselines' GPT-4o judge."
+        },
+        {
+          "dataset": "LoCoMo",
+          "metric": "Overall accuracy by question type, LLM-as-judge (GPT-OSS-120B judge)",
+          "value": "83.18% \u2014 Hindsight (GPT-OSS-20B). Single-hop 74.11, multi-hop 64.58, open-domain 90.96, temporal 76.32",
+          "n": "Question count not explicitly stated in paper; Table 4 reports only 4 categories (single-hop, multi-hop, open-domain, temporal) \u2014 adversarial category not reported, consistent with the common filtered LoCoMo eval",
+          "runs": "Not reported",
+          "source_url": "https://arxiv.org/abs/2512.12818",
+          "source_type": "arXiv paper (Table 4, p.20 of PDF)",
+          "date": "2025-12-14",
+          "caveats": "Self-reported. Baseline rows (Backboard 90.00, Memobase 75.78, Zep 75.14, Mem0-Graph 68.44, Mem0 66.88, LangMem 58.10, OpenAI 52.90) are taken 'as claimed on the official Backboard LoCoMo benchmark results,' NOT independently reproduced, and were scored under different judges \u2014 cross-system numbers are not judge-consistent."
+        },
+        {
+          "dataset": "LoCoMo",
+          "metric": "Overall accuracy, LLM-as-judge (GPT-OSS-120B judge)",
+          "value": "85.67% \u2014 Hindsight (GPT-OSS-120B). Single-hop 76.79, multi-hop 62.50, open-domain 93.68, temporal 79.44",
+          "n": "See above; adversarial category not reported",
+          "runs": "Not reported",
+          "source_url": "https://arxiv.org/abs/2512.12818",
+          "source_type": "arXiv paper (Table 4)",
+          "date": "2025-12-14",
+          "caveats": "Self-reported; same baseline-provenance caveat."
+        },
+        {
+          "dataset": "LoCoMo",
+          "metric": "Overall accuracy, LLM-as-judge (GPT-OSS-120B judge)",
+          "value": "89.61% \u2014 Hindsight (Gemini-3 as answer generator). Single-hop 86.17, multi-hop 70.83, open-domain 95.12 (best in table), temporal 83.80. Paper says this 'effectively matches Backboard's claimed 90.00%'",
+          "n": "See above",
+          "runs": "Not reported",
+          "source_url": "https://arxiv.org/abs/2512.12818",
+          "source_type": "arXiv paper (Table 4); also restated in GitHub README github.com/vectorize-io/hindsight-benchmarks",
+          "date": "2025-12-14",
+          "caveats": "Gemini-3 only generates final answers; memory stack + judge are GPT-OSS-120B. Backboard 90.00% comparison point 'could not be independently reproduced' per the paper. Self-reported."
+        },
+        {
+          "dataset": "LoCoMo (locomo10 variant, 'Agent Memory Benchmark' AMB v1 harness)",
+          "metric": "Accuracy (AMB LLM-judge vs gold references)",
+          "value": "92.0% \u2014 Hindsight (newer/higher than the paper's 89.61%)",
+          "n": "Not stated on page; per-run output JSON referenced at agentmemorybenchmark.ai/run/outputs/locomo/locomo-hindsight/rag/locomo10.json.gz (client-routed SPA; raw file not directly fetchable)",
+          "runs": "Not stated",
+          "source_url": "https://benchmarks.hindsight.vectorize.io/",
+          "source_type": "Vendor leaderboard/blog (also https://hindsight.vectorize.io/blog/2026/03/23/agent-memory-benchmark)",
+          "date": "2026-03-23 (AMB manifesto blog); leaderboard live as of 2026-07-04",
+          "caveats": "AMB is a benchmark suite created and operated by Vectorize (Hindsight's own vendor) \u2014 self-run and self-reported, though harness/prompts/datasets are published for reproduction. Different harness and judge than the arXiv paper, so 92.0% is not directly comparable to the paper's 89.61%. Backbone model for this run not stated on the page."
+        },
+        {
+          "dataset": "LongMemEval-S (AMB v1 harness)",
+          "metric": "Accuracy (AMB LLM-judge vs gold references)",
+          "value": "94.6% \u2014 Hindsight (newer/higher than the paper's 91.4%)",
+          "n": "LongMemEval-S is 500 questions canonically; AMB page does not restate n",
+          "runs": "Not stated",
+          "source_url": "https://benchmarks.hindsight.vectorize.io/",
+          "source_type": "Vendor leaderboard/blog (also https://hindsight.vectorize.io/blog/2026/03/23/agent-memory-benchmark)",
+          "date": "2026-03-23 blog; leaderboard live as of 2026-07-04",
+          "caveats": "Same vendor-run AMB caveats: Vectorize operates the leaderboard, backbone/judge for this specific run not stated on the page, not comparable 1:1 with the paper's GPT-OSS-120B-judged 91.4%."
+        }
+      ],
+      "no_published_results": false,
+      "notes": "Hindsight definitely has published LoCoMo and LongMemEval numbers \u2014 it is one of the most-benchmarked memory systems of late 2025/2026. Two distinct generations of numbers exist and should not be conflated: (1) the arXiv technical report 2512.12818 (submitted 2025-12-14; Latimer, Boschi, Neeser, Bartholomew, Srivastava, Wang, Ramakrishnan \u2014 Vectorize + Virginia Tech Sanghani Center + The Washington Post): LongMemEval-S 83.6/89.0/91.4 (OSS-20B/OSS-120B/Gemini-3) and LoCoMo 83.18/85.67/89.61; and (2) the vendor-run Agent Memory Benchmark leaderboard (2026): LoCoMo-10 92.0%, LongMemEval-S 94.6%. Key integrity caveats for competitive claims: all numbers are self-reported by Vectorize (the GitHub README's 'independently reproduced by Virginia Tech and The Washington Post' refers to the paper's own co-author institutions, not third parties); the paper's Hindsight rows use a GPT-OSS-120B judge while LongMemEval baselines were copied from Supermemory's report (GPT-4o judge) and LoCoMo baselines were copied from Backboard's marketing leaderboard ('reported reference points rather than independently reproduced'); 'Hindsight (Gemini-3)' uses Gemini-3 Pro only as the final answer generator over memories retrieved by a GPT-OSS-120B-powered stack; no seeds/repeat runs/error bars are reported anywhere; LoCoMo table omits the adversarial category. Reproduction assets are genuinely public: MIT-licensed code (github.com/vectorize-io/hindsight), eval scripts, and a per-question results viewer (hindsight-benchmarks.vercel.app / benchmarks.hindsight.vectorize.io). Notably, Vectorize's own 2026-04-02 blog post now argues LoCoMo/LongMemEval are saturated ('mostly measure whether your LLM can read') and pivots to their BEAM 10M-token benchmark. Minor discrepancy: the paper describes LoCoMo as 50 conversations (the original LoCoMo paper's collection figure) while the AMB run is labeled locomo10 (the 10-conversation public release). Could not extract per-run AMB metadata (judge model, n, date) because agentmemorybenchmark.ai is a client-routed SPA whose /run/outputs/*.json.gz paths return the app shell to plain HTTP fetches; VentureBeat's article (with 91% headline) returned HTTP 403. Sources used: https://arxiv.org/abs/2512.12818 (PDF pages 19-20 extracted locally), https://benchmarks.hindsight.vectorize.io/, https://hindsight.vectorize.io/blog/2026/03/23/agent-memory-benchmark, https://hindsight.vectorize.io/blog/2026/04/02/beam-sota, https://github.com/vectorize-io/hindsight-benchmarks, https://github.com/vectorize-io/hindsight, https://www.prnewswire.com/news-releases/vectorize-breaks-90-on-longmemeval-with-open-source-ai-agent-memory-system-302643146.html (2025-12-16)."
+    }
+  ],
+  "verified": [
+    {
+      "system": "Chronos memory agent (arXiv 2603.16862: \"Chronos: Temporal-Aware Conversational Agents with Structured Event Retrieval for Long-Term Memory\" \u2014 Sahil Sen, Elias Lumer, Anmol Gulati, Vamse Kumar Subbiah, PricewaterhouseCoopers). Identity re-confirmed at source: title, authors, and v1 submission date 17 Mar 2026 all verified on the live arXiv abstract page. Distinct from Amazon Chronos (time-series) and chronos-engine (game NPC memory) namesakes.",
+      "confirmed": [
+        {
+          "dataset": "LongMemEval-S (500 questions, 6 categories)",
+          "metric": "Overall accuracy, LongMemEval LLM-as-judge",
+          "claimed_value": "Chronos Low = 92.60% (GPT-4o); per-category KU 96.15, MS 91.73, SSA 100.00, SSP 80.00, SSU 94.29, TR 90.23",
+          "verdict": "CONFIRMED",
+          "what_page_says": "arXiv abstract page states verbatim: 'Chronos Low achieves 92.60% and Chronos High scores 95.60% accuracy'. HTML full text Table 1 exact row: 'Chronos Low (Ours) | 92.60 | 96.15 | 91.73 | 100.00 | 80.00 | 94.29 | 90.23' \u2014 every claimed digit matches. Abstract confirms 'LongMemEvalS benchmark comprising 500 questions spanning six categories'. Paper confirms temperature 0 for determinism, 'we implement LongMemEval's LLM judge' with no judge model named, and no code/GitHub release mentioned \u2014 all matching the claimed caveats.",
+          "source_url": "https://arxiv.org/abs/2603.16862"
+        },
+        {
+          "dataset": "LongMemEval-S (500 questions, 6 categories)",
+          "metric": "Overall accuracy, LongMemEval LLM-as-judge",
+          "claimed_value": "Chronos High = 95.60% (Claude Opus 4.6), SOTA, +7.67% over best prior; per-category KU 100.00, MS 88.72, SSA 100.00, SSP 100.00, SSU 98.57, TR 95.50",
+          "verdict": "CONFIRMED",
+          "what_page_says": "Abstract verbatim: 'Chronos High scores 95.60% accuracy, setting a new state of the art with an improvement of 7.67% over the best prior system.' HTML Table 2 exact row: 'Chronos High (Ours) | 95.60 | 100.00 | 88.72 | 100.00 | 100.00 | 98.57 | 95.50'. TR digit checked character-by-character on a targeted re-fetch: 95.50 as claimed (one earlier broad fetch rendered it 95.49 \u2014 see verification_notes). Caveat details also confirmed on-page: Table 2 'stronger models' rows Mastra 92.80, Hindsight 91.40, Supermemory 85.20, Honcho 92.60; Honcho 'evaluated on Claude Haiku 4.5, not GPT-4o'; Hindsight 'OSS-20B as the actor model and used OSS-120B as the judge model'; benchmark label error for question 6d550036 quoted in paper. Third-party github.com/JordanMcCann/agentmemory exists and does claim 96.20% (481/500), explicitly 'surpasses the previous world record of 95.60% held by PwC Chronos by +0.60 percentage points' \u2014 self-reported, unreviewed, as the claim stated.",
+          "source_url": "https://arxiv.org/abs/2603.16862"
+        },
+        {
+          "dataset": "LongMemEval-S (500 questions) \u2014 backbone sweep (appendix, Table 4)",
+          "metric": "Overall accuracy, LongMemEval LLM-as-judge",
+          "claimed_value": "Claude Opus 4.6 95.60; GPT-5-mini 94.20; Claude Sonnet 4.5 94.20; Claude Haiku 4.5 94.00; GPT-5.2 93.80; GPT-4o 92.60; Claude Code Sonnet 88.60",
+          "verdict": "CONFIRMED",
+          "what_page_says": "HTML render appendix (Table 4) verbatim: 'Claude Opus 4.6: 95.60% overall; GPT-5-mini: 94.20%; Claude Sonnet 4.5: 94.20%; Claude Haiku: 94.00%; GPT-5.2: 93.80%; GPT-4o: 92.60%; Claude Code Sonnet: 88.60%'. All seven claimed numbers match exactly. Note the claim cites 'Appendix A'; the fetch identifies the table as Table 4 in the appendix \u2014 same content. Abstract's '8 LLMs' count confirmed on abstract page.",
+          "source_url": "https://arxiv.org/html/2603.16862v1"
+        },
+        {
+          "dataset": "LongMemEval-S SUBSET (116 questions) \u2014 ablations (Table 3)",
+          "metric": "Overall accuracy, LLM-as-judge",
+          "claimed_value": "Full Chronos (Low) 93.1; Turns-only 58.6; no initial retrieval 76.7; no dynamic prompting 78.4; no rerank 81.0; no date filter 78.4; grep-only 77.6; vector-only 80.2; events calendar framed as 58.9% gain",
+          "verdict": "CONFIRMED",
+          "what_page_says": "HTML Table 3 confirmed as a 116-question subset with BOTH Low and High columns. Chronos Low column verbatim: Chronos 93.1; No Initial Retrieval 76.7; No Dynamic Prompting 78.4; No Rerank 81.0; No Date Filter 78.4; Grep Only 77.6; Vector Only 80.2; Turns Only (no events) 58.6 \u2014 every claimed number matches the Low column exactly. Abstract verbatim: 'the events calendar accounts for a 58.9% gain on the baseline while all other components yield improvements between 15.5% and 22.3%' (58.9% is the relative gain of 93.1 over 58.6, consistent with the claim's framing). Caveat that subset numbers (93.1) differ from full-500 (92.6) is consistent with the tables. Note: Table 3 also contains a Chronos High column (94.8 full, 92.2 turns-only, etc.) \u2014 a careless read of the High column would produce very different ablation deltas; the claim correctly used the Low column.",
+          "source_url": "https://arxiv.org/html/2603.16862v1"
+        },
+        {
+          "dataset": "LoCoMo",
+          "metric": "Any",
+          "claimed_value": "NO PUBLISHED RESULTS for Chronos on LoCoMo (absence-of-evidence finding)",
+          "verdict": "CONFIRMED",
+          "what_page_says": "HTML full text re-checked: paper evaluates exclusively on LongMemEval-S; LoCoMo appears only in related work with no Chronos numbers. EmergentMind page re-fetched and contains the quoted sentence verbatim: 'Real-world longitudinal evaluation is missing: results are limited to LongMemEvalS; performance on naturalistic, noisy, months-long production conversations (e.g., LoCoMo or enterprise logs) is not assessed.' Fresh web search (2026-07-04) for Chronos + LoCoMo surfaced no Chronos LoCoMo figure anywhere \u2014 only the LoCoMo dataset description and unrelated papers. Absence claim stands.",
+          "source_url": "https://www.emergentmind.com/papers/2603.16862"
+        }
+      ],
+      "unconfirmed": [],
+      "verification_notes": "Method: re-fetched all three source URLs live on 2026-07-04 (arxiv.org/abs/2603.16862, arxiv.org/html/2603.16862v1 twice with targeted prompts, emergentmind.com/papers/2603.16862), plus a web search for Chronos+LoCoMo and a spot-check fetch of github.com/JordanMcCann/agentmemory. All 5 findings CONFIRMED; 0 UNCONFIRMED. Two adversarial wrinkles worth recording: (1) TR digit for Chronos High \u2014 a first broad fetch of the HTML rendered it 95.49, but a targeted character-by-character re-read of Table 2 returned 95.50 as claimed; the discrepancy is at the level of the fetch model's table transcription, not the claim. The claim's own caveat ('spot-verify against the PDF before citing in print') remains sound advice for this digit. (2) Ablation table \u2014 a first broad fetch reported only the Chronos High ablation column (94.8/92.2/91.4/...), which superficially contradicted the claim; a targeted re-fetch showed Table 3 has separate Low and High columns and the claimed numbers match the Low column exactly, consistent with the abstract's 58.9% relative-gain sentence. All secondary caveat facts also verified on-page: Honcho-on-Haiku-4.5 baseline mismatch, Hindsight OSS-20B/OSS-120B config, question 6d550036 label error, Gemini 3 Flash dynamic-prompting helper, judge model unnamed, temperature 0, no code release. Authors' affiliation (PricewaterhouseCoopers) appears in the HTML render and search results even though the abstract page omits it. Namesake hygiene re-checked: nothing in the fetched pages relates to Amazon Chronos or chronos-engine."
+    },
+    {
+      "system": "Mastra memory (Observational Memory + earlier semantic-recall/working-memory in the Mastra TypeScript agent framework)",
+      "confirmed": [
+        {
+          "dataset": "LongMemEval (longmemeval_s, 500 questions, ~57M tokens, 6 categories)",
+          "metric": "Overall QA accuracy (LLM-as-judge, binary, unweighted average across 6 categories)",
+          "value": "94.87% (Mastra Observational Memory, actor=gpt-5-mini)",
+          "source_url": "https://mastra.ai/research/observational-memory",
+          "verdict": "CONFIRMED",
+          "what_page_says": "Page reports 94.87% for OM with gpt-5-mini on longmemeval_s ('500 questions across ~57M tokens'), described as 'the highest score ever recorded on this benchmark, by any system, with any model'. Judge is gpt-4o using LongMemEval's question-specific prompts, binary scoring. Page confirms: 6 categories listed by name; 'Overall accuracy is the unweighted average across all 6 categories'; single-session-preference 'has only 30 questions, making it statistically noisy'; observer/reflector used gemini-2.5-flash; 'Scores were generally stable across runs; the results published here are from the latest run of each configuration' (no run count). Publication date Feb 9, 2026. Per-category gpt-5-mini scores also shown (e.g., knowledge-update 96.2%, single-session-preference 100.0%)."
+        },
+        {
+          "dataset": "LongMemEval (longmemeval_s, 500 questions)",
+          "metric": "Overall QA accuracy (LLM-as-judge, binary)",
+          "value": "84.23% (Mastra OM, actor=gpt-4o); 93.27% gemini-3-pro-preview; 89.20% gemini-3-flash-preview",
+          "source_url": "https://mastra.ai/research/observational-memory",
+          "verdict": "CONFIRMED",
+          "what_page_says": "Page leaderboard shows exactly 84.23% (gpt-4o), 93.27% (gemini-3-pro-preview), 89.20% (gemini-3-flash-preview) for OM, and comparators Oracle (gpt-4o) 82.40%, Supermemory (gpt-4o) 81.60%, Zep (gpt-4o) 71.20%, Full context (gpt-4o) 60.20%, Supermemory (gemini-3-pro-preview) 85.20%. Claimed margins check out arithmetically (84.23 vs oracle 82.40 = +1.83 ~'about 2 pts'; vs Supermemory 81.60 = +2.63). Nuance: the page itself credits 'Hindsight' as the previous best comparable public result (gemini-3-pro-preview 91.40%; gpt-4o 80.7%, 'outperforms Hindsight's best by 3.5 points'), not Supermemory. Third-party framing confirmed: The Decoder (Feb 15, 2026) reprints all four OM numbers with explicit 'According to Mastra' attribution."
+        },
+        {
+          "dataset": "LongMemEval (longmemeval_s, 500 questions, GPT-4o)",
+          "metric": "Overall QA accuracy",
+          "value": "80.05% (semantic recall RAG, topK=20); 78.59% topK=10; 73.98% topK=5; 63.41% topK=2; working-memory-only 35.40% generic / 57.34% tailored",
+          "source_url": "https://mastra.ai/blog/use-rag-for-agent-memory",
+          "verdict": "CONFIRMED",
+          "what_page_says": "Blog (dated Jul 17, 2025) reports exactly these numbers on longmemeval_s ('500 questions, each question has about 50 unique conversations attached') with gpt-4o: topK=20 80.05%, topK=10 78.59%, topK=5 73.98%, topK=2 63.41%; working memory generic 35.40%, tailored 57.34%. Rebuttal framing confirmed: responds to Zep's 'stop using RAG' with 'our results \u2014 using a general purpose framework \u2014 are better than theirs: 80% accuracy compared to 72%'. Data-availability caveat confirmed verbatim: 'The prepared data and results files aren't available in the Github repo due to file size, but we'll be sharing them soon.' Latency is discussed only qualitatively ('in a similar latency range as Zep'), no measured latency analysis \u2014 consistent with the claimed caveat."
+        },
+        {
+          "dataset": "LoCoMo",
+          "metric": "N/A \u2014 no published result",
+          "value": "NONE. Mastra explicitly declined to publish LoCoMo results",
+          "source_url": "https://mastra.ai/research/observational-memory",
+          "verdict": "CONFIRMED",
+          "what_page_says": "Page states the team 'deliberately chose not to publish LoCoMo results', citing F1 (word-overlap) scoring unreliability, lack of standardized judge criteria, and inconsistent result representation across papers. No LoCoMo number appears anywhere on the page. Also confirms the notes-section point that the 60.20% figure is the LongMemEval 'Full context (gpt-4o)' leaderboard row, not a LoCoMo result \u2014 excluding the conflated search snippet was correct."
+        }
+      ],
+      "unconfirmed": [],
+      "verification_notes": "Method: re-fetched both source_urls via WebFetch on 2026-07-04 (two passes on the research page to cover category/judge/SOTA details), plus a spot-check of the cited corroborating third-party article (The Decoder, 2026-02-15). Every claimed number, dataset, and metric matched the source page exactly \u2014 nothing had to be downgraded. Nuances found: (a) the research page does not itself state a '>3 pts above prior SOTA' differential for 94.87%; it cites Hindsight (gemini-3-pro-preview) 91.40% as previous best comparable public result, making the margin 3.47 pts \u2014 the claim's characterization is arithmetically supported but not verbatim; (b) for gpt-4o, the page attributes the prior best to Hindsight 80.7% ('outperforms Hindsight's best by 3.5 points'), while the claim framed Supermemory 81.60% as prior gpt-4o SOTA \u2014 Supermemory's 81.60% does appear on the page's leaderboard and the +2.6 pt arithmetic holds, but 'prior SOTA (Supermemory)' is the claim's inference, not the page's wording; (c) run counts remain unspecified on all Mastra results, as claimed ('generally stable across runs', latest run published). Self-reported status confirmed: The Decoder explicitly uses 'According to Mastra' framing and reports the same four OM numbers (it also mentions a Supermemory 84.6% GPT-5 figure not in the claims \u2014 different config, no contradiction). Not re-verified (secondary caveat citations, not source_urls): VentureBeat coverage, the mem0.ai state-of-agent-memory post, and the Penfield Labs LoCoMo audit on dev.to \u2014 treat those specific corroboration details as second-hand."
+    },
+    {
+      "system": "ByteRover (byterover.dev; open-source CLI: campfirein/byterover-cli, formerly Cipher) \u2014 LLM-curated hierarchical \"Context Tree\" memory layer for coding agents",
+      "confirmed": [
+        {
+          "dataset": "LoCoMo",
+          "metric": "Overall LLM-as-Judge accuracy",
+          "value": "96.1%",
+          "n": "1,982 questions, 272 docs",
+          "source_url": "https://arxiv.org/abs/2604.01599",
+          "verdict": "CONFIRMED",
+          "what_page_says": "Abstract page alone shows only qualitative claims ('state-of-the-art accuracy on LoCoMo'), but the full text at https://arxiv.org/html/2604.01599v1 explicitly states 'ByteRover achieves the highest overall accuracy at 96.1%' with per-category single-hop 97.5%, multi-hop 93.3%, temporal 97.8%, open-domain 85.9%; judge = Gemini 3 Flash at temperature 0.0; baselines HonCho 89.9%, Hindsight 89.6%, Memobase 75.8%, Zep 75.1%, Mem0 66.9%, OpenAI Memory 52.9%; Hindsight wins open-domain at 95.1%; 1,982 questions and 272 docs confirmed. Title/authors match ('ByteRover: Agent-Native Memory Through LLM-Curated Hierarchical Context', Andy Nguyen et al.). v1 submission date confirmed: 'Thu, 2 Apr 2026 04:15:42 UTC'.",
+          "residual_caveats": "Self-reported by ByteRover authors. The 'v2.1.5' version identifier does NOT appear in the paper text (it comes from the blog/README), and '464/500' for LongMemEval is not in the paper. Cite the /html/2604.01599v1 full text, not the /abs page, for the numbers."
+        },
+        {
+          "dataset": "LoCoMo",
+          "metric": "Overall LLM-as-Judge accuracy (ByteRover 2.0, earlier result)",
+          "value": "92.2% (best run; run 1 = 90.9%)",
+          "n": "1,982 questions; adversarial category (446 q) excluded from primary reporting",
+          "source_url": "https://www.byterover.dev/blog/benchmark-ai-agent-memory",
+          "verdict": "CONFIRMED",
+          "what_page_says": "Page states 'ByteRover 2.0 achieves 92.2% overall accuracy on the LoCoMo benchmark' (Run 2), Run 1 = 90.9%; 1,982 questions; adversarial category explicitly 446 questions and excluded from the primary leaderboard reporting; Run 2 per-category single-hop 95.4%, multi-hop 85.1%, temporal 94.4%, open-domain 77.2%; Run 2 used Gemini 3 Flash for curation/judging with Gemini 3 Pro as justifier, Run 1 all Gemini 3 Flash. Comparative framing vs Hindsight, Mem0, Memobase present.",
+          "residual_caveats": "Self-reported vendor blog. Blog publication date (claimed 2026-02-27) was not explicitly re-verified on the page. Superseded by 96.1% (v2.1.5 paper) \u2014 the +3.9 pt jump between versions under the vendor's own harness stands as claimed."
+        },
+        {
+          "dataset": "LongMemEval-S",
+          "metric": "Overall LLM-as-Judge accuracy",
+          "value": "92.8% (464/500 correct)",
+          "n": "500 questions",
+          "source_url": "https://www.byterover.dev/blog/benchmark_ai_agent_memory_real_production_byterover_top_market_accuracy_longmemeval",
+          "verdict": "CONFIRMED",
+          "what_page_says": "Blog post (dated June 30, 2026) states ByteRover v2.1.5 scores '92.8% (464/500)' on LongMemEval-S, 500 questions, Gemini 3 Flash curation + Gemini 3.1 Pro justifier; per-category Knowledge Update 98.7%, Single-Session User 98.6%, Temporal Reasoning 91.7%, Multi-Session 84.2%; latency mean 1.3s, p50 1.6s, p95 2.3s. Hindsight 91.4% and HonCho 90.4% baselines present.",
+          "residual_caveats": "Self-reported. IMPORTANT: the claimed baselines 'Chronos-Low 92.6%' and 'SmartSearch 88.4%' do NOT appear on this page (see unconfirmed) \u2014 so the '0.2 pt margin over Chronos' caveat is unsupported at this URL. p99 latency figures not re-verified."
+        },
+        {
+          "dataset": "LoCoMo + LongMemEval-S (headline repeats)",
+          "metric": "LLM-as-Judge accuracy (%)",
+          "value": "LoCoMo 96.1% (1,982 q, 272 docs); LongMemEval-S 92.8% (500 q, 23,867 docs)",
+          "n": "as stated",
+          "source_url": "https://github.com/campfirein/byterover-cli/blob/main/README.md",
+          "verdict": "CONFIRMED",
+          "what_page_says": "README exists (ByteRover CLI 'brv', campfirein/byterover-cli). States 'LoCoMo: 96.1% overall accuracy (1,982 questions, 272 docs)' and 'LongMemEval-S: 92.8% overall accuracy (500 questions, 23,867 docs)', plus verbatim: 'All benchmarks are run using the production byterover-cli codebase in this repository - no separate research prototype.' Links to arxiv.org/abs/2604.01599.",
+          "residual_caveats": "Self-reported repetition of the same vendor numbers, not independent evidence. The claimed companion harness repo 'brv-bench' is NOT mentioned in the README (see unconfirmed)."
+        }
+      ],
+      "unconfirmed": [
+        {
+          "claim": "LongMemEval-S baselines 'Chronos-Low 92.6% (GPT-4o backbone, dagger-flagged)' and 'SmartSearch 88.4%', and the derived caveat that ByteRover's margin over next-best is only 0.2 pts, plus 'multi-session loses to Chronos-Low 91.7%'",
+          "source_url": "https://www.byterover.dev/blog/benchmark_ai_agent_memory_real_production_byterover_top_market_accuracy_longmemeval",
+          "verdict": "UNCONFIRMED",
+          "what_page_says": "The page's comparison table mentions Hindsight (91.4%), HonCho (90.4%), Memobase and Zep \u2014 Chronos-Low and SmartSearch do not appear anywhere in the fetched content. The 0.2-pt-margin framing cannot be sourced to this URL; drop it or find its actual source before using it."
+        },
+        {
+          "claim": "Reproduction harness published at github.com/campfirein/brv-bench (cited in notes as making runs 'in principle reproducible')",
+          "source_url": "https://github.com/campfirein/byterover-cli/blob/main/README.md",
+          "verdict": "UNCONFIRMED",
+          "what_page_says": "README does not mention brv-bench or any separate benchmark harness repository. The brv-bench URL itself was not verified in this pass; treat the reproducibility claim as unsourced until the repo is fetched directly."
+        },
+        {
+          "claim": "arXiv paper ties the 96.1% result to 'ByteRover v2.1.5' and reports LongMemEval as '464/500'",
+          "source_url": "https://arxiv.org/html/2604.01599v1",
+          "verdict": "UNCONFIRMED",
+          "what_page_says": "Full text confirms 96.1% and 92.8% but contains no 'v2.1.5' version identifier and no '464/500' count \u2014 those details exist only in the vendor blog and README. Version attribution across sources is inferred, not stated in the paper."
+        }
+      ],
+      "verification_notes": "Method: re-fetched all four claimed source_urls via WebFetch, plus two adversarial follow-ups: (1) the arXiv /abs page shows NO numbers (abstract is qualitative only), so the paper's full text at https://arxiv.org/html/2604.01599v1 was fetched and confirmed every headline and baseline number verbatim \u2014 any citation of the 96.1% should point at the html full text, not the abstract page; (2) the /abs page's submission history confirmed v1 = Thu, 2 Apr 2026, matching the claimed date. Net result: all four primary findings (96.1% LoCoMo paper, 92.2%/90.9% LoCoMo v2.0 blog, 92.8% LongMemEval-S blog, README headline repeats) are CONFIRMED at their sources with dataset, metric, n, judge config, and per-category breakdowns matching as stated. Three secondary details failed verification and were moved to unconfirmed: the Chronos-Low/SmartSearch baseline rows (and the '0.2 pt margin' talking point built on them) are absent from the LongMemEval blog page; the brv-bench harness repo is not mentioned in the README; and the paper text never names v2.1.5 or 464/500. Everything remains self-reported vendor evidence \u2014 no independent reproduction was located, and the all-Gemini judge stack comparability caveats stand."
+    },
+    {
+      "system": "Hindsight (open-source agent memory system by Vectorize, github.com/vectorize-io/hindsight; paper \"Hindsight is 20/20\", arXiv:2512.12818, authors from Vectorize.io + Virginia Tech + The Washington Post)",
+      "confirmed": [
+        {
+          "dataset": "LongMemEval (S setting)",
+          "metric": "Overall accuracy, LLM-as-judge (GPT-OSS-120B judge, binary 0/1)",
+          "value": "83.6% \u2014 Hindsight (GPT-OSS-20B backbone)",
+          "source_url": "https://arxiv.org/abs/2512.12818",
+          "verdict": "CONFIRMED",
+          "what_source_says": "Abstract states 'lifts overall accuracy from 39% to 83.6% over a full-context baseline'. Table 3 (PDF p.19, 'S setting, 500 questions') row-by-row exact match: single-session-user 95.7, single-session-assistant 94.6, single-session-preference 66.7, knowledge-update 84.6, temporal-reasoning 79.7, multi-session 79.7, Overall 83.6. Judge confirmed p.18: 'GPT-OSS-120b as the judge LLM with temperature set to 0.0' and 'binary correctness scores (0 or 1)'. Baseline rows Full-context GPT-4o 60.2, Zep(GPT-4o) 71.2, Supermemory(GPT-4o) 81.6 / (GPT-5) 84.6 / (Gemini-3) 85.2 all match; paper states these are 'taken directly from the Supermemory technical report and use their published GPT-4o LLM-as-a-judge setup' \u2014 judge-mixing caveat verified verbatim."
+        },
+        {
+          "dataset": "LongMemEval (S setting)",
+          "metric": "Overall accuracy, LLM-as-judge (GPT-OSS-120B judge)",
+          "value": "89.0% \u2014 Hindsight (GPT-OSS-120B backbone)",
+          "source_url": "https://arxiv.org/abs/2512.12818",
+          "verdict": "CONFIRMED",
+          "what_source_says": "Table 3 exact match: ss-user 100.0, ss-assistant 98.2, ss-preference 86.7, knowledge-update 92.3, temporal 85.7, multi-session 81.2, Overall 89.0. Text: 'With OSS-120B, HINDSIGHT reaches 89.0% overall accuracy, outperforming Supermemory with GPT-4o and GPT-5 (81.6% and 84.6%)'."
+        },
+        {
+          "dataset": "LongMemEval (S setting)",
+          "metric": "Overall accuracy, LLM-as-judge (GPT-OSS-120B judge)",
+          "value": "91.4% \u2014 Hindsight (Gemini-3 Pro answer generator)",
+          "source_url": "https://arxiv.org/abs/2512.12818",
+          "verdict": "CONFIRMED",
+          "what_source_says": "Abstract: '91.4% on LongMemEval'. Table 3 exact match: ss-user 97.1, ss-assistant 96.4, ss-preference 80.0, knowledge-update 94.9, temporal 91.0, multi-session 87.2, Overall 91.4; text calls it 'the best result across all systems and model backbones'. Gemini-3-generator-only caveat verified verbatim (p.19): 'The Hindsight (Gemini-3) rows in both benchmarks use Gemini-3 Pro only as the final answer generator over the retrieved memories, while the underlying memory architecture and the LLM-as-a-judge remain based on GPT-OSS-120b.'"
+        },
+        {
+          "dataset": "LoCoMo",
+          "metric": "Overall accuracy by question type, LLM-as-judge (GPT-OSS-120B judge)",
+          "value": "83.18% \u2014 Hindsight (GPT-OSS-20B)",
+          "source_url": "https://arxiv.org/abs/2512.12818",
+          "verdict": "CONFIRMED",
+          "what_source_says": "Table 4 (PDF p.20) exact match: Single-Hop 74.11, Multi-Hop 64.58, Open Domain 90.96, Temporal 76.32, Overall 83.18. Only 4 question-type columns \u2014 no adversarial category, as claimed. All baseline rows match: Backboard 90.00, Memobase (v0.0.37) 75.78, Zep 75.14, Mem0-Graph 68.44, Mem0 66.88, LangMem 58.10, OpenAI 52.90. Baseline-provenance caveat verified verbatim: baselines 'are presented here as claimed on the official Backboard LoCoMo benchmark results. We treat these numbers as reported reference points rather than our independently reproduced baselines.' Note: paper does not state LoCoMo question count; Table 2 lists 50 conversations, questions 'Varies'."
+        },
+        {
+          "dataset": "LoCoMo",
+          "metric": "Overall accuracy, LLM-as-judge (GPT-OSS-120B judge)",
+          "value": "85.67% \u2014 Hindsight (GPT-OSS-120B)",
+          "source_url": "https://arxiv.org/abs/2512.12818",
+          "verdict": "CONFIRMED",
+          "what_source_says": "Table 4 exact match: Single-Hop 76.79, Multi-Hop 62.50, Open Domain 93.68, Temporal 79.44, Overall 85.67. Abstract corroborates: 'from 75.78% to 85.67% on LoCoMo'."
+        },
+        {
+          "dataset": "LoCoMo",
+          "metric": "Overall accuracy, LLM-as-judge (GPT-OSS-120B judge)",
+          "value": "89.61% \u2014 Hindsight (Gemini-3 as answer generator)",
+          "source_url": "https://arxiv.org/abs/2512.12818",
+          "verdict": "CONFIRMED",
+          "what_source_says": "Abstract: 'up to 89.61% on LoCoMo (vs. 75.78% for the strongest prior open system)'. Table 4 exact match: Single-Hop 86.17, Multi-Hop 70.83, Open Domain 95.12 (best in table; Backboard's is 91.20), Temporal 83.80, Overall 89.61. Text verbatim: 'effectively matching Backboard's claimed 90.00% overall performance'; Table 4 caption: 'Backboard numbers are taken from their reported figures and could not be independently reproduced.'"
+        },
+        {
+          "dataset": "LoCoMo (locomo10 variant, Agent Memory Benchmark AMB v1 harness)",
+          "metric": "Accuracy (AMB LLM-judge vs gold references)",
+          "value": "92.0% \u2014 Hindsight",
+          "source_url": "https://benchmarks.hindsight.vectorize.io/",
+          "verdict": "CONFIRMED",
+          "what_source_says": "Live leaderboard (fetched 2026-07-04) shows 'LoComo10: 92%' with Hindsight '#1' and 'leading every dataset on the Agent Memory Benchmark'. Corroborated by Vectorize blog dated 2026-03-23 (hindsight.vectorize.io/blog/2026/03/23/agent-memory-benchmark) reporting Hindsight v0.4.19 LoComo 92.0%. As claimed in caveats, neither page states the backbone/judge model or n for this run \u2014 the blog explicitly defers those details to published harness configs."
+        },
+        {
+          "dataset": "LongMemEval-S (AMB v1 harness)",
+          "metric": "Accuracy (AMB LLM-judge vs gold references)",
+          "value": "94.6% \u2014 Hindsight",
+          "source_url": "https://benchmarks.hindsight.vectorize.io/",
+          "verdict": "CONFIRMED",
+          "what_source_says": "Live leaderboard shows 'LongMemEvalS: 94.6%' (alongside PersonaMem32K 86.6%, BEAM100K 75%, BEAM1M 73.9%, LifeBenchEN 71.5%, BEAM500K 71.1%, BEAM10M 64.1%). Corroborated by the 2026-03-23 AMB blog (Hindsight v0.4.19, LongMemEval 94.6%). Backbone/judge for the run not stated on either page, matching the claimed caveat."
+        }
+      ],
+      "unconfirmed": [],
+      "verification_notes": "All 8 findings CONFIRMED at their stated source URLs; zero discrepancies in any headline or per-category number. Method: (1) fetched https://arxiv.org/abs/2512.12818 \u2014 title 'Hindsight is 20/20: Building Agent Memory that Retains, Recalls, and Reflects', v1 submitted 14 Dec 2025, authors Latimer/Boschi/Neeser/Bartholomew/Srivastava/Wang/Ramakrishnan; abstract itself contains 83.6%, 91.4%, 89.61%, 75.78%. (2) Fetched arxiv HTML full text (confirmed Table 3 completely; truncated before Table 4), then downloaded the actual PDF (28 pages) and extracted text locally with pypdf \u2014 Table 3 is on PDF p.19 and Table 4 on p.20 exactly as claimed, and every one of the 6 Hindsight rows' overall + per-category numbers, all 8 LongMemEval baseline figures, and all 7 LoCoMo baseline figures match the claims digit-for-digit. Affiliations confirmed on PDF p.1: Vectorize.io, The Washington Post, Virginia Tech. All key caveats verified verbatim in the paper: GPT-OSS-120B judge at temperature 0.0 with binary 0/1 scoring for Hindsight rows; LongMemEval baselines copied from the Supermemory technical report under a GPT-4o judge (judges mixed across rows); LoCoMo baselines 'as claimed on the official Backboard LoCoMo benchmark results... reported reference points rather than our independently reproduced baselines'; Gemini-3 Pro used only as final answer generator while memory stack + judge stay GPT-OSS-120B; no seeds/repeat runs/error bars anywhere in the experimental setup; LoCoMo Table 4 has only single-hop/multi-hop/open-domain/temporal columns (no adversarial). Paper confirms LongMemEval-S n=500; LoCoMo n is NOT stated (Table 2: 50 conversations, questions 'Varies'), consistent with the claim's hedge. Minor observation: the published PDF still contains unfilled '<add>' placeholders for the retrieval token budgets on p.18 \u2014 a draft-quality artifact worth knowing about, though it does not affect the reported numbers. (3) Fetched the live AMB leaderboard at benchmarks.hindsight.vectorize.io \u2014 LoComo10 92%, LongMemEvalS 94.6% displayed as claimed \u2014 and the 2026-03-23 AMB manifesto blog, which repeats LoComo 92.0% / LongMemEval 94.6% for Hindsight v0.4.19 and confirms the run metadata (judge, backbone, n) is not stated on-page. All numbers remain self-reported by Vectorize; nothing here is third-party reproduction."
+    }
+  ]
+}

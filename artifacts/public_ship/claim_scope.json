@@ -25,6 +25,25 @@
     "Dev-split cost median (83 qtok) is NOT a holdout number; holdout r7 structured coverage 13/40 kept the holdout median on the reader plateau (4,029).",
     "Windows swing +-5pp at n=40; the rolling n=280 table is the evidence unit, not any single window.",
     "Mem0's write-side token cost is unlogged in its adapter; its totals are understated in all comparisons.",
-    "Ablation evidence (metabolism/forgetting attribution) not present in this artifact dir; see docs/claims.md Claim B for the program."
-  ]
+    "Ablation evidence (metabolism/forgetting attribution) not present in this artifact dir; see docs/claims.md Claim B for the program.",
+    "Named comparators publish 83-96% self-reported accuracy with frontier readers (GPT-5/Gemini-3/Opus) and their own judges; under our deliberately-fixed qwen-plus reader the regimes are not commensurable, and we do not claim to beat them. comparator_research.json carries the sourced records."
+  ],
+  "external_system_evidence_note": "Verified web-research records in comparator_research.json (2026-07-04): every number is vendor/author self-reported with no independent reproduction found; judges and reader backbones differ per system, so none are commensurable with this repo's fixed-reader fixed-judge harness. Recorded for scope-boundary honesty, NOT entered as gate-valid external evidence.",
+  "comparator_headline_numbers_self_reported": {
+    "chronos": {
+      "longmemeval_s": "92.6-95.6% (GPT-4o..Opus 4.6 backbones, arXiv 2603.16862, single-run)",
+      "locomo": "none published"
+    },
+    "mastra": {
+      "longmemeval_s": "94.87% (gpt-5-mini actor) / 84.23% (gpt-4o), vendor research page 2026-02-09"
+    },
+    "byterover": {
+      "locomo": "96.1% (n=1982, vendor blog/paper 2604.01599)",
+      "longmemeval_s": "92.8%"
+    },
+    "hindsight": {
+      "locomo": "83.18-92.0% by backbone/harness",
+      "longmemeval_s": "83.6-94.6%"
+    }
+  }
 }
