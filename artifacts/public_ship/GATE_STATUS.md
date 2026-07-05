@@ -29,7 +29,7 @@ the claim scope is `limited` accordingly (`claim_scope.json`).
 | dominance / paired stats | ~232 | runs=1; CI checks need ≥10 runs | run `bench/reproduce.sh` |
 | missing systems | ~160 | only eidetic-full + mem0 in this window | full sweep with rag-full/rag-vector/graphiti/eidetic-product |
 | LongMemEval categories | ~19 | LoCoMo-only window | full sweep |
-| abstention calibration | 11 | ABSTENTION_V2 on, no ≥50-sample dev calibration report | run the calibration on dev |
+| abstention calibration | 11 | calibration RUN on 264 dev rows (`abstention_v2_tau.json`): no tau reaches the 0.95 precision target — the verifier's current verified-wrong rate caps precision below 95%, so tau=1.0 abstains everything. The report is committed; the gap is a capability gap, not a missing file | reduce verified-wrong classes (partial-list, junk fragments — in progress), then recalibrate |
 | ablation evidence | 2 | no ablation dirs in this artifact | `python -m bench.run_dev_ablation` |
 | slice_invariant | 3 | single directional draw per dataset committed (LME 11/24 vc, LoCoMo 10/20 vc); gate standard is 5 fresh draws | rerun `bench.run_slice_invariant_eval` with --draws 5 |
 | integrity: verified_accuracy 45% < 50% | 1 | r7's real vc is 18/40 — the hard window's true number | better build, more windows; not editable |

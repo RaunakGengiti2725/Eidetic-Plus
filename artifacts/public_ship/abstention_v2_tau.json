@@ -1,0 +1,60 @@
+{
+  "ok": true,
+  "tau": 1.000000001,
+  "n": 264,
+  "precision_at_tau": 0.0,
+  "coverage_at_tau": 0.0,
+  "target": 0.95,
+  "note": "target precision not reachable; tau abstains every item",
+  "method": "abstention_v2_tau",
+  "system": "eidetic-plus-full",
+  "split": "dev",
+  "source_logs": "/private/tmp/claude-501/-Users-raunakgengiti-Eidetic-Plus/66eb8ee1-f861-4eb3-95b1-7f49aa8cf55f/scratchpad/calib_logs",
+  "excluded_by_split": 0,
+  "log_fingerprint": {
+    "algorithm": "sha256",
+    "file_count": 7,
+    "combined_sha256": "3f0c24806df6973eff9bff291ade279edaef8d7392cb47affc95bbf9f2b9eb62",
+    "files": [
+      {
+        "path": "eidetic-plus-full__run0.jsonl",
+        "bytes": 108610,
+        "sha256": "eecfea1329da178ac7e08cd92e1286eba65d689f27fe4e24b4a1f14739dbe1a3"
+      },
+      {
+        "path": "eidetic-plus-full__run1.jsonl",
+        "bytes": 102697,
+        "sha256": "12d14566b62d1ff893a4ec84fc03cf3d55f8e7e622d1f9fc7eb963ce0833a5d2"
+      },
+      {
+        "path": "eidetic-plus-full__run2.jsonl",
+        "bytes": 104993,
+        "sha256": "ea77014185c334436a7871ec86b5f0ed0fd39963d32945b5105b168aef4cd01a"
+      },
+      {
+        "path": "eidetic-plus-full__run3.jsonl",
+        "bytes": 102628,
+        "sha256": "6461b6339b5b3d2067cfc50ed37ea21a94122bc35f7cd6997c417493051247f2"
+      },
+      {
+        "path": "eidetic-plus-full__run4.jsonl",
+        "bytes": 110265,
+        "sha256": "0e740dfac1574742d1d79cff80fb1d2edda73d723c30be2dc33496c4e22b7433"
+      },
+      {
+        "path": "eidetic-plus-full__run5.jsonl",
+        "bytes": 104314,
+        "sha256": "0475a4db17c6851c9a932f424d4a5d0119ec51cd4ef4852bac152f6318951ef4"
+      },
+      {
+        "path": "eidetic-plus-full__run6.jsonl",
+        "bytes": 66284,
+        "sha256": "62fa93b82d497fd40a1c3dbf73f95dfce56c823e435b4172636be7fc89cca2c6"
+      }
+    ]
+  },
+  "recommended_env": {
+    "ABSTENTION_V2": "1",
+    "ABSTENTION_V2_TAU": "1.000000001"
+  }
+}
