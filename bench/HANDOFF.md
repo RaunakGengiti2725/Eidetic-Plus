@@ -179,7 +179,7 @@ probe product3 launched for the +2-structured/zero-vc-regression re-run decision
       benchmark-entity literal removed from _identity_entailment).
 - [x] Event-date claim family shipped (9437ce421) behind the full offline gate
       battery; dev-40 probe product3 = the promotion evidence, in flight at handoff.
-- [ ] Tag v1.0.0-public (after probe verdict recorded).
+- [x] Tag v1.0.0-public at 407445393 (probe verdict recorded: no window-6 re-run).
 - [ ] PyPI publish + public announcement remain authorization-gated (wheel built,
       twine one-liner in SHIPPED TO USER #1 above).
 
