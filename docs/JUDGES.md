@@ -16,23 +16,24 @@ bash scripts/judge_quickstart.sh
 2. **War-room demo** — shared problem memory answering "why did we decide X?" with a
    revision-backed citation, offline, in milliseconds.
 3. **Rolling holdout table** — recomputed live from committed raw per-row logs of
-   seven disjoint never-touched LoCoMo windows.
+   eight disjoint never-touched LoCoMo windows.
 4. **Snap-back fidelity** — 272/272 records byte-identical after a full benchmark
    ingest with forgetting on.
 5. Pointers to every number's artifact path.
 
 ## The three headline results (full statements in [PUBLIC_CLAIMS.md](PUBLIC_CLAIMS.md))
 
-- **Verified 241 vs 0.** Across n=280 rolling holdout, every one of our 241 verified
+- **Verified 277 vs 0.** Across n=320 rolling holdout, every one of our 277 verified
   answers carries citations to immutable sources; Mem0's answers verify nothing.
-- **Rolling holdout lead.** 159/280 vs Mem0's 131/280 across seven never-touched
-  windows, five consecutive wins, margins +1/−1/+4/+2/+7/+7/+8. We publish the
-  losing window (r2: −1) and the hard draw (r7: below our own internal bars — and
-  still the largest h2h margin of the seven).
-- **Structured answers at 6–85 tokens, verification included.** Dev-40 median 83
+- **Rolling holdout lead.** 182/320 vs Mem0's 140/320 across eight never-touched
+  windows, six consecutive wins, margins +1/−1/+4/+2/+7/+7/+8/+14 — the margin has
+  grown as the write-side claim families landed, and r8 (first window with the
+  VW-killer + event-date family) is the largest of the eight. We publish the losing
+  window (r2: −1) and the hard draw (r7, below our own internal bars).
+- **Structured answers at 5–132 tokens, verification included.** Dev-40 median 83
   tokens vs Mem0's 382 unverified; on holdout the plateau transferred but coverage
-  didn't (13/40), so we do not claim the dev median as a holdout number. Write-side
-  −42% held holdout-to-holdout.
+  didn't (~14/40), so we do not claim the dev median as a holdout number. The cost per
+  verified answer fell every window (41.3k → 36.3k → 31.8k tokens, r6→r8).
 
 ## What makes it defensible
 

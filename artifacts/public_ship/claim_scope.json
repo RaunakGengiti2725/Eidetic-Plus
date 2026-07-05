@@ -13,10 +13,11 @@
   "measured_external_systems": [],
   "external_system_evidence": [],
   "evidence": {
-    "rolling_holdout": "bench/rolling_holdout_table.py over artifacts/holdout_rotation_r1..r7_codex (raw per-row jsonl)",
+    "rolling_holdout": "bench/rolling_holdout_table.py over artifacts/holdout_rotation_r1..r8_codex (raw per-row jsonl); n=320, 182 vs 140, verified 277 vs 0",
     "slice7": "artifacts/holdout_rotation_r7_codex (launch_A.log pins SHA + product_cost profile overlay)",
     "cost": "bench/COST_AB.md dev-40 ledger; artifacts/cost_*_20260704_*",
-    "snap_back": "artifacts/public_ship/snap_back_audit.json"
+    "snap_back": "artifacts/public_ship/snap_back_audit.json",
+    "slice8": "artifacts/holdout_rotation_r8_codex (launch_A/B.log pin SHA 6551ac048 + product_cost overlay; VW-killer + event-date family + date-fix)"
   },
   "limitations": [
     "Single benchmark run (runs=1) on one 40-sample rotation window; the >=10-run bench/reproduce.sh sweep has not been run.",

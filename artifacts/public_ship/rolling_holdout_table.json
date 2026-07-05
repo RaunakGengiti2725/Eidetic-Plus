@@ -118,18 +118,35 @@
         "structured": 0,
         "qtok_median": 395.5
       }
+    },
+    {
+      "dir": "holdout_rotation_r8_codex",
+      "eidetic": {
+        "n": 40,
+        "correct": 23,
+        "verified": 36,
+        "structured": 14,
+        "qtok_median": 4029.0
+      },
+      "mem0": {
+        "n": 40,
+        "correct": 9,
+        "verified": 0,
+        "structured": 0,
+        "qtok_median": 0.0
+      }
     }
   ],
   "totals": {
     "eidetic": {
-      "n": 280,
-      "correct": 159,
-      "verified": 241,
-      "structured": 101
+      "n": 320,
+      "correct": 182,
+      "verified": 277,
+      "structured": 115
     },
     "mem0": {
-      "n": 280,
-      "correct": 131,
+      "n": 320,
+      "correct": 140,
       "verified": 0,
       "structured": 0
     }

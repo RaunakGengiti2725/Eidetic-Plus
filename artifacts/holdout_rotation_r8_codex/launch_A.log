@@ -1,0 +1,16 @@
+phase=A systems=eidetic-full
+sha=6551ac0483c103ed82dc81c435cd53eb1315be3a
+samples=artifacts/holdout_rotation_r8_codex/holdout40.samples.json
+profile=bench/profiles/product_cost.json
+started=2026-07-05T19:58:04Z
+profile overlay: {"ADAPTIVE_CONTEXT": "1", "EXTRACT_COMBINED": "1", "EXTRACT_RESULT_CACHE": "1"}
+exec: /Users/raunakgengiti/Eidetic-Plus/.venv/bin/python -m bench.run --systems eidetic-full --dataset locomo --samples-file artifacts/holdout_rotation_r8_codex/holdout40.samples.json --split test --holdout-profile holdout --runs 1 --out artifacts/holdout_rotation_r8_codex
+Judge: {'judge_model': 'qwen3-max', 'judge_backend': 'dashscope'}
+Loaded 40 samples (locomo, split=test); categories: {'multi-hop': 7, 'open-domain': 2, 'single-hop': 22, 'temporal': 9}
+Running eidetic-plus-full: 40 samples x 1 run(s)...
+
+Scoreboard -> artifacts/holdout_rotation_r8_codex/scoreboard.md
+Curves     -> {'ok': True, 'recall_png': 'artifacts/holdout_rotation_r8_codex/recall_vs_age.png', 'latency_png': 'artifacts/holdout_rotation_r8_codex/latency_vs_age.png', 'slopes': {'eidetic-plus-full': {'recall_slope_per_year': 2.1433872288608216, 'latency_slope_ms_per_year': 18046.371657454707}}}
+Manifest   -> artifacts/holdout_rotation_r8_codex/run_manifest.json
+Reproduce (full, >=10 runs): bash bench/reproduce.sh
+finished=2026-07-05T20:31:16Z

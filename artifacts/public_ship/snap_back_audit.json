@@ -1,6 +1,6 @@
 {
   "status": "PASS",
-  "data_dir": "/Users/raunakgengiti/Eidetic-Plus/artifacts/holdout_rotation_r7_codex/data",
+  "data_dir": "/Users/raunakgengiti/Eidetic-Plus/artifacts/holdout_rotation_r8_codex/data",
   "records_with_raw_blob": 272,
   "lossless_byte_identical": 272,
   "rate": 1.0,

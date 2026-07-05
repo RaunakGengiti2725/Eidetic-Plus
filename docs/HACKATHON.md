@@ -24,12 +24,12 @@ fidelity 100%.
 ## Shot 3 -- slice 7, the freshest never-touched window (1min)
 
 ```bash
-cat artifacts/holdout_rotation_r7_codex/launch_A.log        # pinned SHA + profile
-head -c 600 artifacts/holdout_rotation_r7_codex/run_manifest.json  # every score-affecting flag
-cat artifacts/holdout_rotation_r7_codex/scoreboard.md
+cat artifacts/holdout_rotation_r8_codex/launch_A.log        # pinned SHA + profile
+head -c 600 artifacts/holdout_rotation_r8_codex/run_manifest.json  # every score-affecting flag
+cat artifacts/holdout_rotation_r8_codex/scoreboard.md
 ```
 
-Say the hard part out loud: window 6 was a hard draw -- the build missed its own
+Say the hard part out loud: window 7 (r8) is the strongest new-build window; the rolling n=320 table (six wins) -- the build missed its own
 internal bars there, and the ledger says so in plain text
 ([bench/DOMINANCE_PROGRESS.md](../bench/DOMINANCE_PROGRESS.md), "SLICE 7"). The
 evidence unit is the rolling n=280 table across seven disjoint windows, not any single
@@ -56,7 +56,7 @@ holdout median stays on the reader plateau. Both numbers are on screen, labeled.
 ## Shot 6 -- forgetting that never lies (30s)
 
 ```bash
-DATA_DIR=artifacts/holdout_rotation_r7_codex/data \
+DATA_DIR=artifacts/holdout_rotation_r8_codex/data \
   .venv/bin/python scripts/snap_back_audit.py --min-records 100
 ```
 
