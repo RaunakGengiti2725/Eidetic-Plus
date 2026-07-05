@@ -4,17 +4,17 @@
   "log_fingerprint": {
     "algorithm": "sha256",
     "file_count": 2,
-    "combined_sha256": "51d0cbaa5ce98b3c4ed84ec2e5e83813be041e5fdf7f0b5b9781a4890d838e28",
+    "combined_sha256": "ae231e635c2e6926fe0a0c69fb7648031137982f0986f85a9187eefa4145cb5f",
     "files": [
       {
         "path": "eidetic-plus-full__run0.jsonl",
-        "bytes": 107448,
-        "sha256": "f73aa828fccab734e5f672f144eb9cab4b96b32598b8c53ee14648b4ab1e5659"
+        "bytes": 109293,
+        "sha256": "be0f6ae82b7c140443aa31cf106283643f8becd4a8fb421a534ab7b6f6357830"
       },
       {
         "path": "mem0__run0.jsonl",
-        "bytes": 28463,
-        "sha256": "a81751aff9a60c1794bee96d57ed9b89176ab2b7987850bd51468b64c3ab3d31"
+        "bytes": 27133,
+        "sha256": "7169d13f19a7a8d5cc16291c17716b3b786af5a530a1250eabc800dd03bfa8f7"
       }
     ]
   },
@@ -52,7 +52,7 @@
     {
       "name": "logs:fingerprint_stable",
       "pass": true,
-      "detail": "before 51d0cbaa5ce98b3c4ed84ec2e5e83813be041e5fdf7f0b5b9781a4890d838e28 (2 files); after 51d0cbaa5ce98b3c4ed84ec2e5e83813be041e5fdf7f0b5b9781a4890d838e28 (2 files)"
+      "detail": "before ae231e635c2e6926fe0a0c69fb7648031137982f0986f85a9187eefa4145cb5f (2 files); after ae231e635c2e6926fe0a0c69fb7648031137982f0986f85a9187eefa4145cb5f (2 files)"
     },
     {
       "name": "scoreboard:valid_json",
@@ -62,12 +62,12 @@
     {
       "name": "scoreboard:log_fingerprint_present",
       "pass": true,
-      "detail": "51d0cbaa5ce98b3c4ed84ec2e5e83813be041e5fdf7f0b5b9781a4890d838e28 (2 files)"
+      "detail": "ae231e635c2e6926fe0a0c69fb7648031137982f0986f85a9187eefa4145cb5f (2 files)"
     },
     {
       "name": "scoreboard:log_fingerprint_matches",
       "pass": true,
-      "detail": "51d0cbaa5ce98b3c4ed84ec2e5e83813be041e5fdf7f0b5b9781a4890d838e28 (2 files) (current 51d0cbaa5ce98b3c4ed84ec2e5e83813be041e5fdf7f0b5b9781a4890d838e28 (2 files))"
+      "detail": "ae231e635c2e6926fe0a0c69fb7648031137982f0986f85a9187eefa4145cb5f (2 files) (current ae231e635c2e6926fe0a0c69fb7648031137982f0986f85a9187eefa4145cb5f (2 files))"
     },
     {
       "name": "claim_scope:valid_json",
@@ -112,7 +112,7 @@
     {
       "name": "claim_scope:limitations_for_limited_claim",
       "pass": true,
-      "detail": "7 limitations"
+      "detail": "8 limitations"
     },
     {
       "name": "manifest:split",
@@ -182,22 +182,22 @@
     {
       "name": "manifest:locomo:single-hop:sample_rows",
       "pass": true,
-      "detail": "21 unique sample rows (required >= 20)"
+      "detail": "22 unique sample rows (required >= 20)"
     },
     {
       "name": "manifest:locomo:multi-hop:sample_rows",
       "pass": false,
-      "detail": "8 unique sample rows (required >= 20)"
+      "detail": "7 unique sample rows (required >= 20)"
     },
     {
       "name": "manifest:locomo:temporal:sample_rows",
       "pass": false,
-      "detail": "8 unique sample rows (required >= 20)"
+      "detail": "9 unique sample rows (required >= 20)"
     },
     {
       "name": "manifest:locomo:open-domain:sample_rows",
       "pass": false,
-      "detail": "3 unique sample rows (required >= 20)"
+      "detail": "2 unique sample rows (required >= 20)"
     },
     {
       "name": "manifest:no_system_failures",
@@ -207,7 +207,7 @@
     {
       "name": "manifest:data_dir_recorded",
       "pass": true,
-      "detail": "artifacts/holdout_rotation_r7_codex/data"
+      "detail": "artifacts/holdout_rotation_r8_codex/data"
     },
     {
       "name": "manifest:no_dataset_source_scans",
@@ -227,7 +227,7 @@
     {
       "name": "manifest:samples_file_recorded",
       "pass": true,
-      "detail": "artifacts/holdout_rotation_r7_codex/holdout40.samples.json"
+      "detail": "artifacts/holdout_rotation_r8_codex/holdout40.samples.json"
     },
     {
       "name": "holdout_audit:valid_json",
@@ -250,59 +250,44 @@
     },
     {
       "name": "ablation:valid_json",
-      "pass": false,
-      "detail": "missing"
+      "pass": true,
+      "detail": "valid"
     },
     {
       "name": "ablation:evidence",
       "pass": false,
-      "detail": "pass:<missing>; system:<missing>:expected:eidetic-plus-full; split:<missing>:expected:dev; evidence_refs:0; ablation:metabolism_off_missing; ablation:regions_off_missing; ablation:forgetting_off_missing; ablation:affect_off_missing",
-      "system": "",
-      "split": "",
-      "evidence_refs": 0,
-      "full_n": 0,
-      "metabolism_label": "",
-      "metabolism_n": 0,
-      "region_label": "",
-      "region_n": 0,
-      "forgetting_label": "",
-      "forgetting_n": 0,
-      "affect_label": "",
-      "affect_n": 0,
-      "accuracy_metric": "",
-      "full_accuracy": null,
-      "metabolism_off_accuracy": null,
-      "regions_off_accuracy": null,
-      "forgetting_off_accuracy": null,
-      "affect_off_accuracy": null,
-      "metabolism_delta_pp": null,
-      "region_delta_pp": null,
-      "affect_delta_pp": null,
-      "forgetting_accuracy_regression_pp": null,
-      "cost_metric": "",
-      "full_cost": null,
-      "forgetting_off_cost": null,
-      "forgetting_cost_ratio": null,
+      "detail": "pass:FAIL; region_delta_pp:-4.18<required:2.00; forgetting_accuracy_regression_pp:3.98>allowed:1.00; forgetting_cost_ratio:0.982<required:1.050",
+      "system": "eidetic-plus-full",
+      "split": "dev",
+      "evidence_refs": 5,
+      "full_n": 26,
+      "metabolism_label": "metabolism_off",
+      "metabolism_n": 47,
+      "region_label": "regions_off",
+      "region_n": 35,
+      "forgetting_label": "forgetting_off",
+      "forgetting_n": 29,
+      "affect_label": "affect_off",
+      "affect_n": 25,
+      "accuracy_metric": "verified_accuracy",
+      "full_accuracy": 0.615385,
+      "metabolism_off_accuracy": 0.425532,
+      "regions_off_accuracy": 0.657143,
+      "forgetting_off_accuracy": 0.655172,
+      "affect_off_accuracy": 0.52,
+      "metabolism_delta_pp": 18.9853,
+      "region_delta_pp": -4.1758,
+      "affect_delta_pp": 9.5385,
+      "forgetting_accuracy_regression_pp": 3.9787,
+      "cost_metric": "query_tokens_mean",
+      "full_cost": 3392.769231,
+      "forgetting_off_cost": 3333.103448,
+      "forgetting_cost_ratio": 0.9824,
       "failures": [
-        "pass:<missing>",
-        "system:<missing>:expected:eidetic-plus-full",
-        "split:<missing>:expected:dev",
-        "evidence_refs:0",
-        "ablation:metabolism_off_missing",
-        "ablation:regions_off_missing",
-        "ablation:forgetting_off_missing",
-        "ablation:affect_off_missing",
-        "full:n:0<required:20",
-        "metabolism_off:n:0<required:20",
-        "regions_off:n:0<required:20",
-        "forgetting_off:n:0<required:20",
-        "affect_off:n:0<required:20",
-        "full:accuracy_missing",
-        "metabolism_off:accuracy_missing",
-        "regions_off:accuracy_missing",
-        "forgetting_off:accuracy_missing",
-        "affect_off:accuracy_missing",
-        "forgetting_cost_metric_missing"
+        "pass:FAIL",
+        "region_delta_pp:-4.18<required:2.00",
+        "forgetting_accuracy_regression_pp:3.98>allowed:1.00",
+        "forgetting_cost_ratio:0.982<required:1.050"
       ]
     },
     {
@@ -966,43 +951,43 @@
     },
     {
       "name": "abstention_calibration:valid_json",
-      "pass": false,
-      "detail": "missing"
+      "pass": true,
+      "detail": "valid"
     },
     {
       "name": "abstention_calibration:ok",
-      "pass": false,
-      "detail": "<missing>"
+      "pass": true,
+      "detail": "True"
     },
     {
       "name": "abstention_calibration:method",
-      "pass": false,
-      "detail": "<missing>"
+      "pass": true,
+      "detail": "abstention_v2_tau"
     },
     {
       "name": "abstention_calibration:split",
-      "pass": false,
-      "detail": "<missing> (expected dev)"
+      "pass": true,
+      "detail": "dev (expected dev)"
     },
     {
       "name": "abstention_calibration:system",
-      "pass": false,
-      "detail": "<missing> (expected eidetic-plus-full)"
+      "pass": true,
+      "detail": "eidetic-plus-full (expected eidetic-plus-full)"
     },
     {
       "name": "abstention_calibration:samples",
-      "pass": false,
-      "detail": "0 (required >= 50)"
+      "pass": true,
+      "detail": "264 (required >= 50)"
     },
     {
       "name": "abstention_calibration:target_precision",
-      "pass": false,
-      "detail": "0.000 (required >= 0.950)"
+      "pass": true,
+      "detail": "0.950 (required >= 0.950)"
     },
     {
       "name": "abstention_calibration:precision_at_tau",
       "pass": false,
-      "detail": "0.000 (target 0.000)"
+      "detail": "0.000 (target 0.950)"
     },
     {
       "name": "abstention_calibration:nonzero_coverage",
@@ -1012,12 +997,12 @@
     {
       "name": "abstention_calibration:tau_applied",
       "pass": false,
-      "detail": "report=None, manifest=<unset>"
+      "detail": "report=1.000000001, manifest=<unset>"
     },
     {
       "name": "abstention_calibration:log_fingerprint_present",
-      "pass": false,
-      "detail": "<missing>"
+      "pass": true,
+      "detail": "3f0c24806df6973eff9bff291ade279edaef8d7392cb47affc95bbf9f2b9eb62 (7 files)"
     },
     {
       "name": "logs:nonempty",
@@ -1026,8 +1011,8 @@
     },
     {
       "name": "logs:no_error_rows",
-      "pass": true,
-      "detail": "0 error rows"
+      "pass": false,
+      "detail": "27 error rows"
     },
     {
       "name": "smqe:notes_clean",
@@ -1038,34 +1023,34 @@
     {
       "name": "smqe:log_policy_shape",
       "pass": false,
-      "detail": "structured_rate:0.325<required:0.800",
+      "detail": "structured_rate:0.350<required:0.800",
       "system": "eidetic-plus-full",
       "rows": 40,
-      "structured": 13,
-      "claim": 13,
+      "structured": 14,
+      "claim": 14,
       "record": 0,
-      "fallback": 27,
-      "structured_rate": 0.325,
+      "fallback": 26,
+      "structured_rate": 0.35,
       "claim_backend_rate": 1.0,
       "dirty": [],
       "operators": {
+        "count_aggregate": 1,
         "latest_value": 4,
-        "open_inference": 3,
-        "preference_synth": 1,
-        "relative_temporal": 5
+        "open_inference": 1,
+        "relative_temporal": 8
       },
       "failures": [
-        "structured_rate:0.325<required:0.800"
+        "structured_rate:0.350<required:0.800"
       ]
     },
     {
       "name": "region:telemetry",
       "pass": true,
-      "detail": "26/40 rows with hints; 76 hints",
+      "detail": "25/40 rows with hints; 75 hints",
       "system": "eidetic-plus-full",
       "rows": 40,
-      "hint_rows": 26,
-      "total_hints": 76,
+      "hint_rows": 25,
+      "total_hints": 75,
       "missing": [],
       "malformed": [],
       "failures": []
@@ -1318,7 +1303,7 @@
     {
       "name": "eidetic-plus-full:locomo:single-hop:questions",
       "pass": true,
-      "detail": "21 unique samples, 21 rows (required >= 20)"
+      "detail": "22 unique samples, 22 rows (required >= 20)"
     },
     {
       "name": "eidetic-plus-full:locomo:single-hop:runs",
@@ -1328,7 +1313,7 @@
     {
       "name": "eidetic-plus-full:locomo:multi-hop:questions",
       "pass": false,
-      "detail": "8 unique samples, 8 rows (required >= 20)"
+      "detail": "7 unique samples, 7 rows (required >= 20)"
     },
     {
       "name": "eidetic-plus-full:locomo:multi-hop:runs",
@@ -1338,7 +1323,7 @@
     {
       "name": "eidetic-plus-full:locomo:temporal:questions",
       "pass": false,
-      "detail": "8 unique samples, 8 rows (required >= 20)"
+      "detail": "9 unique samples, 9 rows (required >= 20)"
     },
     {
       "name": "eidetic-plus-full:locomo:temporal:runs",
@@ -1348,7 +1333,7 @@
     {
       "name": "eidetic-plus-full:locomo:open-domain:questions",
       "pass": false,
-      "detail": "3 unique samples, 3 rows (required >= 20)"
+      "detail": "2 unique samples, 2 rows (required >= 20)"
     },
     {
       "name": "eidetic-plus-full:locomo:open-domain:runs",
@@ -1858,7 +1843,7 @@
     {
       "name": "mem0:locomo:single-hop:questions",
       "pass": true,
-      "detail": "21 unique samples, 21 rows (required >= 20)"
+      "detail": "22 unique samples, 22 rows (required >= 20)"
     },
     {
       "name": "mem0:locomo:single-hop:runs",
@@ -1868,7 +1853,7 @@
     {
       "name": "mem0:locomo:multi-hop:questions",
       "pass": false,
-      "detail": "8 unique samples, 8 rows (required >= 20)"
+      "detail": "7 unique samples, 7 rows (required >= 20)"
     },
     {
       "name": "mem0:locomo:multi-hop:runs",
@@ -1878,7 +1863,7 @@
     {
       "name": "mem0:locomo:temporal:questions",
       "pass": false,
-      "detail": "8 unique samples, 8 rows (required >= 20)"
+      "detail": "9 unique samples, 9 rows (required >= 20)"
     },
     {
       "name": "mem0:locomo:temporal:runs",
@@ -1888,7 +1873,7 @@
     {
       "name": "mem0:locomo:open-domain:questions",
       "pass": false,
-      "detail": "3 unique samples, 3 rows (required >= 20)"
+      "detail": "2 unique samples, 2 rows (required >= 20)"
     },
     {
       "name": "mem0:locomo:open-domain:runs",
@@ -2033,7 +2018,7 @@
     {
       "name": "competitor_health:mem0",
       "pass": true,
-      "detail": "rows=40, missing=0, bad=0"
+      "detail": "rows=13, missing=0, bad=0"
     },
     {
       "name": "competitor_health:graphiti",
@@ -2887,7 +2872,7 @@
     {
       "name": "dominance:eidetic-plus:vs:mem0:paired",
       "pass": false,
-      "detail": "paired_n=0, unpaired=40"
+      "detail": "paired_n=0, unpaired=13"
     },
     {
       "name": "dominance:eidetic-plus:vs:mem0:delta",
@@ -2902,7 +2887,7 @@
     {
       "name": "dominance:eidetic-plus:vs:mem0:sample_clustered_paired",
       "pass": false,
-      "detail": "sample_n=0 (required >= 1000), unpaired=40"
+      "detail": "sample_n=0 (required >= 1000), unpaired=13"
     },
     {
       "name": "dominance:eidetic-plus:vs:mem0:sample_clustered_delta",
@@ -2912,7 +2897,7 @@
     {
       "name": "dominance:eidetic-plus:vs:mem0:sample_clustered_ci_clear",
       "pass": false,
-      "detail": "headline sample_n=0, acc=0.0%, Wilson 0.0-0.0 (width 0.0pp; allowed <= 100.0pp); baseline sample_n=40, acc=30.0%, Wilson 18.1-45.4 (width 27.4pp; allowed <= 100.0pp); need headline lower CI > baseline upper CI"
+      "detail": "headline sample_n=0, acc=0.0%, Wilson 0.0-0.0 (width 0.0pp; allowed <= 100.0pp); baseline sample_n=13, acc=69.2%, Wilson 42.4-87.3 (width 44.9pp; allowed <= 100.0pp); need headline lower CI > baseline upper CI"
     },
     {
       "name": "dominance:eidetic-plus:vs:mem0:sample_clustered_discordants",
@@ -3112,7 +3097,7 @@
     {
       "name": "dominance:eidetic-plus:vs:mem0:locomo/single-hop:sample_clustered_paired",
       "pass": false,
-      "detail": "sample_n=0 (required >= 20), unpaired=21"
+      "detail": "sample_n=0 (required >= 20), unpaired=8"
     },
     {
       "name": "dominance:eidetic-plus:vs:mem0:locomo/single-hop:sample_clustered_delta",
@@ -3122,7 +3107,7 @@
     {
       "name": "dominance:eidetic-plus:vs:mem0:locomo/single-hop:sample_clustered_ci_clear",
       "pass": false,
-      "detail": "headline sample_n=0, acc=0.0%, Wilson 0.0-0.0 (width 0.0pp; allowed <= 100.0pp); baseline sample_n=21, acc=47.6%, Wilson 28.3-67.6 (width 39.3pp; allowed <= 100.0pp); need headline lower CI > baseline upper CI"
+      "detail": "headline sample_n=0, acc=0.0%, Wilson 0.0-0.0 (width 0.0pp; allowed <= 100.0pp); baseline sample_n=8, acc=87.5%, Wilson 52.9-97.8 (width 44.8pp; allowed <= 100.0pp); need headline lower CI > baseline upper CI"
     },
     {
       "name": "dominance:eidetic-plus:vs:mem0:locomo/single-hop:sample_clustered_discordants",
@@ -3142,7 +3127,7 @@
     {
       "name": "dominance:eidetic-plus:vs:mem0:locomo/multi-hop:sample_clustered_paired",
       "pass": false,
-      "detail": "sample_n=0 (required >= 20), unpaired=8"
+      "detail": "sample_n=0 (required >= 20), unpaired=2"
     },
     {
       "name": "dominance:eidetic-plus:vs:mem0:locomo/multi-hop:sample_clustered_delta",
@@ -3152,7 +3137,7 @@
     {
       "name": "dominance:eidetic-plus:vs:mem0:locomo/multi-hop:sample_clustered_ci_clear",
       "pass": false,
-      "detail": "headline sample_n=0, acc=0.0%, Wilson 0.0-0.0 (width 0.0pp; allowed <= 100.0pp); baseline sample_n=8, acc=12.5%, Wilson 2.2-47.1 (width 44.8pp; allowed <= 100.0pp); need headline lower CI > baseline upper CI"
+      "detail": "headline sample_n=0, acc=0.0%, Wilson 0.0-0.0 (width 0.0pp; allowed <= 100.0pp); baseline sample_n=2, acc=50.0%, Wilson 9.5-90.5 (width 81.1pp; allowed <= 100.0pp); need headline lower CI > baseline upper CI"
     },
     {
       "name": "dominance:eidetic-plus:vs:mem0:locomo/multi-hop:sample_clustered_discordants",
@@ -3172,7 +3157,7 @@
     {
       "name": "dominance:eidetic-plus:vs:mem0:locomo/temporal:sample_clustered_paired",
       "pass": false,
-      "detail": "sample_n=0 (required >= 20), unpaired=8"
+      "detail": "sample_n=0 (required >= 20), unpaired=2"
     },
     {
       "name": "dominance:eidetic-plus:vs:mem0:locomo/temporal:sample_clustered_delta",
@@ -3182,7 +3167,7 @@
     {
       "name": "dominance:eidetic-plus:vs:mem0:locomo/temporal:sample_clustered_ci_clear",
       "pass": false,
-      "detail": "headline sample_n=0, acc=0.0%, Wilson 0.0-0.0 (width 0.0pp; allowed <= 100.0pp); baseline sample_n=8, acc=0.0%, Wilson 0.0-32.4 (width 32.4pp; allowed <= 100.0pp); need headline lower CI > baseline upper CI"
+      "detail": "headline sample_n=0, acc=0.0%, Wilson 0.0-0.0 (width 0.0pp; allowed <= 100.0pp); baseline sample_n=2, acc=0.0%, Wilson 0.0-65.8 (width 65.8pp; allowed <= 100.0pp); need headline lower CI > baseline upper CI"
     },
     {
       "name": "dominance:eidetic-plus:vs:mem0:locomo/temporal:sample_clustered_discordants",
@@ -3202,7 +3187,7 @@
     {
       "name": "dominance:eidetic-plus:vs:mem0:locomo/open-domain:sample_clustered_paired",
       "pass": false,
-      "detail": "sample_n=0 (required >= 20), unpaired=3"
+      "detail": "sample_n=0 (required >= 20), unpaired=1"
     },
     {
       "name": "dominance:eidetic-plus:vs:mem0:locomo/open-domain:sample_clustered_delta",
@@ -3212,7 +3197,7 @@
     {
       "name": "dominance:eidetic-plus:vs:mem0:locomo/open-domain:sample_clustered_ci_clear",
       "pass": false,
-      "detail": "headline sample_n=0, acc=0.0%, Wilson 0.0-0.0 (width 0.0pp; allowed <= 100.0pp); baseline sample_n=3, acc=33.3%, Wilson 6.1-79.2 (width 73.1pp; allowed <= 100.0pp); need headline lower CI > baseline upper CI"
+      "detail": "headline sample_n=0, acc=0.0%, Wilson 0.0-0.0 (width 0.0pp; allowed <= 100.0pp); baseline sample_n=1, acc=100.0%, Wilson 20.7-100.0 (width 79.3pp; allowed <= 100.0pp); need headline lower CI > baseline upper CI"
     },
     {
       "name": "dominance:eidetic-plus:vs:mem0:locomo/open-domain:sample_clustered_discordants",
@@ -3571,63 +3556,74 @@
     },
     {
       "name": "integrity:eidetic-plus-full:verified_accuracy",
-      "pass": false,
-      "detail": "45.0% (required >= 50.0%)"
+      "pass": true,
+      "detail": "57.5% (required >= 50.0%)"
     },
     {
       "name": "integrity:eidetic-plus-full:proof_support",
-      "pass": false,
-      "detail": "unverified_answered:2",
+      "pass": true,
+      "detail": "36/36 verified rows carry proof support",
       "system": "eidetic-plus-full",
       "rows": 40,
-      "verified_rows": 32,
-      "supported_verified_rows": 32,
+      "verified_rows": 36,
+      "supported_verified_rows": 36,
       "support_rate": 1.0,
       "proof_content_hashes": [
-        "01641f9e329226d7dd382173c47464282944033859732050a790d55581074b87",
-        "03ccb7ba92cb5324715c8b80e1bfda61b6bd10fd220f3479c59831b862ea1bab",
-        "16066a14d63fc6c9d98de51a2321bbaf464913040e8b2fd25a90177fcb0d8bd3",
-        "1a5d82fa637e4869eaa1f0052aacdcc007561492ad33af8778b9b99165e0616f",
-        "1bca6573b71384a76146e157f9a3ea2c21a98f31b1c781ea33d7fe659f9bace8",
-        "25f063fb85e69c3e0904c517fdd4c0a3acf832146ffac2f6ab9c6e1c6bb9ed6e",
+        "0221ece122a93f21f75752d906566cd6574e0239d9b6e225b1b52784123addfb",
+        "033e2ef480d5a706f2044edfcc064251a5b418d1ffdd444eb9245b1b841dd4f0",
+        "03caa8436c654ea5776e1df30431c6baf35b1b8d3f6b655b2f1c876b28bc15dc",
+        "049477008df395de5e550cbb5fd0362dd992c9dfff87d9655599c4ea4bb77a93",
+        "0b5c453423906da2260f0b62a7aae35d2ab441a0c6745804fe3960cb8d9623c2",
+        "0b61ce902200538d0cd26e638e8f6e7ce0deebe375c0a7fae9883f02250be328",
+        "0c1cc0f026f0b106220cad8afb3c4054268f5bf8c176ab6477f4a665ee408bda",
+        "10d45758b803f98e147a586c22b1741bf59bece8af5847cec42ee364c6a74c20",
+        "10d95479efc053ad2c788b5f6e0648fdc94e055425bc20cda2a243ca84c022a8",
+        "16fdc14fd510891a1b963778d0a08414aae50b23a346e6ae7d7f2e5630b8fb6a",
+        "1d05ba80748fa8181e367ebaab635642aaa689ed6344382d4c913c6745684c90",
+        "22c2c15d4e142a3df6a19fcf46163f1d1bd6266d74ebd866688435564c6ddc38",
+        "2454446c97d934249255f434a0227be1201ed51b4ea0093bd9d9279305cf488f",
         "27f2d62f38d240600e784aee8c78f06232ec9270db960b8d48aada63c11f858d",
+        "284136d9eed6896766a2d9de60b412b48894ecd2cac3cfd48bfd27d3eb97d27b",
         "291a456225ce9155fdfb3c3a69c2f3d670d29f23cc4e4b8651f13c3c55189e4c",
-        "2a763e2fce545aaa90f996d702d9e07206b084312f9d0a89727c4d9b13de0204",
-        "3e2ba793a97ea9b65190c356a09f1040dbfe201483c7dd34540986c092fc5cb4",
-        "40f605883c846105a890ed0bde2f7d9c192a2d43d334f0ccd25b8597de003aeb",
-        "4f9a6de72270691ba221d840852f0ebcf125b3bdd1d051dd51e54cbae20a7e29",
-        "625caedc46965c74111e47ac5737c0fee1107e29bf6953cc0fb2d52f8b8bef4f",
+        "3f55c14d0d05ec5836934d167978ae17577ee871fbeb90c1a7a72f182c662a0d",
+        "48aac09999b435a93a82cf6f2ac55f30dc8fec9ba59e06c1093670d7098be320",
+        "4aafcaa3f2bfc340e2c2d85e18bf745cb098bf8a5da82b52a89d6e2bff31dd6f",
+        "59b2d4021955d61ad156dd98c6732661ebbf669432ec4377e8832e198ef48adb",
+        "5c24bc738ad56c84ee0987af76d9bc7b46845b83d7ba762f4b231affa17ab3c5",
+        "5c68c5f719161a3325aafc20abcf15eb6edefe65bcc40817671bd4cb37d5281d",
         "67c6200be638aa68fe32ce77e643f3afcfe7c48df41c01c575e6423d635ca907",
-        "6bb8c40c938c5dffc1469d2b440e4fb6b762ad180d28f50ddc5b4794406e308e",
-        "6ec9bddfd4801c69dfb927bf43ed4324819af88ff598af7d15088dfa59a0e182",
-        "797f1cd4ef58797505aa3e4c178c97ee06ac72d81c852573fc9a4af77de220e6",
-        "7b1ada415a8a0d756b5e60b55468e68eb22dd3a90c0a5e39ba28dd551fa5d3b1",
-        "878c5c4ec8bce595d679fb776a69032437e4e012f8815f10b891882094c67920",
-        "92a12430debd4df3b39bc096ba241445d879db57fb18fb1efaaee7608d27a2d8",
+        "7225e5726b1471469f0d856c163f6f39aacc269c23f843bc452dcece46f574ad",
+        "7837624d74b7cbb95b74dde1cd2a8e47c154b4d3d3f5f144f87fa225807efbe6",
+        "7aaa46139d2ad95180dc7cf8333cc5279d2190d746838d5a729936968b957f65",
+        "831d9d599c45e3569fbfed9526544804c6c14f3407cd8cb8ec12ed73892e7436",
+        "86de4b6e6db5029c95c3a16f2b125c784cb687abbe20a474fb685020a5c540a2",
         "99e9d797d17ffc06c71f2a095c30ac3f5aedfa4543d22a6bad5b0e5e5879b9da",
         "9b02cb7e2cad52c852c101be44a21ec6544e10138948c78236eb5c77220a26f3",
-        "9b5b19a7c99fd4585e777f14ea3d5f0f0f4a5c75e57df8b4458645b386d95314",
+        "9e6e748eb5eddbcde0ef4c8d409b7cf447590f7627675b75a985056e183d624a",
         "9f5ca7f69e0211d030a49c2c29c24a8357faf18b5d202cee9afeccfda5d9f108",
-        "9f8a892aaa86b36cad904dbcd35733779b2f73d463c4ddd595875f9d1378b8a9",
+        "a2e27c909dd0efe22a700a3f70a6a7dc7a61221a40c3e7884cc0d86cc5dbf109",
         "a8a90eed3bffc2a2335c1c77d8abe5e0d617db600516a091ba9c7193b2ce79fe",
-        "ad944447fbdeae0222289b073525706ed578e3067c01c05f7e064075854c7e25",
+        "ab028fc7f5a3cbd514b37e413dc0bd3ce574c311a737298fce252b96b2ff7fa0",
+        "b1d49a317f16b172d0ccea6029b868d22ea34f22ddb069a95fd3f45c03fc4d97",
+        "b7fc6d1440461a464c3e032b31877807f95bbfbb40f3ecc843e99532813328e2",
+        "ba49ad8b9ff37185c6d8a5f85565e1bd7e5441ef4f0d3139fd9c7ab071f41c21",
+        "bdb5f8cef4083936239d43361841b3e660c73dc262233edd0869affb24b114cb",
+        "bf08121244f5cd9995e78f844abd40f1f3518b51f3b75aaa333180d8fe23fb11",
+        "c010799a3d9381207ecd37f79ae470002383df09f84b15bd3703c1da5bba9211",
+        "c03bc87d3ede114c22c2cff28dcbcf1ecbaeeb785929867d0551fddcd5406aca",
+        "c5b1e13fbbfef54ceb5e988b0141f477537c3980966bef4888124d49e629404b",
         "c83480097c174dff2e6bcdb0155a16e03970085cb2e7113af542a8104b4bb167",
-        "d4819a08f33f9ee7c9b5749cc39a8d3f6295fc56bb8216ab54d805d9cb00b77d",
-        "e186c641e274d5c80d10ad01a2d5532409a8c411c9e4228800d3c26b84e995f6",
-        "edd7ac22ccc3bb84b9ffd8458e156fc29948f55e597a65994cbd8667d448bae0",
-        "f72dd76d9ecb80c936363fac2b604aacb5ed9efb641dabc93963bf950dd5fab0",
-        "f7345493206ce3c078707a3cf64e83e6fddb4abaa8d24b000b4f1c6fdc4fb095",
-        "f7eef383f398cda47355237e6284edaf301d3c49af9b309666a490704fb602f4",
-        "fe9c480c3d9c3b482e1ba1c092cc4a049eed7ff8219f6dcb539f64077b4a1135"
+        "c92301dace5a6eba5a67509390ceceeb7cf47c6822f95871a51642119e189b9c",
+        "c95564fb45c8ced06f6d7322cc2f1b085fafa067a9afea7a6530824b6f43fa88",
+        "cefa4334a8ab7104f65bb7251a4d5078384635f8a28371c859322d38627e300c",
+        "daf54e2879ae8b5fe38bb26d8f06ba8e13f79cfcb8bdbcd0ca33ab9a73849117",
+        "dfab6d3e32a2755639c532067305c72ba8b59b31d2d8206e474693f5226f1e40",
+        "eb2b9016de5bd45e56999f9b40f95d45bcfbb7d4321c348be65f2529dffcdee4",
+        "ef9438f31705e1a0b8f34681c8eb37ae41eacabe2ec0984fb2b4420cf28afa0a"
       ],
-      "unverified_answered": [
-        "c2_q35",
-        "c7_q64"
-      ],
+      "unverified_answered": [],
       "missing_support": [],
-      "failures": [
-        "unverified_answered:2"
-      ]
+      "failures": []
     },
     {
       "name": "eidetic-plus:consolidation_timeouts",
@@ -3727,15 +3723,15 @@
     {
       "name": "snap_back:covers_verified_proof_hashes",
       "pass": true,
-      "detail": "35 proof hash(es) covered",
+      "detail": "51 proof hash(es) covered",
       "missing_proof_hashes": [],
-      "proof_hash_count": 35,
+      "proof_hash_count": 51,
       "audited_hash_count": 272
     },
     {
       "name": "snap_back:data_dir_matches_manifest",
       "pass": true,
-      "detail": "/Users/raunakgengiti/Eidetic-Plus/artifacts/holdout_rotation_r7_codex/data (expected /Users/raunakgengiti/Eidetic-Plus/artifacts/holdout_rotation_r7_codex/data)"
+      "detail": "/Users/raunakgengiti/Eidetic-Plus/artifacts/holdout_rotation_r8_codex/data (expected /Users/raunakgengiti/Eidetic-Plus/artifacts/holdout_rotation_r8_codex/data)"
     },
     {
       "name": "baseline_reproduction:valid_json",
@@ -3775,7 +3771,7 @@
     {
       "name": "baseline_reproduction:log_fingerprint_matches",
       "pass": false,
-      "detail": "<missing> (current 51d0cbaa5ce98b3c4ed84ec2e5e83813be041e5fdf7f0b5b9781a4890d838e28 (2 files))"
+      "detail": "<missing> (current ae231e635c2e6926fe0a0c69fb7648031137982f0986f85a9187eefa4145cb5f (2 files))"
     }
   ],
   "failed_checks": [
@@ -3832,73 +3828,53 @@
     {
       "name": "manifest:locomo:multi-hop:sample_rows",
       "pass": false,
-      "detail": "8 unique sample rows (required >= 20)"
+      "detail": "7 unique sample rows (required >= 20)"
     },
     {
       "name": "manifest:locomo:temporal:sample_rows",
       "pass": false,
-      "detail": "8 unique sample rows (required >= 20)"
+      "detail": "9 unique sample rows (required >= 20)"
     },
     {
       "name": "manifest:locomo:open-domain:sample_rows",
       "pass": false,
-      "detail": "3 unique sample rows (required >= 20)"
-    },
-    {
-      "name": "ablation:valid_json",
-      "pass": false,
-      "detail": "missing"
+      "detail": "2 unique sample rows (required >= 20)"
     },
     {
       "name": "ablation:evidence",
       "pass": false,
-      "detail": "pass:<missing>; system:<missing>:expected:eidetic-plus-full; split:<missing>:expected:dev; evidence_refs:0; ablation:metabolism_off_missing; ablation:regions_off_missing; ablation:forgetting_off_missing; ablation:affect_off_missing",
-      "system": "",
-      "split": "",
-      "evidence_refs": 0,
-      "full_n": 0,
-      "metabolism_label": "",
-      "metabolism_n": 0,
-      "region_label": "",
-      "region_n": 0,
-      "forgetting_label": "",
-      "forgetting_n": 0,
-      "affect_label": "",
-      "affect_n": 0,
-      "accuracy_metric": "",
-      "full_accuracy": null,
-      "metabolism_off_accuracy": null,
-      "regions_off_accuracy": null,
-      "forgetting_off_accuracy": null,
-      "affect_off_accuracy": null,
-      "metabolism_delta_pp": null,
-      "region_delta_pp": null,
-      "affect_delta_pp": null,
-      "forgetting_accuracy_regression_pp": null,
-      "cost_metric": "",
-      "full_cost": null,
-      "forgetting_off_cost": null,
-      "forgetting_cost_ratio": null,
+      "detail": "pass:FAIL; region_delta_pp:-4.18<required:2.00; forgetting_accuracy_regression_pp:3.98>allowed:1.00; forgetting_cost_ratio:0.982<required:1.050",
+      "system": "eidetic-plus-full",
+      "split": "dev",
+      "evidence_refs": 5,
+      "full_n": 26,
+      "metabolism_label": "metabolism_off",
+      "metabolism_n": 47,
+      "region_label": "regions_off",
+      "region_n": 35,
+      "forgetting_label": "forgetting_off",
+      "forgetting_n": 29,
+      "affect_label": "affect_off",
+      "affect_n": 25,
+      "accuracy_metric": "verified_accuracy",
+      "full_accuracy": 0.615385,
+      "metabolism_off_accuracy": 0.425532,
+      "regions_off_accuracy": 0.657143,
+      "forgetting_off_accuracy": 0.655172,
+      "affect_off_accuracy": 0.52,
+      "metabolism_delta_pp": 18.9853,
+      "region_delta_pp": -4.1758,
+      "affect_delta_pp": 9.5385,
+      "forgetting_accuracy_regression_pp": 3.9787,
+      "cost_metric": "query_tokens_mean",
+      "full_cost": 3392.769231,
+      "forgetting_off_cost": 3333.103448,
+      "forgetting_cost_ratio": 0.9824,
       "failures": [
-        "pass:<missing>",
-        "system:<missing>:expected:eidetic-plus-full",
-        "split:<missing>:expected:dev",
-        "evidence_refs:0",
-        "ablation:metabolism_off_missing",
-        "ablation:regions_off_missing",
-        "ablation:forgetting_off_missing",
-        "ablation:affect_off_missing",
-        "full:n:0<required:20",
-        "metabolism_off:n:0<required:20",
-        "regions_off:n:0<required:20",
-        "forgetting_off:n:0<required:20",
-        "affect_off:n:0<required:20",
-        "full:accuracy_missing",
-        "metabolism_off:accuracy_missing",
-        "regions_off:accuracy_missing",
-        "forgetting_off:accuracy_missing",
-        "affect_off:accuracy_missing",
-        "forgetting_cost_metric_missing"
+        "pass:FAIL",
+        "region_delta_pp:-4.18<required:2.00",
+        "forgetting_accuracy_regression_pp:3.98>allowed:1.00",
+        "forgetting_cost_ratio:0.982<required:1.050"
       ]
     },
     {
@@ -3922,44 +3898,9 @@
       ]
     },
     {
-      "name": "abstention_calibration:valid_json",
-      "pass": false,
-      "detail": "missing"
-    },
-    {
-      "name": "abstention_calibration:ok",
-      "pass": false,
-      "detail": "<missing>"
-    },
-    {
-      "name": "abstention_calibration:method",
-      "pass": false,
-      "detail": "<missing>"
-    },
-    {
-      "name": "abstention_calibration:split",
-      "pass": false,
-      "detail": "<missing> (expected dev)"
-    },
-    {
-      "name": "abstention_calibration:system",
-      "pass": false,
-      "detail": "<missing> (expected eidetic-plus-full)"
-    },
-    {
-      "name": "abstention_calibration:samples",
-      "pass": false,
-      "detail": "0 (required >= 50)"
-    },
-    {
-      "name": "abstention_calibration:target_precision",
-      "pass": false,
-      "detail": "0.000 (required >= 0.950)"
-    },
-    {
       "name": "abstention_calibration:precision_at_tau",
       "pass": false,
-      "detail": "0.000 (target 0.000)"
+      "detail": "0.000 (target 0.950)"
     },
     {
       "name": "abstention_calibration:nonzero_coverage",
@@ -3969,34 +3910,34 @@
     {
       "name": "abstention_calibration:tau_applied",
       "pass": false,
-      "detail": "report=None, manifest=<unset>"
+      "detail": "report=1.000000001, manifest=<unset>"
     },
     {
-      "name": "abstention_calibration:log_fingerprint_present",
+      "name": "logs:no_error_rows",
       "pass": false,
-      "detail": "<missing>"
+      "detail": "27 error rows"
     },
     {
       "name": "smqe:log_policy_shape",
       "pass": false,
-      "detail": "structured_rate:0.325<required:0.800",
+      "detail": "structured_rate:0.350<required:0.800",
       "system": "eidetic-plus-full",
       "rows": 40,
-      "structured": 13,
-      "claim": 13,
+      "structured": 14,
+      "claim": 14,
       "record": 0,
-      "fallback": 27,
-      "structured_rate": 0.325,
+      "fallback": 26,
+      "structured_rate": 0.35,
       "claim_backend_rate": 1.0,
       "dirty": [],
       "operators": {
+        "count_aggregate": 1,
         "latest_value": 4,
-        "open_inference": 3,
-        "preference_synth": 1,
-        "relative_temporal": 5
+        "open_inference": 1,
+        "relative_temporal": 8
       },
       "failures": [
-        "structured_rate:0.325<required:0.800"
+        "structured_rate:0.350<required:0.800"
       ]
     },
     {
@@ -4247,7 +4188,7 @@
     {
       "name": "eidetic-plus-full:locomo:multi-hop:questions",
       "pass": false,
-      "detail": "8 unique samples, 8 rows (required >= 20)"
+      "detail": "7 unique samples, 7 rows (required >= 20)"
     },
     {
       "name": "eidetic-plus-full:locomo:multi-hop:runs",
@@ -4257,7 +4198,7 @@
     {
       "name": "eidetic-plus-full:locomo:temporal:questions",
       "pass": false,
-      "detail": "8 unique samples, 8 rows (required >= 20)"
+      "detail": "9 unique samples, 9 rows (required >= 20)"
     },
     {
       "name": "eidetic-plus-full:locomo:temporal:runs",
@@ -4267,7 +4208,7 @@
     {
       "name": "eidetic-plus-full:locomo:open-domain:questions",
       "pass": false,
-      "detail": "3 unique samples, 3 rows (required >= 20)"
+      "detail": "2 unique samples, 2 rows (required >= 20)"
     },
     {
       "name": "eidetic-plus-full:locomo:open-domain:runs",
@@ -4782,7 +4723,7 @@
     {
       "name": "mem0:locomo:multi-hop:questions",
       "pass": false,
-      "detail": "8 unique samples, 8 rows (required >= 20)"
+      "detail": "7 unique samples, 7 rows (required >= 20)"
     },
     {
       "name": "mem0:locomo:multi-hop:runs",
@@ -4792,7 +4733,7 @@
     {
       "name": "mem0:locomo:temporal:questions",
       "pass": false,
-      "detail": "8 unique samples, 8 rows (required >= 20)"
+      "detail": "9 unique samples, 9 rows (required >= 20)"
     },
     {
       "name": "mem0:locomo:temporal:runs",
@@ -4802,7 +4743,7 @@
     {
       "name": "mem0:locomo:open-domain:questions",
       "pass": false,
-      "detail": "3 unique samples, 3 rows (required >= 20)"
+      "detail": "2 unique samples, 2 rows (required >= 20)"
     },
     {
       "name": "mem0:locomo:open-domain:runs",
@@ -5696,7 +5637,7 @@
     {
       "name": "dominance:eidetic-plus:vs:mem0:paired",
       "pass": false,
-      "detail": "paired_n=0, unpaired=40"
+      "detail": "paired_n=0, unpaired=13"
     },
     {
       "name": "dominance:eidetic-plus:vs:mem0:delta",
@@ -5711,7 +5652,7 @@
     {
       "name": "dominance:eidetic-plus:vs:mem0:sample_clustered_paired",
       "pass": false,
-      "detail": "sample_n=0 (required >= 1000), unpaired=40"
+      "detail": "sample_n=0 (required >= 1000), unpaired=13"
     },
     {
       "name": "dominance:eidetic-plus:vs:mem0:sample_clustered_delta",
@@ -5721,7 +5662,7 @@
     {
       "name": "dominance:eidetic-plus:vs:mem0:sample_clustered_ci_clear",
       "pass": false,
-      "detail": "headline sample_n=0, acc=0.0%, Wilson 0.0-0.0 (width 0.0pp; allowed <= 100.0pp); baseline sample_n=40, acc=30.0%, Wilson 18.1-45.4 (width 27.4pp; allowed <= 100.0pp); need headline lower CI > baseline upper CI"
+      "detail": "headline sample_n=0, acc=0.0%, Wilson 0.0-0.0 (width 0.0pp; allowed <= 100.0pp); baseline sample_n=13, acc=69.2%, Wilson 42.4-87.3 (width 44.9pp; allowed <= 100.0pp); need headline lower CI > baseline upper CI"
     },
     {
       "name": "dominance:eidetic-plus:vs:mem0:sample_clustered_discordants",
@@ -5891,12 +5832,12 @@
     {
       "name": "dominance:eidetic-plus:vs:mem0:locomo/single-hop:sample_clustered_paired",
       "pass": false,
-      "detail": "sample_n=0 (required >= 20), unpaired=21"
+      "detail": "sample_n=0 (required >= 20), unpaired=8"
     },
     {
       "name": "dominance:eidetic-plus:vs:mem0:locomo/single-hop:sample_clustered_ci_clear",
       "pass": false,
-      "detail": "headline sample_n=0, acc=0.0%, Wilson 0.0-0.0 (width 0.0pp; allowed <= 100.0pp); baseline sample_n=21, acc=47.6%, Wilson 28.3-67.6 (width 39.3pp; allowed <= 100.0pp); need headline lower CI > baseline upper CI"
+      "detail": "headline sample_n=0, acc=0.0%, Wilson 0.0-0.0 (width 0.0pp; allowed <= 100.0pp); baseline sample_n=8, acc=87.5%, Wilson 52.9-97.8 (width 44.8pp; allowed <= 100.0pp); need headline lower CI > baseline upper CI"
     },
     {
       "name": "dominance:eidetic-plus:vs:mem0:locomo/single-hop:sample_clustered_discordants",
@@ -5916,12 +5857,12 @@
     {
       "name": "dominance:eidetic-plus:vs:mem0:locomo/multi-hop:sample_clustered_paired",
       "pass": false,
-      "detail": "sample_n=0 (required >= 20), unpaired=8"
+      "detail": "sample_n=0 (required >= 20), unpaired=2"
     },
     {
       "name": "dominance:eidetic-plus:vs:mem0:locomo/multi-hop:sample_clustered_ci_clear",
       "pass": false,
-      "detail": "headline sample_n=0, acc=0.0%, Wilson 0.0-0.0 (width 0.0pp; allowed <= 100.0pp); baseline sample_n=8, acc=12.5%, Wilson 2.2-47.1 (width 44.8pp; allowed <= 100.0pp); need headline lower CI > baseline upper CI"
+      "detail": "headline sample_n=0, acc=0.0%, Wilson 0.0-0.0 (width 0.0pp; allowed <= 100.0pp); baseline sample_n=2, acc=50.0%, Wilson 9.5-90.5 (width 81.1pp; allowed <= 100.0pp); need headline lower CI > baseline upper CI"
     },
     {
       "name": "dominance:eidetic-plus:vs:mem0:locomo/multi-hop:sample_clustered_discordants",
@@ -5941,12 +5882,12 @@
     {
       "name": "dominance:eidetic-plus:vs:mem0:locomo/temporal:sample_clustered_paired",
       "pass": false,
-      "detail": "sample_n=0 (required >= 20), unpaired=8"
+      "detail": "sample_n=0 (required >= 20), unpaired=2"
     },
     {
       "name": "dominance:eidetic-plus:vs:mem0:locomo/temporal:sample_clustered_ci_clear",
       "pass": false,
-      "detail": "headline sample_n=0, acc=0.0%, Wilson 0.0-0.0 (width 0.0pp; allowed <= 100.0pp); baseline sample_n=8, acc=0.0%, Wilson 0.0-32.4 (width 32.4pp; allowed <= 100.0pp); need headline lower CI > baseline upper CI"
+      "detail": "headline sample_n=0, acc=0.0%, Wilson 0.0-0.0 (width 0.0pp; allowed <= 100.0pp); baseline sample_n=2, acc=0.0%, Wilson 0.0-65.8 (width 65.8pp; allowed <= 100.0pp); need headline lower CI > baseline upper CI"
     },
     {
       "name": "dominance:eidetic-plus:vs:mem0:locomo/temporal:sample_clustered_discordants",
@@ -5966,12 +5907,12 @@
     {
       "name": "dominance:eidetic-plus:vs:mem0:locomo/open-domain:sample_clustered_paired",
       "pass": false,
-      "detail": "sample_n=0 (required >= 20), unpaired=3"
+      "detail": "sample_n=0 (required >= 20), unpaired=1"
     },
     {
       "name": "dominance:eidetic-plus:vs:mem0:locomo/open-domain:sample_clustered_ci_clear",
       "pass": false,
-      "detail": "headline sample_n=0, acc=0.0%, Wilson 0.0-0.0 (width 0.0pp; allowed <= 100.0pp); baseline sample_n=3, acc=33.3%, Wilson 6.1-79.2 (width 73.1pp; allowed <= 100.0pp); need headline lower CI > baseline upper CI"
+      "detail": "headline sample_n=0, acc=0.0%, Wilson 0.0-0.0 (width 0.0pp; allowed <= 100.0pp); baseline sample_n=1, acc=100.0%, Wilson 20.7-100.0 (width 79.3pp; allowed <= 100.0pp); need headline lower CI > baseline upper CI"
     },
     {
       "name": "dominance:eidetic-plus:vs:mem0:locomo/open-domain:sample_clustered_discordants",
@@ -6274,66 +6215,6 @@
       "detail": "p=n/a, discordant=0 (required p < 0.05)"
     },
     {
-      "name": "integrity:eidetic-plus-full:verified_accuracy",
-      "pass": false,
-      "detail": "45.0% (required >= 50.0%)"
-    },
-    {
-      "name": "integrity:eidetic-plus-full:proof_support",
-      "pass": false,
-      "detail": "unverified_answered:2",
-      "system": "eidetic-plus-full",
-      "rows": 40,
-      "verified_rows": 32,
-      "supported_verified_rows": 32,
-      "support_rate": 1.0,
-      "proof_content_hashes": [
-        "01641f9e329226d7dd382173c47464282944033859732050a790d55581074b87",
-        "03ccb7ba92cb5324715c8b80e1bfda61b6bd10fd220f3479c59831b862ea1bab",
-        "16066a14d63fc6c9d98de51a2321bbaf464913040e8b2fd25a90177fcb0d8bd3",
-        "1a5d82fa637e4869eaa1f0052aacdcc007561492ad33af8778b9b99165e0616f",
-        "1bca6573b71384a76146e157f9a3ea2c21a98f31b1c781ea33d7fe659f9bace8",
-        "25f063fb85e69c3e0904c517fdd4c0a3acf832146ffac2f6ab9c6e1c6bb9ed6e",
-        "27f2d62f38d240600e784aee8c78f06232ec9270db960b8d48aada63c11f858d",
-        "291a456225ce9155fdfb3c3a69c2f3d670d29f23cc4e4b8651f13c3c55189e4c",
-        "2a763e2fce545aaa90f996d702d9e07206b084312f9d0a89727c4d9b13de0204",
-        "3e2ba793a97ea9b65190c356a09f1040dbfe201483c7dd34540986c092fc5cb4",
-        "40f605883c846105a890ed0bde2f7d9c192a2d43d334f0ccd25b8597de003aeb",
-        "4f9a6de72270691ba221d840852f0ebcf125b3bdd1d051dd51e54cbae20a7e29",
-        "625caedc46965c74111e47ac5737c0fee1107e29bf6953cc0fb2d52f8b8bef4f",
-        "67c6200be638aa68fe32ce77e643f3afcfe7c48df41c01c575e6423d635ca907",
-        "6bb8c40c938c5dffc1469d2b440e4fb6b762ad180d28f50ddc5b4794406e308e",
-        "6ec9bddfd4801c69dfb927bf43ed4324819af88ff598af7d15088dfa59a0e182",
-        "797f1cd4ef58797505aa3e4c178c97ee06ac72d81c852573fc9a4af77de220e6",
-        "7b1ada415a8a0d756b5e60b55468e68eb22dd3a90c0a5e39ba28dd551fa5d3b1",
-        "878c5c4ec8bce595d679fb776a69032437e4e012f8815f10b891882094c67920",
-        "92a12430debd4df3b39bc096ba241445d879db57fb18fb1efaaee7608d27a2d8",
-        "99e9d797d17ffc06c71f2a095c30ac3f5aedfa4543d22a6bad5b0e5e5879b9da",
-        "9b02cb7e2cad52c852c101be44a21ec6544e10138948c78236eb5c77220a26f3",
-        "9b5b19a7c99fd4585e777f14ea3d5f0f0f4a5c75e57df8b4458645b386d95314",
-        "9f5ca7f69e0211d030a49c2c29c24a8357faf18b5d202cee9afeccfda5d9f108",
-        "9f8a892aaa86b36cad904dbcd35733779b2f73d463c4ddd595875f9d1378b8a9",
-        "a8a90eed3bffc2a2335c1c77d8abe5e0d617db600516a091ba9c7193b2ce79fe",
-        "ad944447fbdeae0222289b073525706ed578e3067c01c05f7e064075854c7e25",
-        "c83480097c174dff2e6bcdb0155a16e03970085cb2e7113af542a8104b4bb167",
-        "d4819a08f33f9ee7c9b5749cc39a8d3f6295fc56bb8216ab54d805d9cb00b77d",
-        "e186c641e274d5c80d10ad01a2d5532409a8c411c9e4228800d3c26b84e995f6",
-        "edd7ac22ccc3bb84b9ffd8458e156fc29948f55e597a65994cbd8667d448bae0",
-        "f72dd76d9ecb80c936363fac2b604aacb5ed9efb641dabc93963bf950dd5fab0",
-        "f7345493206ce3c078707a3cf64e83e6fddb4abaa8d24b000b4f1c6fdc4fb095",
-        "f7eef383f398cda47355237e6284edaf301d3c49af9b309666a490704fb602f4",
-        "fe9c480c3d9c3b482e1ba1c092cc4a049eed7ff8219f6dcb539f64077b4a1135"
-      ],
-      "unverified_answered": [
-        "c2_q35",
-        "c7_q64"
-      ],
-      "missing_support": [],
-      "failures": [
-        "unverified_answered:2"
-      ]
-    },
-    {
       "name": "baseline_reproduction:valid_json",
       "pass": false,
       "detail": "missing"
@@ -6366,7 +6247,7 @@
     {
       "name": "baseline_reproduction:log_fingerprint_matches",
       "pass": false,
-      "detail": "<missing> (current 51d0cbaa5ce98b3c4ed84ec2e5e83813be041e5fdf7f0b5b9781a4890d838e28 (2 files))"
+      "detail": "<missing> (current ae231e635c2e6926fe0a0c69fb7648031137982f0986f85a9187eefa4145cb5f (2 files))"
     }
   ],
   "manifest": {
@@ -6376,7 +6257,7 @@
     "subset": 10,
     "sample_offset": 0,
     "sample_strategy": "contiguous",
-    "samples_file": "artifacts/holdout_rotation_r7_codex/holdout40.samples.json",
+    "samples_file": "artifacts/holdout_rotation_r8_codex/holdout40.samples.json",
     "holdout_profile": "holdout",
     "runs": 1,
     "run_offset": 0,
@@ -6388,210 +6269,210 @@
     },
     "sample_count": 40,
     "category_counts": {
-      "single-hop": 21,
-      "multi-hop": 8,
-      "temporal": 8,
-      "open-domain": 3
+      "temporal": 9,
+      "single-hop": 22,
+      "multi-hop": 7,
+      "open-domain": 2
     },
     "sample_rows": [
       {
         "dataset": "locomo",
-        "sample_id": "c0_q138",
-        "category": "single-hop"
-      },
-      {
-        "dataset": "locomo",
-        "sample_id": "c0_q15",
-        "category": "multi-hop"
-      },
-      {
-        "dataset": "locomo",
-        "sample_id": "c0_q58",
+        "sample_id": "c0_q1",
         "category": "temporal"
       },
       {
         "dataset": "locomo",
-        "sample_id": "c0_q78",
-        "category": "multi-hop"
-      },
-      {
-        "dataset": "locomo",
-        "sample_id": "c0_q82",
+        "sample_id": "c0_q105",
         "category": "single-hop"
       },
       {
         "dataset": "locomo",
-        "sample_id": "c0_q9",
+        "sample_id": "c0_q133",
+        "category": "single-hop"
+      },
+      {
+        "dataset": "locomo",
+        "sample_id": "c1_q47",
+        "category": "single-hop"
+      },
+      {
+        "dataset": "locomo",
+        "sample_id": "c2_q116",
+        "category": "single-hop"
+      },
+      {
+        "dataset": "locomo",
+        "sample_id": "c2_q135",
+        "category": "single-hop"
+      },
+      {
+        "dataset": "locomo",
+        "sample_id": "c2_q3",
+        "category": "multi-hop"
+      },
+      {
+        "dataset": "locomo",
+        "sample_id": "c2_q49",
+        "category": "multi-hop"
+      },
+      {
+        "dataset": "locomo",
+        "sample_id": "c2_q54",
         "category": "temporal"
       },
       {
         "dataset": "locomo",
-        "sample_id": "c1_q25",
-        "category": "multi-hop"
-      },
-      {
-        "dataset": "locomo",
-        "sample_id": "c1_q39",
-        "category": "single-hop"
-      },
-      {
-        "dataset": "locomo",
-        "sample_id": "c1_q67",
-        "category": "single-hop"
-      },
-      {
-        "dataset": "locomo",
-        "sample_id": "c2_q139",
-        "category": "single-hop"
-      },
-      {
-        "dataset": "locomo",
-        "sample_id": "c2_q35",
-        "category": "multi-hop"
-      },
-      {
-        "dataset": "locomo",
-        "sample_id": "c3_q146",
-        "category": "single-hop"
-      },
-      {
-        "dataset": "locomo",
-        "sample_id": "c3_q162",
-        "category": "single-hop"
-      },
-      {
-        "dataset": "locomo",
-        "sample_id": "c3_q17",
+        "sample_id": "c2_q58",
         "category": "temporal"
       },
       {
         "dataset": "locomo",
-        "sample_id": "c3_q172",
-        "category": "single-hop"
-      },
-      {
-        "dataset": "locomo",
-        "sample_id": "c3_q59",
+        "sample_id": "c2_q62",
         "category": "multi-hop"
       },
       {
         "dataset": "locomo",
-        "sample_id": "c3_q92",
+        "sample_id": "c3_q169",
         "category": "single-hop"
       },
       {
         "dataset": "locomo",
-        "sample_id": "c4_q136",
-        "category": "single-hop"
+        "sample_id": "c3_q2",
+        "category": "temporal"
       },
       {
         "dataset": "locomo",
-        "sample_id": "c4_q66",
+        "sample_id": "c3_q4",
         "category": "open-domain"
       },
       {
         "dataset": "locomo",
-        "sample_id": "c4_q67",
+        "sample_id": "c3_q75",
+        "category": "multi-hop"
+      },
+      {
+        "dataset": "locomo",
+        "sample_id": "c3_q9",
+        "category": "temporal"
+      },
+      {
+        "dataset": "locomo",
+        "sample_id": "c4_q140",
+        "category": "single-hop"
+      },
+      {
+        "dataset": "locomo",
+        "sample_id": "c4_q158",
+        "category": "single-hop"
+      },
+      {
+        "dataset": "locomo",
+        "sample_id": "c4_q60",
+        "category": "temporal"
+      },
+      {
+        "dataset": "locomo",
+        "sample_id": "c4_q72",
+        "category": "single-hop"
+      },
+      {
+        "dataset": "locomo",
+        "sample_id": "c4_q84",
+        "category": "single-hop"
+      },
+      {
+        "dataset": "locomo",
+        "sample_id": "c5_q65",
+        "category": "single-hop"
+      },
+      {
+        "dataset": "locomo",
+        "sample_id": "c5_q77",
+        "category": "single-hop"
+      },
+      {
+        "dataset": "locomo",
+        "sample_id": "c5_q85",
+        "category": "single-hop"
+      },
+      {
+        "dataset": "locomo",
+        "sample_id": "c6_q104",
+        "category": "single-hop"
+      },
+      {
+        "dataset": "locomo",
+        "sample_id": "c6_q138",
+        "category": "single-hop"
+      },
+      {
+        "dataset": "locomo",
+        "sample_id": "c6_q144",
+        "category": "single-hop"
+      },
+      {
+        "dataset": "locomo",
+        "sample_id": "c7_q1",
+        "category": "multi-hop"
+      },
+      {
+        "dataset": "locomo",
+        "sample_id": "c7_q50",
+        "category": "temporal"
+      },
+      {
+        "dataset": "locomo",
+        "sample_id": "c8_q138",
+        "category": "single-hop"
+      },
+      {
+        "dataset": "locomo",
+        "sample_id": "c8_q145",
+        "category": "single-hop"
+      },
+      {
+        "dataset": "locomo",
+        "sample_id": "c8_q42",
+        "category": "multi-hop"
+      },
+      {
+        "dataset": "locomo",
+        "sample_id": "c8_q49",
+        "category": "multi-hop"
+      },
+      {
+        "dataset": "locomo",
+        "sample_id": "c8_q51",
         "category": "open-domain"
       },
       {
         "dataset": "locomo",
-        "sample_id": "c4_q80",
-        "category": "single-hop"
-      },
-      {
-        "dataset": "locomo",
-        "sample_id": "c4_q99",
-        "category": "single-hop"
-      },
-      {
-        "dataset": "locomo",
-        "sample_id": "c5_q1",
+        "sample_id": "c8_q79",
         "category": "temporal"
       },
       {
         "dataset": "locomo",
-        "sample_id": "c5_q28",
-        "category": "multi-hop"
+        "sample_id": "c8_q83",
+        "category": "single-hop"
       },
       {
         "dataset": "locomo",
-        "sample_id": "c5_q6",
+        "sample_id": "c9_q110",
+        "category": "single-hop"
+      },
+      {
+        "dataset": "locomo",
+        "sample_id": "c9_q141",
+        "category": "single-hop"
+      },
+      {
+        "dataset": "locomo",
+        "sample_id": "c9_q55",
         "category": "temporal"
       },
       {
         "dataset": "locomo",
-        "sample_id": "c5_q76",
-        "category": "single-hop"
-      },
-      {
-        "dataset": "locomo",
-        "sample_id": "c6_q5",
-        "category": "multi-hop"
-      },
-      {
-        "dataset": "locomo",
-        "sample_id": "c6_q53",
-        "category": "temporal"
-      },
-      {
-        "dataset": "locomo",
-        "sample_id": "c6_q57",
-        "category": "temporal"
-      },
-      {
-        "dataset": "locomo",
-        "sample_id": "c6_q97",
-        "category": "single-hop"
-      },
-      {
-        "dataset": "locomo",
-        "sample_id": "c7_q100",
-        "category": "single-hop"
-      },
-      {
-        "dataset": "locomo",
-        "sample_id": "c7_q24",
-        "category": "multi-hop"
-      },
-      {
-        "dataset": "locomo",
-        "sample_id": "c7_q5",
-        "category": "open-domain"
-      },
-      {
-        "dataset": "locomo",
-        "sample_id": "c7_q64",
-        "category": "single-hop"
-      },
-      {
-        "dataset": "locomo",
-        "sample_id": "c7_q99",
-        "category": "single-hop"
-      },
-      {
-        "dataset": "locomo",
-        "sample_id": "c8_q111",
-        "category": "single-hop"
-      },
-      {
-        "dataset": "locomo",
-        "sample_id": "c8_q147",
-        "category": "single-hop"
-      },
-      {
-        "dataset": "locomo",
-        "sample_id": "c8_q68",
-        "category": "temporal"
-      },
-      {
-        "dataset": "locomo",
-        "sample_id": "c8_q94",
-        "category": "single-hop"
-      },
-      {
-        "dataset": "locomo",
-        "sample_id": "c9_q80",
+        "sample_id": "c9_q85",
         "category": "single-hop"
       }
     ],
@@ -6636,7 +6517,7 @@
       "DASHSCOPE_REQUEST_TIMEOUT_SEC": "120",
       "DASHSCOPE_RPM": "60",
       "DASHSCOPE_SLOT_TIMEOUT_SEC": "600",
-      "DATA_DIR": "artifacts/holdout_rotation_r7_codex/data",
+      "DATA_DIR": "artifacts/holdout_rotation_r8_codex/data",
       "DEFER_REEMBED": "",
       "DREAM_AB": "",
       "DREAM_INFER_CONFIDENCE": "",
@@ -6742,118 +6623,118 @@
     ],
     "accuracy": {
       "eidetic-plus-full|locomo|single-hop": {
-        "mean": 0.6190476190476191,
+        "mean": 0.5909090909090909,
         "std": 0.0,
         "ci95": [
-          0.4087865377511576,
-          0.7924898863143551
+          0.38734818476315136,
+          0.7674418380352813
         ],
         "successes": 13,
-        "n": 21
+        "n": 22
       },
       "eidetic-plus-full|locomo|temporal": {
-        "mean": 0.375,
+        "mean": 0.6666666666666666,
         "std": 0.0,
         "ci95": [
-          0.13684428582359742,
-          0.6942576053973727
+          0.3542021355803963,
+          0.879416181613089
         ],
-        "successes": 3,
-        "n": 8
+        "successes": 6,
+        "n": 9
       },
       "eidetic-plus-full|locomo|multi-hop": {
-        "mean": 0.375,
+        "mean": 0.2857142857142857,
         "std": 0.0,
         "ci95": [
-          0.13684428582359742,
-          0.6942576053973727
+          0.08221892400405678,
+          0.6410655481673808
         ],
-        "successes": 3,
-        "n": 8
+        "successes": 2,
+        "n": 7
       },
       "eidetic-plus-full|locomo|open-domain": {
-        "mean": 0.3333333333333333,
+        "mean": 1.0,
         "std": 0.0,
         "ci95": [
-          0.06149194472039621,
-          0.7923403991979522
+          0.34238022750665303,
+          1.0
         ],
-        "successes": 1,
-        "n": 3
+        "successes": 2,
+        "n": 2
       },
       "mem0|locomo|single-hop": {
-        "mean": 0.47619047619047616,
+        "mean": 0.875,
         "std": 0.0,
         "ci95": [
-          0.2834400610153417,
-          0.6763046541715557
+          0.5291118177871464,
+          0.9775825085499433
         ],
-        "successes": 10,
-        "n": 21
+        "successes": 7,
+        "n": 8
       },
       "mem0|locomo|temporal": {
         "mean": 0.0,
         "std": 0.0,
         "ci95": [
           0.0,
-          0.32440756488388023
+          0.6576197724933469
         ],
         "successes": 0,
-        "n": 8
+        "n": 2
       },
       "mem0|locomo|multi-hop": {
-        "mean": 0.125,
+        "mean": 0.5,
         "std": 0.0,
         "ci95": [
-          0.02241749145005667,
-          0.4708881822128535
+          0.09453120573423074,
+          0.9054687942657693
         ],
         "successes": 1,
-        "n": 8
+        "n": 2
       },
       "mem0|locomo|open-domain": {
-        "mean": 0.3333333333333333,
+        "mean": 1.0,
         "std": 0.0,
         "ci95": [
-          0.06149194472039621,
-          0.7923403991979522
+          0.20654931437723745,
+          1.0
         ],
         "successes": 1,
-        "n": 3
+        "n": 1
       }
     },
     "head_to_head": {
       "eidetic-plus-full|mem0|locomo|multi-hop": {
-        "n": 8,
-        "a_only": 3,
+        "n": 2,
+        "a_only": 0,
         "b_only": 1,
         "both": 0,
-        "neither": 4,
-        "p_mcnemar": 0.625
+        "neither": 1,
+        "p_mcnemar": 1.0
       },
       "eidetic-plus-full|mem0|locomo|open-domain": {
-        "n": 3,
+        "n": 1,
         "a_only": 0,
         "b_only": 0,
         "both": 1,
-        "neither": 2,
+        "neither": 0,
         "p_mcnemar": 1.0
       },
       "eidetic-plus-full|mem0|locomo|single-hop": {
-        "n": 21,
-        "a_only": 5,
-        "b_only": 2,
-        "both": 8,
-        "neither": 6,
-        "p_mcnemar": 0.453125
+        "n": 8,
+        "a_only": 1,
+        "b_only": 3,
+        "both": 4,
+        "neither": 0,
+        "p_mcnemar": 0.625
       },
       "eidetic-plus-full|mem0|locomo|temporal": {
-        "n": 8,
-        "a_only": 3,
+        "n": 2,
+        "a_only": 1,
         "b_only": 0,
         "both": 0,
-        "neither": 5,
-        "p_mcnemar": 0.25
+        "neither": 1,
+        "p_mcnemar": 1.0
       }
     },
     "survival": {
@@ -6884,26 +6765,26 @@
     },
     "cost": {
       "mem0": {
-        "tokens_per_write": 21603.6,
-        "tokens_per_query": 394.85
+        "tokens_per_write": 19771.666666666668,
+        "tokens_per_query": 393.0769230769231
       },
       "eidetic-plus-full": {
         "tokens_per_write": 21603.6,
-        "tokens_per_query": 3441.75
+        "tokens_per_query": 3422.7
       }
     },
     "latency": {
       "mem0": {
-        "search_p50": 1150.769500178285,
-        "search_p95": 1898.0620120186356,
-        "e2e_p50": 4654.428416513838,
-        "e2e_p95": 9141.459904389922
+        "search_p50": 761.6793329361826,
+        "search_p95": 1965.7909166999145,
+        "e2e_p50": 4077.697000000626,
+        "e2e_p95": 8432.43852499872
       },
       "eidetic-plus-full": {
-        "search_p50": 3643.5344169149175,
-        "search_p95": 7550.599149696054,
-        "e2e_p50": 12694.800437660888,
-        "e2e_p95": 22767.971079540428
+        "search_p50": 3671.857353998348,
+        "search_p95": 6210.2345103397965,
+        "e2e_p50": 10719.38697900623,
+        "e2e_p95": 23066.340574296184
       }
     },
     "judge": {
@@ -6913,17 +6794,17 @@
     "integrity": {
       "eidetic-plus-full": {
         "n": 40,
-        "verified_correct": 18,
-        "answered": 34,
-        "unverified_answered": 2,
-        "abstained": 6,
+        "verified_correct": 23,
+        "answered": 36,
+        "unverified_answered": 0,
+        "abstained": 4,
         "has_verify": true
       },
       "mem0": {
-        "n": 40,
+        "n": 13,
         "verified_correct": 0,
-        "answered": 40,
-        "unverified_answered": 40,
+        "answered": 13,
+        "unverified_answered": 13,
         "abstained": 0,
         "has_verify": false
       }
@@ -6931,13 +6812,13 @@
     "consolidation": {
       "eidetic-plus-full": {
         "groups": 10,
-        "pending_processed": 250,
-        "facts_extracted": 1093,
-        "events_indexed": 1093,
+        "pending_processed": 246,
+        "facts_extracted": 1109,
+        "events_indexed": 1109,
         "extraction_timed_out": 0,
         "extraction_deferred": 0,
-        "extraction_windows_planned": 258,
-        "extraction_windows_submitted": 258,
+        "extraction_windows_planned": 253,
+        "extraction_windows_submitted": 253,
         "extraction_window_cap_per_record": 0,
         "extraction_call_budget": 900,
         "extraction_raw_only_bounded": 0,
@@ -6950,17 +6831,17 @@
     "log_fingerprint": {
       "algorithm": "sha256",
       "file_count": 2,
-      "combined_sha256": "51d0cbaa5ce98b3c4ed84ec2e5e83813be041e5fdf7f0b5b9781a4890d838e28",
+      "combined_sha256": "ae231e635c2e6926fe0a0c69fb7648031137982f0986f85a9187eefa4145cb5f",
       "files": [
         {
           "path": "eidetic-plus-full__run0.jsonl",
-          "bytes": 107448,
-          "sha256": "f73aa828fccab734e5f672f144eb9cab4b96b32598b8c53ee14648b4ab1e5659"
+          "bytes": 109293,
+          "sha256": "be0f6ae82b7c140443aa31cf106283643f8becd4a8fb421a534ab7b6f6357830"
         },
         {
           "path": "mem0__run0.jsonl",
-          "bytes": 28463,
-          "sha256": "a81751aff9a60c1794bee96d57ed9b89176ab2b7987850bd51468b64c3ab3d31"
+          "bytes": 27133,
+          "sha256": "7169d13f19a7a8d5cc16291c17716b3b786af5a530a1250eabc800dd03bfa8f7"
         }
       ]
     }
@@ -6980,10 +6861,11 @@
     "measured_external_systems": [],
     "external_system_evidence": [],
     "evidence": {
-      "rolling_holdout": "bench/rolling_holdout_table.py over artifacts/holdout_rotation_r1..r7_codex (raw per-row jsonl)",
+      "rolling_holdout": "bench/rolling_holdout_table.py over artifacts/holdout_rotation_r1..r8_codex (raw per-row jsonl); n=320, 182 vs 140, verified 277 vs 0",
       "slice7": "artifacts/holdout_rotation_r7_codex (launch_A.log pins SHA + product_cost profile overlay)",
       "cost": "bench/COST_AB.md dev-40 ledger; artifacts/cost_*_20260704_*",
-      "snap_back": "artifacts/public_ship/snap_back_audit.json"
+      "snap_back": "artifacts/public_ship/snap_back_audit.json",
+      "slice8": "artifacts/holdout_rotation_r8_codex (launch_A/B.log pin SHA 6551ac048 + product_cost overlay; VW-killer + event-date family + date-fix)"
     },
     "limitations": [
       "Single benchmark run (runs=1) on one 40-sample rotation window; the >=10-run bench/reproduce.sh sweep has not been run.",
@@ -6992,8 +6874,27 @@
       "Dev-split cost median (83 qtok) is NOT a holdout number; holdout r7 structured coverage 13/40 kept the holdout median on the reader plateau (4,029).",
       "Windows swing +-5pp at n=40; the rolling n=280 table is the evidence unit, not any single window.",
       "Mem0's write-side token cost is unlogged in its adapter; its totals are understated in all comparisons.",
-      "Ablation evidence (metabolism/forgetting attribution) not present in this artifact dir; see docs/claims.md Claim B for the program."
-    ]
+      "Ablation evidence (metabolism/forgetting attribution) not present in this artifact dir; see docs/claims.md Claim B for the program.",
+      "Named comparators publish 83-96% self-reported accuracy with frontier readers (GPT-5/Gemini-3/Opus) and their own judges; under our deliberately-fixed qwen-plus reader the regimes are not commensurable, and we do not claim to beat them. comparator_research.json carries the sourced records."
+    ],
+    "external_system_evidence_note": "Verified web-research records in comparator_research.json (2026-07-04): every number is vendor/author self-reported with no independent reproduction found; judges and reader backbones differ per system, so none are commensurable with this repo's fixed-reader fixed-judge harness. Recorded for scope-boundary honesty, NOT entered as gate-valid external evidence.",
+    "comparator_headline_numbers_self_reported": {
+      "chronos": {
+        "longmemeval_s": "92.6-95.6% (GPT-4o..Opus 4.6 backbones, arXiv 2603.16862, single-run)",
+        "locomo": "none published"
+      },
+      "mastra": {
+        "longmemeval_s": "94.87% (gpt-5-mini actor) / 84.23% (gpt-4o), vendor research page 2026-02-09"
+      },
+      "byterover": {
+        "locomo": "96.1% (n=1982, vendor blog/paper 2604.01599)",
+        "longmemeval_s": "92.8%"
+      },
+      "hindsight": {
+        "locomo": "83.18-92.0% by backbone/harness",
+        "longmemeval_s": "83.6-94.6%"
+      }
+    }
   },
   "holdout_audit": {
     "pass": true,
@@ -7003,6 +6904,12 @@
     "entity_names_checked": 18,
     "entity_scan_roots": [
       "eidetic"
+    ],
+    "conversation_shingles_checked": 103014,
+    "shingle_scan_roots": [
+      "eidetic",
+      "bench",
+      "tests"
     ],
     "legacy_policy_scan_enabled": true,
     "forbidden_policy_strings_checked": 5,
@@ -7018,52 +6925,37 @@
   },
   "ablation_evidence": {
     "pass": false,
-    "system": "",
-    "split": "",
-    "evidence_refs": 0,
-    "full_n": 0,
-    "metabolism_label": "",
-    "metabolism_n": 0,
-    "region_label": "",
-    "region_n": 0,
-    "forgetting_label": "",
-    "forgetting_n": 0,
-    "affect_label": "",
-    "affect_n": 0,
-    "accuracy_metric": "",
-    "full_accuracy": null,
-    "metabolism_off_accuracy": null,
-    "regions_off_accuracy": null,
-    "forgetting_off_accuracy": null,
-    "affect_off_accuracy": null,
-    "metabolism_delta_pp": null,
-    "region_delta_pp": null,
-    "affect_delta_pp": null,
-    "forgetting_accuracy_regression_pp": null,
-    "cost_metric": "",
-    "full_cost": null,
-    "forgetting_off_cost": null,
-    "forgetting_cost_ratio": null,
+    "system": "eidetic-plus-full",
+    "split": "dev",
+    "evidence_refs": 5,
+    "full_n": 26,
+    "metabolism_label": "metabolism_off",
+    "metabolism_n": 47,
+    "region_label": "regions_off",
+    "region_n": 35,
+    "forgetting_label": "forgetting_off",
+    "forgetting_n": 29,
+    "affect_label": "affect_off",
+    "affect_n": 25,
+    "accuracy_metric": "verified_accuracy",
+    "full_accuracy": 0.615385,
+    "metabolism_off_accuracy": 0.425532,
+    "regions_off_accuracy": 0.657143,
+    "forgetting_off_accuracy": 0.655172,
+    "affect_off_accuracy": 0.52,
+    "metabolism_delta_pp": 18.9853,
+    "region_delta_pp": -4.1758,
+    "affect_delta_pp": 9.5385,
+    "forgetting_accuracy_regression_pp": 3.9787,
+    "cost_metric": "query_tokens_mean",
+    "full_cost": 3392.769231,
+    "forgetting_off_cost": 3333.103448,
+    "forgetting_cost_ratio": 0.9824,
     "failures": [
-      "pass:<missing>",
-      "system:<missing>:expected:eidetic-plus-full",
-      "split:<missing>:expected:dev",
-      "evidence_refs:0",
-      "ablation:metabolism_off_missing",
-      "ablation:regions_off_missing",
-      "ablation:forgetting_off_missing",
-      "ablation:affect_off_missing",
-      "full:n:0<required:20",
-      "metabolism_off:n:0<required:20",
-      "regions_off:n:0<required:20",
-      "forgetting_off:n:0<required:20",
-      "affect_off:n:0<required:20",
-      "full:accuracy_missing",
-      "metabolism_off:accuracy_missing",
-      "regions_off:accuracy_missing",
-      "forgetting_off:accuracy_missing",
-      "affect_off:accuracy_missing",
-      "forgetting_cost_metric_missing"
+      "pass:FAIL",
+      "region_delta_pp:-4.18<required:2.00",
+      "forgetting_accuracy_regression_pp:3.98>allowed:1.00",
+      "forgetting_cost_ratio:0.982<required:1.050"
     ]
   },
   "affect_salience_invariant": {
@@ -7654,29 +7546,29 @@
     "pass": false,
     "system": "eidetic-plus-full",
     "rows": 40,
-    "structured": 13,
-    "claim": 13,
+    "structured": 14,
+    "claim": 14,
     "record": 0,
-    "fallback": 27,
-    "structured_rate": 0.325,
+    "fallback": 26,
+    "structured_rate": 0.35,
     "claim_backend_rate": 1.0,
     "dirty": [],
     "operators": {
+      "count_aggregate": 1,
       "latest_value": 4,
-      "open_inference": 3,
-      "preference_synth": 1,
-      "relative_temporal": 5
+      "open_inference": 1,
+      "relative_temporal": 8
     },
     "failures": [
-      "structured_rate:0.325<required:0.800"
+      "structured_rate:0.350<required:0.800"
     ]
   },
   "region_telemetry": {
     "pass": true,
     "system": "eidetic-plus-full",
     "rows": 40,
-    "hint_rows": 26,
-    "total_hints": 76,
+    "hint_rows": 25,
+    "total_hints": 75,
     "missing": [],
     "malformed": [],
     "failures": []
@@ -7693,140 +7585,140 @@
         "eidetic-plus",
         "locomo",
         "multi-hop",
-        "c0_q15",
+        "c2_q3",
         0
       ],
       [
         "eidetic-plus",
         "locomo",
         "multi-hop",
-        "c0_q78",
+        "c2_q49",
         0
       ],
       [
         "eidetic-plus",
         "locomo",
         "multi-hop",
-        "c1_q25",
+        "c2_q62",
         0
       ],
       [
         "eidetic-plus",
         "locomo",
         "multi-hop",
-        "c2_q35",
+        "c3_q75",
         0
       ],
       [
         "eidetic-plus",
         "locomo",
         "multi-hop",
-        "c3_q59",
+        "c7_q1",
         0
       ],
       [
         "eidetic-plus",
         "locomo",
         "multi-hop",
-        "c5_q28",
+        "c8_q42",
         0
       ],
       [
         "eidetic-plus",
         "locomo",
         "multi-hop",
-        "c6_q5",
-        0
-      ],
-      [
-        "eidetic-plus",
-        "locomo",
-        "multi-hop",
-        "c7_q24",
+        "c8_q49",
         0
       ],
       [
         "eidetic-plus",
         "locomo",
         "open-domain",
-        "c4_q66",
+        "c3_q4",
         0
       ],
       [
         "eidetic-plus",
         "locomo",
         "open-domain",
-        "c4_q67",
-        0
-      ],
-      [
-        "eidetic-plus",
-        "locomo",
-        "open-domain",
-        "c7_q5",
+        "c8_q51",
         0
       ],
       [
         "eidetic-plus",
         "locomo",
         "single-hop",
-        "c0_q138",
+        "c0_q105",
         0
       ],
       [
         "eidetic-plus",
         "locomo",
         "single-hop",
-        "c0_q82",
+        "c0_q133",
         0
       ],
       [
         "eidetic-plus",
         "locomo",
         "single-hop",
-        "c1_q39",
+        "c1_q47",
         0
       ],
       [
         "eidetic-plus",
         "locomo",
         "single-hop",
-        "c1_q67",
+        "c2_q116",
         0
       ],
       [
         "eidetic-plus",
         "locomo",
         "single-hop",
-        "c2_q139",
+        "c2_q135",
         0
       ],
       [
         "eidetic-plus",
         "locomo",
         "single-hop",
-        "c3_q146",
+        "c3_q169",
         0
       ],
       [
         "eidetic-plus",
         "locomo",
         "single-hop",
-        "c3_q162",
+        "c4_q140",
         0
       ],
       [
         "eidetic-plus",
         "locomo",
         "single-hop",
-        "c3_q172",
+        "c4_q158",
         0
       ],
       [
         "eidetic-plus",
         "locomo",
         "single-hop",
-        "c3_q92",
+        "c4_q72",
+        0
+      ],
+      [
+        "eidetic-plus",
+        "locomo",
+        "single-hop",
+        "c4_q84",
+        0
+      ],
+      [
+        "eidetic-plus",
+        "locomo",
+        "single-hop",
+        "c5_q65",
         0
       ]
     ],
@@ -7846,76 +7738,87 @@
   },
   "integrity": {
     "n": 40,
-    "verified_correct": 18,
-    "answered": 34,
-    "unverified_answered": 2,
-    "abstained": 6,
+    "verified_correct": 23,
+    "answered": 36,
+    "unverified_answered": 0,
+    "abstained": 4,
     "has_verify": true
   },
   "proof_support": {
-    "pass": false,
+    "pass": true,
     "system": "eidetic-plus-full",
     "rows": 40,
-    "verified_rows": 32,
-    "supported_verified_rows": 32,
+    "verified_rows": 36,
+    "supported_verified_rows": 36,
     "support_rate": 1.0,
     "proof_content_hashes": [
-      "01641f9e329226d7dd382173c47464282944033859732050a790d55581074b87",
-      "03ccb7ba92cb5324715c8b80e1bfda61b6bd10fd220f3479c59831b862ea1bab",
-      "16066a14d63fc6c9d98de51a2321bbaf464913040e8b2fd25a90177fcb0d8bd3",
-      "1a5d82fa637e4869eaa1f0052aacdcc007561492ad33af8778b9b99165e0616f",
-      "1bca6573b71384a76146e157f9a3ea2c21a98f31b1c781ea33d7fe659f9bace8",
-      "25f063fb85e69c3e0904c517fdd4c0a3acf832146ffac2f6ab9c6e1c6bb9ed6e",
+      "0221ece122a93f21f75752d906566cd6574e0239d9b6e225b1b52784123addfb",
+      "033e2ef480d5a706f2044edfcc064251a5b418d1ffdd444eb9245b1b841dd4f0",
+      "03caa8436c654ea5776e1df30431c6baf35b1b8d3f6b655b2f1c876b28bc15dc",
+      "049477008df395de5e550cbb5fd0362dd992c9dfff87d9655599c4ea4bb77a93",
+      "0b5c453423906da2260f0b62a7aae35d2ab441a0c6745804fe3960cb8d9623c2",
+      "0b61ce902200538d0cd26e638e8f6e7ce0deebe375c0a7fae9883f02250be328",
+      "0c1cc0f026f0b106220cad8afb3c4054268f5bf8c176ab6477f4a665ee408bda",
+      "10d45758b803f98e147a586c22b1741bf59bece8af5847cec42ee364c6a74c20",
+      "10d95479efc053ad2c788b5f6e0648fdc94e055425bc20cda2a243ca84c022a8",
+      "16fdc14fd510891a1b963778d0a08414aae50b23a346e6ae7d7f2e5630b8fb6a",
+      "1d05ba80748fa8181e367ebaab635642aaa689ed6344382d4c913c6745684c90",
+      "22c2c15d4e142a3df6a19fcf46163f1d1bd6266d74ebd866688435564c6ddc38",
+      "2454446c97d934249255f434a0227be1201ed51b4ea0093bd9d9279305cf488f",
       "27f2d62f38d240600e784aee8c78f06232ec9270db960b8d48aada63c11f858d",
+      "284136d9eed6896766a2d9de60b412b48894ecd2cac3cfd48bfd27d3eb97d27b",
       "291a456225ce9155fdfb3c3a69c2f3d670d29f23cc4e4b8651f13c3c55189e4c",
-      "2a763e2fce545aaa90f996d702d9e07206b084312f9d0a89727c4d9b13de0204",
-      "3e2ba793a97ea9b65190c356a09f1040dbfe201483c7dd34540986c092fc5cb4",
-      "40f605883c846105a890ed0bde2f7d9c192a2d43d334f0ccd25b8597de003aeb",
-      "4f9a6de72270691ba221d840852f0ebcf125b3bdd1d051dd51e54cbae20a7e29",
-      "625caedc46965c74111e47ac5737c0fee1107e29bf6953cc0fb2d52f8b8bef4f",
+      "3f55c14d0d05ec5836934d167978ae17577ee871fbeb90c1a7a72f182c662a0d",
+      "48aac09999b435a93a82cf6f2ac55f30dc8fec9ba59e06c1093670d7098be320",
+      "4aafcaa3f2bfc340e2c2d85e18bf745cb098bf8a5da82b52a89d6e2bff31dd6f",
+      "59b2d4021955d61ad156dd98c6732661ebbf669432ec4377e8832e198ef48adb",
+      "5c24bc738ad56c84ee0987af76d9bc7b46845b83d7ba762f4b231affa17ab3c5",
+      "5c68c5f719161a3325aafc20abcf15eb6edefe65bcc40817671bd4cb37d5281d",
       "67c6200be638aa68fe32ce77e643f3afcfe7c48df41c01c575e6423d635ca907",
-      "6bb8c40c938c5dffc1469d2b440e4fb6b762ad180d28f50ddc5b4794406e308e",
-      "6ec9bddfd4801c69dfb927bf43ed4324819af88ff598af7d15088dfa59a0e182",
-      "797f1cd4ef58797505aa3e4c178c97ee06ac72d81c852573fc9a4af77de220e6",
-      "7b1ada415a8a0d756b5e60b55468e68eb22dd3a90c0a5e39ba28dd551fa5d3b1",
-      "878c5c4ec8bce595d679fb776a69032437e4e012f8815f10b891882094c67920",
-      "92a12430debd4df3b39bc096ba241445d879db57fb18fb1efaaee7608d27a2d8",
+      "7225e5726b1471469f0d856c163f6f39aacc269c23f843bc452dcece46f574ad",
+      "7837624d74b7cbb95b74dde1cd2a8e47c154b4d3d3f5f144f87fa225807efbe6",
+      "7aaa46139d2ad95180dc7cf8333cc5279d2190d746838d5a729936968b957f65",
+      "831d9d599c45e3569fbfed9526544804c6c14f3407cd8cb8ec12ed73892e7436",
+      "86de4b6e6db5029c95c3a16f2b125c784cb687abbe20a474fb685020a5c540a2",
       "99e9d797d17ffc06c71f2a095c30ac3f5aedfa4543d22a6bad5b0e5e5879b9da",
       "9b02cb7e2cad52c852c101be44a21ec6544e10138948c78236eb5c77220a26f3",
-      "9b5b19a7c99fd4585e777f14ea3d5f0f0f4a5c75e57df8b4458645b386d95314",
+      "9e6e748eb5eddbcde0ef4c8d409b7cf447590f7627675b75a985056e183d624a",
       "9f5ca7f69e0211d030a49c2c29c24a8357faf18b5d202cee9afeccfda5d9f108",
-      "9f8a892aaa86b36cad904dbcd35733779b2f73d463c4ddd595875f9d1378b8a9",
+      "a2e27c909dd0efe22a700a3f70a6a7dc7a61221a40c3e7884cc0d86cc5dbf109",
       "a8a90eed3bffc2a2335c1c77d8abe5e0d617db600516a091ba9c7193b2ce79fe",
-      "ad944447fbdeae0222289b073525706ed578e3067c01c05f7e064075854c7e25",
+      "ab028fc7f5a3cbd514b37e413dc0bd3ce574c311a737298fce252b96b2ff7fa0",
+      "b1d49a317f16b172d0ccea6029b868d22ea34f22ddb069a95fd3f45c03fc4d97",
+      "b7fc6d1440461a464c3e032b31877807f95bbfbb40f3ecc843e99532813328e2",
+      "ba49ad8b9ff37185c6d8a5f85565e1bd7e5441ef4f0d3139fd9c7ab071f41c21",
+      "bdb5f8cef4083936239d43361841b3e660c73dc262233edd0869affb24b114cb",
+      "bf08121244f5cd9995e78f844abd40f1f3518b51f3b75aaa333180d8fe23fb11",
+      "c010799a3d9381207ecd37f79ae470002383df09f84b15bd3703c1da5bba9211",
+      "c03bc87d3ede114c22c2cff28dcbcf1ecbaeeb785929867d0551fddcd5406aca",
+      "c5b1e13fbbfef54ceb5e988b0141f477537c3980966bef4888124d49e629404b",
       "c83480097c174dff2e6bcdb0155a16e03970085cb2e7113af542a8104b4bb167",
-      "d4819a08f33f9ee7c9b5749cc39a8d3f6295fc56bb8216ab54d805d9cb00b77d",
-      "e186c641e274d5c80d10ad01a2d5532409a8c411c9e4228800d3c26b84e995f6",
-      "edd7ac22ccc3bb84b9ffd8458e156fc29948f55e597a65994cbd8667d448bae0",
-      "f72dd76d9ecb80c936363fac2b604aacb5ed9efb641dabc93963bf950dd5fab0",
-      "f7345493206ce3c078707a3cf64e83e6fddb4abaa8d24b000b4f1c6fdc4fb095",
-      "f7eef383f398cda47355237e6284edaf301d3c49af9b309666a490704fb602f4",
-      "fe9c480c3d9c3b482e1ba1c092cc4a049eed7ff8219f6dcb539f64077b4a1135"
+      "c92301dace5a6eba5a67509390ceceeb7cf47c6822f95871a51642119e189b9c",
+      "c95564fb45c8ced06f6d7322cc2f1b085fafa067a9afea7a6530824b6f43fa88",
+      "cefa4334a8ab7104f65bb7251a4d5078384635f8a28371c859322d38627e300c",
+      "daf54e2879ae8b5fe38bb26d8f06ba8e13f79cfcb8bdbcd0ca33ab9a73849117",
+      "dfab6d3e32a2755639c532067305c72ba8b59b31d2d8206e474693f5226f1e40",
+      "eb2b9016de5bd45e56999f9b40f95d45bcfbb7d4321c348be65f2529dffcdee4",
+      "ef9438f31705e1a0b8f34681c8eb37ae41eacabe2ec0984fb2b4420cf28afa0a"
     ],
-    "unverified_answered": [
-      "c2_q35",
-      "c7_q64"
-    ],
+    "unverified_answered": [],
     "missing_support": [],
-    "failures": [
-      "unverified_answered:2"
-    ]
+    "failures": []
   },
-  "verified_accuracy": 0.45,
+  "verified_accuracy": 0.575,
   "consolidation": {
     "eidetic-plus-full": {
       "groups": 10,
-      "pending_processed": 250,
-      "facts_extracted": 1093,
-      "events_indexed": 1093,
+      "pending_processed": 246,
+      "facts_extracted": 1109,
+      "events_indexed": 1109,
       "extraction_timed_out": 0,
       "extraction_deferred": 0,
-      "extraction_windows_planned": 258,
-      "extraction_windows_submitted": 258,
+      "extraction_windows_planned": 253,
+      "extraction_windows_submitted": 253,
       "extraction_window_cap_per_record": 0,
       "extraction_call_budget": 900,
       "extraction_raw_only_bounded": 0,
@@ -7927,7 +7830,7 @@
   },
   "snap_back": {
     "status": "PASS",
-    "data_dir": "/Users/raunakgengiti/Eidetic-Plus/artifacts/holdout_rotation_r7_codex/data",
+    "data_dir": "/Users/raunakgengiti/Eidetic-Plus/artifacts/holdout_rotation_r8_codex/data",
     "records_with_raw_blob": 272,
     "lossless_byte_identical": 272,
     "rate": 1.0,
@@ -8314,7 +8217,66 @@
       "wilson_width_pp": 0.0
     }
   },
-  "abstention_calibration": {},
+  "abstention_calibration": {
+    "ok": true,
+    "tau": 1.000000001,
+    "n": 264,
+    "precision_at_tau": 0.0,
+    "coverage_at_tau": 0.0,
+    "target": 0.95,
+    "note": "target precision not reachable; tau abstains every item",
+    "method": "abstention_v2_tau",
+    "system": "eidetic-plus-full",
+    "split": "dev",
+    "source_logs": "/private/tmp/claude-501/-Users-raunakgengiti-Eidetic-Plus/66eb8ee1-f861-4eb3-95b1-7f49aa8cf55f/scratchpad/calib_logs",
+    "excluded_by_split": 0,
+    "log_fingerprint": {
+      "algorithm": "sha256",
+      "file_count": 7,
+      "combined_sha256": "3f0c24806df6973eff9bff291ade279edaef8d7392cb47affc95bbf9f2b9eb62",
+      "files": [
+        {
+          "path": "eidetic-plus-full__run0.jsonl",
+          "bytes": 108610,
+          "sha256": "eecfea1329da178ac7e08cd92e1286eba65d689f27fe4e24b4a1f14739dbe1a3"
+        },
+        {
+          "path": "eidetic-plus-full__run1.jsonl",
+          "bytes": 102697,
+          "sha256": "12d14566b62d1ff893a4ec84fc03cf3d55f8e7e622d1f9fc7eb963ce0833a5d2"
+        },
+        {
+          "path": "eidetic-plus-full__run2.jsonl",
+          "bytes": 104993,
+          "sha256": "ea77014185c334436a7871ec86b5f0ed0fd39963d32945b5105b168aef4cd01a"
+        },
+        {
+          "path": "eidetic-plus-full__run3.jsonl",
+          "bytes": 102628,
+          "sha256": "6461b6339b5b3d2067cfc50ed37ea21a94122bc35f7cd6997c417493051247f2"
+        },
+        {
+          "path": "eidetic-plus-full__run4.jsonl",
+          "bytes": 110265,
+          "sha256": "0e740dfac1574742d1d79cff80fb1d2edda73d723c30be2dc33496c4e22b7433"
+        },
+        {
+          "path": "eidetic-plus-full__run5.jsonl",
+          "bytes": 104314,
+          "sha256": "0475a4db17c6851c9a932f424d4a5d0119ec51cd4ef4852bac152f6318951ef4"
+        },
+        {
+          "path": "eidetic-plus-full__run6.jsonl",
+          "bytes": 66284,
+          "sha256": "62fa93b82d497fd40a1c3dbf73f95dfce56c823e435b4172636be7fc89cca2c6"
+        }
+      ]
+    },
+    "recommended_env": {
+      "ABSTENTION_V2": "1",
+      "ABSTENTION_V2_TAU": "1.000000001"
+    }
+  },
   "baseline_reproduction": {},
   "paired": {
     "rag-full": {
@@ -9301,7 +9263,7 @@
         "neither": 0,
         "p_mcnemar": null,
         "unpaired_headline": 0,
-        "unpaired_baseline": 40
+        "unpaired_baseline": 13
       },
       "sample_clustered": {
         "n": 0,
@@ -9314,7 +9276,7 @@
         "discordant": 0,
         "p_mcnemar": null,
         "unpaired_headline": 0,
-        "unpaired_baseline": 40
+        "unpaired_baseline": 13
       },
       "sample_clustered_ci": {
         "headline": {
@@ -9325,11 +9287,11 @@
           "wilson_width_pp": 0.0
         },
         "baseline": {
-          "n": 40,
-          "accuracy": 0.3,
-          "wilson_low": 0.18074845229746528,
-          "wilson_high": 0.45430018818144935,
-          "wilson_width_pp": 27.355173588398408
+          "n": 13,
+          "accuracy": 0.6923076923076923,
+          "wilson_low": 0.42369343180549035,
+          "wilson_high": 0.8731929634428948,
+          "wilson_width_pp": 44.94995316374044
         }
       },
       "categories": {
@@ -9609,7 +9571,7 @@
             "neither": 0,
             "p_mcnemar": null,
             "unpaired_headline": 0,
-            "unpaired_baseline": 21
+            "unpaired_baseline": 8
           },
           "sample_clustered": {
             "n": 0,
@@ -9622,7 +9584,7 @@
             "discordant": 0,
             "p_mcnemar": null,
             "unpaired_headline": 0,
-            "unpaired_baseline": 21
+            "unpaired_baseline": 8
           },
           "sample_clustered_ci": {
             "headline": {
@@ -9633,11 +9595,11 @@
               "wilson_width_pp": 0.0
             },
             "baseline": {
-              "n": 21,
-              "accuracy": 0.47619047619047616,
-              "wilson_low": 0.2834400610153417,
-              "wilson_high": 0.6763046541715557,
-              "wilson_width_pp": 39.2864593156214
+              "n": 8,
+              "accuracy": 0.875,
+              "wilson_low": 0.5291118177871464,
+              "wilson_high": 0.9775825085499433,
+              "wilson_width_pp": 44.84706907627969
             }
           }
         },
@@ -9653,7 +9615,7 @@
             "neither": 0,
             "p_mcnemar": null,
             "unpaired_headline": 0,
-            "unpaired_baseline": 8
+            "unpaired_baseline": 2
           },
           "sample_clustered": {
             "n": 0,
@@ -9666,7 +9628,7 @@
             "discordant": 0,
             "p_mcnemar": null,
             "unpaired_headline": 0,
-            "unpaired_baseline": 8
+            "unpaired_baseline": 2
           },
           "sample_clustered_ci": {
             "headline": {
@@ -9677,11 +9639,11 @@
               "wilson_width_pp": 0.0
             },
             "baseline": {
-              "n": 8,
-              "accuracy": 0.125,
-              "wilson_low": 0.02241749145005667,
-              "wilson_high": 0.4708881822128535,
-              "wilson_width_pp": 44.84706907627968
+              "n": 2,
+              "accuracy": 0.5,
+              "wilson_low": 0.09453120573423074,
+              "wilson_high": 0.9054687942657693,
+              "wilson_width_pp": 81.09375885315386
             }
           }
         },
@@ -9697,7 +9659,7 @@
             "neither": 0,
             "p_mcnemar": null,
             "unpaired_headline": 0,
-            "unpaired_baseline": 8
+            "unpaired_baseline": 2
           },
           "sample_clustered": {
             "n": 0,
@@ -9710,7 +9672,7 @@
             "discordant": 0,
             "p_mcnemar": null,
             "unpaired_headline": 0,
-            "unpaired_baseline": 8
+            "unpaired_baseline": 2
           },
           "sample_clustered_ci": {
             "headline": {
@@ -9721,11 +9683,11 @@
               "wilson_width_pp": 0.0
             },
             "baseline": {
-              "n": 8,
+              "n": 2,
               "accuracy": 0.0,
               "wilson_low": 0.0,
-              "wilson_high": 0.32440756488388023,
-              "wilson_width_pp": 32.440756488388026
+              "wilson_high": 0.6576197724933469,
+              "wilson_width_pp": 65.76197724933469
             }
           }
         },
@@ -9741,7 +9703,7 @@
             "neither": 0,
             "p_mcnemar": null,
             "unpaired_headline": 0,
-            "unpaired_baseline": 3
+            "unpaired_baseline": 1
           },
           "sample_clustered": {
             "n": 0,
@@ -9754,7 +9716,7 @@
             "discordant": 0,
             "p_mcnemar": null,
             "unpaired_headline": 0,
-            "unpaired_baseline": 3
+            "unpaired_baseline": 1
           },
           "sample_clustered_ci": {
             "headline": {
@@ -9765,11 +9727,11 @@
               "wilson_width_pp": 0.0
             },
             "baseline": {
-              "n": 3,
-              "accuracy": 0.3333333333333333,
-              "wilson_low": 0.06149194472039621,
-              "wilson_high": 0.7923403991979522,
-              "wilson_width_pp": 73.0848454477556
+              "n": 1,
+              "accuracy": 1.0,
+              "wilson_low": 0.20654931437723745,
+              "wilson_high": 1.0,
+              "wilson_width_pp": 79.34506856227625
             }
           }
         }

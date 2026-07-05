@@ -2,7 +2,7 @@
 
 Status: **FAIL**
 Artifact directory: `artifacts/public_ship`
-Log fingerprint: `51d0cbaa5ce98b3c4ed84ec2e5e83813be041e5fdf7f0b5b9781a4890d838e28` (2 files)
+Log fingerprint: `ae231e635c2e6926fe0a0c69fb7648031137982f0986f85a9187eefa4145cb5f` (2 files)
 
 ## Checks
 
@@ -14,10 +14,10 @@ Log fingerprint: `51d0cbaa5ce98b3c4ed84ec2e5e83813be041e5fdf7f0b5b9781a4890d838e
 | artifact:recall_vs_age.png | PASS | present |
 | artifact:latency_vs_age.png | PASS | present |
 | artifact:snap_back_audit.json | PASS | present |
-| logs:fingerprint_stable | PASS | before 51d0cbaa5ce98b3c4ed84ec2e5e83813be041e5fdf7f0b5b9781a4890d838e28 (2 files); after 51d0cbaa5ce98b3c4ed84ec2e5e83813be041e5fdf7f0b5b9781a4890d838e28 (2 files) |
+| logs:fingerprint_stable | PASS | before ae231e635c2e6926fe0a0c69fb7648031137982f0986f85a9187eefa4145cb5f (2 files); after ae231e635c2e6926fe0a0c69fb7648031137982f0986f85a9187eefa4145cb5f (2 files) |
 | scoreboard:valid_json | PASS | valid |
-| scoreboard:log_fingerprint_present | PASS | 51d0cbaa5ce98b3c4ed84ec2e5e83813be041e5fdf7f0b5b9781a4890d838e28 (2 files) |
-| scoreboard:log_fingerprint_matches | PASS | 51d0cbaa5ce98b3c4ed84ec2e5e83813be041e5fdf7f0b5b9781a4890d838e28 (2 files) (current 51d0cbaa5ce98b3c4ed84ec2e5e83813be041e5fdf7f0b5b9781a4890d838e28 (2 files)) |
+| scoreboard:log_fingerprint_present | PASS | ae231e635c2e6926fe0a0c69fb7648031137982f0986f85a9187eefa4145cb5f (2 files) |
+| scoreboard:log_fingerprint_matches | PASS | ae231e635c2e6926fe0a0c69fb7648031137982f0986f85a9187eefa4145cb5f (2 files) (current ae231e635c2e6926fe0a0c69fb7648031137982f0986f85a9187eefa4145cb5f (2 files)) |
 | claim_scope:valid_json | PASS | valid |
 | claim_scope:scope_declared | PASS | limited |
 | claim_scope:harness_names_have_logs | PASS | all harness names have logs |
@@ -26,7 +26,7 @@ Log fingerprint: `51d0cbaa5ce98b3c4ed84ec2e5e83813be041e5fdf7f0b5b9781a4890d838e
 | claim_scope:no_unsupported_sota | PASS | not a SOTA claim |
 | claim_scope:top_system_dataset_coverage | PASS | not a SOTA claim |
 | claim_scope:top_system_score_floor | PASS | not a SOTA claim |
-| claim_scope:limitations_for_limited_claim | PASS | 7 limitations |
+| claim_scope:limitations_for_limited_claim | PASS | 8 limitations |
 | manifest:split | PASS | test (expected test) |
 | manifest:runs | FAIL | 1 (required >= 10) |
 | manifest:not_render_only | FAIL | render_only=True |
@@ -40,20 +40,20 @@ Log fingerprint: `51d0cbaa5ce98b3c4ed84ec2e5e83813be041e5fdf7f0b5b9781a4890d838e
 | manifest:longmemeval:knowledge-update:sample_rows | FAIL | 0 unique sample rows (required >= 20) |
 | manifest:longmemeval:temporal-reasoning:sample_rows | FAIL | 0 unique sample rows (required >= 20) |
 | manifest:locomo:categories_cover_required | PASS | all required categories present |
-| manifest:locomo:single-hop:sample_rows | PASS | 21 unique sample rows (required >= 20) |
-| manifest:locomo:multi-hop:sample_rows | FAIL | 8 unique sample rows (required >= 20) |
-| manifest:locomo:temporal:sample_rows | FAIL | 8 unique sample rows (required >= 20) |
-| manifest:locomo:open-domain:sample_rows | FAIL | 3 unique sample rows (required >= 20) |
+| manifest:locomo:single-hop:sample_rows | PASS | 22 unique sample rows (required >= 20) |
+| manifest:locomo:multi-hop:sample_rows | FAIL | 7 unique sample rows (required >= 20) |
+| manifest:locomo:temporal:sample_rows | FAIL | 9 unique sample rows (required >= 20) |
+| manifest:locomo:open-domain:sample_rows | FAIL | 2 unique sample rows (required >= 20) |
 | manifest:no_system_failures | PASS | none |
-| manifest:data_dir_recorded | PASS | artifacts/holdout_rotation_r7_codex/data |
+| manifest:data_dir_recorded | PASS | artifacts/holdout_rotation_r8_codex/data |
 | manifest:no_dataset_source_scans | PASS | disabled |
 | manifest:session_ingest_granularity | PASS | session |
 | manifest:holdout_profile | PASS | holdout |
-| manifest:samples_file_recorded | PASS | artifacts/holdout_rotation_r7_codex/holdout40.samples.json |
+| manifest:samples_file_recorded | PASS | artifacts/holdout_rotation_r8_codex/holdout40.samples.json |
 | holdout_audit:valid_json | PASS | valid |
 | holdout_audit:evidence | PASS | 1639 holdout needles, 0 findings |
-| ablation:valid_json | FAIL | missing |
-| ablation:evidence | FAIL | pass:<missing>; system:<missing>:expected:eidetic-plus-full; split:<missing>:expected:dev; evidence_refs:0; ablation:metabolism_off_missing; ablation:regions_off_missing; ablation:forgetting_off_missing; ablation:affect_off_missing |
+| ablation:valid_json | PASS | valid |
+| ablation:evidence | FAIL | pass:FAIL; region_delta_pp:-4.18<required:2.00; forgetting_accuracy_regression_pp:3.98>allowed:1.00; forgetting_cost_ratio:0.982<required:1.050 |
 | affect_salience:valid_json | PASS | valid |
 | affect_salience:evidence | PASS | 168/168 checks, boost ratio 0.489803 |
 | scratchpad:valid_json | PASS | valid |
@@ -101,22 +101,22 @@ Log fingerprint: `51d0cbaa5ce98b3c4ed84ec2e5e83813be041e5fdf7f0b5b9781a4890d838e
 | smqe_lacuna:evidence | PASS | 24/24 lacuna polarity/retraction/absence checks, seed_mode:random |
 | crystal_demotion:valid_json | PASS | valid |
 | crystal_demotion:evidence | PASS | 20/20 demotion checks, avg_ratio=0.1545, seed_mode:random |
-| abstention_calibration:valid_json | FAIL | missing |
-| abstention_calibration:ok | FAIL | <missing> |
-| abstention_calibration:method | FAIL | <missing> |
-| abstention_calibration:split | FAIL | <missing> (expected dev) |
-| abstention_calibration:system | FAIL | <missing> (expected eidetic-plus-full) |
-| abstention_calibration:samples | FAIL | 0 (required >= 50) |
-| abstention_calibration:target_precision | FAIL | 0.000 (required >= 0.950) |
-| abstention_calibration:precision_at_tau | FAIL | 0.000 (target 0.000) |
+| abstention_calibration:valid_json | PASS | valid |
+| abstention_calibration:ok | PASS | True |
+| abstention_calibration:method | PASS | abstention_v2_tau |
+| abstention_calibration:split | PASS | dev (expected dev) |
+| abstention_calibration:system | PASS | eidetic-plus-full (expected eidetic-plus-full) |
+| abstention_calibration:samples | PASS | 264 (required >= 50) |
+| abstention_calibration:target_precision | PASS | 0.950 (required >= 0.950) |
+| abstention_calibration:precision_at_tau | FAIL | 0.000 (target 0.950) |
 | abstention_calibration:nonzero_coverage | FAIL | 0.000 |
-| abstention_calibration:tau_applied | FAIL | report=None, manifest=<unset> |
-| abstention_calibration:log_fingerprint_present | FAIL | <missing> |
+| abstention_calibration:tau_applied | FAIL | report=1.000000001, manifest=<unset> |
+| abstention_calibration:log_fingerprint_present | PASS | 3f0c24806df6973eff9bff291ade279edaef8d7392cb47affc95bbf9f2b9eb62 (7 files) |
 | logs:nonempty | PASS | 80 rows |
-| logs:no_error_rows | PASS | 0 error rows |
+| logs:no_error_rows | FAIL | 27 error rows |
 | smqe:notes_clean | PASS | no legacy structured-recall policies |
-| smqe:log_policy_shape | FAIL | structured_rate:0.325<required:0.800 |
-| region:telemetry | PASS | 26/40 rows with hints; 76 hints |
+| smqe:log_policy_shape | FAIL | structured_rate:0.350<required:0.800 |
+| region:telemetry | PASS | 25/40 rows with hints; 75 hints |
 | logs:match_manifest_sample_rows | FAIL | expected=280, actual=80, missing=200, extra=0 |
 | logs:held_out_split | PASS | 0 rows outside test split |
 | systems:required_present | FAIL | missing: eidetic-plus, eidetic-product, rag-full, rag-vector, graphiti |
@@ -166,13 +166,13 @@ Log fingerprint: `51d0cbaa5ce98b3c4ed84ec2e5e83813be041e5fdf7f0b5b9781a4890d838e
 | eidetic-plus-full:longmemeval:temporal-reasoning:runs | FAIL | 0 runs: [] |
 | eidetic-plus-full:locomo:questions | FAIL | 40 unique samples, 40 rows (required >= 300 unique samples) |
 | eidetic-plus-full:locomo:runs | FAIL | 1 runs: [0] |
-| eidetic-plus-full:locomo:single-hop:questions | PASS | 21 unique samples, 21 rows (required >= 20) |
+| eidetic-plus-full:locomo:single-hop:questions | PASS | 22 unique samples, 22 rows (required >= 20) |
 | eidetic-plus-full:locomo:single-hop:runs | FAIL | 1 runs: [0] |
-| eidetic-plus-full:locomo:multi-hop:questions | FAIL | 8 unique samples, 8 rows (required >= 20) |
+| eidetic-plus-full:locomo:multi-hop:questions | FAIL | 7 unique samples, 7 rows (required >= 20) |
 | eidetic-plus-full:locomo:multi-hop:runs | FAIL | 1 runs: [0] |
-| eidetic-plus-full:locomo:temporal:questions | FAIL | 8 unique samples, 8 rows (required >= 20) |
+| eidetic-plus-full:locomo:temporal:questions | FAIL | 9 unique samples, 9 rows (required >= 20) |
 | eidetic-plus-full:locomo:temporal:runs | FAIL | 1 runs: [0] |
-| eidetic-plus-full:locomo:open-domain:questions | FAIL | 3 unique samples, 3 rows (required >= 20) |
+| eidetic-plus-full:locomo:open-domain:questions | FAIL | 2 unique samples, 2 rows (required >= 20) |
 | eidetic-plus-full:locomo:open-domain:runs | FAIL | 1 runs: [0] |
 | eidetic-product:questions | FAIL | 0 unique samples, 0 rows (required >= 1000 unique samples) |
 | eidetic-product:runs | FAIL | 0 runs: [] |
@@ -274,13 +274,13 @@ Log fingerprint: `51d0cbaa5ce98b3c4ed84ec2e5e83813be041e5fdf7f0b5b9781a4890d838e
 | mem0:longmemeval:temporal-reasoning:runs | FAIL | 0 runs: [] |
 | mem0:locomo:questions | FAIL | 40 unique samples, 40 rows (required >= 300 unique samples) |
 | mem0:locomo:runs | FAIL | 1 runs: [0] |
-| mem0:locomo:single-hop:questions | PASS | 21 unique samples, 21 rows (required >= 20) |
+| mem0:locomo:single-hop:questions | PASS | 22 unique samples, 22 rows (required >= 20) |
 | mem0:locomo:single-hop:runs | FAIL | 1 runs: [0] |
-| mem0:locomo:multi-hop:questions | FAIL | 8 unique samples, 8 rows (required >= 20) |
+| mem0:locomo:multi-hop:questions | FAIL | 7 unique samples, 7 rows (required >= 20) |
 | mem0:locomo:multi-hop:runs | FAIL | 1 runs: [0] |
-| mem0:locomo:temporal:questions | FAIL | 8 unique samples, 8 rows (required >= 20) |
+| mem0:locomo:temporal:questions | FAIL | 9 unique samples, 9 rows (required >= 20) |
 | mem0:locomo:temporal:runs | FAIL | 1 runs: [0] |
-| mem0:locomo:open-domain:questions | FAIL | 3 unique samples, 3 rows (required >= 20) |
+| mem0:locomo:open-domain:questions | FAIL | 2 unique samples, 2 rows (required >= 20) |
 | mem0:locomo:open-domain:runs | FAIL | 1 runs: [0] |
 | graphiti:questions | FAIL | 0 unique samples, 0 rows (required >= 1000 unique samples) |
 | graphiti:runs | FAIL | 0 runs: [] |
@@ -309,7 +309,7 @@ Log fingerprint: `51d0cbaa5ce98b3c4ed84ec2e5e83813be041e5fdf7f0b5b9781a4890d838e
 | graphiti:locomo:temporal:runs | FAIL | 0 runs: [] |
 | graphiti:locomo:open-domain:questions | FAIL | 0 unique samples, 0 rows (required >= 20) |
 | graphiti:locomo:open-domain:runs | FAIL | 0 runs: [] |
-| competitor_health:mem0 | PASS | rows=40, missing=0, bad=0 |
+| competitor_health:mem0 | PASS | rows=13, missing=0, bad=0 |
 | competitor_health:graphiti | FAIL | rows=0, missing=0, bad=0 |
 | eidetic-plus:longmemeval:accuracy | FAIL | 0.0% (required >= 85.0%) |
 | evidence:eidetic-plus:longmemeval:sample_clustered_accuracy_ci_width | FAIL | sample_n=0, acc=0.0%, Wilson 0.0-0.0 (width 0.0pp; allowed <= 10.0pp) |
@@ -467,12 +467,12 @@ Log fingerprint: `51d0cbaa5ce98b3c4ed84ec2e5e83813be041e5fdf7f0b5b9781a4890d838e
 | dominance:eidetic-plus:vs:rag-vector:locomo/open-domain:sample_clustered_ci_clear | FAIL | headline sample_n=0, acc=0.0%, Wilson 0.0-0.0 (width 0.0pp; allowed <= 100.0pp); baseline sample_n=0, acc=0.0%, Wilson 0.0-0.0 (width 0.0pp; allowed <= 100.0pp); need headline lower CI > baseline upper CI |
 | dominance:eidetic-plus:vs:rag-vector:locomo/open-domain:sample_clustered_discordants | FAIL | 0 discordant samples (required >= 6) |
 | dominance:eidetic-plus:vs:rag-vector:locomo/open-domain:sample_clustered_significance | FAIL | p=n/a, discordant=0 (required p < 0.05) |
-| dominance:eidetic-plus:vs:mem0:paired | FAIL | paired_n=0, unpaired=40 |
+| dominance:eidetic-plus:vs:mem0:paired | FAIL | paired_n=0, unpaired=13 |
 | dominance:eidetic-plus:vs:mem0:delta | FAIL | 0.0pp (required >= 10.0pp) |
 | dominance:eidetic-plus:vs:mem0:significance | FAIL | p=n/a (required < 0.05) |
-| dominance:eidetic-plus:vs:mem0:sample_clustered_paired | FAIL | sample_n=0 (required >= 1000), unpaired=40 |
+| dominance:eidetic-plus:vs:mem0:sample_clustered_paired | FAIL | sample_n=0 (required >= 1000), unpaired=13 |
 | dominance:eidetic-plus:vs:mem0:sample_clustered_delta | FAIL | 0.0pp (required >= 10.0pp) |
-| dominance:eidetic-plus:vs:mem0:sample_clustered_ci_clear | FAIL | headline sample_n=0, acc=0.0%, Wilson 0.0-0.0 (width 0.0pp; allowed <= 100.0pp); baseline sample_n=40, acc=30.0%, Wilson 18.1-45.4 (width 27.4pp; allowed <= 100.0pp); need headline lower CI > baseline upper CI |
+| dominance:eidetic-plus:vs:mem0:sample_clustered_ci_clear | FAIL | headline sample_n=0, acc=0.0%, Wilson 0.0-0.0 (width 0.0pp; allowed <= 100.0pp); baseline sample_n=13, acc=69.2%, Wilson 42.4-87.3 (width 44.9pp; allowed <= 100.0pp); need headline lower CI > baseline upper CI |
 | dominance:eidetic-plus:vs:mem0:sample_clustered_discordants | FAIL | 0 discordant samples (required >= 6) |
 | dominance:eidetic-plus:vs:mem0:sample_clustered_significance | FAIL | p=n/a, discordant=0 (required p < 0.05) |
 | dominance:eidetic-plus:vs:mem0:longmemeval/single-session-user | FAIL | n=0, delta=0.0pp (required >= 0.0pp) |
@@ -512,27 +512,27 @@ Log fingerprint: `51d0cbaa5ce98b3c4ed84ec2e5e83813be041e5fdf7f0b5b9781a4890d838e
 | dominance:eidetic-plus:vs:mem0:longmemeval/temporal-reasoning:sample_clustered_discordants | FAIL | 0 discordant samples (required >= 6) |
 | dominance:eidetic-plus:vs:mem0:longmemeval/temporal-reasoning:sample_clustered_significance | FAIL | p=n/a, discordant=0 (required p < 0.05) |
 | dominance:eidetic-plus:vs:mem0:locomo/single-hop | FAIL | n=0, delta=0.0pp (required >= 0.0pp) |
-| dominance:eidetic-plus:vs:mem0:locomo/single-hop:sample_clustered_paired | FAIL | sample_n=0 (required >= 20), unpaired=21 |
+| dominance:eidetic-plus:vs:mem0:locomo/single-hop:sample_clustered_paired | FAIL | sample_n=0 (required >= 20), unpaired=8 |
 | dominance:eidetic-plus:vs:mem0:locomo/single-hop:sample_clustered_delta | PASS | 0.0pp (required >= 0.0pp) |
-| dominance:eidetic-plus:vs:mem0:locomo/single-hop:sample_clustered_ci_clear | FAIL | headline sample_n=0, acc=0.0%, Wilson 0.0-0.0 (width 0.0pp; allowed <= 100.0pp); baseline sample_n=21, acc=47.6%, Wilson 28.3-67.6 (width 39.3pp; allowed <= 100.0pp); need headline lower CI > baseline upper CI |
+| dominance:eidetic-plus:vs:mem0:locomo/single-hop:sample_clustered_ci_clear | FAIL | headline sample_n=0, acc=0.0%, Wilson 0.0-0.0 (width 0.0pp; allowed <= 100.0pp); baseline sample_n=8, acc=87.5%, Wilson 52.9-97.8 (width 44.8pp; allowed <= 100.0pp); need headline lower CI > baseline upper CI |
 | dominance:eidetic-plus:vs:mem0:locomo/single-hop:sample_clustered_discordants | FAIL | 0 discordant samples (required >= 6) |
 | dominance:eidetic-plus:vs:mem0:locomo/single-hop:sample_clustered_significance | FAIL | p=n/a, discordant=0 (required p < 0.05) |
 | dominance:eidetic-plus:vs:mem0:locomo/multi-hop | FAIL | n=0, delta=0.0pp (required >= 0.0pp) |
-| dominance:eidetic-plus:vs:mem0:locomo/multi-hop:sample_clustered_paired | FAIL | sample_n=0 (required >= 20), unpaired=8 |
+| dominance:eidetic-plus:vs:mem0:locomo/multi-hop:sample_clustered_paired | FAIL | sample_n=0 (required >= 20), unpaired=2 |
 | dominance:eidetic-plus:vs:mem0:locomo/multi-hop:sample_clustered_delta | PASS | 0.0pp (required >= 0.0pp) |
-| dominance:eidetic-plus:vs:mem0:locomo/multi-hop:sample_clustered_ci_clear | FAIL | headline sample_n=0, acc=0.0%, Wilson 0.0-0.0 (width 0.0pp; allowed <= 100.0pp); baseline sample_n=8, acc=12.5%, Wilson 2.2-47.1 (width 44.8pp; allowed <= 100.0pp); need headline lower CI > baseline upper CI |
+| dominance:eidetic-plus:vs:mem0:locomo/multi-hop:sample_clustered_ci_clear | FAIL | headline sample_n=0, acc=0.0%, Wilson 0.0-0.0 (width 0.0pp; allowed <= 100.0pp); baseline sample_n=2, acc=50.0%, Wilson 9.5-90.5 (width 81.1pp; allowed <= 100.0pp); need headline lower CI > baseline upper CI |
 | dominance:eidetic-plus:vs:mem0:locomo/multi-hop:sample_clustered_discordants | FAIL | 0 discordant samples (required >= 6) |
 | dominance:eidetic-plus:vs:mem0:locomo/multi-hop:sample_clustered_significance | FAIL | p=n/a, discordant=0 (required p < 0.05) |
 | dominance:eidetic-plus:vs:mem0:locomo/temporal | FAIL | n=0, delta=0.0pp (required >= 0.0pp) |
-| dominance:eidetic-plus:vs:mem0:locomo/temporal:sample_clustered_paired | FAIL | sample_n=0 (required >= 20), unpaired=8 |
+| dominance:eidetic-plus:vs:mem0:locomo/temporal:sample_clustered_paired | FAIL | sample_n=0 (required >= 20), unpaired=2 |
 | dominance:eidetic-plus:vs:mem0:locomo/temporal:sample_clustered_delta | PASS | 0.0pp (required >= 0.0pp) |
-| dominance:eidetic-plus:vs:mem0:locomo/temporal:sample_clustered_ci_clear | FAIL | headline sample_n=0, acc=0.0%, Wilson 0.0-0.0 (width 0.0pp; allowed <= 100.0pp); baseline sample_n=8, acc=0.0%, Wilson 0.0-32.4 (width 32.4pp; allowed <= 100.0pp); need headline lower CI > baseline upper CI |
+| dominance:eidetic-plus:vs:mem0:locomo/temporal:sample_clustered_ci_clear | FAIL | headline sample_n=0, acc=0.0%, Wilson 0.0-0.0 (width 0.0pp; allowed <= 100.0pp); baseline sample_n=2, acc=0.0%, Wilson 0.0-65.8 (width 65.8pp; allowed <= 100.0pp); need headline lower CI > baseline upper CI |
 | dominance:eidetic-plus:vs:mem0:locomo/temporal:sample_clustered_discordants | FAIL | 0 discordant samples (required >= 6) |
 | dominance:eidetic-plus:vs:mem0:locomo/temporal:sample_clustered_significance | FAIL | p=n/a, discordant=0 (required p < 0.05) |
 | dominance:eidetic-plus:vs:mem0:locomo/open-domain | FAIL | n=0, delta=0.0pp (required >= 0.0pp) |
-| dominance:eidetic-plus:vs:mem0:locomo/open-domain:sample_clustered_paired | FAIL | sample_n=0 (required >= 20), unpaired=3 |
+| dominance:eidetic-plus:vs:mem0:locomo/open-domain:sample_clustered_paired | FAIL | sample_n=0 (required >= 20), unpaired=1 |
 | dominance:eidetic-plus:vs:mem0:locomo/open-domain:sample_clustered_delta | PASS | 0.0pp (required >= 0.0pp) |
-| dominance:eidetic-plus:vs:mem0:locomo/open-domain:sample_clustered_ci_clear | FAIL | headline sample_n=0, acc=0.0%, Wilson 0.0-0.0 (width 0.0pp; allowed <= 100.0pp); baseline sample_n=3, acc=33.3%, Wilson 6.1-79.2 (width 73.1pp; allowed <= 100.0pp); need headline lower CI > baseline upper CI |
+| dominance:eidetic-plus:vs:mem0:locomo/open-domain:sample_clustered_ci_clear | FAIL | headline sample_n=0, acc=0.0%, Wilson 0.0-0.0 (width 0.0pp; allowed <= 100.0pp); baseline sample_n=1, acc=100.0%, Wilson 20.7-100.0 (width 79.3pp; allowed <= 100.0pp); need headline lower CI > baseline upper CI |
 | dominance:eidetic-plus:vs:mem0:locomo/open-domain:sample_clustered_discordants | FAIL | 0 discordant samples (required >= 6) |
 | dominance:eidetic-plus:vs:mem0:locomo/open-domain:sample_clustered_significance | FAIL | p=n/a, discordant=0 (required p < 0.05) |
 | dominance:eidetic-plus:vs:graphiti:paired | FAIL | paired_n=0, unpaired=0 |
@@ -604,8 +604,8 @@ Log fingerprint: `51d0cbaa5ce98b3c4ed84ec2e5e83813be041e5fdf7f0b5b9781a4890d838e
 | dominance:eidetic-plus:vs:graphiti:locomo/open-domain:sample_clustered_discordants | FAIL | 0 discordant samples (required >= 6) |
 | dominance:eidetic-plus:vs:graphiti:locomo/open-domain:sample_clustered_significance | FAIL | p=n/a, discordant=0 (required p < 0.05) |
 | integrity:eidetic-plus-full:verify_step | PASS | has_verify=True, n=40 |
-| integrity:eidetic-plus-full:verified_accuracy | FAIL | 45.0% (required >= 50.0%) |
-| integrity:eidetic-plus-full:proof_support | FAIL | unverified_answered:2 |
+| integrity:eidetic-plus-full:verified_accuracy | PASS | 57.5% (required >= 50.0%) |
+| integrity:eidetic-plus-full:proof_support | PASS | 36/36 verified rows carry proof support |
 | eidetic-plus:consolidation_timeouts | PASS | 0 (allowed <= 0) |
 | eidetic-plus:consolidation_deferred | PASS | 0 (allowed <= 0) |
 | eidetic-plus-full:consolidation_timeouts | PASS | 0 (allowed <= 0) |
@@ -625,8 +625,8 @@ Log fingerprint: `51d0cbaa5ce98b3c4ed84ec2e5e83813be041e5fdf7f0b5b9781a4890d838e
 | snap_back:lossless | PASS | 272/272, rate=1.000000 |
 | snap_back:no_failures | PASS | 0 failures |
 | snap_back:audited_hashes_present | PASS | 272 audited hash(es) |
-| snap_back:covers_verified_proof_hashes | PASS | 35 proof hash(es) covered |
-| snap_back:data_dir_matches_manifest | PASS | /Users/raunakgengiti/Eidetic-Plus/artifacts/holdout_rotation_r7_codex/data (expected /Users/raunakgengiti/Eidetic-Plus/artifacts/holdout_rotation_r7_codex/data) |
+| snap_back:covers_verified_proof_hashes | PASS | 51 proof hash(es) covered |
+| snap_back:data_dir_matches_manifest | PASS | /Users/raunakgengiti/Eidetic-Plus/artifacts/holdout_rotation_r8_codex/data (expected /Users/raunakgengiti/Eidetic-Plus/artifacts/holdout_rotation_r8_codex/data) |
 | baseline_reproduction:valid_json | FAIL | missing |
 | baseline_reproduction:status | FAIL | <missing> |
 | baseline_reproduction:system | FAIL | <missing> (expected mem0) |
@@ -634,7 +634,7 @@ Log fingerprint: `51d0cbaa5ce98b3c4ed84ec2e5e83813be041e5fdf7f0b5b9781a4890d838e
 | baseline_reproduction:rows | FAIL | total_n=0 |
 | baseline_reproduction:comparisons | PASS | all PASS |
 | baseline_reproduction:log_fingerprint_present | FAIL | <missing> |
-| baseline_reproduction:log_fingerprint_matches | FAIL | <missing> (current 51d0cbaa5ce98b3c4ed84ec2e5e83813be041e5fdf7f0b5b9781a4890d838e28 (2 files)) |
+| baseline_reproduction:log_fingerprint_matches | FAIL | <missing> (current ae231e635c2e6926fe0a0c69fb7648031137982f0986f85a9187eefa4145cb5f (2 files)) |
 
 ## Evidence Strength
 
@@ -723,12 +723,13 @@ Measured external systems: `-`
 
 ## Ablation Evidence
 
-System: ``  Split: ``  n: `0`  Evidence refs: `0`
-Metabolism delta: `None` pp  Regions delta: `None` pp  Affect delta: `None` pp  Forgetting cost ratio: `None`  Accuracy regression: `None` pp
+System: `eidetic-plus-full`  Split: `dev`  n: `26`  Evidence refs: `5`
+Metabolism delta: `18.9853` pp  Regions delta: `-4.1758` pp  Affect delta: `9.5385` pp  Forgetting cost ratio: `0.9824`  Accuracy regression: `3.9787` pp
 
 ## Abstention Calibration
 
-_No abstention calibration report loaded._
+Method: `abstention_v2_tau`  Split: `dev`  System: `eidetic-plus-full`  n: `264`  tau: `1.000000001`
+Calibration log fingerprint: `3f0c24806df6973eff9bff291ade279edaef8d7392cb47affc95bbf9f2b9eb62`
 
 ## Baseline Reproduction
 
@@ -738,10 +739,10 @@ _No baseline reproduction report loaded._
 
 | records with raw blob | lossless | rate | failures | data dir |
 |---:|---:|---:|---:|---|
-| 272 | 272 | 100.0000% | 0 | /Users/raunakgengiti/Eidetic-Plus/artifacts/holdout_rotation_r7_codex/data |
+| 272 | 272 | 100.0000% | 0 | /Users/raunakgengiti/Eidetic-Plus/artifacts/holdout_rotation_r8_codex/data |
 
 ## Consolidation Health
 
 | system | groups | timed out | deferred | windows planned | windows submitted | raw-only bounded | record raw-only | partial bounded | long-haystack bounded | long-haystack raw-only |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| eidetic-plus-full | 10 | 0 | 0 | 258 | 258 | 0 | 0 | 0 | 0 | 0 |
+| eidetic-plus-full | 10 | 0 | 0 | 253 | 253 | 0 | 0 | 0 | 0 | 0 |

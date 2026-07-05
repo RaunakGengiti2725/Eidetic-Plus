@@ -7,6 +7,12 @@
   "entity_scan_roots": [
     "eidetic"
   ],
+  "conversation_shingles_checked": 103014,
+  "shingle_scan_roots": [
+    "eidetic",
+    "bench",
+    "tests"
+  ],
   "legacy_policy_scan_enabled": true,
   "forbidden_policy_strings_checked": 5,
   "forbidden_fixed_answer_strings_checked": 12,

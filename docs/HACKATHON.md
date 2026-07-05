@@ -21,7 +21,7 @@ demo answering "why did we decide X" with a revision-backed citation in millisec
 the rolling never-touched holdout table recomputed live from raw jsonl, snap-back
 fidelity 100%.
 
-## Shot 3 -- slice 7, the freshest never-touched window (1min)
+## Shot 3 -- slice 8, the freshest never-touched window (1min)
 
 ```bash
 cat artifacts/holdout_rotation_r8_codex/launch_A.log        # pinned SHA + profile
@@ -29,11 +29,13 @@ head -c 600 artifacts/holdout_rotation_r8_codex/run_manifest.json  # every score
 cat artifacts/holdout_rotation_r8_codex/scoreboard.md
 ```
 
-Say the hard part out loud: window 7 (r8) is the strongest new-build window; the rolling n=320 table (six wins) -- the build missed its own
-internal bars there, and the ledger says so in plain text
-([bench/DOMINANCE_PROGRESS.md](../bench/DOMINANCE_PROGRESS.md), "SLICE 7"). The
-evidence unit is the rolling n=280 table across seven disjoint windows, not any single
-window. That is what honest benchmarking looks like.
+r8 is the freshest window (23/40 vs mem0 9/40, +14 -- the largest of eight) and the
+first carrying the VW-killer + event-date family, so it doubles as the new-build
+validation. But say the discipline out loud: the evidence unit is the rolling n=320
+table across eight disjoint windows, not any single window -- and we publish the
+losing window (r2: -1) and the hard draw (r7, below our own bars) right in it
+([bench/DOMINANCE_PROGRESS.md](../bench/DOMINANCE_PROGRESS.md), "SLICE 8"). That is
+what honest benchmarking looks like.
 
 ## Shot 4 -- live memory with proof (2min)
 
@@ -50,8 +52,10 @@ In a Claude Code session with the MCP plugin mounted:
 Open [bench/COST_AB.md](../bench/COST_AB.md), the COST BLITZ table: dev-40 median
 query tokens **83** with verify-or-abstain intact vs Mem0's 382 with zero verified
 answers. Then the caveat, unprompted: that is a dev-split number; the holdout window's
-structured coverage (13/40 on r7) did not reach the dev mix's crossing point, so the
-holdout median stays on the reader plateau. Both numbers are on screen, labeled.
+structured coverage (~14/40) did not reach the dev mix's crossing point, so the holdout
+median stays on the reader plateau. What DID transfer holdout-to-holdout: cost per
+verified answer fell every window (41.3k -> 36.3k -> 31.8k tokens, r6->r8). Both numbers
+on screen, labeled.
 
 ## Shot 6 -- forgetting that never lies (30s)
 
