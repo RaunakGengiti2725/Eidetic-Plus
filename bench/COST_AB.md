@@ -296,3 +296,11 @@ never-touched for a build whose family was motivated by its miss taxonomy -- bot
 reasons point the same way). Family STAYS SHIPPED: zero accuracy cost, write tok +3.5%,
 18 adversarially-confirmed defect classes locked by tests, and it hardens the temporal
 class write-side for r8+. Measurement on the NEXT fresh window is the honest read.
+
+## ABSTENTION_V2 tau calibration (264 dev rows, 2026-07-05) -- honest negative
+
+bench.calibrate --method v2 over seven dev jsonls (fingerprinted in the report):
+NO tau reaches the 0.95 precision target; tau=1.0 abstains every row. Root cause is
+the verified-wrong rate (structured VW junk shapes + partial lists), not the
+threshold. Committed as artifacts/public_ship/abstention_v2_tau.json. Recalibrate
+after the VW-killer wave lands; until then the calibration gate stays honestly red.
