@@ -21,6 +21,20 @@ def _by_expr(text: str, events=None):
     return {d["expr"]: (d["start"], d["end"]) for d in normalize_dates(text, REF, events)}
 
 
+def test_normalize_dates_survives_out_of_range_reference_time():
+    # A corrupted/derived valid_at can reach consolidation as an out-of-range epoch;
+    # date normalization must degrade gracefully, never crash write/consolidate.
+    for bad in (10**20, -(10**20), float("inf"), 253402300800.0 * 1000):
+        result = normalize_dates("we met last week", reference_time=bad)
+        assert isinstance(result, list)
+
+
+def test_event_record_when_label_survives_out_of_range_bounds():
+    rec = EventRecord(fact="something happened", start=10.0**20, end=-(10.0**20))
+    # Label rendering must not raise on extreme epoch bounds.
+    assert isinstance(rec.as_text(), str)
+
+
 def test_recently_and_fortnight_windows():
     got = _by_expr("I painted recently and trained over the past fortnight.")
     assert got["recently"] == ("2026-06-16T12:00:00", "2026-06-23T12:00:00")

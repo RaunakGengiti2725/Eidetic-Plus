@@ -52,6 +52,29 @@ _LEADING_ALIAS_STOPWORDS = {"the", "a", "an", "my", "your", "his", "her", "their
 _WORD_RE = re.compile(r"[a-z0-9][a-z0-9'_-]*", re.I)
 
 
+# Epoch bounds datetime.fromtimestamp accepts on every platform (well inside
+# year 1..9999). A corrupted/derived valid_at can arrive out of range; clamping
+# lets date normalization degrade gracefully instead of crashing consolidation.
+_MIN_EPOCH = -62135596800.0   # 0001-01-01
+_MAX_EPOCH = 253402300799.0   # 9999-12-31
+
+
+def _safe_fromtimestamp(value: float) -> datetime:
+    """datetime.fromtimestamp that never raises: NaN/inf and out-of-range epochs
+    clamp to the representable window rather than throwing OverflowError/OSError."""
+    try:
+        f = float(value)
+    except (TypeError, ValueError):
+        return datetime.now()
+    if f != f:  # NaN
+        return datetime.now()
+    f = max(_MIN_EPOCH, min(_MAX_EPOCH, f))
+    try:
+        return datetime.fromtimestamp(f)
+    except (OverflowError, OSError, ValueError):
+        return datetime.now()
+
+
 def _iso(dt: datetime) -> str:
     return dt.strftime("%Y-%m-%dT%H:%M:%S")
 
@@ -323,7 +346,7 @@ def normalize_dates(
     Returns [{'expr', 'start', 'end'}]. Ranges, not points; reference is `reference_time`
     (epoch) or now. When `anchor_events` is provided, simple event-relative phrases such as
     "the week after the conference" resolve against the best matching calendar event."""
-    ref = datetime.fromtimestamp(reference_time) if reference_time else datetime.now()
+    ref = _safe_fromtimestamp(reference_time) if reference_time else datetime.now()
     low = text.lower()
     out: list[dict] = []
 
@@ -512,7 +535,7 @@ def normalize_dates(
         matches = _match_anchor_events(anchor, anchor_events)
         if not matches:
             continue
-        rng = _event_relative_range(datetime.fromtimestamp(float(matches[0].start)), unit, rel, n)
+        rng = _event_relative_range(_safe_fromtimestamp(matches[0].start), unit, rel, n)
         add_anchored(m.group(0), rng)
 
     for m in re.finditer(
@@ -525,7 +548,7 @@ def normalize_dates(
         matches = _match_anchor_events(anchor, anchor_events)
         if not matches:
             continue
-        rng = _event_relative_range(datetime.fromtimestamp(float(matches[0].start)), unit, rel, 1)
+        rng = _event_relative_range(_safe_fromtimestamp(matches[0].start), unit, rel, 1)
         add_anchored(m.group(0), rng)
 
     for m in re.finditer(
@@ -536,7 +559,7 @@ def normalize_dates(
         matches = _match_anchor_events(anchor, anchor_events)
         if not matches:
             continue
-        rng = _event_relative_range(datetime.fromtimestamp(float(matches[0].start)), unit, rel, 1)
+        rng = _event_relative_range(_safe_fromtimestamp(matches[0].start), unit, rel, 1)
         add_anchored(m.group(0), rng)
 
     return out
@@ -612,8 +635,8 @@ class EventRecord(BaseModel):
     def as_text(self) -> str:
         when = ""
         if self.start is not None:
-            when = f" [{datetime.fromtimestamp(self.start).date()}"
-            when += f"..{datetime.fromtimestamp(self.end).date()}]" if self.end else "]"
+            when = f" [{_safe_fromtimestamp(self.start).date()}"
+            when += f"..{_safe_fromtimestamp(self.end).date()}]" if self.end else "]"
         return f"{self.fact or f'{self.subject} {self.verb} {self.object}'}{when}".strip()
 
 
