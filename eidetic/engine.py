@@ -389,7 +389,13 @@ class Engine:
             self._ingest_since_save = 0
             if self.settings.reflex_recall_enabled:
                 self.reflex_index.rebuild_from_store(self.store)
-        return {"rebuilt": len(recs)}
+            # Claims hygiene pass (wave 0.1 migration): collapse duplicate claim rows
+            # minted under historic random ids onto their deterministic identity keys.
+            # SQL-only, no embedding cost, a no-op on already-clean stores. UNDER the
+            # write lock: a concurrent ingest's claim INSERT must not interleave with
+            # the delete+reinsert scan (the scanned snapshot would clobber newer rows).
+            claims_dedupe = self.store.dedupe_claims(None)
+        return {"rebuilt": len(recs), "claims_dedupe": claims_dedupe}
 
     def clear_namespace(self, namespace: str) -> dict:
         """Administrative reset of one namespace's mutable memory state.

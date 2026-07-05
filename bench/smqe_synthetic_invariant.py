@@ -846,7 +846,7 @@ def run_eval(*, seed: Optional[int] = None, cases: int = 24) -> dict:
             )
             note = ans.note if ans else ""
             if note.startswith("smqe:"):
-                backend = note.split(":")[-1]
+                backend = (note.split(":") + ["", "", ""])[2]
                 backend_counts[backend] = backend_counts.get(backend, 0) + 1
             if ans is not None:
                 proof_tokens += sum(max(0, len(c.snippet or "") // 4) for c in ans.citations)

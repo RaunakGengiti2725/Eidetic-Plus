@@ -365,6 +365,54 @@ class RecordStore:
             )
         return len(claims)
 
+    def dedupe_claims(self, scope: Optional[Scope] = None) -> dict[str, int]:
+        """Collapse duplicate claim rows minted under historic random ids (wave 0.1
+        migration). Rows group by the deterministic identity key; the winner per group is
+        the latest invalid_at-aware state (open beats closed, later close beats earlier,
+        later created_at breaks ties) and is rewritten UNDER the deterministic id, so
+        future re-ingests REPLACE the same row."""
+        from eidetic.smqe.claim_extraction import deterministic_claim_id
+
+        clause, params = self._scope_clause(scope)
+        c = self._conn()
+        rows = c.execute("SELECT claim_id, json FROM claims WHERE 1=1" + clause,
+                         params).fetchall()
+        before = len(rows)
+        winners: dict[str, tuple[tuple, ClaimRecord]] = {}
+        old_ids: list[str] = []
+        for r in rows:
+            claim = ClaimRecord.model_validate_json(r["json"])
+            key = deterministic_claim_id(claim)
+            old_ids.append(r["claim_id"])
+            rank = (claim.invalid_at is None, claim.invalid_at or 0.0,
+                    claim.created_at or 0.0)
+            prev = winners.get(key)
+            if prev is None or rank > prev[0]:
+                winners[key] = (rank, claim)
+        insert_rows = []
+        for key, (_rank, claim) in winners.items():
+            claim.claim_id = key
+            insert_rows.append((
+                claim.claim_id, claim.scope.namespace, claim.scope.agent_id,
+                claim.scope.project_id, claim.claim_type, claim.subject,
+                claim.predicate, claim.object, claim.valid_at, claim.invalid_at,
+                claim.source_memory_id, claim.model_dump_json(),
+            ))
+        # Delete + re-insert in ONE transaction: a crash between a committed delete
+        # and a separate insert would leave the claims table empty (repair runs this
+        # across every namespace, and the index rebuild does not re-extract claims).
+        with c:
+            c.executemany("DELETE FROM claims WHERE claim_id=?",
+                          [(cid,) for cid in old_ids])
+            c.executemany(
+                "INSERT OR REPLACE INTO claims "
+                "(claim_id, namespace, agent_id, project_id, claim_type, subject, predicate, object, "
+                " valid_at, invalid_at, source_memory_id, json) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                insert_rows,
+            )
+        return {"before": before, "after": len(insert_rows)}
+
     def claims_in_scope(self, scope: Optional[Scope] = None,
                         claim_type: Optional[str] = None) -> list[ClaimRecord]:
         clause, params = self._scope_clause(scope)

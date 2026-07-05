@@ -160,7 +160,7 @@ def _run_once(case: AttributionCase, *, backend: str) -> tuple[bool, dict, int]:
         _load_case(store, scope, case, add_claims=(backend == "claim"))
         ans = structured_answer(retriever, case.question, at=1_800_000_000, verify=True, scope=scope)
         note = ans.note if ans else ""
-        actual_backend = note.split(":")[-1] if note.startswith("smqe:") else ""
+        actual_backend = (note.split(":") + ["", "", ""])[2] if note.startswith("smqe:") else ""
         proof = " ".join(c.snippet for c in (ans.citations if ans else []))
         ok = (
             ans is not None

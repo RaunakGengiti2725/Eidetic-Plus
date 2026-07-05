@@ -30,8 +30,8 @@ def test_holdout_audit_checks_short_sample_ids(tmp_path):
     leaked_root.mkdir()
     (leaked_root / "x.py").write_text('CASE = "z9_q7"\n')
 
-    safe = audit(holdout, [safe_root], include_legacy_policy=False)
-    leaked = audit(holdout, [leaked_root], include_legacy_policy=False)
+    safe = audit(holdout, [safe_root], include_legacy_policy=False, shingle_roots=[])
+    leaked = audit(holdout, [leaked_root], include_legacy_policy=False, shingle_roots=[])
 
     assert safe["pass"] is True
     assert safe["holdout_needles_checked"] == 1
@@ -49,7 +49,7 @@ def test_holdout_audit_reports_legacy_shortcut_scan_coverage(tmp_path):
     root.mkdir()
     (root / "x.py").write_text("SAFE = True\n")
 
-    report = audit(holdout, [root])
+    report = audit(holdout, [root], shingle_roots=[])
 
     assert report["pass"] is True
     assert report["legacy_policy_scan_enabled"] is True
@@ -57,6 +57,47 @@ def test_holdout_audit_reports_legacy_shortcut_scan_coverage(tmp_path):
     assert report["forbidden_fixed_answer_strings_checked"] > 0
     assert report["forbidden_runtime_symbols_checked"] > 0
     assert report["scan_roots"] == [str(root)]
+
+
+def test_holdout_audit_flags_conversation_text_shingles(tmp_path):
+    """Near-verbatim benchmark conversation text in scanned code (speaker renamed,
+    one noun swapped) must fail the audit: 8-gram shingles survive cosmetic edits
+    that defeat the sample-id and entity-name scans."""
+    holdout = tmp_path / "holdout"
+    _write_empty_registry(holdout)
+    (holdout / "locomo_test_holdout.json").write_text(json.dumps(["z9_q7"]))
+    dataset_dir = tmp_path / "datasets"
+    (dataset_dir / "locomo").mkdir(parents=True)
+    utterance = ("I finally repotted the lemon tree on the balcony and gave "
+                 "every seedling a bigger home.")
+    (dataset_dir / "locomo" / "sample.json").write_text(json.dumps([{
+        "sample_id": "z9",
+        "qa": [{"question": "When did the balcony repotting of the lemon tree finish?",
+                "answer": "May", "evidence": ["D1:1"]}],
+        "conversation": {"speaker_a": "Zoya", "speaker_b": "Wren",
+                         "session_1": [{"dia_id": "D1:1", "speaker": "Zoya",
+                                        "text": utterance}]},
+    }]))
+    leaked_root = tmp_path / "leaked"
+    leaked_root.mkdir()
+    # speaker renamed + one noun swapped: the sentence is still a copy
+    (leaked_root / "x.py").write_text(
+        '# Mira: I finally repotted the lemon tree on the balcony and gave every plant\n')
+    safe_root = tmp_path / "safe"
+    safe_root.mkdir()
+    (safe_root / "x.py").write_text("# a fabricated sentence about repotting things\n")
+
+    leaked = audit(holdout, [safe_root], include_legacy_policy=False,
+                   dataset_dir=dataset_dir, runtime_roots=[leaked_root],
+                   shingle_roots=[leaked_root])
+    safe = audit(holdout, [safe_root], include_legacy_policy=False,
+                 dataset_dir=dataset_dir, runtime_roots=[safe_root],
+                 shingle_roots=[safe_root])
+
+    assert leaked["pass"] is False
+    assert any(f.get("kind") == "conversation-shingle" for f in leaked["findings"])
+    assert safe["pass"] is True
+    assert safe["conversation_shingles_checked"] > 0
 
 
 def test_build_holdout_registry_uses_exact_requested_samples(tmp_path, monkeypatch):

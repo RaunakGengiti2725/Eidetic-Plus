@@ -546,7 +546,7 @@ def test_structured_answer_suggestion_uses_query_shape_not_domain_keywords(tmp_p
 
     assert ans is not None
     assert ans.verified is True
-    assert ans.note == "smqe:preference_synth:record"
+    assert ans.note == "smqe:preference_synth:record:suggestion_synth"
     assert "graphite vellum" in ans.answer.lower()
     assert "prism clips" in ans.answer.lower()
     proof = " ".join(c.snippet for c in ans.citations)
@@ -575,7 +575,7 @@ def test_structured_answer_compatibility_suggestion_is_domain_neutral(tmp_path):
 
     assert ans is not None
     assert ans.verified is True
-    assert ans.note == "smqe:preference_synth:record"
+    assert ans.note == "smqe:preference_synth:record:suggestion_synth"
     assert "Novum S3" in ans.answer
     assert "shock mount" in ans.answer
     assert "compatible" in ans.answer.lower()
@@ -603,7 +603,7 @@ def test_structured_answer_resource_suggestion_uses_available_items_generically(
 
     assert ans is not None
     assert ans.verified is True
-    assert ans.note == "smqe:preference_synth:record"
+    assert ans.note == "smqe:preference_synth:record:suggestion_synth"
     assert "copper wire" in ans.answer
     assert "indigo paper" in ans.answer
     assert "amber beads" in ans.answer
@@ -633,7 +633,7 @@ def test_structured_answer_organization_suggestion_uses_context_generically(tmp_
 
     assert ans is not None
     assert ans.verified is True
-    assert ans.note == "smqe:preference_synth:record"
+    assert ans.note == "smqe:preference_synth:record:suggestion_synth"
     assert "brass tray" in ans.answer
     assert "sketch pencils clutter-free" in ans.answer
     assert "oak desktop near the lamp" in ans.answer
@@ -663,7 +663,7 @@ def test_structured_answer_support_suggestion_uses_generic_tools(tmp_path):
 
     assert ans is not None
     assert ans.verified is True
-    assert ans.note == "smqe:preference_synth:record"
+    assert ans.note == "smqe:preference_synth:record:suggestion_synth"
     assert "silicone roller" in ans.answer
     assert "paper guide kit" in ans.answer
     assert "picnic blanket" not in ans.answer
@@ -693,7 +693,7 @@ def test_structured_answer_inspiration_suggestion_uses_generic_sources(tmp_path)
 
     assert ans is not None
     assert ans.verified is True
-    assert ans.note == "smqe:preference_synth:record"
+    assert ans.note == "smqe:preference_synth:record:suggestion_synth"
     assert "modular synth demos on Signal Garden" in ans.answer
     assert "patching tutorials" in ans.answer
     assert "live looping forums" in ans.answer
@@ -725,7 +725,7 @@ def test_structured_answer_social_connection_suggestions_are_group_neutral(tmp_p
 
     assert ans is not None
     assert ans.verified is True
-    assert ans.note == "smqe:preference_synth:record"
+    assert ans.note == "smqe:preference_synth:record:suggestion_synth"
     assert "Voice Check-ins" in ans.answer
     assert "Shared Draft Nights" in ans.answer
     assert "Prompt Swaps" in ans.answer
@@ -4867,32 +4867,33 @@ def test_ordinal_kth_event_interpolates_between_numbered_anchors(tmp_path):
 
 
 def test_favorite_category_noun_gates_preference_atoms(tmp_path):
-    """Fresh-holdout conv8-row14 shape: 'What is Evan's favorite FOOD?' shipped a beach-sunsets
-    favorites atom verified -- it matched on 'favorite' alone, wrong domain. The category
-    noun gates the atom pool through a general domain-family table, and the stated
-    preference OBJECT ('even though I love ginger snaps' -> 'ginger snaps') beats an atom
-    echo. Unknown category nouns stay ungated; an emptied pool fails closed."""
+    """Category-noun gating shape (FABRICATED dialogue): 'What is X's favorite FOOD?'
+    once shipped a wrong-domain favorites atom verified -- it matched on 'favorite'
+    alone. The category noun gates the atom pool through a general domain-family table,
+    and the stated preference OBJECT ('even though I love oat biscuits' -> 'oat
+    biscuits') beats an atom echo. Unknown category nouns stay ungated; an emptied pool
+    fails closed."""
     store = RecordStore(tmp_path / "fav-category.sqlite")
     scope = Scope(namespace="fav-category")
     rows = [
-        "Evan: Going on beach sunsets is one of my favorites - good for exercise and calming.",
-        "Evan: I'm trying to eat less processed food and sugary snacks, even though I love ginger snaps.",
+        "Arlo: Harbor walks at dusk are one of my favorites - great for unwinding after work.",
+        "Arlo: I'm cutting back on fried food and sugary snacks, even though I love oat biscuits.",
     ]
     for i, text in enumerate(rows):
         store.upsert_record(_record(text, scope=scope, valid_at=float(i + 1)))
 
-    ans = structured_answer(_Retriever(store), "What is Evan's favorite food?",
+    ans = structured_answer(_Retriever(store), "What is Arlo's favorite food?",
                             at=100.0, scope=scope)
-    assert ans is not None and ans.answer == "ginger snaps"
-    assert "ginger snaps" in ans.citations[0].snippet
+    assert ans is not None and ans.answer == "oat biscuits"
+    assert "oat biscuits" in ans.citations[0].snippet
 
-    # wrong-domain-only store: fail closed rather than ship beach sunsets as a food
+    # wrong-domain-only store: fail closed rather than ship harbor walks as a food
     store2 = RecordStore(tmp_path / "fav-category2.sqlite")
     scope2 = Scope(namespace="fav-category2")
     store2.upsert_record(_record(rows[0], scope=scope2, valid_at=1.0))
-    ans2 = structured_answer(_Retriever(store2), "What is Evan's favorite food?",
+    ans2 = structured_answer(_Retriever(store2), "What is Arlo's favorite food?",
                              at=100.0, scope=scope2)
-    assert ans2 is None or "sunset" not in (ans2.answer or "")
+    assert ans2 is None or "harbor" not in (ans2.answer or "").lower()
 
 
 def test_visited_cities_enumerate_from_claims_end_to_end(tmp_path):

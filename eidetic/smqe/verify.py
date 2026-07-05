@@ -37,10 +37,13 @@ _QUERY_TIE_STOP = {
 
 def _query_tie_hits(query: str, atom: str) -> int:
     """Content-word overlap between the query and a support atom, prefix-tolerant so
-    inflection ('sign'/'signed') still ties."""
-    qterms = {t for t in re.findall(r"[a-z0-9][a-z0-9'-]{2,}", (query or "").lower())
+    inflection ('sign'/'signed') still ties, and hyphen-insensitive so a hyphen-variant
+    spelling ('re-heat') ties its solid form ('reheat')."""
+    qterms = {t.replace("-", "")
+              for t in re.findall(r"[a-z0-9][a-z0-9'-]{2,}", (query or "").lower())
               if t not in _QUERY_TIE_STOP}
-    aterms = {t for t in re.findall(r"[a-z0-9][a-z0-9'-]{2,}", (atom or "").lower())
+    aterms = {t.replace("-", "")
+              for t in re.findall(r"[a-z0-9][a-z0-9'-]{2,}", (atom or "").lower())
               if t not in _QUERY_TIE_STOP}
     hits = 0
     for q in qterms:
@@ -66,7 +69,7 @@ _ENUM_ITEM_HEAD_STOP = {
 
 _OPTION_SPLIT_RE = re.compile(
     r"\b(?:would|prefer|rather|choose|pick|enjoy)\b([^.?!]*?)\bor\b([^.?!]*)", re.I)
-# 'How many items do I need to pick up or return' is a COUNT question wearing an 'or': the
+# 'How many items must I pick up or return' is a COUNT question wearing an 'or': the
 # disjunction joins verb phrases, not answer options. A non-choice wh-head fixes the answer
 # type to something no option name can satisfy, so the form floor must not apply.
 _NON_CHOICE_WH_RE = re.compile(r"^\s*(?:how\s+(?:many|much|long|often)|when|where|who|why)\b", re.I)
@@ -114,8 +117,8 @@ def _answer_adds_information(query: str, answer: str) -> bool:
 def _option_choice_answer_names_option(query: str, answer: str) -> bool:
     """An 'A or B?' question is answered by NAMING one of the options. The option-choice
     anchor exemption lets executor logic over preference evidence skip the strict hypothesis,
-    which shipped a verbatim-but-irrelevant fragment verified ('ten, I've been fascinated with
-    how machines work' for 'Dodge Charger or Subaru Forester?'). Exact-token overlap with
+    which shipped a verbatim-but-irrelevant mid-clause fragment verified for an A-or-B
+    car-choice question that it never named either option of. Exact-token overlap with
     either option segment is the deterministic form floor; answers naming neither fall back
     to the reader. Exact match on purpose -- prefix tolerance would let 'work' claim
     'working on'."""
@@ -170,10 +173,11 @@ def _atom_anchor_allowed(query: str, result: StructuredAnswerResult) -> bool:
         # exemptions (computed ops, option choices) or the strict hypothesis.
         if len({s.memory_id for s in result.supports}) > 1:
             return True
-        if result.op == "preference_synth":
+        if ":suggestion_synth" in (result.note or ""):
             # Suggestion synthesis picks advice atoms that rarely echo the question's words;
             # the suggestion machinery's own gates (advice-evidence provenance, deferral)
-            # bound what can be composed here.
+            # bound what can be composed here. The TAG marks that deliberate carve-out;
+            # untagged preference answers face the strict query-aware hypothesis.
             return True
         if any(_query_tie_hits(query, s.proof_atom or s.answer_atom or "") >= 2
                for s in result.supports):
@@ -198,8 +202,8 @@ def _atom_anchor_allowed(query: str, result: StructuredAnswerResult) -> bool:
 
 _ANSWER_JUNK_SINGLETONS = _ENUM_ITEM_JUNK | {
     "check", "yeah", "yep", "right", "exactly", "totally", "hey", "hi", "hello",
-    # vague quantity/manner fillers: 'Money-wise, I've gotten some cool endorsement deals'
-    # is a teaser -- strip the filler and only the question's own words remain
+    # vague quantity/manner fillers: a teaser like "money-wise, I've gotten some cool
+    # stuff" says nothing -- strip the filler and only the question's own words remain
     "gotten", "some", "stuff", "things", "money-wise",
 }
 # A when-question's answer must carry a temporal token; a what/where/who-question's answer
@@ -241,6 +245,158 @@ def _main_wh(query: str) -> str:
     m = re.match(r"\s*(when|what|where|who|which|why|how)\b", query or "", re.I)
     return m.group(1).lower() if m else ""
 _SOURCE_REF_RE = re.compile(r"\s*\[S\d+\]")
+
+# ------------------------------------------------------------------ preference form floor
+# Untagged preference_synth answers must be short, well-bounded noun phrases (the fav-object
+# and slot extractors' native shape). Conversational fragments quote verbatim, so they
+# anchor-entail while answering nothing -- the fragment-shard class of verified-wrongs.
+_PREF_FRAGMENT_HEAD_STOP = frozenset(_ENUM_ITEM_HEAD_STOP) | frozenset({
+    "i", "i've", "i'm", "i'd", "we", "we've", "it's", "there's", "that's",
+    "and", "but", "so", "well", "btw", "yeah", "work's",
+    "oh", "ah", "um", "hmm", "huh", "uh",
+})
+_PREF_TAIL_STOP = frozenset({"to", "of", "in", "on", "at", "with", "for", "from",
+                             "or", "and", "but", "the", "a", "an"})
+_PREF_AFTERTHOUGHT_RE = re.compile(r",\s*(?:btw|though|too|anyway)\s*[.!?]?\s*$", re.I)
+_PREF_FIRST_PERSON_CLAUSE_RE = re.compile(
+    r"\b(?:i|we)\s+(?:am|'m|'ve|have|had|was|were|will|'ll|'d|do|don't|can|can't)\b", re.I)
+
+
+_TITLE_SMALL_WORDS = frozenset({
+    "a", "an", "and", "as", "at", "but", "by", "for", "from", "in", "of", "on", "or",
+    "the", "to", "with",
+})
+_TITLE_HEAD_BLOCK = frozenset({
+    "yes", "no", "yeah", "ok", "okay", "wow", "thanks", "well", "hey", "hi", "hello",
+    "good", "nice", "great", "cool", "sure",
+})
+
+
+def _titlecase_name_answer(text: str) -> bool:
+    """An unquoted multi-word Title Case phrase ('I Am Legend', 'The Lord of the Rings:
+    The Return of the King') is a NAME regardless of its token heads or length: every
+    word is capitalized or a title small-word, no commas, and at least two words carry
+    capitals. Interjection heads never start real titles the extractors mint."""
+    if "," in text or not text[:1].isupper():
+        return False
+    words = text.split()
+    if len(words) < 2 or words[0].lower() in _TITLE_HEAD_BLOCK:
+        return False
+    caps = 0
+    for w in words:
+        core = re.sub(r"[^\w'-]+", "", w)
+        if not core:
+            return False
+        if core[:1].isupper():
+            caps += 1
+        elif core.lower() not in _TITLE_SMALL_WORDS:
+            return False
+    return caps >= 2
+
+
+def preference_answer_form_credible(query: str, answer: str) -> bool:
+    """Deterministic form floor for UNTAGGED preference_synth answers. Fail-open shapes
+    first (polarity markers on polarity/likely questions, WHOLE-answer quoted titles,
+    Title Case names, bare numbers/times); then mid-clause heads, dangling tails,
+    trailing afterthoughts, and finite first-person clauses are rejected -- a preference
+    answer is a bounded noun phrase, never a quoted sentence shard. Failure yields None
+    upstream: the reader (with its own analogous floors) or an honest abstention
+    competes, never a sideways ship."""
+    text = (answer or "").strip()
+    if not text:
+        return False
+    if re.match(r"\s*(?:yes|no)\b", text, re.I):
+        # Polarity markers are the labeled-inference shape ('Yes - <premise>'): credible
+        # exactly when the question itself is polarity- or likelihood-shaped.
+        return bool(_POLARITY_QUERY_RE.match(query or "")
+                    or _LIKELY_INFERENCE_RE.search(query or ""))
+    if re.fullmatch(r'"[^"]{1,60}"[.!?]?', text):
+        # The WHOLE answer is one double-quoted span: a bare title. A quoted span
+        # EMBEDDED in a longer answer is quoted speech inside a fragment ('I told him
+        # "no way", btw') and gets no pass -- the rejection rules judge the frame.
+        return True
+    if re.match(r"\s*\[\d{4}-\d{2}-\d{2}\]", text):
+        # A dated timeline ('[2023-02-05] helped ...; [2023-02-10] ...') is a derived
+        # deterministic compose the planner routes through this op; not a fragment.
+        return True
+    if _titlecase_name_answer(text):
+        return True
+    if not _option_terms(text):
+        # Only digit-bearing answers ('11 pm', '7:30') are genuinely unevaluable value
+        # shapes; all-stopword/interjection strings ('oh no') are evaluable junk.
+        return bool(re.search(r"\d", text))
+    tokens = re.findall(r"[a-z0-9][a-z0-9'-]*", text.lower())
+    if not tokens:
+        return True
+    if tokens[0] in _PREF_FRAGMENT_HEAD_STOP:
+        return False
+    if tokens[-1] in _PREF_TAIL_STOP:
+        return False
+    if _PREF_AFTERTHOUGHT_RE.search(text):
+        return False
+    if len(tokens) > 8:
+        return False
+    if _PREF_FIRST_PERSON_CLAUSE_RE.search(text) or (set(tokens) & _FIRST_PERSON_TOKENS):
+        return False
+    # A comma-spliced coordinated clause ('all styles, but tango is my top pick')
+    # is a sentence, not a noun phrase; the extractor should have named the NP itself.
+    if re.search(r",\s*(?:but|so)\b", text, re.I):
+        return False
+    return True
+
+
+# Words whose following OBJECT is a legitimately extractable preference value: stated
+# preference/stative verbs ('even though I love shortbread' -> 'shortbread') and the
+# prepositional preference frames English actually uses ("I'm really into pottery",
+# "obsessed with jazz", "we usually go out for sushi", "head to bed at 11 pm", "my
+# weekends revolve around hiking"). The rejection target is a value quoted from the
+# middle of an UNRELATED clause ('browsing woodworking kits at the fair' does not state
+# a woodworking-kit preference), so the allowlist is frames, not specific rows.
+_PREF_OBJECT_FRAME_WORDS = frozenset({
+    "love", "loves", "loved", "adore", "adores", "adored", "like", "likes", "liked",
+    "enjoy", "enjoys", "enjoyed", "prefer", "prefers", "preferred", "favorite",
+    "favourite", "is", "was", "are", "were", "am", "be", "chose", "choose", "picked",
+    "pick", "want", "wants", "wanted", "miss", "misses", "missed", "crave", "craves",
+    "craved", "fancy", "fancies", "fancied",
+    # prepositional preference frames
+    "into", "about", "with", "for", "at", "on", "in", "around", "over",
+})
+
+
+def _pref_premise_position_ok(answer: str, premise: str) -> bool:
+    """Mid-sentence provenance floor for single-support preference answers: an answer
+    quoted VERBATIM from the middle of a source clause (preceded by a lowercase letter or
+    a comma) is a shard, not a stated value -- unless the preceding word is a preference/
+    stative verb frame whose object the extractor legitimately names. Sentence boundaries,
+    colons, turn markers, and capitalized starts pass; unlocatable answers pass (NLI
+    decides)."""
+    a = re.sub(r"\s+", " ", (answer or "")).strip()
+    p = re.sub(r"\s+", " ", (premise or ""))
+    if not a or not p:
+        return True
+    low_p, low_a = p.lower(), a.lower()
+    start = 0
+    found = False
+    while True:
+        i = low_p.find(low_a, start)
+        if i == -1:
+            break
+        found = True
+        if p[i].isupper():
+            return True
+        j = i - 1
+        while j >= 0 and p[j] == " ":
+            j -= 1
+        if j < 0:
+            return True
+        ch = p[j]
+        if not (ch.islower() or ch == ","):
+            return True
+        m = re.search(r"([a-z][\w'-]*)$", low_p[:j + 1])
+        if m and m.group(1) in _PREF_OBJECT_FRAME_WORDS:
+            return True
+        start = i + 1
+    return not found
 
 
 def reader_answer_form_credible(query: str, answer: str) -> bool:
@@ -315,15 +471,23 @@ def answer_from_result(retriever, query: str, result: StructuredAnswerResult,
     if (verify
             and _ENUMERATED_ANSWER_RE.match(result.answer or "")
             and result.op not in _COMPUTED_OPS
-            and result.op != "preference_synth"
+            and ":suggestion_synth" not in (result.note or "")
             and ":claim_list_enum" not in (result.note or "")
             and not _enumeration_items_credible(result.answer)):
-        # preference_synth keeps the same carve-out as the anchor rule: suggestion output is
-        # context fragments by design and provenance-gated upstream. ':claim_list_enum'
+        # ':suggestion_synth' keeps the same carve-out as the anchor rule: suggestion output
+        # is context fragments by design and provenance-gated upstream (every OTHER
+        # preference_synth answer now faces this floor). ':claim_list_enum'
         # compositions share it for the FORM floor only -- every item there is backed by its
         # own typed write-time claim (junk-filtered at extraction, per-item proof), so a
         # 3-char trick name ('sit') is not fragment soup; the per-support strict hypothesis
         # below still runs unchanged, so nothing ships without live entailment.
+        return None
+    # Preference FORM refusal: untagged preference_synth answers must be bounded noun
+    # phrases (or protected polarity/title/number shapes). The ':suggestion_synth' tag
+    # marks the one deliberate fragment carve-out (provenance-gated suggestion synthesis).
+    pref_floor = bool(verify and result.op == "preference_synth"
+                      and ":suggestion_synth" not in (result.note or ""))
+    if pref_floor and not preference_answer_form_credible(query, result.answer):
         return None
     # Option-choice FORM refusal: 'A or B?' is answered by naming an option. Applies across
     # ops (preference_synth included -- its fragment carve-out is for suggestion synthesis,
@@ -343,8 +507,8 @@ def answer_from_result(retriever, query: str, result: StructuredAnswerResult,
             and not re.search(r"\b(?:because|since)\b", result.answer or "", re.I)):
         return None
     # When-question type agreement, structured side: a when-answer without a single temporal
-    # token is malformed regardless of which operator derived it ('I'm taking a dog training
-    # course and it's challenging' shipped verified for a when-took-place question).
+    # token is malformed regardless of which operator derived it (an ongoing-activity
+    # fragment with no date word shipped verified for a when-took-place question).
     if (verify and _main_wh(query) == "when"
             and not _TEMPORAL_TOKEN_RE.search(result.answer or "")):
         return None
@@ -376,6 +540,12 @@ def answer_from_result(retriever, query: str, result: StructuredAnswerResult,
                 premise = retriever._ground_truth(rec)
             except Exception:
                 pass
+            # Mid-sentence PROVENANCE refusal (single-support preference answers): a
+            # verbatim quote that starts mid-clause in its own premise is a fragment
+            # shard regardless of entailment.
+            if (pref_floor and len(result.supports) == 1
+                    and not _pref_premise_position_ok(result.answer, premise)):
+                return None
             strict_hypothesis = (
                 result.backend == "claim"
                 and callable(getattr(retriever, "verify", None))

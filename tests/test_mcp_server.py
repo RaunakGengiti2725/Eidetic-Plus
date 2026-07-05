@@ -375,7 +375,8 @@ def test_repair_rebuilds_derived_surfaces_from_store(mcp_engine):
     store -- record count preserved, recall works again."""
     mcp_server.remember(content="The greenhouse thermostat is set to 18C.")
     out = mcp_server.repair()
-    assert out == {"rebuilt": 1}
+    assert out["rebuilt"] == 1
+    assert out["claims_dedupe"]["after"] <= out["claims_dedupe"]["before"]
     assert mcp_server.list_memories()["total"] == 1
 
 

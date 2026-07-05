@@ -118,7 +118,9 @@ def _speaker_for_atom(rec: MemoryRecord, atom: str) -> str:
     return _record_speaker_hint(rec)
 
 
-def _predicate_for(atom: str) -> str:
+def _predicate_for_typed(atom: str) -> tuple[str, bool]:
+    """(predicate, typed): typed=False means the predicate fell through to the
+    terms[:4] catch-all -- the claim carries a proof atom but no real relation."""
     low = atom.lower()
     for pat in (
         r"\b(?:is|was|are|were|am)\s+([a-z][a-z0-9_-]+)",
@@ -128,9 +130,35 @@ def _predicate_for(atom: str) -> str:
     ):
         m = re.search(pat, low)
         if m:
-            return m.group(0).strip()
+            return m.group(0).strip(), True
     terms = re.findall(r"[a-z0-9][a-z0-9_-]*", low)
-    return " ".join(terms[:4])
+    return " ".join(terms[:4]), False
+
+
+def _predicate_for(atom: str) -> str:
+    return _predicate_for_typed(atom)[0]
+
+
+# Junk-claim quarantine (wave 0.2): subjects that can never anchor an answerable claim.
+# The catch-all extractor still mints these rows (their proof atoms are context), but the
+# 'untyped' tag keeps their objects/atoms out of answer TEXT downstream.
+_JUNK_SUBJECT_TOKENS = frozenset({
+    "it", "to", "that's", "keep", "your", "you're", "rock", "there", "here",
+    "what", "who", "how", "when", "and", "but", "so",
+})
+# Identifier-shaped subjects (record ids, session labels, ticket keys: digit-bearing
+# snake/kebab tokens) are machine names, not speakers -- generic shape, no dependence
+# on any particular harness's id format.
+_ID_SHAPED_SUBJECT_RE = re.compile(r"^(?=.*\d)[a-z0-9]+(?:[_-][a-z0-9]+)*$", re.I)
+
+
+def _is_junk_claim_subject(subject: str) -> bool:
+    s = re.sub(r"\s+", " ", (subject or "").strip()).lower()
+    if not s:
+        return True
+    if s in _JUNK_SUBJECT_TOKENS:
+        return True
+    return bool(_ID_SHAPED_SUBJECT_RE.match(s.replace(" ", "_")))
 
 
 def _object_for(atom: str) -> str:
@@ -161,13 +189,23 @@ def _claim_from_atom(rec: MemoryRecord, atom: str, claim_type: Optional[str] = N
     ctype = claim_type or _claim_type_for(atom)
     if ctype not in _CLAIM_TYPES:
         return None
-    return ClaimRecord(
-        claim_type=ctype, scope=rec.scope, subject=_subject_for(atom, rec),
-        predicate=predicate or _predicate_for(atom), object=_object_for(atom),
+    if predicate:
+        pred, typed = predicate, True
+    else:
+        pred, typed = _predicate_for_typed(atom)
+    subject = _subject_for(atom, rec)
+    claim = ClaimRecord(
+        claim_type=ctype, scope=rec.scope, subject=subject,
+        predicate=pred, object=_object_for(atom),
         value=atom if value is None else value, valid_at=rec.valid_at,
         invalid_at=_source_cutoff(rec), source_memory_id=rec.memory_id, proof_atom=atom,
         confidence=1.0,
     )
+    # Untyped-fallback tag: only claims minted WITHOUT an explicit predicate can be
+    # fallback shapes. Typed extractor output is byte-identical (no tag ever lands).
+    if not predicate and (not typed or _is_junk_claim_subject(subject)):
+        claim.filters = {"untyped": "1"}
+    return claim
 
 
 def claims_from_triples(rec: MemoryRecord, triples: Iterable[dict[str, Any]]) -> list[ClaimRecord]:
@@ -236,6 +274,117 @@ def _acquisition_claims_from_atom(rec: MemoryRecord, atom: str) -> list[ClaimRec
             claim.object = obj
             claim.filters = {"action": "acquire"}
             out.append(claim)
+    return out
+
+
+# ------------------------------------------------------------------ activity family (1a)
+# Single-item typed claims for first-person activity and acquisition sentences that no
+# list/family extractor sees ("I'm off to go birdwatching with my cousins", "Just picked
+# up a new easel!"). Additive rows only: filters carry enum_fact=1 plus an action type
+# the read side gates on, and the object passes the same _clean_list_item floors as list
+# items, so precision is inherited.
+
+_GO_GERUND_RE = re.compile(
+    r"\b(?:i|we)\s*(?:'m|'re|am|are)?\s+(?:(?:just|also|both|all|finally)\s+)?"
+    r"(?:off\s+to\s+go|going\s+to\s+go|off\s+to|went|go|going)\s+"
+    r"(?P<ger>[a-z][a-z'-]{2,}ing)\b(?P<rest>[^.;!?]*)",
+    re.I,
+)
+_GO_GERUND_SKIP = frozenset({
+    "going", "being", "getting", "doing", "having", "trying", "starting", "thing",
+    "something", "anything", "everything", "nothing", "morning", "evening",
+})
+_GO_REST_STOP = frozenset({
+    "with", "and", "to", "in", "at", "on", "for", "by", "every", "this", "last",
+    "next", "again", "today", "tomorrow", "later", "soon", "because", "so", "but",
+    "the", "a", "an", "too", "there", "now", "here",
+})
+# Mental-state / affect gerunds: 'started worrying', 'tried thinking' are not activities.
+_ATTEMPT_OBJECT_SKIP = frozenset({
+    "worrying", "thinking", "wondering", "feeling", "hoping", "stressing", "crying",
+    "panicking", "obsessing", "doubting",
+})
+_TAKE_UP_RE = re.compile(
+    r"\b(?:i|we)(?:'ve|'d)?\s+(?:(?:just|also|recently|finally)\s+)?"
+    r"(?P<verb>took\s+up|taken\s+up|tried|started)\s+"
+    r"(?P<obj>[a-z][a-z' -]{2,40}?)"
+    r"(?=[.,;!?]|\s+(?:last|this|and|but|because|so|when|with|for|to|again)\b|$)",
+    re.I,
+)
+_BARE_ACQUIRE_RE = re.compile(
+    r"(?:^|[,;!.]\s*)(?:just\s+|also\s+|finally\s+)?"
+    r"(?P<verb>got|bought|picked\s+up|grabbed)\s+"
+    r"(?:myself\s+|us\s+)?(?:(?:some|a|an|the|new|these|those)\s+)*"
+    r"(?P<obj>[a-z][a-z' -]{2,40}?)"
+    r"(?=[.,;!?]|\s+(?:last|this|and|too|because|so|when|for|from|at|yesterday|today)\b|$)",
+    re.I,
+)
+
+
+def _gerund_base(gerund: str) -> str:
+    g = (gerund or "").lower()
+    if not g.endswith("ing") or len(g) < 6:
+        return g
+    stem = g[:-3]
+    if len(stem) >= 3 and stem[-1] == stem[-2] and stem[-1] not in "aeiou":
+        return stem[:-1]                     # swimming -> swim, running -> run
+    return stem                              # hiking -> hik is avoided by canon check below
+
+
+def _activity_claims_from_atom(rec: MemoryRecord, atom: str) -> list[ClaimRecord]:
+    text = re.sub(r"\s+", " ", atom or "").strip()
+    if not text or text.endswith("?") or _is_info_seeking_question(text):
+        return []
+    speaker = _speaker_for_atom(rec, text)
+    if not speaker:
+        return []
+    body = re.sub(r"^[A-Z][A-Za-z'_-]{1,32}:\s*", "", text)
+    out: list[ClaimRecord] = []
+
+    def _emit(predicate: str, obj: str, filters: dict[str, Any],
+              claim_type: str = "state") -> None:
+        obj = _clean_list_item(obj)
+        if not obj or not predicate:
+            return
+        claim = _claim_from_atom(rec, text, claim_type, predicate=predicate, value=obj)
+        if claim is None:
+            return
+        claim.subject = speaker
+        claim.object = obj
+        claim.filters = {"enum_fact": "1", **filters}
+        out.append(claim)
+
+    for m in _GO_GERUND_RE.finditer(body):
+        ger = m.group("ger").lower()
+        if ger in _GO_GERUND_SKIP:
+            continue
+        from . import event_identity as ei
+        base = ei.canon_lemma(ger) or _gerund_base(ger)
+        obj = ger
+        m2 = re.match(r"\s+([a-z][a-z'-]{2,})\b", m.group("rest") or "")
+        if m2 and m2.group(1).lower() not in _GO_REST_STOP:
+            obj = f"{ger} {m2.group(1)}"
+        _emit(base, obj, {"action": "activity"})
+
+    for m in _TAKE_UP_RE.finditer(body):
+        verb = re.sub(r"\s+", " ", m.group("verb").lower())
+        obj_head = (m.group("obj").split() or [""])[0].lower()
+        if obj_head.endswith("ing") and obj_head in _ATTEMPT_OBJECT_SKIP:
+            # 'started worrying about money' is a mental state, not a takeable activity.
+            continue
+        # 'attempt', not 'activity': a tried/started one-off is answerable for
+        # pursue-family questions via its own predicate (tried/started/took sit in the
+        # pursue family) but must never enumerate as an enjoyed hobby.
+        _emit(verb, m.group("obj"), {"action": "attempt"})
+
+    for m in _BARE_ACQUIRE_RE.finditer(body):
+        # Predicate 'acquired' sits OUTSIDE every enum verb family on purpose: a bare
+        # conversational acquisition ('just got a nasty cough / a text / a flat tire')
+        # is lemma-compatible with the offered/received/given GIFT family but is not an
+        # answer to a gifts question; these rows exist for observability and for typed
+        # non-enum consumers, never for family enumeration.
+        _emit("acquired", m.group("obj"), {"action": "acquire"}, claim_type="event")
+
     return out
 
 
@@ -1066,6 +1215,7 @@ def heuristic_claims_from_text(rec: MemoryRecord) -> list[ClaimRecord]:
     claims.extend(_nickname_claims_from_text(rec))
     for atom in _sentences(rec.text or "", limit=200):
         claims.extend(_acquisition_claims_from_atom(rec, atom))
+        claims.extend(_activity_claims_from_atom(rec, atom))
         claims.extend(_action_location_claims_from_atom(rec, atom))
         claims.extend(_action_object_claims_from_atom(rec, atom))
         claims.extend(_list_item_claims_from_atom(rec, atom))
@@ -1083,6 +1233,25 @@ def heuristic_claims_from_text(rec: MemoryRecord) -> list[ClaimRecord]:
         if claim is not None:
             claims.append(claim)
     return claims
+
+
+def deterministic_claim_id(claim: ClaimRecord) -> str:
+    """Content-derived claim id (wave 0.1): re-extraction of the same record mints the
+    SAME id, so INSERT OR REPLACE dedupes re-ingests natively instead of forking rows.
+    list_id|list_index and event_date are the only legitimate discriminants (two same-
+    object items in different lists / two dated events in one sentence must not collapse).
+    """
+    disc = "|".join([
+        str(claim.filters.get("list_id") or ""),
+        str(claim.filters.get("list_index") or ""),
+        str(claim.filters.get("event_date") or ""),
+    ])
+    raw = "|".join([
+        claim.scope.namespace or "", claim.source_memory_id or "",
+        claim.claim_type, _norm(claim.subject), _norm(claim.predicate),
+        _norm(str(claim.object or "")), disc,
+    ])
+    return "claim_" + hashlib.sha1(raw.encode()).hexdigest()[:24]
 
 
 def claims_for_record(
@@ -1111,7 +1280,17 @@ def claims_for_record(
         seen.add(key)
         deduped.append(claim)
     _tag_event_identity(rec, deduped)
-    return deduped
+    # Deterministic ids AFTER identity tagging (event_date is a discriminant). In-batch
+    # id collisions are exact duplicates under the identity key: keep the first.
+    out: list[ClaimRecord] = []
+    seen_ids: set[str] = set()
+    for claim in deduped:
+        claim.claim_id = deterministic_claim_id(claim)
+        if claim.claim_id in seen_ids:
+            continue
+        seen_ids.add(claim.claim_id)
+        out.append(claim)
+    return out
 
 
 def _tag_event_identity(rec: MemoryRecord, claims: list[ClaimRecord]) -> None:

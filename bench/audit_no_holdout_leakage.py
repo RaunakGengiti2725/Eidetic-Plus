@@ -14,6 +14,8 @@ DEFAULT_DATASET_DIR = Path("data/bench")
 # benchmark content by shape, but verification/extraction code must never special-case
 # a benchmark speaker (the _identity_entailment lesson).
 DEFAULT_RUNTIME_ROOTS = ("eidetic",)
+# Conversation-shingle scan roots: runtime code plus the bench harness itself.
+DEFAULT_SHINGLE_ROOTS = ("eidetic", "bench")
 FORBIDDEN_POLICY_STRINGS = (
     "product-" + "source-scan",
     "long" + "memeval-direct",
@@ -154,6 +156,53 @@ def load_holdout_needles(holdout_dir: Path) -> set[str]:
     return {n for n in needles if len(n) >= 4}
 
 
+_SHINGLE_N = 8
+_SHINGLE_TOKEN_RE = re.compile(r"[a-z0-9]+(?:'[a-z0-9]+)*")
+
+
+def _shingle_tokens(text: str) -> list[str]:
+    return _SHINGLE_TOKEN_RE.findall((text or "").lower())
+
+
+def _shingles(text: str) -> set[str]:
+    toks = _shingle_tokens(text)
+    return {" ".join(toks[i:i + _SHINGLE_N])
+            for i in range(len(toks) - _SHINGLE_N + 1)}
+
+
+def load_conversation_shingles(dataset_dir: Path, *,
+                               include_questions: bool = True) -> set[str]:
+    """8-gram shingles of every benchmark conversation utterance (and, optionally,
+    question text), dynamic from the dataset files -- never hardcoded here. Sample-id
+    needles catch id leaks; these catch the subtler class where a rule or test quotes a
+    benchmark SOURCE SENTENCE near-verbatim (speaker renames and single-noun swaps
+    leave most 8-grams intact). Empty when datasets are absent (fresh clone)."""
+    shingles: set[str] = set()
+    keys = {"text", "question"} if include_questions else {"text"}
+
+    def walk(obj) -> None:
+        if isinstance(obj, dict):
+            for key, value in obj.items():
+                if str(key).lower() in keys and isinstance(value, str):
+                    shingles.update(_shingles(value))
+                else:
+                    walk(value)
+        elif isinstance(obj, list):
+            for item in obj:
+                walk(item)
+
+    for sub in ("locomo", "longmemeval"):
+        root = Path(dataset_dir) / sub
+        if not root.is_dir():
+            continue
+        for path in sorted(root.glob("*.json")):
+            try:
+                walk(json.loads(path.read_text()))
+            except (OSError, json.JSONDecodeError):
+                continue
+    return shingles
+
+
 def load_benchmark_speaker_names(dataset_dir: Path) -> set[str]:
     """Speaker names from the benchmark dataset files (dynamic -- never hardcoded
     here, so this module cannot itself become the leak). Empty when datasets are
@@ -207,6 +256,7 @@ def audit(
     require_holdout_needles: bool = True,
     dataset_dir: Path = DEFAULT_DATASET_DIR,
     runtime_roots: list[Path] | None = None,
+    shingle_roots: list[Path] | None = None,
 ) -> dict:
     holdout_needles = load_holdout_needles(holdout_dir)
     needles = set(holdout_needles)
@@ -231,6 +281,44 @@ def audit(
             if pos >= 0:
                 line = text[:pos].count("\n") + 1
                 findings.append({"path": str(path), "needle": needle, "line": line})
+    # Conversation-text shingle scan: benchmark source sentences (and, for runtime
+    # code, question texts) must never appear near-verbatim in code. Speaker renames /
+    # single-noun swaps do not defeat 8-gram shingles the way they defeat the
+    # entity-name scan. Runtime roots are held to the strictest standard; the bench
+    # harness is scanned against conversation text only (its synthetic generators
+    # legitimately mirror question SHAPES); tests/ carries known pre-existing
+    # reproductions and is tracked as separate debt (pass explicit shingle_roots to
+    # widen the net).
+    runtime_root_names = {str(r) for r in
+                          (runtime_roots if runtime_roots is not None
+                           else DEFAULT_RUNTIME_ROOTS)}
+    shingle_root_paths = [Path(r) for r in (
+        shingle_roots if shingle_roots is not None else DEFAULT_SHINGLE_ROOTS)]
+    shingle_full: set[str] = set()
+    shingle_conv: set[str] = set()
+    if shingle_root_paths:
+        shingle_full = load_conversation_shingles(dataset_dir, include_questions=True)
+        shingle_conv = load_conversation_shingles(dataset_dir, include_questions=False)
+    if shingle_full:
+        for root in shingle_root_paths:
+            needle_set = (shingle_full if str(root) in runtime_root_names
+                          else shingle_conv)
+            for path in iter_files([root]):
+                if path.suffix != ".py":
+                    continue
+                try:
+                    text = path.read_text(errors="ignore")
+                except OSError:
+                    continue
+                toks = _shingle_tokens(text)
+                hit_shingles = sorted({
+                    " ".join(toks[i:i + _SHINGLE_N])
+                    for i in range(len(toks) - _SHINGLE_N + 1)
+                    if " ".join(toks[i:i + _SHINGLE_N]) in needle_set
+                })
+                for sh in hit_shingles[:8]:
+                    findings.append({"path": str(path), "needle": sh,
+                                     "kind": "conversation-shingle"})
     entity_names = load_benchmark_speaker_names(dataset_dir)
     entity_roots = [Path(r) for r in (runtime_roots if runtime_roots is not None else DEFAULT_RUNTIME_ROOTS)]
     if entity_names:
@@ -261,6 +349,8 @@ def audit(
         "holdout_needles_checked": len(holdout_needles),
         "entity_names_checked": len(entity_names),
         "entity_scan_roots": [str(root) for root in entity_roots],
+        "conversation_shingles_checked": len(shingle_full),
+        "shingle_scan_roots": [str(root) for root in shingle_root_paths],
         "legacy_policy_scan_enabled": bool(include_legacy_policy),
         "forbidden_policy_strings_checked": len(FORBIDDEN_POLICY_STRINGS) if include_legacy_policy else 0,
         "forbidden_fixed_answer_strings_checked": len(FORBIDDEN_FIXED_ANSWER_STRINGS) if include_legacy_policy else 0,

@@ -3795,7 +3795,7 @@ def _sum_duration_answer(query: str, atoms: list[tuple[float, object, str]]) -> 
     if not re.search(r"\bhow\s+many\s+(?:hours?|days?|weeks?|months?|years?)\b|\btotal\b|\bsum\b|\bspent\b", q):
         return "", []
     if re.search(r"\bdid\s+it\s+take\b|\bhow\s+long\s+did\b", q):
-        # "How many weeks did it take me to finish X?" is a calendar SPAN (first to last dated
+        # "How many weeks did finishing X take?" is a calendar SPAN (first to last dated
         # mention), not a sum of stated durations; summing per-session durations overcounts.
         return "", []
     if re.search(r"\b(?:ago|since|between|after|before|passed|elapsed)\b", q):
@@ -4807,6 +4807,11 @@ def _advice_evidence_allowed(item: object, atom: str) -> bool:
 
 
 def _advice_atoms(query: str, atoms: list[tuple[float, object, str]]) -> list[tuple[float, object, str]]:
+    """Provenance filter for SUGGESTION queries. Suggestion synthesis deliberately
+    reads the full pool (untyped catch-all claims carry setup context like the asker's
+    own gear); its output is ':suggestion_synth'-tagged and bounded by the advice
+    provenance gate. Non-suggestion callers must pass the untyped-QUARANTINED pool --
+    this function is an identity pass-through for them."""
     if not _is_suggestion_query(query) or _PAST_RECOMMENDATION_RE.search(query or ""):
         return atoms
     return [row for row in atoms if _advice_evidence_allowed(row[1], row[2])]
@@ -5164,7 +5169,8 @@ _COMPOUND_WH_RE = re.compile(
 
 
 def _execute_atoms(plan: ExecutionPlan, query: str,
-                   atoms: list[tuple[float, object, str]], backend: str) -> Optional[StructuredAnswerResult]:
+                   atoms: list[tuple[float, object, str]], backend: str,
+                   *, claim_pool: Optional[list[ClaimRecord]] = None) -> Optional[StructuredAnswerResult]:
     if not atoms:
         return None
     op = plan.op
@@ -5186,8 +5192,10 @@ def _execute_atoms(plan: ExecutionPlan, query: str,
 
     # Collector rewrite step 1: tier-1 claim enumeration runs BEFORE the legacy collectors -
     # typed claims are the single enumeration source; the regex collectors remain as a
-    # record-backend fallback during the transition.
-    answer, selected = _claim_enumeration_answer(query, atoms)
+    # record-backend fallback during the transition. The claim backend threads the FULL
+    # claim pool so the completion sweep can union family siblings the scored window
+    # missed; the record backend passes nothing (byte-identical).
+    answer, selected = _claim_enumeration_answer(query, atoms, claim_pool=claim_pool)
     if answer and selected:
         all_list_items = all(
             isinstance(item, ClaimRecord) and item.filters.get("list") == "item"
@@ -5282,8 +5290,8 @@ def _execute_atoms(plan: ExecutionPlan, query: str,
         if re.search(r"\bhow\s+many\b[^?]{0,60}\b(?:currently|now)\s+(?:own|have|has|owns)\b"
                      r"|\bcurrently\s+(?:own|have|owns)\b", query or "", re.I):
             return None
-        # "How many weeks did it take..." is a calendar span, not a countable set; counting
-        # mentions answers the wrong question.
+        # "How many weeks did the build take..." is a calendar span, not a countable set;
+        # counting mentions answers the wrong question.
         if re.search(r"\bhow\s+many\s+(?:hours?|days?|weeks?|months?|years?)\b[^?]{0,60}\bdid\s+it\s+take\b",
                      query or "", re.I):
             return None
@@ -5397,9 +5405,9 @@ def _execute_atoms(plan: ExecutionPlan, query: str,
         return None
 
     if op in {"temporal_delta", "relative_temporal"}:
-        # A delta about an ACTION ("How many days ago did I buy a smoker?") must anchor on the
-        # action itself, not on any later mention of the object; a question-day chat about the
-        # smoker would otherwise compute a zero-day delta.
+        # A delta about an ACTION ("How many days ago did I buy that grill?") must anchor on
+        # the action itself, not on any later mention of the object; a question-day chat
+        # about the grill would otherwise compute a zero-day delta.
         action_m = re.search(r"\bago\s+did\s+(?:i|we)\s+([a-z][a-z'-]{2,})\b", (query or "").lower())
         if action_m:
             action_variants: set[str] = set()
@@ -5615,7 +5623,7 @@ def _execute_atoms(plan: ExecutionPlan, query: str,
         return None
 
     if op in {"latest_value", "open_inference"} and _HOW_OLD_RE.match(query or ""):
-        # Stated age lookup ('Max is already old, he is 8 years old' -- we ABSTAINED on the
+        # Stated age lookup ('he's already old, he is 8 years old' -- we ABSTAINED on the
         # fresh holdout while the atom sat in the store): entity-tied age statements answer
         # directly, latest statement wins. No age atom -> fall through, the reader may still
         # INFER an age range ('likely under 30, she's in school'), which no extractor should
@@ -5638,8 +5646,16 @@ def _execute_atoms(plan: ExecutionPlan, query: str,
                            confidence=0.95)
 
     if op in {"preference_synth", "open_inference"}:
+        # Junk-claim quarantine (wave 0.2): untyped fallback claims carry proof atoms as
+        # context (the tagged suggestion machinery below still reads the FULL pool), but
+        # their objects/atoms must never become untagged preference ANSWER text (the
+        # fragment-soup factory). Typed claims and MemoryRecord atoms pass.
+        atoms_with_untyped = atoms
+        atoms = [row for row in atoms
+                 if not (isinstance(row[1], ClaimRecord)
+                         and (row[1].filters or {}).get("untyped") == "1")]
         # Category-noun agreement: 'favorite FOOD' names the answer's category; a favorites
-        # atom from another domain ('Going on beach sunsets is one of my favorites') matched
+        # atom from another domain (a sunset-walk 'one of my favorites' remark) matched
         # on 'favorite' alone and shipped verified on the fresh holdout. Atoms must carry a
         # category-family term; an unknown category noun stays ungated (fail open), an
         # emptied pool fails closed to the reader.
@@ -5653,7 +5669,7 @@ def _execute_atoms(plan: ExecutionPlan, query: str,
                     return None
                 atoms = gated_atoms
                 # The stated preference OBJECT beats an atom echo: 'even though I love
-                # ginger snaps' answers with 'ginger snaps', not the whole dieting sentence.
+                # shortbread' answers with 'shortbread', not the whole dieting sentence.
                 for score, item, atom in atoms:
                     m = re.search(
                         r"\bi\s+(?:love|adore)\s+([a-z][\w' -]{2,40}?)(?:\s+(?:for|though|"
@@ -5665,13 +5681,29 @@ def _execute_atoms(plan: ExecutionPlan, query: str,
         answer, selected = _premise_affinity_answer(query, atoms)
         if answer and selected:
             return result_from(answer, selected, confidence=0.85)
-        advice_atoms = _advice_atoms(query, atoms)
-        if _is_suggestion_query(query) and not advice_atoms:
+        # SUGGESTION queries read the wider (pre-fav-gate) pool through the advice
+        # provenance filter; every OTHER query keeps the untyped-quarantined pool --
+        # _advice_atoms is an identity pass-through for non-suggestion queries, so
+        # feeding it the unquarantined pool would resurrect junk claims as answer text.
+        suggestion_query = _is_suggestion_query(query)
+        advice_atoms = _advice_atoms(query, atoms_with_untyped if suggestion_query
+                                     else atoms)
+        if suggestion_query and not advice_atoms:
             return None
         answer, selected = _open_or_preference_answer(query, advice_atoms)
         if answer and selected:
-            return result_from(answer, selected, confidence=0.85)
-        atoms = advice_atoms if _is_suggestion_query(query) else atoms
+            # ':suggestion_synth' marks the DELIBERATE carve-out: provenance-gated
+            # suggestion synthesis composes advice fragments by design; verification keys
+            # its exemptions off this tag. The tag applies ONLY to actual suggestion
+            # queries -- an option-choice or favorites answer produced here for an
+            # ordinary preference question is NOT suggestion synthesis and must face
+            # the strict hypothesis and the preference form floor like every other
+            # untagged preference answer.
+            return _result(answer, plan, backend,
+                           [sup(item, atom, score) for score, item, atom in selected[:6]],
+                           0.85,
+                           note_suffix=":suggestion_synth" if suggestion_query else "")
+        atoms = advice_atoms if suggestion_query else atoms
         # Specific slot extraction with a target-term gate: an open-shaped question that names a
         # concrete target ("the Lantern Walk event") is answerable from a matching atom; vague
         # opinion/synthesis and advice questions stay on the fallback path below.
@@ -5712,7 +5744,10 @@ def _execute_atoms(plan: ExecutionPlan, query: str,
             return None
         answer, selected = _open_or_preference_answer(query, advice_atoms)
         if answer and selected:
-            return result_from(answer, selected, confidence=0.85)
+            # Same deliberate carve-out tag as the preference block above.
+            return _result(answer, plan, backend,
+                           [sup(item, atom, score) for score, item, atom in selected[:6]],
+                           0.85, note_suffix=":suggestion_synth")
 
     answer, selected = _numeric_extreme_answer(query, atoms)
     if answer and selected:
@@ -5869,8 +5904,8 @@ def _execute_atoms(plan: ExecutionPlan, query: str,
             answer = _action_object_phrase(query, atom) or _answer_value(query, atom, item)
         if answer:
             # 'How long ...' needs a duration-shaped answer here exactly as in the specific
-            # loop above; without the gate this tail shipped an event fragment ('I finished
-            # up my writing for my book') as an elapsed time.
+            # loop above; without the gate this tail shipped a finished-a-draft event
+            # fragment as an elapsed time.
             if duration_value_query and not (
                     _DURATION_RE.search(answer)
                     or re.search(r"\btimes?\s+a\s+(?:day|week|month|year)\b", answer, re.I)):
@@ -5891,7 +5926,8 @@ def execute_claim_op(plan: ExecutionPlan, query: str,
                            [_support(c.source_memory_id, atom, claim_id=c.claim_id, score=s)
                             for s, c, atom in selected[:6]], confidence=0.95,
                            note_suffix=":problem")
-    return _execute_atoms(plan, query, _claim_atoms(query, relevant), "claim")
+    return _execute_atoms(plan, query, _claim_atoms(query, relevant), "claim",
+                          claim_pool=relevant)
 
 
 def execute_record_op(plan: ExecutionPlan, query: str,
