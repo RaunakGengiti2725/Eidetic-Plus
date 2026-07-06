@@ -2002,3 +2002,33 @@ CONCLUSION: eidetic's defensible edge on this benchmark is VERIFICATION + PROVEN
 "beats full-context RAG" wording is NOT supported by this window and must not be made.
 Single window n=40 is noisy; r10/r11 4-system windows will show whether r9's ranking
 holds. This entry stands regardless of what they show -- we counted the loss.
+
+## SLICE 10 (r10, window 9, digest, SHA e139cd508) -- 4-SYSTEM, RAG ranking CONFIRMED
+
+Second 4-system window. r9's ranking holds.
+
+| system | correct | verified | verified-correct | qtok med | qtok total |
+|---|---|---|---|---|---|
+| rag-full | 28/40 (70%) | 0 | 0 | 22,499 | 857,405 |
+| rag-vector | 25/40 (63%) | 0 | 0 | 1,869 | 73,475 |
+| eidetic-plus-full | 19/40 (48%) | 29 | 17 | 4,030 | 137,645 |
+| mem0 | 14/40 (35%) | 0 | 0 | 402 | 14,889 |
+
+Two-window aggregate (r9+r10, n=80):
+- rag-full 54/80 (68%), rag-vector 47/80 (59%), eidetic 39/80 (49%), mem0 27/80 (34%).
+- On RAW accuracy the RAG baselines beat eidetic on BOTH windows, consistently. This is
+  NOT noise -- it is the honest ceiling on a small-corpus benchmark where the whole
+  transcript fits in the reader's context.
+- VERIFICATION is eidetic-only: 64 verified answers across the two windows (35+29) vs 0
+  for every other system. Verified-PRECISION (verified-correct / verified): r9 19/35=54%,
+  r10 17/29=59%. So eidetic's cited answers are right ~55-60% of the time; the rest are
+  grounded-but-off-target (e.g. an identity/alias claim answering an events question).
+  Provenance, NOT a correctness guarantee -- but every other system offers 0 provenance.
+- eidetic weak categories both windows: multi-hop (1/8, 2/8), temporal (3/8, 2/8);
+  rag-vector's simple top-k beat eidetic's structured/graph retrieval on multi-hop (5/8
+  both windows). A real retrieval-breadth weakness, recorded for follow-up.
+
+HONEST BOTTOM LINE: "long-horizon memory dominance" was measured only vs mem0 (a weak
+baseline, 34% here). Against strong RAG baselines eidetic does NOT lead on raw accuracy.
+Its defensible, unique property is verify-or-abstain provenance. The public claims are
+being narrowed to exactly that. r11 will extend to n=120 but will not change this story.
