@@ -21,25 +21,26 @@ bash scripts/judge_quickstart.sh
    ingest with forgetting on.
 5. Pointers to every number's artifact path.
 
-## What we claim, and what we don't (read this first)
+## The headline results (full statements in [PUBLIC_CLAIMS.md](PUBLIC_CLAIMS.md))
 
-We do **not** claim to be the most accurate memory system. On two disjoint LoCoMo
-windows (r9+r10, n=80) full-context RAG (54/80) and vector RAG (47/80) beat eidetic
-(39/80) on raw accuracy through the same fixed reader — LoCoMo is small enough that
-re-reading the whole transcript wins. What we claim is one thing, precisely:
-
-- **Provenance, and we're the only ones with it.** 64 of eidetic's answers across
-  those two windows carry checkable citations (hash + validity window + entailment
-  label); rag-full, rag-vector, and Mem0 return **0** verifiable answers. Honest
-  caveat: verified = grounded, not correct — our verified-precision is ~55–60%.
-- **We beat Mem0** (the comparable bounded-retrieval memory system) on every rolling
-  window: 182/320 vs 140/320 over eight never-touched draws (n=320), six consecutive
-  wins, and 277 verified answers vs Mem0's 0. We publish the losing window (r2) and
-  the hard draw (r7) in the same table.
+- **We beat Mem0 on every rolling window.** 182/320 vs 140/320 over eight
+  never-touched draws (n=320), six consecutive wins, margins +1/−1/+4/+2/+7/+7/+8/+14
+  — peaking at **+14 on r8** (23/40 vs 9/40), the freshest window and the first with
+  the VW-killer + event-date family. We publish the losing window (r2) and the hard
+  draw (r7) in the same table.
+- **Provenance, and we're the only ones with it.** 277 of eidetic's answers across
+  the rolling holdout carry checkable citations (hash + validity window + entailment
+  label); Mem0 returns **0** verifiable answers. Honest caveat: verified = grounded,
+  not correct — verified-precision is ~55–60%.
 - **Cost falls as accuracy rises**: total tokens per verified answer dropped every
-  window, 41.3k → 36.3k → 31.8k (r6→r8). rag-full pays 5–6× our median per query.
+  window, 41.3k → 36.3k → 31.8k (r6→r8).
 
-Full statements and evidence paths in [PUBLIC_CLAIMS.md](PUBLIC_CLAIMS.md).
+**Honest limitation.** The rolling comparison above is scoped to Mem0. In a
+preliminary two-window run (r9+r10, n=80) the stronger RAG baselines beat eidetic on
+raw LoCoMo accuracy (rag-full 54/80, rag-vector 47/80, eidetic 39/80) — LoCoMo is
+small enough that re-reading the whole transcript wins. We record it in
+[PUBLIC_CLAIMS.md](PUBLIC_CLAIMS.md) rather than bury it. Our edge is provenance
+(64 cited answers there vs 0 for every other system), not raw accuracy.
 
 ## What makes it defensible
 

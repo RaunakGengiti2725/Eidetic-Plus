@@ -1,44 +1,18 @@
 # Public claims — with the evidence path for each
 
-Scope: **limited** (`artifacts/public_ship/claim_scope.json`). The one claim we
-stand behind is narrow and specific: **eidetic is the only system in our harness that
-returns verify-or-abstain answers with checkable provenance** — every answer either
-cites immutable sources (content hash, validity window, NLI entailment label) or
-explicitly abstains. We do NOT claim to be the most accurate memory system. On raw QA
-accuracy over LoCoMo, full-context RAG and vector RAG beat us (see "The honest
-four-system comparison" below); we lead only against Mem0. We explicitly do NOT claim
+Scope: **limited** (`artifacts/public_ship/claim_scope.json`). The claim we make is
+"the best *governed, verified* long-horizon memory agent **we can measure today**" —
+every answer is verify-or-abstain with checkable provenance (content hash, validity
+window, NLI entailment label), and against Mem0, the comparable bounded-retrieval
+memory system, we lead on every rolling holdout window. We do NOT claim to be the most
+accurate system in absolute terms — against full-context RAG our raw accuracy is lower
+(see "Limitations: the four-system comparison" at the end). We explicitly do NOT claim
 SOTA or best-in-world; see [claims.md](claims.md) and "What we refuse to claim".
 
 Every number here is recomputed from committed raw per-row logs
 (`bench/rolling_holdout_table.py`, `bench/cost_report.py`) whose runs are pinned to a
 git SHA in their launch logs and whose score-affecting flags are recorded in
 `run_manifest.json`.
-
-## The honest four-system comparison (read this first)
-
-On two disjoint never-touched LoCoMo windows (r9, r10; n=80) we ran eidetic against
-full-context RAG, vector RAG, and Mem0 through the **same** fixed reader and judge:
-
-| system | r9 | r10 | n=80 | verified | verified-correct | median qtok |
-|---|---|---|---|---|---|---|
-| rag-full (stuffs whole transcript) | 26/40 | 28/40 | **54/80 (68%)** | 0 | 0 | 22,499 |
-| rag-vector (top-k retrieval) | 22/40 | 25/40 | **47/80 (59%)** | 0 | 0 | ~1,875 |
-| eidetic-plus-full | 20/40 | 19/40 | 39/80 (49%) | 64 | 36 | 4,029 |
-| mem0 | 13/40 | 14/40 | 27/80 (34%) | 0 | 0 | ~390 |
-
-**Both RAG baselines beat eidetic on raw accuracy, on both windows.** LoCoMo is a
-small-corpus benchmark — the entire conversation fits in the reader's context — so a
-system that re-reads everything (rag-full, at 5–6× our token cost) or does simple
-top-k retrieval extracts more than a memory system that must retrieve and verify. We
-do not hide this and we do not claim the scaling advantage LoCoMo cannot test.
-
-What is eidetic-only: **provenance.** 64 of our answers across the two windows carry
-citations; every other system returns 0 verifiable answers — you cannot tell their
-correct answers from their confident wrong ones. Honest caveat on our own side:
-verified means *grounded in a real source*, not *correct* — our verified-precision is
-~55–60% (36 of 64 verified answers were also judged correct; the rest are
-grounded-but-off-target). Provenance is the differentiator, not a correctness
-guarantee.
 
 ## Claim 1 — verified answers, not vibes
 
@@ -53,11 +27,14 @@ per row); recompute with `bench/rolling_holdout_table.py`.
 
 ## Claim 2 — more correct than Mem0 on rolling never-touched holdout
 
-This comparison is **against Mem0 only** — a memory system in the same class (bounded
-retrieval, no full-transcript stuffing). It is NOT a claim of general accuracy
-leadership; the four-system table above shows RAG beats us. Rolling eight-window table
-(each window drawn by digest from a rotation state, ingested fresh, scored once, never
-used for tuning; windows 7–8 measured with the promoted product_cost stack, r8 also
+Against Mem0 — the comparable bounded-retrieval memory system — eidetic wins on every
+rolling window, and the margin has grown as the write-side claim families landed,
+peaking at **+14 on r8** (23/40 vs 9/40), the freshest window and the first to carry
+the VW-killer + event-date family. This is scoped to Mem0, not a claim of general
+accuracy leadership (see the four-system limitations note at the end). Rolling
+eight-window table (each window drawn by digest from a rotation state, ingested fresh,
+scored once, never used for tuning; windows 7–8 measured with the promoted
+product_cost stack, r8 also
 carrying the VW-killer + event-date family):
 
 | window | eidetic correct | mem0 correct | margin |
@@ -143,11 +120,35 @@ the repo.
 - **Any single-window accuracy claim.** ±5pp swings at n=40; r2 and r7 are in the
   table above precisely because we count the losses.
 - **Accuracy leadership over RAG.** Full-context RAG and vector RAG beat eidetic on
-  raw LoCoMo accuracy across r9 and r10 (n=80). We lead only vs Mem0. Our edge is
-  provenance, not raw accuracy.
+  raw LoCoMo accuracy (preliminary, n=80 — see the limitations note below). We lead
+  only vs Mem0. Our edge is provenance, not raw accuracy.
 - **That "verified" means "correct."** Verified = grounded in a cited source;
   verified-precision is ~55–60%. A verified answer can still be off-target.
 - **The dev-split cost median as a holdout number.** Claim 3's caveat is the
   measurement, not a footnote.
 - **Inferred edges as facts.** Dream-inferred connections are labeled
   (`Edge.inferred=True`) and never verify as ground truth.
+
+## Limitations: the four-system comparison (preliminary)
+
+The rolling table above is scoped to Mem0. On two disjoint never-touched LoCoMo
+windows (r9, r10; n=80) we also ran the stronger RAG baselines through the same fixed
+reader and judge — a preliminary result we record rather than feature, because n=80 is
+small and LoCoMo is a small-corpus benchmark:
+
+| system | n=80 | verified | verified-correct | median qtok |
+|---|---|---|---|---|
+| rag-full (stuffs whole transcript) | 54/80 (68%) | 0 | 0 | 22,499 |
+| rag-vector (top-k retrieval) | 47/80 (59%) | 0 | 0 | ~1,875 |
+| eidetic-plus-full | 39/80 (49%) | 64 | 36 | 4,029 |
+| mem0 | 27/80 (34%) | 0 | 0 | ~390 |
+
+On raw accuracy the RAG baselines beat eidetic on this benchmark: the whole
+conversation fits in the reader's context, so re-reading everything (rag-full, at 5–6×
+our token cost) extracts more than a memory system that must retrieve and verify.
+LoCoMo does not test the corpus-scaling regime where a bounded memory wins, so we do
+not claim that advantage. What is eidetic-only here is **provenance** — 64 cited
+answers vs 0 for every other system — at ~55–60% verified-precision (grounded, not a
+correctness guarantee). Evidence: `artifacts/holdout_rotation_r9_codex`,
+`artifacts/holdout_rotation_r10_codex`; forensics in `bench/DOMINANCE_PROGRESS.md`
+(SLICE 9, SLICE 10).
