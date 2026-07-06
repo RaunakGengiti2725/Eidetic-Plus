@@ -1965,3 +1965,40 @@ precision, not yet count).
 Rolling n=320: 182/320 (57%) vs 140/320 (44%), +42; verified 277 vs 0; temporal 25/60
 vs 3/60. Window margins: +1, -1, +4, +2, +7, +7, +8, +14 (SIX consecutive wins, margin
 monotonically rising over the last four windows).
+
+## SLICE 9 (r9, window 8, digest 295e20d4, SHA 6d6a1adb5) -- 4-SYSTEM, honest RAG check
+
+FIRST holdout window comparing eidetic against the RAG baselines (not just mem0), all
+four through the SAME fixed reader + judge. This is the Claim A test on holdout, and it
+is a genuine check on overclaiming.
+
+| system | correct | verified | qtok med | qtok total | errors |
+|---|---|---|---|---|---|
+| rag-full (full-context stuffing) | 26/40 (65%) | 0 | 22,499 | 900,131 | 0 |
+| rag-vector (top-k retrieval) | 22/40 (55%) | 0 | 1,880 | 73,472 | 0 |
+| eidetic-plus-full | 20/40 (50%) | 35 | 4,029 | 127,081 | 0 |
+| mem0 | 13/40 (33%) | 0 | 374 | 12,965 | 6 |
+
+HONEST READING -- do not spin this:
+- On RAW accuracy this window, BOTH RAG baselines beat eidetic (26, 22 vs 20). eidetic
+  beats only mem0 on raw accuracy here. r9 is a weak eidetic window (multi-hop 1/8,
+  temporal 3/8); rag-vector's multi-hop was 5/8.
+- On a small-corpus benchmark like LoCoMo, full-context RAG re-reads the ENTIRE
+  conversation every query (median 22,499 tokens, 7x eidetic; total 900k, 7x). A strong
+  reader with the whole transcript in front of it will extract more than a memory system
+  that must retrieve. That advantage does not survive corpus growth past the context
+  window -- but LoCoMo does not test that, so we do NOT claim the scaling win here.
+- What is UNIQUE and real: eidetic is the ONLY system that VERIFIES. 35 of its answers
+  carry NLI-checked citations or it abstains; rag-full, rag-vector, and mem0 return 0
+  verified answers -- their correct answers are indistinguishable from their confident
+  wrong ones. mem0 also errored on 6 rows.
+- Cost: rag-vector's median (1,880) is actually BELOW eidetic's (4,029) this window --
+  eidetic's structured plateau (13/40 rows at 5-130 tok) does not yet cover enough rows
+  to pull the median under a simple top-k baseline. Honest: eidetic is not winning
+  median cost vs a tuned vector RAG on this window.
+
+CONCLUSION: eidetic's defensible edge on this benchmark is VERIFICATION + PROVENANCE
+(cite-or-abstain), not raw QA accuracy, and not median cost vs vector RAG. The
+"beats full-context RAG" wording is NOT supported by this window and must not be made.
+Single window n=40 is noisy; r10/r11 4-system windows will show whether r9's ranking
+holds. This entry stands regardless of what they show -- we counted the loss.
