@@ -1,0 +1,5 @@
+systems=eidetic-full,rag-full,rag-vector,mem0
+sha=e139cd50804a86df473178cd757f30631aefe3c5
+samples=/Users/raunakgengiti/Eidetic-Plus/artifacts/holdout_rotation_r10_codex/holdout40.samples.json
+profile=bench/profiles/product_cost.json
+started=2026-07-06T18:48:04Z
