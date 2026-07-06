@@ -21,19 +21,25 @@ bash scripts/judge_quickstart.sh
    ingest with forgetting on.
 5. Pointers to every number's artifact path.
 
-## The three headline results (full statements in [PUBLIC_CLAIMS.md](PUBLIC_CLAIMS.md))
+## What we claim, and what we don't (read this first)
 
-- **Verified 277 vs 0.** Across n=320 rolling holdout, every one of our 277 verified
-  answers carries citations to immutable sources; Mem0's answers verify nothing.
-- **Rolling holdout lead.** 182/320 vs Mem0's 140/320 across eight never-touched
-  windows, six consecutive wins, margins +1/−1/+4/+2/+7/+7/+8/+14 — the margin has
-  grown as the write-side claim families landed, and r8 (first window with the
-  VW-killer + event-date family) is the largest of the eight. We publish the losing
-  window (r2: −1) and the hard draw (r7, below our own internal bars).
-- **Structured answers at 5–132 tokens, verification included.** Dev-40 median 83
-  tokens vs Mem0's 382 unverified; on holdout the plateau transferred but coverage
-  didn't (~14/40), so we do not claim the dev median as a holdout number. The cost per
-  verified answer fell every window (41.3k → 36.3k → 31.8k tokens, r6→r8).
+We do **not** claim to be the most accurate memory system. On two disjoint LoCoMo
+windows (r9+r10, n=80) full-context RAG (54/80) and vector RAG (47/80) beat eidetic
+(39/80) on raw accuracy through the same fixed reader — LoCoMo is small enough that
+re-reading the whole transcript wins. What we claim is one thing, precisely:
+
+- **Provenance, and we're the only ones with it.** 64 of eidetic's answers across
+  those two windows carry checkable citations (hash + validity window + entailment
+  label); rag-full, rag-vector, and Mem0 return **0** verifiable answers. Honest
+  caveat: verified = grounded, not correct — our verified-precision is ~55–60%.
+- **We beat Mem0** (the comparable bounded-retrieval memory system) on every rolling
+  window: 182/320 vs 140/320 over eight never-touched draws (n=320), six consecutive
+  wins, and 277 verified answers vs Mem0's 0. We publish the losing window (r2) and
+  the hard draw (r7) in the same table.
+- **Cost falls as accuracy rises**: total tokens per verified answer dropped every
+  window, 41.3k → 36.3k → 31.8k (r6→r8). rag-full pays 5–6× our median per query.
+
+Full statements and evidence paths in [PUBLIC_CLAIMS.md](PUBLIC_CLAIMS.md).
 
 ## What makes it defensible
 

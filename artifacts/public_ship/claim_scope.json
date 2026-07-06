@@ -1,6 +1,6 @@
 {
   "public_claim_scope": "limited",
-  "claim": "Best governed verified long-horizon memory agent we can measure today: on rotating never-touched LoCoMo holdout windows with a shared fixed reader and judge, eidetic-plus-full beats Mem0 on judge-correct answers while being the only system returning verify-or-abstain citations (mem0 verified answers: 0). Cost: dev-split median query tokens reached 83 with verification intact (COST_AB.md); holdout confirmation is slice 7.",
+  "claim": "Eidetic is the only system in our harness that returns verify-or-abstain answers with checkable provenance (citations: content hash, validity window, NLI entailment label) or an explicit abstention. We do NOT claim to be the most accurate memory system: on raw LoCoMo QA accuracy full-context RAG (54/80) and vector RAG (47/80) beat eidetic (39/80) across r9+r10; we lead only vs Mem0 (rolling n=320: 182 vs 140, verified 277 vs 0). Verified-precision ~55-60% (grounded, not a correctness guarantee).",
   "explicitly_not_claimed": [
     "SOTA / best-in-world (requires bench/reproduce.sh >=10-run sweep + external evidence for Chronos, Mastra, ByteRover, Hindsight -- not run)",
     "any accuracy claim from a single window (windows swing +-5pp at n=40; the rolling n>=240 table is the evidence unit)",
@@ -47,5 +47,15 @@
       "locomo": "83.18-92.0% by backbone/harness",
       "longmemeval_s": "83.6-94.6%"
     }
+  },
+  "four_system_holdout_n80": {
+    "rag-full": "54/80 (68%), 0 verified",
+    "rag-vector": "47/80 (59%), 0 verified",
+    "eidetic-plus-full": "39/80 (49%), 64 verified / 36 verified-correct",
+    "mem0": "27/80 (34%), 0 verified",
+    "windows": [
+      "holdout_rotation_r9_codex",
+      "holdout_rotation_r10_codex"
+    ]
   }
 }
