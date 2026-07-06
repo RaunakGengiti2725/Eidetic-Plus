@@ -1,0 +1,6 @@
+systems=eidetic-full,rag-full,rag-vector,mem0
+sha=6d6a1adb537919a90a793e5745b9f4640cc68910
+samples=/Users/raunakgengiti/Eidetic-Plus/artifacts/holdout_rotation_r9_codex/holdout40.samples.json
+profile=bench/profiles/product_cost.json
+started=2026-07-06T16:44:35Z
+profile overlay: {'ADAPTIVE_CONTEXT': '1', 'EXTRACT_COMBINED': '1', 'EXTRACT_RESULT_CACHE': '1'}
