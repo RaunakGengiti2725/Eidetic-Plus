@@ -27,7 +27,8 @@
     "Windows swing +-5pp at n=40; the rolling n=280 table is the evidence unit, not any single window.",
     "Mem0's write-side token cost is unlogged in its adapter; its totals are understated in all comparisons.",
     "Ablation evidence (metabolism/forgetting attribution) not present in this artifact dir; see docs/claims.md Claim B for the program.",
-    "Named comparators publish 83-96% self-reported accuracy with frontier readers (GPT-5/Gemini-3/Opus) and their own judges; under our deliberately-fixed qwen-plus reader the regimes are not commensurable, and we do not claim to beat them. comparator_research.json carries the sourced records."
+    "Named comparators publish 83-96% self-reported accuracy with frontier readers (GPT-5/Gemini-3/Opus) and their own judges; under our deliberately-fixed qwen-plus reader the regimes are not commensurable, and we do not claim to beat them. comparator_research.json carries the sourced records.",
+    "Attribution ablation (Claim B: memory layer earns its keep) is NOT cleanly measured: the 5-arm dev ablation is a ~6h uninterrupted job this session-bound environment cannot sustain (killed on teardown twice). A directional metabolism-off signal (~+19pp accuracy drop) appeared in an error-polluted run and is deliberately not cited. docs/claims.md commits to reporting it \u2014 including any honest negative \u2014 once run uninterrupted."
   ],
   "external_system_evidence_note": "Verified web-research records in comparator_research.json (2026-07-04): every number is vendor/author self-reported with no independent reproduction found; judges and reader backbones differ per system, so none are commensurable with this repo's fixed-reader fixed-judge harness. Recorded for scope-boundary honesty, NOT entered as gate-valid external evidence.",
   "comparator_headline_numbers_self_reported": {
