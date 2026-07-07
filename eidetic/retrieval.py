@@ -2211,7 +2211,12 @@ def _vocab_seed_entities(query: str, corpus: list) -> list[str]:
 
 def _budget_blocks(blocks: list[str], token_budget: int) -> list[str]:
     """Token-budget the hybrid context (~4 chars/token) so the slice stays lean
-    (lean-beats-full: a precise slice beats stuffing the whole noisy history)."""
+    (lean-beats-full: a precise slice beats stuffing the whole noisy history).
+
+    Lever 3's raw-dense floor is applied by ORDERING at the call site (top-N raw dense placed
+    just above the low-value audit/pref channels), NOT by reserving head budget here -- so the
+    floor can only ever displace verbose low-priority blocks, never crop a higher-priority
+    structured channel that fits."""
     char_budget = token_budget * 4
     out, used = [], 0
     for b in blocks:
@@ -4381,12 +4386,25 @@ class Retriever:
             floor = min(1.0, max(0.1, float(self.settings.adaptive_context_floor)))
             token_budget = int(round(token_budget * (
                 floor + (1.0 - floor) * self._query_difficulty(query))))
+        # Lever 3 raw-dense floor (flag-gated): promote the top-N raw dense passages to just
+        # ABOVE the low-value audit/pref channels (not to the head), so eidetic's reader context
+        # is a superset of rag-vector's top-k WITHOUT ever cropping a higher-priority structured
+        # channel. The floor can only displace verbose audit/pref/tail-raw blocks. Adds no
+        # retrieval, raises no topk. Flag-off is byte-identical (empty floor prefix).
+        floor_raw: list[str] = []
+        rest_raw = raw_blocks
+        if s.raw_dense_floor_enabled and raw_blocks:
+            n = max(0, int(s.raw_dense_floor_n))
+            floor_raw = raw_blocks[:n]
+            rest_raw = raw_blocks[n:]
         budgeted = _budget_blocks(
             (question_time_blocks
              + resolver_blocks + active_fact_blocks + bridge_blocks + user_blocks + assistant_blocks
              + region_blocks + temporal_blocks + temporal_anchor_blocks + list_blocks + scratchpad_blocks
-             + event_blocks + chain_blocks + audit_blocks + pref_blocks
-             + raw_blocks),
+             + event_blocks + chain_blocks
+             + floor_raw
+             + audit_blocks + pref_blocks
+             + rest_raw),
             token_budget)
         return edge_place(budgeted)
 

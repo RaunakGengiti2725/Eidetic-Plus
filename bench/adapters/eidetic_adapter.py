@@ -27,6 +27,29 @@ _DECLINE_RE = re.compile(
 )
 
 
+def _coverage_backed_abstain(*, declined: bool, verified: bool, coverage: float,
+                             settings) -> bool:
+    """Lever 2 coverage-backed override, modeled over the LEGACY (non-v2) base gate.
+
+    The override STEP (lines below) is identical to the one wired inline into answer()'s
+    abstention decision, which applies it to whichever base gate ran (v2 OR legacy) -- the
+    shipped profile runs v2, so the live override sits OUTSIDE the v2/legacy branch. This pure
+    function pins the override contract against the legacy base so it is unit-testable without
+    the reader/client/NLI stack: abstain when declined OR (unverified AND coverage below
+    threshold); then, when the flag is on AND the reader did NOT decline AND dense coverage >=
+    reader_coverage_floor, ship the (unverified, HONEST) reader text instead of abstaining.
+    `declined` stays absolute. verified=False is reported truthfully, so the verified-precision
+    scoreboard column is untouched.
+    """
+    abstained = declined or ((not verified) and coverage < settings.abstention_threshold)
+    if getattr(settings, "abstention_reader_coverage_enabled", False):
+        coverage_backed = (not declined) and coverage >= getattr(
+            settings, "reader_coverage_floor", 0.45)
+        if coverage_backed:
+            abstained = False
+    return abstained
+
+
 def _is_entailment(citation) -> bool:
     label = getattr(citation, "nli_label", "")
     return getattr(label, "value", label) == "entailment"
@@ -297,18 +320,35 @@ class EideticFullSystem(EideticSystem):
         coverage = max((c.dense_score for c in cands), default=0.0)
         conf = None
         sig = None
+        coverage_backed = False
         if s.abstention_v2_enabled:
             conf, _sig = r._abstention_confidence(cands, citations)
             sig = _sig
-            abstained = declined or conf < s.abstention_v2_tau
+            base_abstain = declined or conf < s.abstention_v2_tau
         else:
-            abstained = declined or ((not verified) and coverage < s.abstention_threshold)
+            base_abstain = declined or ((not verified) and coverage < s.abstention_threshold)
+        # Lever 2: coverage-backed override (flag-gated). Applied to WHICHEVER base gate ran
+        # (v2 or legacy) -- the shipped profile runs v2, so the override must live outside the
+        # branch or it is inert. Converts a high-coverage abstention into an answered-but-
+        # unverified row; can only turn an abstention into an answer, never changes an already-
+        # answered row. verified stays False here (reported honestly), so the verified-precision
+        # scoreboard column is untouched -- the honesty differentiator is preserved.
+        abstained = base_abstain
+        if (getattr(s, "abstention_reader_coverage_enabled", False)
+                and base_abstain and not declined
+                and coverage >= getattr(s, "reader_coverage_floor", 0.45)):
+            abstained = False
+            coverage_backed = True
         e2e_ms = (time.perf_counter() - t0) * 1000.0
+        _policy = "fixed-reader + verify+abstain+proof"
+        if coverage_backed:
+            _policy = "fixed-reader + coverage-backed (unverified)"
         return AnswerResult(
             answer=(self._ABSTAIN_TEXT if abstained else text),
             context_tokens=sum(approx_tokens(b) for b in blocks),
             search_ms=search_ms, e2e_ms=e2e_ms, abstained=abstained,
-            extra={"verified": bool(verified and not abstained), "coverage": coverage,
+            extra={"verified": bool(verified and not abstained and not coverage_backed),
+                   "coverage": coverage,
                    "confidence": conf, "abstention_signals": sig,
                    "citations": len(citations),
                    "candidate_memory_ids": [c.record.memory_id for c in cands],
@@ -316,7 +356,7 @@ class EideticFullSystem(EideticSystem):
                    "entailed_content_hashes": _entailed_content_hashes(citations),
                    "entailed_raw_uris": _entailed_raw_uris(citations),
                    "proof_surface_tokens": _proof_surface_tokens(citations),
-                   "policy": "fixed-reader + verify+abstain+proof",
+                   "policy": _policy,
                    **({"model_usage": r.client.usage_delta(_q_before, _q_snap())}
                       if _q_before is not None and callable(getattr(r.client, "usage_delta", None))
                       else {}),

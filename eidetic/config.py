@@ -335,6 +335,24 @@ class Settings:
     abstention_w_coverage: float = field(default_factory=lambda: float(_get("ABSTENTION_W_COVERAGE", "0.2")))
     abstention_w_agreement: float = field(default_factory=lambda: float(_get("ABSTENTION_W_AGREEMENT", "0.2")))
     abstention_w_proof: float = field(default_factory=lambda: float(_get("ABSTENTION_W_PROOF", "0.2")))
+    # --- Beat-rag-vector levers (default OFF in code; product_cost.json stacks them ON) ---
+    # Lever 2 ABSTENTION_READER_COVERAGE (default off): abstention scores 0 on any gold-bearing
+    # row, so answering-when-coverage-exists strictly helps accuracy. When the reader did NOT
+    # decline AND dense coverage >= reader_coverage_floor, ship the (unverified, HONEST) reader
+    # text instead of abstaining. verified=False is reported truthfully -- the verified-precision
+    # scoreboard column stays clean; we simply stop discarding recoverable answers. `declined`
+    # stays absolute (if the reader said 'I don't have that', respect it).
+    abstention_reader_coverage_enabled: bool = field(
+        default_factory=lambda: _get_bool("ABSTENTION_READER_COVERAGE", "0"))
+    reader_coverage_floor: float = field(
+        default_factory=lambda: float(_get("READER_COVERAGE_FLOOR", "0.45")))
+    # Lever 3 RAW_DENSE_FLOOR (default off): reserve char budget for the top-N raw dense
+    # passages BEFORE verbose audit/temporal channels fill it, so eidetic's reader context is a
+    # SUPERSET of rag-vector's top-k and can never retrieve strictly worse. Reorders/protects
+    # existing candidates only -- adds no retrieval, raises no topk.
+    raw_dense_floor_enabled: bool = field(
+        default_factory=lambda: _get_bool("RAW_DENSE_FLOOR", "0"))
+    raw_dense_floor_n: int = field(default_factory=lambda: _get_int("RAW_DENSE_FLOOR_N", 10))
     # Cross-encoder rerank (qwen3-rerank): on/off + candidate depth (~50 -> final_topk).
     rerank_enabled: bool = field(default_factory=lambda: _get_bool("RERANK_ENABLED", "1"))
     rerank_fail_open: bool = field(default_factory=lambda: _get_bool("RERANK_FAIL_OPEN", "0"))

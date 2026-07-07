@@ -2,5 +2,10 @@
   "_comment": "Product / bench COST profile -- measured GO flags only (COST_AB.md). ADAPTIVE_CONTEXT: GO, -28% median qtok at dev-20 x2 + held at n=40. EXTRACT_COMBINED+EXTRACT_RESULT_CACHE: GO promotion candidate, n=40 total qtok -11.6%, write calls -37% (882->552), claims flat (-2.3%), vc 24 vs 25 (noise). Overlay ON TOP of the inherited wave-F profile env (artifacts/wave_i_mixed24_full_codex/inherited_env.json). HOLDOUT-OFF BY DESIGN until the user says 'promote on holdout' (slice 7+): flipping mid-rotation confounds the window trend. Code defaults stay 0 -- this file is the only place these flags stack.",
   "ADAPTIVE_CONTEXT": "1",
   "EXTRACT_COMBINED": "1",
-  "EXTRACT_RESULT_CACHE": "1"
+  "EXTRACT_RESULT_CACHE": "1",
+  "_beat_ragvector_comment": "Beat-rag-vector accuracy levers (code defaults 0; stacked ON here only). Lever 1 STRUCTURED_ATTRIBUTE_GATE was REMOVED: existing wh-type verify floors already catch temporal slot mismatches, and a lexical attribute gate cannot distinguish a correct paraphrase ('bought a Tesla' answers 'what car') from a wrong-slot steal ('transgender woman' answers 'what events') -- both have zero query-term overlap -- so it over-deferred correct rows and blew cost. ABSTENTION_READER_COVERAGE(+FLOOR): ship the unverified-but-HONEST reader text (verified=False, reported truthfully) when dense coverage>=floor instead of abstaining (abstention scores 0 like wrong). RAW_DENSE_FLOOR(+N): promote the top-N raw dense passages ABOVE the low-value audit/pref channels (by ordering, never cropping a higher-priority structured block) so context is a superset of rag-vector's top-k. Each is independently A/B-measurable on a FRESH holdout window.",
+  "ABSTENTION_READER_COVERAGE": "1",
+  "READER_COVERAGE_FLOOR": "0.45",
+  "RAW_DENSE_FLOOR": "1",
+  "RAW_DENSE_FLOOR_N": "10"
 }
