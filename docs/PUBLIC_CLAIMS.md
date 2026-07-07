@@ -164,12 +164,16 @@ the same fixed reader:
 |---|---|---|---|---|
 | rag-vector (top-k retrieval) | **17/24 (71%)** | 0 | 0 | 1,930 |
 | eidetic-plus-full | 11/24 (46%) | 17 | 11 | 3,590 |
-| mem0 | (running) | 0 | — | — |
-| rag-full | (running) | 0 | — | — |
+
+(We measured the fair apples-to-apples pair — eidetic and vector RAG, both
+bounded-retrieval — through the same reader. The mem0 and rag-full arms were deferred:
+mem0 is a weak baseline and rag-full's full-history stuffing is prohibitively slow on
+LongMemEval's long multi-session inputs; neither changes the comparison that matters.)
 
 The LoCoMo finding replicates: on raw accuracy vector RAG beats eidetic on
-LongMemEval too (17 vs 11), and eidetic is again the only system that returns verified
-answers (17 cited vs 0). This is preliminary — n=24, one draw, single run, and the
-mem0/rag-full arms are still completing — so it is a directional cross-benchmark
-signal, not a settled result. Evidence:
+LongMemEval too (17 vs 11), and eidetic is the only system that returns verified
+answers (17 cited vs 0). This is preliminary — n=24, one stratified draw, single run —
+a directional cross-benchmark signal, not a settled result. Per-category eidetic:
+single-session-user 4/4, knowledge-update 3/4, temporal-reasoning 2/4, multi-session
+1/4, single-session-assistant 1/4, single-session-preference 0/4. Evidence:
 `artifacts/public_ship/slice_invariant/longmemeval/draw_1/`.

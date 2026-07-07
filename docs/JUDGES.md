@@ -45,7 +45,8 @@ small enough that re-reading the whole transcript wins. We record it in
 **Cross-benchmark (preliminary).** Not just LoCoMo: on a 24-question LongMemEval-S
 subset (all 6 categories, same fixed reader) the pattern replicates — vector RAG
 17/24 vs eidetic 11/24 on raw accuracy, eidetic again the only system with verified
-answers (17 vs 0). Partial (n=24, mem0/rag-full arms still running);
+answers (17 vs 0). Partial by design (n=24, one draw; the fair bounded-retrieval pair
+measured, mem0/rag-full deferred);
 `artifacts/public_ship/slice_invariant/longmemeval/draw_1/`.
 
 ## What makes it defensible
