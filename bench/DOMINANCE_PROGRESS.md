@@ -2032,3 +2032,32 @@ HONEST BOTTOM LINE: "long-horizon memory dominance" was measured only vs mem0 (a
 baseline, 34% here). Against strong RAG baselines eidetic does NOT lead on raw accuracy.
 Its defensible, unique property is verify-or-abstain provenance. The public claims are
 being narrowed to exactly that. r11 will extend to n=120 but will not change this story.
+
+## SLICE 11 (r11, window 10, SHA a7adf5076) -- accuracy levers measured on FRESH window: DID NOT beat rag-vector
+
+Goal for this slice: make eidetic beat rag-vector on raw accuracy via the two safe levers
+(ABSTENTION_READER_COVERAGE + RAW_DENSE_FLOOR; the structured attribute gate was removed as
+unfixable -- it over-deferred correct paraphrases). Measured on a fresh never-touched window:
+
+| system | r11 | verified | qtok med |
+|---|---|---|---|
+| rag-vector | 22/40 (55%) | 0 | 1,928 |
+| eidetic-plus-full (levers ON) | 16/40 (40%) | 31 | 4,033 |
+
+eidetic LOST by -6. The levers barely moved it: coverage-backed override fired only 2/40
+(the abstained rows' dense coverage rarely clears the 0.45 floor), and the raw-dense floor
+did not fix the reader-wrong class. Loss breakdown (11 lost): reader-wrong 5, structured-VW
+3, abstained 3.
+
+HONEST THREE-WINDOW VERDICT (r9/r10/r11, all fresh, same fixed reader):
+eidetic 20/19/16 vs rag-vector 22/25/22 -- eidetic loses on raw accuracy on EVERY window.
+The dominant, consistent cause is that eidetic's richer multi-channel context underperforms
+a clean top-k cosine slice FOR THE SAME READER on small-corpus LoCoMo (reader-wrong is the
+biggest bucket on r11). That is architectural, not a bug: the memory machinery that wins on
+provenance and on hard temporal rows adds noise the reader must fight on easy single-hop
+rows where plain top-k already has the passage. Beating rag-vector on RAW accuracy would
+require either semantic slot-matching for the structured-VW class (real research -- a lexical
+gate provably cannot do it safely) or making eidetic's context as lean as top-k (which
+discards the very machinery that is the point). We do NOT claim an accuracy win over
+rag-vector. eidetic's honest, defensible edge remains verify-or-abstain provenance
+(31 verified answers here vs 0) -- not raw accuracy on this benchmark.
