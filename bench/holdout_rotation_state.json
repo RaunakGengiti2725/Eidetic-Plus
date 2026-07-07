@@ -3,7 +3,7 @@
   "datasets": {
     "locomo": {
       "epoch": 0,
-      "next_window": 10,
+      "next_window": 11,
       "draws": [
         {
           "digest": "d968757e7ff8f1de05f521a3d79a5b7b4d011bc1022887b64c0f8cb18e8f1493",
@@ -83,6 +83,14 @@
           "window": 9,
           "n": 40,
           "commit": "e139cd508",
+          "rollover": false
+        },
+        {
+          "digest": "7f3fd11a5e5704d9718f1d4e9b148a69ca90e5bc6c19d6ff62bced9ce5b80e47",
+          "epoch": 0,
+          "window": 10,
+          "n": 40,
+          "commit": "a7adf5076",
           "rollover": false
         }
       ]

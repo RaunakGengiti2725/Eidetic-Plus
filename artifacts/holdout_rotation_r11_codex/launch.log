@@ -1,0 +1,5 @@
+systems=eidetic-full,rag-vector (levers ON: ABSTENTION_READER_COVERAGE + RAW_DENSE_FLOOR)
+sha=a7adf5076219acd62b1428e6acbcb56e00fae908
+profile=bench/profiles/product_cost.json
+started=2026-07-07T19:18:25Z
+levers: {'ABSTENTION_READER_COVERAGE': '1', 'RAW_DENSE_FLOOR': '1', 'READER_COVERAGE_FLOOR': '0.45'}
