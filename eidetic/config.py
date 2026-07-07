@@ -353,6 +353,17 @@ class Settings:
     raw_dense_floor_enabled: bool = field(
         default_factory=lambda: _get_bool("RAW_DENSE_FLOOR", "0"))
     raw_dense_floor_n: int = field(default_factory=lambda: _get_int("RAW_DENSE_FLOOR_N", 10))
+    # DENSE_TOPK_FALLBACK (default off): the top-k dense ENSEMBLE. When eidetic's primary answer
+    # is NOT verified (an unverified reader row or an unverified structured answer), run a second
+    # fixed-reader pass over ONLY the top-k dense passages -- exactly the clean cosine slice
+    # rag-vector feeds -- and prefer that answer. Honest framing: this ABSORBS rag-vector's
+    # retrieval as a fallback, so eidetic-ensemble >= rag-vector on the rows it wins while KEEPING
+    # eidetic's verified answers (which fire first, with provenance). The fallback answer is
+    # labeled verified=False (it did not pass the proof gate). It is NOT a claim that eidetic's
+    # memory is more accurate -- it is an ensemble that contains the baseline.
+    dense_topk_fallback_enabled: bool = field(
+        default_factory=lambda: _get_bool("DENSE_TOPK_FALLBACK", "0"))
+    dense_topk_fallback_k: int = field(default_factory=lambda: _get_int("DENSE_TOPK_FALLBACK_K", 10))
     # Cross-encoder rerank (qwen3-rerank): on/off + candidate depth (~50 -> final_topk).
     rerank_enabled: bool = field(default_factory=lambda: _get_bool("RERANK_ENABLED", "1"))
     rerank_fail_open: bool = field(default_factory=lambda: _get_bool("RERANK_FAIL_OPEN", "0"))

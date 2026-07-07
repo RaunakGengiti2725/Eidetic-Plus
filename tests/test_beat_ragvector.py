@@ -1,16 +1,18 @@
 """Beat rag-vector on accuracy while keeping verify-or-abstain intact.
 
-Three levers, each behind a default-OFF flag (product_cost.json turns them on):
+Levers, each behind a default-OFF flag (product_cost.json turns them on):
 
-  Lever 1  structured_attribute_gate      -- verify.py:_answers_asked_attribute
-           DEFER (return None) when a structured claim answers the WRONG slot, so the
-           row falls through to the full-context reader instead of shipping off-slot.
+  (Lever 1 structured_attribute_gate was REMOVED: a lexical query-vs-claim tie cannot
+   tell a correct paraphrase from a wrong-slot steal, so it over-deferred correct rows.)
   Lever 2  abstention_reader_coverage      -- eidetic_adapter coverage-backed override
            ship the reader text (verified=False, honest) when dense coverage is strong,
            instead of abstaining -- abstention scores 0 exactly like wrong.
-  Lever 3  raw_dense_floor                 -- retrieval._budget_blocks floor reservation
-           guarantee the top-N raw dense passages reach the reader before verbose audit
-           blocks crowd them out of the char budget.
+  Lever 3  raw_dense_floor                 -- retrieval order raw dense above audit/pref
+           so the top-N dense passages reach the reader without cropping structured.
+  Lever 4  dense_topk_fallback             -- eidetic_adapter ENSEMBLE: when the primary
+           answer is unverified, answer over ONLY the top-k dense slice rag-vector feeds,
+           and prefer it (verified=False). Absorbs the baseline's retrieval; the verified
+           answers (which never reach the fallback) keep the provenance edge.
 
 INTEGRITY: every entity/attribute here is SYNTHETIC, invented in this file. No holdout
 question text, gold, or benchmark speaker names. The gates are GENERAL mechanisms; these
@@ -251,3 +253,27 @@ def test_l3_budget_blocks_is_priority_truncation(tmp_path):
     out = _budget_blocks(blocks, 100)  # char_budget = 400: HEAD alone overflows it
     joined = " ".join(out)
     assert "HEAD-" in joined and "TAIL-" not in joined
+
+
+# --------------------------------------------------------------------------- #
+# Lever 4 -- dense top-k ensemble fallback (absorbs rag-vector's retrieval)
+# --------------------------------------------------------------------------- #
+def test_l4_dense_topk_blocks_are_clean_cosine_slice():
+    """The ensemble context is the k highest dense-cosine candidates' raw text -- the same
+    clean slice rag-vector feeds -- with no structured/audit channels."""
+    from bench.adapters.eidetic_adapter import _dense_topk_blocks
+
+    class _Rec:
+        def __init__(self, text): self.text = text; self.summary = ""
+    class _Cand:
+        def __init__(self, text, score): self.record = _Rec(text); self.dense_score = score
+    cands = [_Cand("low relevance passage", 0.10),
+             _Cand("TOP relevance passage", 0.90),
+             _Cand("mid relevance passage", 0.50)]
+    blocks = _dense_topk_blocks(cands, 2)
+    assert blocks == ["TOP relevance passage", "mid relevance passage"]  # top-2 by cosine
+
+
+def test_l4_dense_topk_blocks_empty_when_no_candidates():
+    from bench.adapters.eidetic_adapter import _dense_topk_blocks
+    assert _dense_topk_blocks([], 10) == []

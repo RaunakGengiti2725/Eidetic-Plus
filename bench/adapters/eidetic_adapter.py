@@ -50,6 +50,31 @@ def _coverage_backed_abstain(*, declined: bool, verified: bool, coverage: float,
     return abstained
 
 
+def _dense_topk_blocks(cands, k: int) -> list[str]:
+    """The clean top-k dense slice rag-vector feeds the reader: the k highest dense-cosine
+    candidates' raw text, no structured/audit/temporal channels. Built from eidetic's OWN
+    dense candidates (same cosine ranking), so the ensemble absorbs the top-k baseline without
+    a second retrieval system."""
+    ranked = sorted(cands, key=lambda c: -float(getattr(c, "dense_score", 0.0) or 0.0))
+    blocks: list[str] = []
+    for c in ranked[: max(1, int(k))]:
+        rec = getattr(c, "record", None)
+        text = (getattr(rec, "text", None) or getattr(rec, "summary", None) or "").strip()
+        if text:
+            blocks.append(text)
+    return blocks
+
+
+def _dense_topk_fallback(question: str, cands, k: int):
+    """Run the fixed reader over the clean top-k dense slice. Returns (text, declined) or
+    (None, True) when there is no dense context. Same fixed reader every baseline uses."""
+    blocks = _dense_topk_blocks(cands, k)
+    if not blocks:
+        return None, True
+    text = answer_with_fixed_reader(question, blocks)
+    return text, bool(_DECLINE_RE.search(text or ""))
+
+
 def _is_entailment(citation) -> bool:
     label = getattr(citation, "nli_label", "")
     return getattr(label, "value", label) == "entailment"
@@ -271,7 +296,8 @@ class EideticFullSystem(EideticSystem):
         t0 = time.perf_counter()
         active_records = self.engine.store.active_records_at(as_of if as_of is not None else now(), scope)
         smqe_ans = structured_answer(r, question, active_records, as_of, verify=True, scope=scope)
-        if smqe_ans is not None:
+        if smqe_ans is not None and not (
+                getattr(s, "dense_topk_fallback_enabled", False) and not smqe_ans.verified):
             search_ms = (time.perf_counter() - t0) * 1000.0
             policy = smqe_ans.note or "smqe"
             return AnswerResult(
@@ -339,15 +365,32 @@ class EideticFullSystem(EideticSystem):
                 and coverage >= getattr(s, "reader_coverage_floor", 0.45)):
             abstained = False
             coverage_backed = True
+        # DENSE_TOPK_FALLBACK ensemble: when the primary answer is NOT verified (the rich context
+        # underperforms a clean top-k slice on easy rows -- the measured reader-wrong loss to
+        # rag-vector), answer instead over ONLY the top-k dense passages that rag-vector feeds.
+        # Preferred over both the unverified rich-reader answer AND an abstention -- it absorbs the
+        # baseline's retrieval while eidetic's VERIFIED answers (which never reach here) keep the
+        # provenance edge. Reported verified=False (it did not pass the proof gate).
+        dense_fallback = False
+        if (getattr(s, "dense_topk_fallback_enabled", False) and not verified):
+            fb_text, fb_declined = _dense_topk_fallback(
+                question, cands, getattr(s, "dense_topk_fallback_k", 10))
+            if fb_text is not None and not fb_declined:
+                text = fb_text
+                abstained = False
+                dense_fallback = True
         e2e_ms = (time.perf_counter() - t0) * 1000.0
         _policy = "fixed-reader + verify+abstain+proof"
         if coverage_backed:
             _policy = "fixed-reader + coverage-backed (unverified)"
+        if dense_fallback:
+            _policy = "fixed-reader + dense-topk-ensemble (unverified)"
         return AnswerResult(
             answer=(self._ABSTAIN_TEXT if abstained else text),
             context_tokens=sum(approx_tokens(b) for b in blocks),
             search_ms=search_ms, e2e_ms=e2e_ms, abstained=abstained,
-            extra={"verified": bool(verified and not abstained and not coverage_backed),
+            extra={"verified": bool(verified and not abstained and not coverage_backed
+                                     and not dense_fallback),
                    "coverage": coverage,
                    "confidence": conf, "abstention_signals": sig,
                    "citations": len(citations),
