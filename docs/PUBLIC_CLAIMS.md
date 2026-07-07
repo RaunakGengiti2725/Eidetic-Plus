@@ -152,3 +152,24 @@ answers vs 0 for every other system — at ~55–60% verified-precision (grounde
 correctness guarantee). Evidence: `artifacts/holdout_rotation_r9_codex`,
 `artifacts/holdout_rotation_r10_codex`; forensics in `bench/DOMINANCE_PROGRESS.md`
 (SLICE 9, SLICE 10).
+
+### Cross-benchmark check: LongMemEval-S (preliminary, n=24, PARTIAL)
+
+Everything above is LoCoMo. To answer "on what test?" we also ran a stratified 24-
+question LongMemEval-S subset (all 6 official categories: knowledge-update,
+multi-session, single-session assistant/preference/user, temporal-reasoning) through
+the same fixed reader:
+
+| system | LongMemEval-24 | verified | verified-correct | median qtok |
+|---|---|---|---|---|
+| rag-vector (top-k retrieval) | **17/24 (71%)** | 0 | 0 | 1,930 |
+| eidetic-plus-full | 11/24 (46%) | 17 | 11 | 3,590 |
+| mem0 | (running) | 0 | — | — |
+| rag-full | (running) | 0 | — | — |
+
+The LoCoMo finding replicates: on raw accuracy vector RAG beats eidetic on
+LongMemEval too (17 vs 11), and eidetic is again the only system that returns verified
+answers (17 cited vs 0). This is preliminary — n=24, one draw, single run, and the
+mem0/rag-full arms are still completing — so it is a directional cross-benchmark
+signal, not a settled result. Evidence:
+`artifacts/public_ship/slice_invariant/longmemeval/draw_1/`.

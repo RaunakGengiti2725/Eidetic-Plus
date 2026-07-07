@@ -42,6 +42,12 @@ small enough that re-reading the whole transcript wins. We record it in
 [PUBLIC_CLAIMS.md](PUBLIC_CLAIMS.md) rather than bury it. Our edge is provenance
 (64 cited answers there vs 0 for every other system), not raw accuracy.
 
+**Cross-benchmark (preliminary).** Not just LoCoMo: on a 24-question LongMemEval-S
+subset (all 6 categories, same fixed reader) the pattern replicates — vector RAG
+17/24 vs eidetic 11/24 on raw accuracy, eidetic again the only system with verified
+answers (17 vs 0). Partial (n=24, mem0/rag-full arms still running);
+`artifacts/public_ship/slice_invariant/longmemeval/draw_1/`.
+
 ## What makes it defensible
 
 - **Fair harness.** Every system (eidetic, Mem0, full-context RAG, vector RAG)
