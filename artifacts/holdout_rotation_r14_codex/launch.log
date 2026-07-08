@@ -1,0 +1,4 @@
+systems=eidetic-full,rag-vector (ENSEMBLE: DENSE_TOPK_FALLBACK + coverage + dense-floor)
+sha=bb7093f9d2666c56b6a7eaf3d09f77e9618170d6
+started=2026-07-08T00:50:52Z
+ensemble: {'DENSE_TOPK_FALLBACK': '1', 'DENSE_TOPK_FALLBACK_K': '10'}
