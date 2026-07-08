@@ -152,10 +152,56 @@ def test_cli_backend_uses_real_nlm_command_syntax():
     assert ran[0] == ["source", "add", "nbk_1", "--text", "a"]  # positional notebook, no flags
     assert "--notebook" not in ran[0] and "--name" not in ran[0]
     captured = []
-    q = CliBackend(runner=lambda args: captured.append(args) or "the answer")
+    q = CliBackend(runner=lambda args: captured.append(args) or '{"answer":"the answer"}')
     out = q.query("nbk_1", "q?")
-    assert captured[0] == ["notebook", "query", "nbk_1", "q?"]
+    assert captured[0] == ["notebook", "query", "nbk_1", "q?", "--json"]  # --json for clean output
+    assert out["answer"] == "the answer"
     assert "UNVERIFIED" in out["backend"]
+
+
+def test_parse_nlm_query_output_real_shape_and_double_encoded():
+    """Pinned to the live nlm --json shape: clean `answer` + `references[].cited_text` that
+    still carries eidetic:<id> tokens. Also handles the double-encoded case (answer is a
+    JSON string)."""
+    from eidetic.integrations.notebooklm import parse_nlm_query_output
+    real = json.dumps({
+        "answer": "You have a job at Acme Robotics [1] and Nova Labs [2].",
+        "references": [
+            {"citation_number": 1, "cited_text": "has job at -> Acme Robotics [eidetic:mem_e05da9f81f5e @2026]"},
+            {"citation_number": 2, "cited_text": "Nova Labs employer_of -> person [eidetic:mem_6f605bb68bde @2026]"},
+        ]})
+    p = parse_nlm_query_output(real)
+    assert p["answer"].startswith("You have a job at Acme Robotics")
+    assert "eidetic:mem_e05da9f81f5e" in p["cited_text"]
+    # double-encoded (answer is itself a JSON string)
+    dbl = json.dumps({"answer": real})
+    p2 = parse_nlm_query_output(dbl)
+    assert p2["answer"].startswith("You have a job at Acme Robotics")
+    assert "eidetic:mem_6f605bb68bde" in p2["cited_text"]
+    # junk -> raw fallback, never crashes
+    assert parse_nlm_query_output("not json")["answer"] == "not json"
+
+
+def test_answer_reports_confirmed_source_verification():
+    """The trust upgrade: a Gemini answer citing eidetic:<id> tokens -> we confirm how many
+    resolve to REAL content-hash-addressable records in the store."""
+    rec = _rec("I moved to Berlin in 2021.", mid="mem_e05da9f81f5e4179", ch="43db8f")
+    eng = _FakeEngine(_FakeStore([rec]))
+
+    class _RefBackend:
+        def query(self, notebook_id, question):
+            return {"answer": "You moved to Berlin [1].",
+                    "cited_text": "moved to -> Berlin [eidetic:mem_e05da9f81f5e @2026] "
+                                  "and a hallucinated [eidetic:mem_doesnotexist99]",
+                    "backend": "nlm-cli (gemini free tier)"}
+
+    out = NotebookLMBridge(eng, _RefBackend()).answer("nb-test", "where did I move?", "nbk_1")
+    assert out["answer"] == "You moved to Berlin [1]."
+    assert out["user_llm_tokens"] == 0
+    # one real citation confirmed, the hallucinated one is not
+    assert out["cited_sources"]["cited"] == 2
+    assert out["cited_sources"]["confirmed_in_eidetic"] == 1
+    assert out["provenance"][0]["content_sha256"] == "43db8f"
 
 
 def test_cli_doctor_reports_status_and_commands_without_raising():

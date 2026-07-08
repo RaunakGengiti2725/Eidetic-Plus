@@ -88,6 +88,33 @@ def find_notebook_id(raw_json: str, title: Optional[str] = None) -> Optional[str
     return found[0][0] if found else None
 
 
+def parse_nlm_query_output(raw: str) -> dict:
+    """Normalise `nlm notebook query --json` output. Live shape (v0.8.x): a JSON object
+    whose `answer` field is ITSELF a JSON string carrying the clean answer + `references`
+    (each with `cited_text` that still contains the eidetic:<id> tokens we stamped). Returns
+    {answer, references, cited_text} -- answer is clean human text, cited_text concatenates
+    every reference so provenance resolution sees the citations. Falls back to raw text."""
+    try:
+        d = json.loads(raw)
+    except Exception:
+        return {"answer": (raw or "").strip(), "references": [], "cited_text": raw or ""}
+    if not isinstance(d, dict):
+        return {"answer": str(d), "references": [], "cited_text": raw or ""}
+    ans = d.get("answer")
+    refs = d.get("references") or []
+    if isinstance(ans, str) and ans.lstrip().startswith("{"):
+        try:  # answer double-encoded as JSON
+            inner = json.loads(ans)
+            if isinstance(inner, dict):
+                ans = inner.get("answer", ans)
+                refs = inner.get("references") or refs
+        except Exception:
+            pass
+    cited = " ".join(str(r.get("cited_text", "")) for r in refs if isinstance(r, dict))
+    return {"answer": ans if isinstance(ans, str) else (raw or "").strip(),
+            "references": refs, "cited_text": cited + " " + (raw or "")}
+
+
 def _resolve_nlm() -> Optional[str]:
     """Locate the `nlm` binary. Order: $NLM_BIN, PATH, then this repo's own .venv/bin/nlm
     (so `.venv/bin/pip install notebooklm-mcp-cli` works without activating the venv or
@@ -420,10 +447,15 @@ class CliBackend:
         return {"created": created}
 
     def query(self, notebook_id: str, question: str) -> dict:
-        # Real nlm syntax: `nlm notebook query <notebook> "question"`.
+        # Real nlm syntax: `nlm notebook query <notebook> "question" --json`. --json gives a
+        # structured payload (answer + references w/ cited_text) instead of a wall of prose,
+        # so we return a CLEAN answer + the citations (which still carry eidetic:<id> tokens).
         self._require_runner()
-        out = self.runner(["notebook", "query", notebook_id, question])
-        return {"answer": out.strip(), "backend": "nlm-cli (gemini-side, UNVERIFIED)"}
+        out = self.runner(["notebook", "query", notebook_id, question, "--json"])
+        parsed = parse_nlm_query_output(out)
+        return {"answer": parsed["answer"], "references": parsed["references"],
+                "cited_text": parsed["cited_text"],
+                "backend": "nlm-cli (gemini-side, UNVERIFIED)"}
 
     def doctor(self) -> dict:
         """Preflight: is `nlm` reachable + logged in, and what commands will we run? Never
@@ -548,16 +580,32 @@ class NotebookLMBridge:
         `recall` tool) when you need a cited, gate-verified answer instead of a free one."""
         res = self.backend.query(notebook_id, question)
         answer_text = res.get("answer") or res.get("text") or json.dumps(res)
-        provenance = self._resolve_provenance(namespace, answer_text
-                                              + " " + json.dumps(res.get("citations", "")))
+        # cited_text is where the eidetic:<id> tokens live (references' cited_text); fall back
+        # to the answer + any citations blob for backends that don't split them out.
+        cited_text = res.get("cited_text") or (
+            answer_text + " " + json.dumps(res.get("citations", "")))
+        cited_ids = {m.group(1) for m in _EIDETIC_REF_RE.finditer(cited_text)}
+        provenance = self._resolve_provenance(namespace, cited_text)
+        # SOURCE VERIFICATION: which of the answer's cited eidetic tokens map to a REAL,
+        # content-hash-addressable record in this store? Confirms the Gemini answer cited
+        # genuine eidetic memories (not hallucinated ones) -- provenance you can check, even
+        # though the Gemini REASONING itself is not gate-verified.
+        confirmed = {p["memory_id"] for p in provenance} | {p["memory_id"][:16] for p in provenance}
+        n_confirmed = len([i for i in cited_ids if i in confirmed])
         return {
             "answer": answer_text,
             "provenance": provenance,
+            "cited_sources": {
+                "cited": len(cited_ids),
+                "confirmed_in_eidetic": n_confirmed,
+                "note": "each confirmed citation resolves to a real eidetic memory by content "
+                        "hash; unconfirmed ones are Gemini's and are NOT backed by your store."},
             "user_llm_tokens": 0,
             "backend": res.get("backend", "notebooklm"),
             "caveat": ("0 tokens on YOUR metered model (NotebookLM/Gemini free tier does the "
                        "read); answer is Gemini-side and NOT eidetic-verify-or-abstain. "
-                       "Provenance below maps it back to immutable content hashes."),
+                       "Provenance + cited_sources below let you CHECK which sources are real "
+                       "eidetic memories, even though the reasoning is not gate-verified."),
         }
 
     # ---- graph-native serializer wiring -------------------------------------
