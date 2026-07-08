@@ -491,3 +491,28 @@ def test_compression_ratio_ignores_unrendered_records():
     assert src["stats"]["raw_record_chars"] < 100
     # and the ratio is not inflated by the phantom 5000 chars.
     assert src["stats"]["compression_ratio"] < 1.0
+
+
+def test_cost_report_measures_and_labels_by_construction(tmp_path):
+    """The billable-caller-token report: rag-vector/mem0/eidetic are MEASURED from logs;
+    the NotebookLM free-read row is 0 BY CONSTRUCTION and labeled as such (not measured)."""
+    import json as _json
+    from bench.notebooklm_cost import build_report
+
+    d = tmp_path / "win"
+    d.mkdir()
+    (d / "rag-vector__run0.jsonl").write_text(
+        "\n".join(_json.dumps({"query_tokens": t}) for t in (1800, 2000, 1900)))
+    (d / "mem0__run0.jsonl").write_text(
+        "\n".join(_json.dumps({"query_tokens": t}) for t in (380, 400)))
+    rep = build_report([d])
+    sys = rep["systems"]
+    assert sys["rag-vector"]["caller_tokens_per_query"] == 1900  # measured median
+    assert "MEASURED" in sys["rag-vector"]["basis"]
+    free = sys["eidetic+notebooklm (routed, free-read tier)"]
+    assert free["caller_tokens_per_query"] == 0
+    assert "BY CONSTRUCTION" in free["basis"]
+    assert "NOT gate-verified" in free["verified"]
+    # honesty boundaries present in the claim
+    assert "NOT free globally" in rep["honest_claim"] or "not free globally" in rep["honest_claim"].lower()
+    assert "benchmark" in rep["honest_claim"]
