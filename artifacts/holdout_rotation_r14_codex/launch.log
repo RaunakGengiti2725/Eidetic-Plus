@@ -2,3 +2,13 @@ systems=eidetic-full,rag-vector (ENSEMBLE: DENSE_TOPK_FALLBACK + coverage + dens
 sha=bb7093f9d2666c56b6a7eaf3d09f77e9618170d6
 started=2026-07-08T00:50:52Z
 ensemble: {'DENSE_TOPK_FALLBACK': '1', 'DENSE_TOPK_FALLBACK_K': '10'}
+Judge: {'judge_model': 'qwen3-max', 'judge_backend': 'dashscope'}
+Loaded 40 samples (locomo, split=test); categories: {'multi-hop': 7, 'open-domain': 3, 'single-hop': 22, 'temporal': 8}
+Running eidetic-plus-full: 40 samples x 1 run(s)...
+Running rag-vector: 40 samples x 1 run(s)...
+
+Scoreboard -> /Users/raunakgengiti/Eidetic-Plus/artifacts/holdout_rotation_r14_codex/scoreboard.md
+Curves     -> {'ok': True, 'recall_png': '/Users/raunakgengiti/Eidetic-Plus/artifacts/holdout_rotation_r14_codex/recall_vs_age.png', 'latency_png': '/Users/raunakgengiti/Eidetic-Plus/artifacts/holdout_rotation_r14_codex/latency_vs_age.png', 'slopes': {'eidetic-plus-full': {'recall_slope_per_year': 0.15416474267908506, 'latency_slope_ms_per_year': 44274.255672349056}, 'rag-vector': {'recall_slope_per_year': -1.1305414463132861, 'latency_slope_ms_per_year': -8361.500155343265}}}
+Manifest   -> /Users/raunakgengiti/Eidetic-Plus/artifacts/holdout_rotation_r14_codex/run_manifest.json
+Reproduce (full, >=10 runs): bash bench/reproduce.sh
+finished=2026-07-08T01:31:44Z

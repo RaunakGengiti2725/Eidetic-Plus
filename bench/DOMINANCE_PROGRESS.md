@@ -2100,3 +2100,26 @@ statement is "match-or-beat", not a dominant beat -- and it is an ENSEMBLE that 
 rag-vector's own retrieval on unverified rows, not proof that eidetic's memory is more
 accurate. The durable, un-noisy win is provenance: 69 verified answers across the two
 windows vs 0. r14 next for a 3-window aggregate.
+
+## SLICE 14 (r14) + THREE-WINDOW ENSEMBLE VERDICT
+
+r14: eidetic-ensemble 23/40 vs rag-vector 23/40 (tie), 35 verified vs 0.
+
+THREE fresh ensemble windows (r12/r13/r14, n=120), same fixed reader:
+| window | eidetic | rag-vector | margin |
+|---|---|---|---|
+| r12 | 24/40 | 24/40 | +0 |
+| r13 | 26/40 | 25/40 | +1 |
+| r14 | 23/40 | 23/40 | +0 |
+| AGG | **73/120** | **72/120** | **+1** |
+
+VERDICT: the dense-topk ensemble achieves ACCURACY PARITY with rag-vector (73 vs 72;
++1 is within judge noise), while eidetic uniquely VERIFIES (104 cited answers vs 0).
+It ELIMINATED the pre-ensemble deficit -- before the ensemble eidetic lost every window
+(r9/r10/r11: 20/19/16 vs 22/25/22, avg -4.7/window); after, it ties-or-wins (avg
++0.3/window). Honest, defensible claim: "matches rag-vector on raw accuracy AND is the
+only system that returns verified, cited answers" -- NOT a dominant accuracy beat (the
+residual verified-wrong class caps it at parity), and it is an ensemble that absorbs
+rag-vector's retrieval, not proof of superior memory. Cost note: eidetic still spends
+MORE tokens (rich context + the fallback's 2nd reader call) -- the token-cost lever
+(lean reader context) and the NotebookLM free-read mode are the separate cost story.
