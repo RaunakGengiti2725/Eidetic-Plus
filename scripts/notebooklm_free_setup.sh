@@ -76,6 +76,13 @@ export NLM_BIN="$NLM"                                   # module CliBackend uses
 export DATA_DIR="${DATA_DIR:-$HOME/.eidetic-plus/data}" # read your LIVE store, not an empty one
 echo "reading eidetic store: $DATA_DIR"
 
+# Optional: SEED=1 populates the namespace with sample linked facts first (real ingest +
+# consolidate -> graph edges), so the loop works end-to-end even with an empty store.
+if [ "${SEED:-0}" = "1" ]; then
+  say "seed  Populating \"$NS\" with sample facts (uses your DASHSCOPE key)"
+  "$PY" -m eidetic.integrations.notebooklm seed --namespace "$NS" --data-dir "$DATA_DIR"
+fi
+
 say "4/5  Export eidetic's VERIFIED memory into the notebook (free)"
 "$PY" -m eidetic.integrations.notebooklm export-graph \
   --namespace "$NS" --notebook-id "$NB_ID" --backend cli --data-dir "$DATA_DIR"

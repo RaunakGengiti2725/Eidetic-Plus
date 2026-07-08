@@ -742,7 +742,8 @@ def _cli() -> int:  # pragma: no cover - thin argparse wrapper
 
     ap = argparse.ArgumentParser(description="Export eidetic verified memory into NotebookLM")
     ap.add_argument("action", choices=["export", "query", "preview", "preview-graph",
-                                       "export-graph", "sync", "routed-answer", "doctor"])
+                                       "export-graph", "sync", "routed-answer", "doctor",
+                                       "seed"])
     ap.add_argument("--namespace", default="default")
     ap.add_argument("--notebook-id", default=os.environ.get("NOTEBOOKLM_NOTEBOOK_ID", ""))
     ap.add_argument("--backend", choices=["enterprise", "cli"], default="enterprise")
@@ -764,6 +765,26 @@ def _cli() -> int:  # pragma: no cover - thin argparse wrapper
     if args.data_dir:
         os.environ["DATA_DIR"] = os.path.expanduser(args.data_dir)
     eng = Engine(get_settings())
+    if args.action == "seed":
+        # Populate a namespace with sample linked facts (real ingest+consolidate -> graph
+        # edges) so the NotebookLM loop can be tested end-to-end without pre-existing memories.
+        # Uses your DASHSCOPE_API_KEY (the same write path the benchmark uses).
+        from eidetic.models import Scope as _Scope
+        sc = _Scope(namespace=args.namespace)
+        facts = [
+            "I moved to Berlin in March 2021 for a job at Acme Robotics.",
+            "At Acme Robotics I lead the perception team building lidar pipelines.",
+            "I adopted a beagle named Biscuit in July 2023.",
+            "In 2024 I switched from Acme Robotics to Nova Labs as a staff engineer.",
+        ]
+        for f in facts:
+            eng.ingest_text(f, extract_graph=True, consolidate_now=True, scope=sc)
+        edges = eng.store.all_edges(sc)
+        print(json.dumps({"seeded_facts": len(facts), "graph_edges": len(edges),
+                          "namespace": args.namespace,
+                          "note": "sample data ingested + consolidated; now export-graph it"},
+                         indent=2))
+        return 0
     if args.action == "preview":
         bridge = NotebookLMBridge(eng, backend=None)
         srcs = bridge.build_sources(args.namespace, args.limit)
