@@ -48,15 +48,38 @@ def _measured(dirs: list[Path], system_file: str) -> dict:
             "mean": round(sum(qt) / len(qt), 1), "total": int(sum(qt))}
 
 
+def _measured_struct_tier(dirs: list[Path]) -> dict:
+    """MEASURED caller tokens for the rows the structured (SMQE) tier actually answered in
+    the committed holdout logs -- the rows routed_answer's Tier 1 takes. Filter:
+    extra.policy contains 'smqe'. Real per-row `query_tokens` from the runs, so the
+    structured tier's cost band is measured, not design-supplied."""
+    qt: list[float] = []
+    for d in dirs:
+        for r in _rows(d / "eidetic-plus-full__run0.jsonl"):
+            pol = ((r.get("extra") or {}).get("policy") or "")
+            if "smqe" in pol:
+                v = r.get("query_tokens")
+                if isinstance(v, (int, float)):
+                    qt.append(float(v))
+    if not qt:
+        return {"n": 0}
+    return {"n": len(qt), "median": statistics.median(qt),
+            "mean": round(sum(qt) / len(qt), 1), "max": max(qt), "min": min(qt)}
+
+
 def build_report(dirs: list[Path]) -> dict:
     """Per-query billable caller-tokens. rag-vector/mem0/eidetic-metered are MEASURED;
     the NotebookLM-routed row is BY-CONSTRUCTION (labeled)."""
     ragv = _measured(dirs, "rag-vector__run0.jsonl")
     mem0 = _measured(dirs, "mem0__run0.jsonl")
     eidetic = _measured(dirs, "eidetic-plus-full__run0.jsonl")
-    # NotebookLM-routed caller-token model (by construction): free-read tier = 0, structured
-    # tier ~6-85, metered tier only under require_gate_verification. Reported as a RANGE, not a
-    # measured median -- because the tier mix depends on the query set and is measured live.
+    struct = _measured_struct_tier(dirs)
+    # NotebookLM-routed caller-token model: free-read tier = 0 BY CONSTRUCTION; structured
+    # tier MEASURED from the smqe-answered rows in the same committed logs; metered tier only
+    # under require_gate_verification. The TIER MIX on an arbitrary query stream is still
+    # unmeasured -- we report per-tier costs, never a blended figure.
+    struct_cost = (f"median {struct.get('median')}, max {struct.get('max')} "
+                   f"(n={struct.get('n')})") if struct.get("n") else "no smqe rows in logs"
     return {
         "metric": "billable tokens on the OPERATOR'S OWN metered LLM, per query",
         "windows": [d.name for d in dirs],
@@ -65,12 +88,15 @@ def build_report(dirs: list[Path]) -> dict:
                 "caller_tokens_per_query": 0,
                 "basis": "BY CONSTRUCTION -- the read runs on NotebookLM/Gemini, off the "
                          "caller's meter; routed_answer reports user_llm_tokens=0 on that tier",
-                "verified": "provenance-mapped (Gemini-side, NOT gate-verified)",
+                "verified": "provenance-mapped + deterministic grounding check "
+                            "(Gemini-side, NOT gate-verified)",
             },
             "eidetic+notebooklm (routed, structured tier)": {
-                "caller_tokens_per_query": "6-85",
-                "basis": "structured_recall typed path (design-supplied range)",
+                "caller_tokens_per_query": struct_cost,
+                "basis": "MEASURED -- query_tokens of the smqe-answered rows in the same "
+                         "committed holdout logs (the rows Tier 1 takes)",
                 "verified": "gate-verified (verify-or-abstain)",
+                **struct,
             },
             "mem0": {
                 "caller_tokens_per_query": mem0.get("median"),
@@ -87,14 +113,17 @@ def build_report(dirs: list[Path]) -> dict:
                 **{k: eidetic[k] for k in eidetic if k != "median"}},
         },
         "honest_claim": (
-            "On billable tokens spent on the operator's own metered model, the NotebookLM "
-            "free-read tier costs 0 per query -- below rag-vector's measured "
-            f"~{ragv.get('median')} and mem0's ~{mem0.get('median')} -- because Google's "
-            "free tier does the read. This is an operator-cost property (0 on YOUR meter), "
-            "by construction; it is NOT free globally, the NotebookLM answer is Gemini-side "
-            "provenance-mapped (not gate-verified), and it is NOT a row in the fixed-qwen "
-            "benchmark accuracy table. Run bench/notebooklm_costbench live to prove the "
-            "end-to-end head-to-head with your own Google account."),
+            "Under free-read routing (require_gate_verification=False) a query costs the "
+            "caller EITHER a structured gate-verified answer -- MEASURED median "
+            f"{struct.get('median')}, worst-case {struct.get('max')} tokens on the "
+            f"n={struct.get('n')} smqe-answered rows of these windows -- OR a NotebookLM "
+            "free read at 0 caller tokens (by construction). Both are below mem0's measured "
+            f"median ~{mem0.get('median')} and rag-vector's ~{ragv.get('median')}. Honest "
+            "scope: the tier MIX on an arbitrary query stream is unmeasured (per-tier costs "
+            "only, no blended figure); this is an operator-cost property, NOT free globally; "
+            "the free-read answer is Gemini-side provenance-mapped + deterministically "
+            "grounded (lexical), NOT gate-verified; and this is NOT a row in the fixed-qwen "
+            "benchmark accuracy table. Accuracy on the free-read tier is unmeasured."),
     }
 
 

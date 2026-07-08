@@ -566,6 +566,89 @@ class NotebookLMBridge:
                             "valid_at": _iso(rec.valid_at)})
         return out
 
+    # ---- deterministic grounding check (no model calls, no caller tokens) ----
+    _GROUND_TOKEN_RE = _re.compile(r"[a-z0-9][a-z0-9'-]{2,}")
+    _GROUND_STOP = frozenset({
+        "the", "and", "for", "with", "that", "this", "from", "have", "has", "had",
+        "was", "were", "are", "been", "being", "not", "but", "you", "your",
+    })
+    _QUOTE_MIN_CHARS = 12          # below this a "quote" is too short to mean anything
+    _QUOTE_OVERLAP_FLOOR = 0.8     # token-overlap floor for a non-verbatim quote match
+
+    def _exported_corpus(self, namespace: str) -> str:
+        """Deterministically rebuild every byte this bridge would export for `namespace`
+        (graph source + per-record provenance sources), whitespace-normalized + lowercased.
+        The grounding check compares NotebookLM's quoted references and answer tokens
+        against THIS -- the caller's own immutable store -- so a fabricated or altered
+        quote cannot match. Read-only, zero model calls."""
+        parts: list[str] = []
+        try:
+            parts.append(self.build_graph_source(namespace)["text_content"])
+        except Exception:
+            pass  # no graph surface on this store (fine: records below still ground quotes)
+        try:
+            parts.extend(s["text_content"] for s in self.build_sources(namespace))
+        except Exception:
+            pass
+        return _re.sub(r"\s+", " ", "\n".join(parts).lower()).strip()
+
+    def verify_grounding(self, namespace: str, answer_text: str,
+                         references: list) -> dict:
+        """Deterministic grounding report for a NotebookLM answer. Two checks, both against
+        the exported-source bytes rebuilt from the immutable store:
+
+        1. QUOTE FAITHFULNESS -- each reference's `cited_text` must appear in the exported
+           text (whitespace-normalized substring => "verbatim"; else content-token overlap
+           >= 0.8 => "high-overlap"; else "unmatched" -- NotebookLM altered or fabricated
+           the quote).
+        2. ANSWER TOKEN COVERAGE -- fraction of the answer's content tokens present in the
+           exported text (a low number flags Gemini-side additions beyond your memories).
+
+        HONEST LABEL: this is a deterministic lexical check -- NOT NLI entailment and NOT
+        eidetic's verify-or-abstain proof gate. It can catch fabricated quotes and alien
+        answer content; it cannot certify the reasoning is correct."""
+        corpus = self._exported_corpus(namespace)
+        corpus_tokens = set(self._GROUND_TOKEN_RE.findall(corpus))
+        verdicts: list[str] = []
+        for ref in references or []:
+            if not isinstance(ref, dict):
+                continue
+            quote = _EIDETIC_REF_RE.sub("", str(ref.get("cited_text", "")))
+            # the ref tokens ride inside [brackets] in cited_text; removing the token leaves
+            # empty bracket husks that would break an otherwise-verbatim substring match
+            quote = _re.sub(r"[\[\]()]+", " ", quote)
+            qn = _re.sub(r"\s+", " ", quote.lower()).strip()
+            if len(qn) < self._QUOTE_MIN_CHARS:
+                verdicts.append("too-short")
+                continue
+            if qn in corpus:
+                verdicts.append("verbatim")
+                continue
+            toks = {t for t in self._GROUND_TOKEN_RE.findall(qn)
+                    if t not in self._GROUND_STOP}
+            overlap = (sum(1 for t in toks if t in corpus_tokens) / len(toks)) if toks else 0.0
+            verdicts.append("high-overlap" if overlap >= self._QUOTE_OVERLAP_FLOOR
+                            else "unmatched")
+        ans_toks = {t for t in self._GROUND_TOKEN_RE.findall((answer_text or "").lower())
+                    if t not in self._GROUND_STOP}
+        coverage = (round(sum(1 for t in ans_toks if t in corpus_tokens) / len(ans_toks), 3)
+                    if ans_toks else None)
+        return {
+            "references_checked": len(verdicts),
+            "quotes_verbatim": verdicts.count("verbatim"),
+            "quotes_high_overlap": verdicts.count("high-overlap"),
+            "quotes_unmatched": verdicts.count("unmatched"),
+            "quotes_too_short": verdicts.count("too-short"),
+            "answer_token_coverage": coverage,
+            "method": ("deterministic lexical check vs the exported source text rebuilt "
+                       "from the immutable store (normalized substring + token overlap). "
+                       "NOT NLI, NOT eidetic's proof gate: catches fabricated/altered "
+                       "quotes and alien answer content, does not certify reasoning. "
+                       "Gemini's connective prose lowers answer_token_coverage -- read a "
+                       "low number as a flag to inspect, not a fabrication verdict; "
+                       "quotes_unmatched>0 is the strong signal."),
+        }
+
     def answer(self, namespace: str, question: str, notebook_id: str) -> dict:
         """NotebookLM READER MODE -- the token-efficient product path. NotebookLM answers
         over eidetic's exported VERIFIED sources using Gemini's free tier, so the answer
@@ -592,6 +675,11 @@ class NotebookLMBridge:
         # though the Gemini REASONING itself is not gate-verified.
         confirmed = {p["memory_id"] for p in provenance} | {p["memory_id"][:16] for p in provenance}
         n_confirmed = len([i for i in cited_ids if i in confirmed])
+        # GROUNDING: deterministic quote-faithfulness + answer-token-coverage vs the exported
+        # bytes rebuilt from the immutable store. Free (no model call), catches fabricated or
+        # altered quotes; labeled honestly as lexical, not NLI/gate.
+        grounding = self.verify_grounding(namespace, answer_text,
+                                          res.get("references") or [])
         return {
             "answer": answer_text,
             "provenance": provenance,
@@ -600,6 +688,7 @@ class NotebookLMBridge:
                 "confirmed_in_eidetic": n_confirmed,
                 "note": "each confirmed citation resolves to a real eidetic memory by content "
                         "hash; unconfirmed ones are Gemini's and are NOT backed by your store."},
+            "grounding": grounding,
             "user_llm_tokens": 0,
             "backend": res.get("backend", "notebooklm"),
             "caveat": ("0 tokens on YOUR metered model (NotebookLM/Gemini free tier does the "
@@ -743,6 +832,8 @@ class NotebookLMBridge:
             "tier": 2,
             "answer": r.get("answer", ""),
             "provenance": r.get("provenance", []),
+            "cited_sources": r.get("cited_sources", {}),
+            "grounding": r.get("grounding", {}),
             "caller_llm_tokens": 0,
             "gate_verified": False,
             "provenance_verb": "provenance-mapped",
@@ -820,7 +911,7 @@ def _cli() -> int:  # pragma: no cover - thin argparse wrapper
     from eidetic.engine import Engine
 
     ap = argparse.ArgumentParser(description="Export eidetic verified memory into NotebookLM")
-    ap.add_argument("action", choices=["export", "query", "preview", "preview-graph",
+    ap.add_argument("action", choices=["export", "query", "answer", "preview", "preview-graph",
                                        "export-graph", "sync", "routed-answer", "doctor",
                                        "seed", "find-notebook-id"])
     ap.add_argument("--title", default="")
@@ -919,6 +1010,11 @@ def _cli() -> int:  # pragma: no cover - thin argparse wrapper
     elif args.action == "sync":
         print(json.dumps(IncrementalSync(bridge, args.manifest).sync(
             args.namespace, args.notebook_id), indent=2))
+    elif args.action == "answer":
+        # Free NotebookLM read + provenance + cited-source check + deterministic grounding.
+        # Needs NO metered model key: the read is Gemini-side, the checks are lexical.
+        print(json.dumps(bridge.answer(
+            args.namespace, args.question, args.notebook_id), indent=2))
     elif args.action == "routed-answer":
         print(json.dumps(bridge.routed_answer(
             args.namespace, args.question, args.notebook_id,

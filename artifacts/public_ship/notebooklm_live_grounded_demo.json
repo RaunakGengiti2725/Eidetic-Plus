@@ -1,0 +1,42 @@
+{
+  "answer": "Based on the source material, you have worked at **Acme Robotics** and **Nova Labs** [1, 2]. At Acme Robotics, you are a **staff engineer** and part of the **perception team**, which is responsible for building **lidar pipelines** [1, 2].\n\nRegarding what has changed in your life, the records highlight two significant updates:\n*   **Relocation:** You **moved to Berlin** [1].\n*   **New Addition:** In **July 2023**, you **adopted Biscuit**, a beagle [1].",
+  "provenance": [
+    {
+      "memory_id": "mem_8d02651f73ef4f4d",
+      "content_sha256": "e8f2cbfe76fc96b95f6e1701523708bfb9c1f4653222634f297653a97f5f9e46",
+      "valid_at": "2026-07-08T02:46:12Z"
+    },
+    {
+      "memory_id": "mem_e05da9f81f5e4179",
+      "content_sha256": "43db8feac66e0c81b517b19ec1f804f86a1fd0e6cfdcb44eba1368691a1be28d",
+      "valid_at": "2026-07-08T02:46:03Z"
+    },
+    {
+      "memory_id": "mem_3d3e99de153545b4",
+      "content_sha256": "96a2c4ab6bb8d2fa0d573f6ed5d5e60752c4e79d7ce5453538e3c4746d6ac181",
+      "valid_at": "2026-07-08T02:46:08Z"
+    },
+    {
+      "memory_id": "mem_6f605bb68bde4c67",
+      "content_sha256": "49e9e9e1025a0581fde815cc582f4f4425ab67b8958a32b36f16426c5f87b4e0",
+      "valid_at": "2026-07-08T02:46:17Z"
+    }
+  ],
+  "cited_sources": {
+    "cited": 4,
+    "confirmed_in_eidetic": 4,
+    "note": "each confirmed citation resolves to a real eidetic memory by content hash; unconfirmed ones are Gemini's and are NOT backed by your store."
+  },
+  "grounding": {
+    "references_checked": 2,
+    "quotes_verbatim": 0,
+    "quotes_high_overlap": 2,
+    "quotes_unmatched": 0,
+    "quotes_too_short": 0,
+    "answer_token_coverage": 0.514,
+    "method": "deterministic lexical check vs the exported source text rebuilt from the immutable store (normalized substring + token overlap). NOT NLI, NOT eidetic's proof gate: catches fabricated/altered quotes and alien answer content, does not certify reasoning."
+  },
+  "user_llm_tokens": 0,
+  "backend": "nlm-cli (gemini-side, UNVERIFIED)",
+  "caveat": "0 tokens on YOUR metered model (NotebookLM/Gemini free tier does the read); answer is Gemini-side and NOT eidetic-verify-or-abstain. Provenance + cited_sources below let you CHECK which sources are real eidetic memories, even though the reasoning is not gate-verified."
+}

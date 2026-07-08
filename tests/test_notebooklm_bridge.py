@@ -598,6 +598,34 @@ def test_cost_report_measures_and_labels_by_construction(tmp_path):
     assert "benchmark" in rep["honest_claim"]
 
 
+def test_cost_report_measures_structured_tier_from_smqe_rows(tmp_path):
+    """The structured tier's cost band is MEASURED from the smqe-answered rows of the same
+    logs (the rows Tier 1 takes) -- median/max real query_tokens, not a design constant.
+    Reader-path rows must NOT leak into the struct stats."""
+    import json as _json
+    from bench.notebooklm_cost import build_report
+
+    d = tmp_path / "win"
+    d.mkdir()
+    rows = [
+        {"query_tokens": 12, "extra": {"policy": "smqe:latest_value:claim"}},
+        {"query_tokens": 30, "extra": {"policy": "smqe:relative_temporal:claim"}},
+        {"query_tokens": 146, "extra": {"policy": "smqe:count_aggregate:claim"}},
+        {"query_tokens": 4100, "extra": {"policy": "fixed-reader + verify+abstain+proof"}},
+    ]
+    (d / "eidetic-plus-full__run0.jsonl").write_text(
+        "\n".join(_json.dumps(r) for r in rows))
+    rep = build_report([d])
+    struct = rep["systems"]["eidetic+notebooklm (routed, structured tier)"]
+    assert struct["n"] == 3                # the 4100 reader row is excluded
+    assert struct["median"] == 30
+    assert struct["max"] == 146
+    assert "MEASURED" in struct["basis"]
+    # the honest claim carries the measured numbers and the unmeasured-tier-mix caveat
+    assert "146" in rep["honest_claim"]
+    assert "unmeasured" in rep["honest_claim"]
+
+
 def test_find_notebook_id_handles_every_nlm_json_shape():
     """The notebook-id resolver must survive every shape `nlm notebook list/create --json`
     might emit (a live-run bug: my awk grabbed '"title":'). Recursively finds the id and

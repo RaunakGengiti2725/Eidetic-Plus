@@ -38,8 +38,31 @@ from eidetic.integrations.notebooklm import NotebookLMBridge, CliBackend
 bridge = NotebookLMBridge(engine, CliBackend())
 out = bridge.answer("raunak-main", "Where did Priya move?", notebook_id)
 # -> {"answer": ..., "provenance": [{content_sha256, valid_at, memory_id}...],
+#     "cited_sources": {"cited": N, "confirmed_in_eidetic": M},
+#     "grounding": {...deterministic quote-faithfulness + coverage...},
 #     "user_llm_tokens": 0, "caveat": "..."}
 ```
+
+### Deterministic grounding check (free, no model calls)
+
+Every `answer()` runs three checks the caller can trust without spending a token:
+
+1. **Citation existence** (`cited_sources`) — each `eidetic:<id>` token Gemini cited must
+   resolve to a real immutable record; `confirmed_in_eidetic` counts the ones that do. A
+   hallucinated citation is NOT confirmed.
+2. **Quote faithfulness** (`grounding.quotes_*`) — each reference's `cited_text` is checked
+   against the exported source bytes *rebuilt deterministically from the store*:
+   whitespace-normalized substring ⇒ `verbatim`; content-token overlap ≥ 0.8 ⇒
+   `high-overlap`; else `unmatched` — NotebookLM altered or fabricated the quote.
+3. **Answer token coverage** (`grounding.answer_token_coverage`) — fraction of the answer's
+   content tokens present in the exported text. Gemini's connective prose lowers it; read a
+   low number as a flag to inspect, `quotes_unmatched > 0` as the strong signal.
+
+**Honest label (verbatim from the code):** this is a deterministic *lexical* check — NOT
+NLI and NOT eidetic's proof gate. It catches fabricated/altered quotes and alien answer
+content; it cannot certify the reasoning. Live key-free demo with all fields populated:
+`artifacts/public_ship/notebooklm_live_grounded_demo.md` (4/4 citations confirmed, 2/2
+quotes grounded, 0 caller tokens, no metered key set in the environment).
 
 ## Preflight (`doctor`) — run this FIRST, before any live call
 
@@ -154,12 +177,17 @@ Tier 3 rather than falling through. Tier 2's return is labeled
 `"gate-verified"`, `gate_verified=True`. Every return carries the four honesty strings.
 
 **Token math (formula only — no blended figure).** `blended = P_struct·c_struct +
-P_nb·0 + P_metered·4034`, with `P_struct + P_nb + P_metered = 1` and `c_struct ∈ [6,85]`.
-The per-tier costs (`4034`, `6–85`) are **design-supplied constants labeled as such**;
-the `P_*` hit-rate weights are **unmeasured / to be measured on a dev split**. We ship
-the formula, never a specific blended number. `struct_tau` is a calibration parameter
-(suggested alignment to the existing recall gate), validated on a dev split — not a
-proven constant.
+P_nb·0 + P_metered·4034`, with `P_struct + P_nb + P_metered = 1`. The structured tier's
+cost is now **measured** from the committed 6-window holdout logs (r9–r14, the
+smqe-answered rows Tier 1 takes): `c_struct` median **20.5**, worst-case **146**, n=78 —
+see `bench/notebooklm_cost.py`. The metered cost (`4034`) is the measured 6-window median.
+The `P_*` hit-rate weights remain **unmeasured on an arbitrary query stream**, so we ship
+per-tier costs and the formula, never a specific blended number. Consequence, stated
+precisely: under free-read routing (`require_gate_verification=False`) every query costs
+either a measured-band structured answer (≤146 observed) or a 0-caller-token free read —
+both below mem0's measured median 381 and rag-vector's 1892. Accuracy on the free-read
+tier is unmeasured. `struct_tau` is a calibration parameter validated on a dev split — not
+a proven constant.
 
 ## Incremental content-hash sync (`IncrementalSync`)
 
