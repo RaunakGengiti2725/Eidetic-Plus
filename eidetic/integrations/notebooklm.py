@@ -57,6 +57,37 @@ import re as _re
 _EIDETIC_REF_RE = _re.compile(r"eidetic:([0-9a-zA-Z_\-]{4,32})")
 
 
+def find_notebook_id(raw_json: str, title: Optional[str] = None) -> Optional[str]:
+    """Recursively pull a NotebookLM notebook id out of whatever JSON shape `nlm notebook
+    list/create --json` emits (array, {notebooks:[...]}, {notebook_id:...}, nested {data:{
+    items:[...]}}). Prefers the id whose object's title/name matches `title`; else the first
+    id found. Returns None if unparseable or absent -- callers never crash on it."""
+    try:
+        data = json.loads(raw_json)
+    except Exception:
+        return None
+    id_keys = ("id", "notebook_id", "notebookId")
+    found: list[tuple[str, str]] = []
+
+    def walk(o):
+        if isinstance(o, dict):
+            nid = next((str(o[k]) for k in id_keys if o.get(k)), None)
+            if nid and _re.search(r"[A-Za-z0-9_-]{8,}", nid):
+                found.append((nid, str(o.get("title") or o.get("name") or "")))
+            for v in o.values():
+                walk(v)
+        elif isinstance(o, list):
+            for v in o:
+                walk(v)
+
+    walk(data)
+    if title:
+        for nid, t in found:
+            if t.strip() == title.strip():
+                return nid
+    return found[0][0] if found else None
+
+
 def _resolve_nlm() -> Optional[str]:
     """Locate the `nlm` binary. Order: $NLM_BIN, PATH, then this repo's own .venv/bin/nlm
     (so `.venv/bin/pip install notebooklm-mcp-cli` works without activating the venv or
@@ -743,7 +774,8 @@ def _cli() -> int:  # pragma: no cover - thin argparse wrapper
     ap = argparse.ArgumentParser(description="Export eidetic verified memory into NotebookLM")
     ap.add_argument("action", choices=["export", "query", "preview", "preview-graph",
                                        "export-graph", "sync", "routed-answer", "doctor",
-                                       "seed"])
+                                       "seed", "find-notebook-id"])
+    ap.add_argument("--title", default="")
     ap.add_argument("--namespace", default="default")
     ap.add_argument("--notebook-id", default=os.environ.get("NOTEBOOKLM_NOTEBOOK_ID", ""))
     ap.add_argument("--backend", choices=["enterprise", "cli"], default="enterprise")
@@ -762,6 +794,13 @@ def _cli() -> int:  # pragma: no cover - thin argparse wrapper
                          "store, e.g. ~/.eidetic-plus/data, or the CLI sees an empty store.")
     args = ap.parse_args()
 
+    if args.action == "find-notebook-id":
+        # Read `nlm notebook list/create --json` from stdin, print the id (or nothing).
+        import sys as _sys
+        nid = find_notebook_id(_sys.stdin.read(), args.title or None)
+        if nid:
+            print(nid)
+        return 0
     if args.data_dir:
         os.environ["DATA_DIR"] = os.path.expanduser(args.data_dir)
     eng = Engine(get_settings())

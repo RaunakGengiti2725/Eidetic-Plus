@@ -46,30 +46,25 @@ fi
 echo "logged in."
 
 say "3/5  Create or reuse the notebook \"$NB_NAME\""
-# Robust: `nlm notebook list --json` gives structured {id,title}; match by title. If none,
-# `nlm notebook create --json` returns the new id. Parse JSON with python (portable, no jq).
-resolve_id() {
-  "$NLM" notebook list --json 2>/dev/null | "$PY" - "$NB_NAME" <<'PYJSON'
-import json,sys
-name=sys.argv[1]
-try: data=json.load(sys.stdin)
-except Exception: sys.exit(0)
-items=data if isinstance(data,list) else (data.get("notebooks") or data.get("items") or [])
-for it in items:
-    if isinstance(it,dict) and str(it.get("title","")).strip()==name:
-        print(it.get("id") or it.get("notebook_id") or it.get("notebookId") or ""); break
-PYJSON
-}
-NB_ID="$(resolve_id)"
+# Robust + unkillable: recursively find any notebook id in whatever JSON shape nlm emits
+# (array, {notebooks:[...]}, {notebook_id:...}, nested). set +e so a parse hiccup never
+# silently aborts the script -- if it truly can't find an id we print raw output to diagnose.
+set +e
+_find_id() { "$PY" -m eidetic.integrations.notebooklm find-notebook-id --title "${1:-}"; }
+LIST_JSON="$("$NLM" notebook list --json 2>/dev/null)"
+NB_ID="$(printf '%s' "$LIST_JSON" | _find_id "$NB_NAME")"
 if [ -z "${NB_ID:-}" ]; then
-  # create it, parse the returned id from --json
-  NB_ID="$("$NLM" notebook create "$NB_NAME" --json 2>/dev/null | "$PY" -c \
-    'import json,sys;d=json.load(sys.stdin);print(d.get("id") or d.get("notebook_id") or d.get("notebookId") or "")' 2>/dev/null || true)"
-  [ -z "${NB_ID:-}" ] && NB_ID="$(resolve_id)"   # fallback: re-list after create
+  CREATE_JSON="$("$NLM" notebook create "$NB_NAME" --json 2>/dev/null)"
+  NB_ID="$(printf '%s' "$CREATE_JSON" | _find_id "")"
+  [ -z "${NB_ID:-}" ] && NB_ID="$("$NLM" notebook list --json 2>/dev/null | _find_id "$NB_NAME")"
 fi
+set -e
 if [ -z "${NB_ID:-}" ]; then
-  echo "Could not resolve a notebook id. Paste the output of:  \"$NLM\" notebook list --json"
-  echo "(safe -- no secrets) and I'll fix the parser."; exit 1
+  echo "Could not auto-detect a notebook id. Paste me the output of this (safe, no secrets):"
+  echo "    $NLM notebook list --json"
+  echo "--- what it returned this run (first 400 chars) ---"
+  printf '%s' "${LIST_JSON:-<empty>}" | head -c 400; echo
+  exit 1
 fi
 echo "notebook id: $NB_ID"
 export NLM_BIN="$NLM"                                   # module CliBackend uses the SAME nlm

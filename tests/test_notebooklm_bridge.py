@@ -550,3 +550,24 @@ def test_cost_report_measures_and_labels_by_construction(tmp_path):
     # honesty boundaries present in the claim
     assert "NOT free globally" in rep["honest_claim"] or "not free globally" in rep["honest_claim"].lower()
     assert "benchmark" in rep["honest_claim"]
+
+
+def test_find_notebook_id_handles_every_nlm_json_shape():
+    """The notebook-id resolver must survive every shape `nlm notebook list/create --json`
+    might emit (a live-run bug: my awk grabbed '"title":'). Recursively finds the id and
+    prefers a title match."""
+    from eidetic.integrations.notebooklm import find_notebook_id
+    # bare array
+    assert find_notebook_id('[{"id":"nb_ABCDEFGH12","title":"My Memory"}]', "My Memory") == "nb_ABCDEFGH12"
+    # {notebooks:[...]} with a distractor -> title match wins
+    assert find_notebook_id(
+        '{"notebooks":[{"id":"nb_OTHER111","title":"Other"},{"id":"nb_TARGET4567","title":"My Memory"}]}',
+        "My Memory") == "nb_TARGET4567"
+    # create-shape {notebook_id:...}
+    assert find_notebook_id('{"notebook_id":"nb_CREATED890","title":"My Memory"}', "My Memory") == "nb_CREATED890"
+    # nested {data:{items:[{notebookId, name}]}}
+    assert find_notebook_id('{"data":{"items":[{"notebookId":"nb_NESTED777","name":"My Memory"}]}}', "My Memory") == "nb_NESTED777"
+    # no title match -> first id; junk -> None
+    assert find_notebook_id('[{"id":"nb_FIRST0001"},{"id":"nb_SECOND002"}]', "absent") == "nb_FIRST0001"
+    assert find_notebook_id("not json at all", "x") is None
+    assert find_notebook_id("{}", "x") is None
