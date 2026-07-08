@@ -460,6 +460,56 @@ def reader_answer_form_credible(query: str, answer: str) -> bool:
     return True
 
 
+_CLEAN_FACT_STOP = frozenset({
+    "a", "an", "the", "of", "in", "on", "at", "to", "and", "or", "but", "is", "are", "was",
+    "were", "be", "been", "being", "i", "we", "my", "he", "she", "it", "his", "her", "their",
+    "they", "them", "for", "with", "as", "by", "that", "this", "these", "those", "has", "have",
+    "had", "do", "does", "did", "not", "so",
+})
+_CLEAN_FACT_PRONOUN_HEAD_RE = re.compile(r"^(?:i|it|we|i'm|i've|it's)\b", re.I)
+
+
+def _clean_fact_form_credible(query: str, result: StructuredAnswerResult) -> bool:
+    """General clean-fact form floor for NON-computed, NON-polarity structured ops. A verified
+    structured answer is a self-contained extracted fact, not a raw turn shard: two shapes that
+    the preference floor already rejects surface across latest_value / open_inference too and
+    NLI-anchor against the source while answering nothing. This applies those two floors to
+    every producer path. Computed ops (bare dates/counts are legitimate), polarity answers
+    (their own floors), and suggestion_synth (provenance-gated carve-out) are exempt.
+
+    Deliberately NARROW -- only two high-precision shapes, validated to reject no correct answer
+    on the regression set. It never rejects wrong-but-clean values (a plausible wrong date
+    passes -- form cannot know it is wrong), and never a legitimate list whose items share a
+    common noun, nor a parallel timeline whose entries repeat a verb phrase -- those are real
+    answers, not garble."""
+    answer = (result.answer or "").strip()
+    if not answer:
+        return True
+    content = [w for w in re.findall(r"[a-z0-9][a-z0-9'-]*", answer.lower())
+               if w not in _CLEAN_FACT_STOP]
+
+    # (1) First-person conversational lead with no factual anchor is a verbatim turn opening,
+    # not an answer -- a bare pronoun+verb clause that adds no value. A first-person clause that
+    # DOES carry an anchor (a quoted title, a Capitalized proper noun, or a digit) is a real
+    # answer and passes: the anchor is the fact.
+    if (_CLEAN_FACT_PRONOUN_HEAD_RE.match(answer)
+            and not re.search(r'"[^"]{2,}"', answer)
+            and not re.search(r"\b[A-Z][a-z]{2,}", answer)
+            and not re.search(r"\d", answer)
+            and len(content) <= 4):
+        return False
+
+    # (2) A comma-list whose item carries a speaker turn-header shape ('<Name>: <free text>') is
+    # a malformed enumeration -- the extractor grabbed a dialogue turn, not a list value. Keyed
+    # strictly on the capitalized-token-then-colon header shape so legitimate lists never trip.
+    if "," in answer:
+        segs = [s.strip() for s in re.split(r",\s*(?:and\s+)?", answer) if s.strip()]
+        if len(segs) >= 2 and any(re.match(r"[A-Z][a-zA-Z]+\s*:\s+\S", s) for s in segs):
+            return False
+
+    return True
+
+
 def answer_from_result(retriever, query: str, result: StructuredAnswerResult,
                        *, verify: bool = True) -> Answer | None:
     if result is None or not result.answer or not result.supports:
@@ -523,6 +573,15 @@ def answer_from_result(retriever, query: str, result: StructuredAnswerResult,
             and not _OPTION_SPLIT_RE.search(query or "")
             and not re.match(r"\s*(?:yes|no)\b", result.answer or "", re.I)
             and not _answer_adds_information(query, result.answer)):
+        return None
+    # Clean-fact FORM refusal: a verified structured answer must be a self-contained fact, not
+    # a conversational turn shard (a bare first-person pronoun+verb opening) or a comma-list
+    # that captured a dialogue turn-header. Non-computed ops only (computed values are bare by
+    # design); polarity and suggestion_synth keep their own carve-outs.
+    if (verify and result.op not in _COMPUTED_OPS
+            and ":suggestion_synth" not in (result.note or "")
+            and not re.match(r"\s*(?:yes|no)\b", result.answer or "", re.I)
+            and not _clean_fact_form_credible(query, result)):
         return None
     citations: list[Citation] = []
     entailed = 0
