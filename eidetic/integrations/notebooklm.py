@@ -324,6 +324,18 @@ class EnterpriseBackend:
             raise NotebookLMError(f"query {resp.status_code}: {getattr(resp,'text','')}")
         return resp.json()
 
+    def doctor(self) -> dict:
+        """Preflight: is a token present + what endpoints will we hit? Never raises."""
+        has_token = bool(self.access_token)
+        return {"backend": "enterprise",
+                "token_present": has_token,
+                "hint": None if has_token else
+                        "set NOTEBOOKLM_ACCESS_TOKEN=$(gcloud auth print-access-token)",
+                "base_url": self._base(),
+                "commands": {
+                    "add_source": f"POST {self._base()}/notebooks/<id>/sources:batchCreate",
+                    "query": f"POST {self._base()}/notebooks/<id>:query"}}
+
 
 @dataclass
 class CliBackend:
@@ -341,16 +353,36 @@ class CliBackend:
                 ["nlm", *args], capture_output=True, text=True, check=True).stdout
 
     def batch_create_sources(self, notebook_id: str, sources: list[dict]) -> dict:
+        # Real nlm syntax (notebooklm-mcp-cli): `nlm source add <notebook> --text "..."`.
+        # notebook is POSITIONAL (no --notebook flag); text sources take no name flag, so
+        # the provenance rides inside the text body (the header), not a display-name arg.
         created = 0
         for s in sources:
-            self.runner(["source", "add", "--notebook", notebook_id,
-                         "--text", s["text_content"], "--name", s.get("display_name", "")])
+            self.runner(["source", "add", notebook_id, "--text", s["text_content"]])
             created += 1
         return {"created": created}
 
     def query(self, notebook_id: str, question: str) -> dict:
-        out = self.runner(["query", "--notebook", notebook_id, question])
+        # Real nlm syntax: `nlm notebook query <notebook> "question"`.
+        out = self.runner(["notebook", "query", notebook_id, question])
         return {"answer": out.strip(), "backend": "nlm-cli (gemini-side, UNVERIFIED)"}
+
+    def doctor(self) -> dict:
+        """Preflight: is `nlm` reachable + logged in, and what commands will we run? Never
+        raises -- returns a status dict so the user sees the plan before a live export."""
+        status = {"backend": "cli", "reachable": False, "logged_in": None,
+                  "commands": {
+                      "add_source": "nlm source add <notebook> --text \"<provenance+body>\"",
+                      "query": "nlm notebook query <notebook> \"<question>\"",
+                      "login": "nlm login   (check: nlm login --check)"}}
+        try:
+            out = self.runner(["login", "--check"])
+            status["reachable"] = True
+            status["logged_in"] = "logged in" if "not" not in (out or "").lower() else "NOT logged in (run `nlm login`)"
+        except Exception as exc:  # nlm missing OR not logged in
+            status["reachable"] = shutil.which("nlm") is not None
+            status["logged_in"] = f"unknown ({type(exc).__name__}); run `nlm login` first"
+        return status
 
 
 class NotebookLMBridge:
@@ -674,7 +706,7 @@ def _cli() -> int:  # pragma: no cover - thin argparse wrapper
 
     ap = argparse.ArgumentParser(description="Export eidetic verified memory into NotebookLM")
     ap.add_argument("action", choices=["export", "query", "preview", "preview-graph",
-                                       "export-graph", "sync", "routed-answer"])
+                                       "export-graph", "sync", "routed-answer", "doctor"])
     ap.add_argument("--namespace", default="default")
     ap.add_argument("--notebook-id", default=os.environ.get("NOTEBOOKLM_NOTEBOOK_ID", ""))
     ap.add_argument("--backend", choices=["enterprise", "cli"], default="enterprise")
@@ -705,6 +737,17 @@ def _cli() -> int:  # pragma: no cover - thin argparse wrapper
         preview = "\n".join(src["text_content"].splitlines()[:40])
         print(json.dumps({"stats": src["stats"], "display_name": src["display_name"],
                           "text_preview": preview}, indent=2))
+        return 0
+    if args.action == "doctor":
+        # Preflight: never touches eidetic data; just reports backend reachability + the
+        # EXACT commands/endpoints the tool will run, so the first live attempt isn't a guess.
+        try:
+            backend = (EnterpriseBackend(project_number=args.project_number, location=args.location)
+                       if args.backend == "enterprise" else CliBackend(runner=None))
+            print(json.dumps(backend.doctor(), indent=2))
+        except NotebookLMError as exc:
+            print(json.dumps({"backend": args.backend, "reachable": False,
+                              "error": str(exc)}, indent=2))
         return 0
     backend = (EnterpriseBackend(project_number=args.project_number, location=args.location)
                if args.backend == "enterprise" else CliBackend())

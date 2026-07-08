@@ -140,14 +140,48 @@ def test_enterprise_backend_posts_provenance_payload():
     assert body["userContents"][0]["content"] == "hello"
 
 
-def test_cli_backend_runs_per_source():
+def test_cli_backend_uses_real_nlm_command_syntax():
+    """Pinned against the notebooklm-mcp-cli docs: `nlm source add <notebook> --text ...`
+    (notebook POSITIONAL, no --notebook/--name flags) and `nlm notebook query <notebook> "q"`.
+    A regression here means the live CLI call would fail on first use."""
     ran = []
     be = CliBackend(runner=lambda args: ran.append(args) or "")
     be.batch_create_sources("nbk_1", [{"text_content": "a", "display_name": "n1"},
                                       {"text_content": "b", "display_name": "n2"}])
     assert len(ran) == 2
-    q = CliBackend(runner=lambda args: "the answer")
-    assert "UNVERIFIED" in q.query("nbk_1", "q?")["backend"]
+    assert ran[0] == ["source", "add", "nbk_1", "--text", "a"]  # positional notebook, no flags
+    assert "--notebook" not in ran[0] and "--name" not in ran[0]
+    captured = []
+    q = CliBackend(runner=lambda args: captured.append(args) or "the answer")
+    out = q.query("nbk_1", "q?")
+    assert captured[0] == ["notebook", "query", "nbk_1", "q?"]
+    assert "UNVERIFIED" in out["backend"]
+
+
+def test_cli_doctor_reports_status_and_commands_without_raising():
+    """`doctor` is a preflight: it must NEVER raise, and it prints the exact commands +
+    login state so the user sees the plan before a live export."""
+    be = CliBackend(runner=lambda args: "logged in as user@example.com")
+    doc = be.doctor()
+    assert doc["backend"] == "cli"
+    assert doc["reachable"] is True
+    assert "logged in" in doc["logged_in"]
+    assert "nlm source add" in doc["commands"]["add_source"]
+    assert "nlm notebook query" in doc["commands"]["query"]
+
+
+def test_cli_doctor_flags_not_logged_in():
+    be = CliBackend(runner=lambda args: "You are NOT logged in")
+    assert "NOT logged in" in be.doctor()["logged_in"]
+
+
+def test_enterprise_doctor_reports_token_and_endpoints():
+    be = EnterpriseBackend(project_number="42", access_token="tok", session=object())
+    doc = be.doctor()
+    assert doc["backend"] == "enterprise" and doc["token_present"] is True
+    assert "notebooks/<id>/sources:batchCreate" in doc["commands"]["add_source"]
+    d2 = EnterpriseBackend(project_number="42", access_token=None, session=object()).doctor()
+    assert d2["token_present"] is False and "gcloud auth" in d2["hint"]
 
 
 def test_reader_mode_zero_user_tokens_and_provenance():

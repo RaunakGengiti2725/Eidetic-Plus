@@ -41,12 +41,25 @@ out = bridge.answer("raunak-main", "Where did Priya move?", notebook_id)
 #     "user_llm_tokens": 0, "caveat": "..."}
 ```
 
-## Auth (you provide credentials; nothing is hardcoded)
+## Preflight (`doctor`) — run this FIRST, before any live call
 
-| backend | auth | account | stability |
+```bash
+python -m eidetic.integrations.notebooklm doctor --backend cli         # personal free path
+python -m eidetic.integrations.notebooklm doctor --backend enterprise --project-number <N>
+```
+`doctor` never touches your memory or the network beyond an auth check. It reports whether
+the backend is reachable + logged in, and prints the **exact** commands/endpoints it will
+run, so your first live attempt isn't a guess. The `cli` backend shells out to the real
+`nlm` syntax: `nlm source add <notebook> --text "…"` and `nlm notebook query <notebook>
+"…"` (pinned to [notebooklm-mcp-cli](https://github.com/jacob-bd/notebooklm-mcp-cli)); if
+that tool changes its commands, update `CliBackend` (one place) and re-run `doctor`.
+
+## Auth (you provide credentials; nothing is hardcoded, nothing is pasted into chat)
+
+| backend | auth (set on YOUR machine) | account | stability |
 |---|---|---|---|
 | `enterprise` | GCP bearer token `NOTEBOOKLM_ACCESS_TOKEN` (`gcloud auth print-access-token`) + `NOTEBOOKLM_PROJECT_NUMBER` | NotebookLM **Enterprise** license (paid) | official, stable API |
-| `cli` | the `nlm` tool ([notebooklm-mcp-cli](https://github.com/jacob-bd/notebooklm-mcp-cli)), browser-cookie login | **personal** Google account (free tier works) | undocumented internal APIs — may break; ToS-gray |
+| `cli` | `nlm login` (browser-cookie login, in your own browser) | **personal** Google account (free tier works) | undocumented internal APIs — may break; ToS-gray |
 
 The free-read trick uses the `cli` backend (personal free account). The code never
 stores or transmits your credentials anywhere except the backend you choose.
