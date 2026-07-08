@@ -2061,3 +2061,24 @@ gate provably cannot do it safely) or making eidetic's context as lean as top-k 
 discards the very machinery that is the point). We do NOT claim an accuracy win over
 rag-vector. eidetic's honest, defensible edge remains verify-or-abstain provenance
 (31 verified answers here vs 0) -- not raw accuracy on this benchmark.
+
+## SLICE 12 (r12, window 11, SHA 223431e39) -- dense top-k ENSEMBLE: TIE with rag-vector
+
+First fresh window with the dense-topk ensemble (unverified rows answered over the clean
+top-k slice rag-vector feeds). Result:
+
+| system | r12 | verified | qtok med |
+|---|---|---|---|
+| eidetic-plus-full (ensemble) | 24/40 (60%) | 35 | 4,030 |
+| rag-vector | 24/40 (60%) | 0 | 1,901 |
+
+TIE on accuracy (24=24), with eidetic carrying 35 verified answers vs 0. The ensemble
+fired on 4 unverified rows, all 4 correct -- but eidetic was already strong on this
+(easier, single-hop-heavy) window, so its lift over the window's own baseline was small.
+
+Honest ceiling of this ensemble: PARITY, not a clean beat. It only fires on UNVERIFIED
+rows, so eidetic's residual verified-WRONG rows (the semantic slot-mismatch class, ~3/
+window, unfixable without semantic slot-matching) still ship wrong and cap the gain at a
+tie. The defensible outcome is "accuracy PARITY with rag-vector + 35 verified vs 0" --
+win on provenance, tie on accuracy -- not "beats on accuracy". One window is noisy; more
+ensemble windows follow to confirm the parity holds.

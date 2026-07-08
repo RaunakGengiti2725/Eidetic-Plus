@@ -1,0 +1,230 @@
+{
+  "systems": [
+    "eidetic-plus-full",
+    "rag-vector"
+  ],
+  "accuracy": {
+    "eidetic-plus-full|locomo|multi-hop": {
+      "mean": 0.25,
+      "std": 0.0,
+      "ci95": [
+        0.071479212752109,
+        0.5907245696898311
+      ],
+      "successes": 2,
+      "n": 8
+    },
+    "eidetic-plus-full|locomo|single-hop": {
+      "mean": 0.8095238095238095,
+      "std": 0.0,
+      "ci95": [
+        0.5999943530979508,
+        0.9233243494723822
+      ],
+      "successes": 17,
+      "n": 21
+    },
+    "eidetic-plus-full|locomo|temporal": {
+      "mean": 0.375,
+      "std": 0.0,
+      "ci95": [
+        0.13684428582359742,
+        0.6942576053973727
+      ],
+      "successes": 3,
+      "n": 8
+    },
+    "eidetic-plus-full|locomo|open-domain": {
+      "mean": 0.6666666666666666,
+      "std": 0.0,
+      "ci95": [
+        0.2076596008020477,
+        0.9385080552796037
+      ],
+      "successes": 2,
+      "n": 3
+    },
+    "rag-vector|locomo|multi-hop": {
+      "mean": 0.625,
+      "std": 0.0,
+      "ci95": [
+        0.30574239460262737,
+        0.8631557141764026
+      ],
+      "successes": 5,
+      "n": 8
+    },
+    "rag-vector|locomo|single-hop": {
+      "mean": 0.8095238095238095,
+      "std": 0.0,
+      "ci95": [
+        0.5999943530979508,
+        0.9233243494723822
+      ],
+      "successes": 17,
+      "n": 21
+    },
+    "rag-vector|locomo|temporal": {
+      "mean": 0.0,
+      "std": 0.0,
+      "ci95": [
+        0.0,
+        0.32440756488388023
+      ],
+      "successes": 0,
+      "n": 8
+    },
+    "rag-vector|locomo|open-domain": {
+      "mean": 0.6666666666666666,
+      "std": 0.0,
+      "ci95": [
+        0.2076596008020477,
+        0.9385080552796037
+      ],
+      "successes": 2,
+      "n": 3
+    }
+  },
+  "head_to_head": {
+    "eidetic-plus-full|rag-vector|locomo|multi-hop": {
+      "n": 8,
+      "a_only": 0,
+      "b_only": 3,
+      "both": 2,
+      "neither": 3,
+      "p_mcnemar": 0.25
+    },
+    "eidetic-plus-full|rag-vector|locomo|open-domain": {
+      "n": 3,
+      "a_only": 0,
+      "b_only": 0,
+      "both": 2,
+      "neither": 1,
+      "p_mcnemar": 1.0
+    },
+    "eidetic-plus-full|rag-vector|locomo|single-hop": {
+      "n": 21,
+      "a_only": 4,
+      "b_only": 4,
+      "both": 13,
+      "neither": 0,
+      "p_mcnemar": 1.0
+    },
+    "eidetic-plus-full|rag-vector|locomo|temporal": {
+      "n": 8,
+      "a_only": 3,
+      "b_only": 0,
+      "both": 0,
+      "neither": 5,
+      "p_mcnemar": 0.25
+    }
+  },
+  "survival": {
+    "eidetic-plus-full|rag-vector|locomo|multi-hop": {
+      "runs": [
+        0
+      ],
+      "status": "needs-2-runs"
+    },
+    "eidetic-plus-full|rag-vector|locomo|open-domain": {
+      "runs": [
+        0
+      ],
+      "status": "needs-2-runs"
+    },
+    "eidetic-plus-full|rag-vector|locomo|single-hop": {
+      "runs": [
+        0
+      ],
+      "status": "needs-2-runs"
+    },
+    "eidetic-plus-full|rag-vector|locomo|temporal": {
+      "runs": [
+        0
+      ],
+      "status": "needs-2-runs"
+    }
+  },
+  "cost": {
+    "eidetic-plus-full": {
+      "tokens_per_write": 21603.6,
+      "tokens_per_query": 2959.525
+    },
+    "rag-vector": {
+      "tokens_per_write": 21603.6,
+      "tokens_per_query": 1815.925
+    }
+  },
+  "latency": {
+    "eidetic-plus-full": {
+      "search_p50": 3283.048270503059,
+      "search_p95": 5079.846583621111,
+      "e2e_p50": 9350.470895529725,
+      "e2e_p95": 21709.54931686865
+    },
+    "rag-vector": {
+      "search_p50": 915.5938129406422,
+      "search_p95": 1134.65406592004,
+      "e2e_p50": 4364.9672084720805,
+      "e2e_p95": 9480.401606415398
+    }
+  },
+  "judge": {
+    "judge_model": "qwen3-max",
+    "judge_backend": "dashscope"
+  },
+  "integrity": {
+    "eidetic-plus-full": {
+      "n": 40,
+      "verified_correct": 19,
+      "answered": 40,
+      "unverified_answered": 5,
+      "abstained": 0,
+      "has_verify": true
+    },
+    "rag-vector": {
+      "n": 40,
+      "verified_correct": 0,
+      "answered": 40,
+      "unverified_answered": 40,
+      "abstained": 0,
+      "has_verify": false
+    }
+  },
+  "consolidation": {
+    "eidetic-plus-full": {
+      "groups": 10,
+      "pending_processed": 249,
+      "facts_extracted": 1143,
+      "events_indexed": 1143,
+      "extraction_timed_out": 0,
+      "extraction_deferred": 0,
+      "extraction_windows_planned": 257,
+      "extraction_windows_submitted": 257,
+      "extraction_window_cap_per_record": 0,
+      "extraction_call_budget": 900,
+      "extraction_raw_only_bounded": 0,
+      "record_raw_only_bounded": 0,
+      "extraction_partial_bounded": 0,
+      "long_haystack_bounded": 0,
+      "long_haystack_raw_only": 0
+    }
+  },
+  "log_fingerprint": {
+    "algorithm": "sha256",
+    "file_count": 2,
+    "combined_sha256": "9cd52accd0c7dc80020bd9c08d1b5b5c1fd08d849b55a394e94e56f73d3c7b69",
+    "files": [
+      {
+        "path": "eidetic-plus-full__run0.jsonl",
+        "bytes": 108858,
+        "sha256": "4fbe101b34937b1acf6bdcd44c35217515fac04f40c580ebbe81cfc5c5cfc2f5"
+      },
+      {
+        "path": "rag-vector__run0.jsonl",
+        "bytes": 24254,
+        "sha256": "1890bee02324b99f90984c549b956dca3a8a4e0dac1aacabf2201a9f943059b4"
+      }
+    ]
+  }
+}
