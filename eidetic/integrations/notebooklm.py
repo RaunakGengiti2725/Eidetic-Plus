@@ -57,11 +57,18 @@ import re as _re
 _EIDETIC_REF_RE = _re.compile(r"eidetic:([0-9a-zA-Z_\-]{4,32})")
 
 
-def find_notebook_id(raw_json: str, title: Optional[str] = None) -> Optional[str]:
+def find_notebook_id(raw_json: str, title: Optional[str] = None, *,
+                     strict: bool = False) -> Optional[str]:
     """Recursively pull a NotebookLM notebook id out of whatever JSON shape `nlm notebook
     list/create --json` emits (array, {notebooks:[...]}, {notebook_id:...}, nested {data:{
     items:[...]}}). Prefers the id whose object's title/name matches `title`; else the first
-    id found. Returns None if unparseable or absent -- callers never crash on it."""
+    id found. Returns None if unparseable or absent -- callers never crash on it.
+
+    strict=True: return ONLY an exact-title match (no first-found fallback). REQUIRED for
+    per-namespace isolation flows -- the fallback once resolved every missing-title lookup
+    to the same first notebook, silently mixing 10 namespaces' sources and questions into
+    one notebook. The deterministic grounding check (unmatched foreign quotes) is what
+    exposed it."""
     try:
         data = json.loads(raw_json)
     except Exception:
@@ -85,6 +92,8 @@ def find_notebook_id(raw_json: str, title: Optional[str] = None) -> Optional[str
         for nid, t in found:
             if t.strip() == title.strip():
                 return nid
+    if strict:
+        return None
     return found[0][0] if found else None
 
 
@@ -689,6 +698,12 @@ class NotebookLMBridge:
                 "note": "each confirmed citation resolves to a real eidetic memory by content "
                         "hash; unconfirmed ones are Gemini's and are NOT backed by your store."},
             "grounding": grounding,
+            # trimmed raw references: lets any caller inspect exactly WHAT NotebookLM
+            # quoted when a grounding verdict says unmatched (diagnosability -- the
+            # contamination incident was only debuggable via a live re-ask without these)
+            "references": [str(r.get("cited_text", ""))[:400]
+                           for r in (res.get("references") or [])[:12]
+                           if isinstance(r, dict)],
             "user_llm_tokens": 0,
             "backend": res.get("backend", "notebooklm"),
             "caveat": ("0 tokens on YOUR metered model (NotebookLM/Gemini free tier does the "

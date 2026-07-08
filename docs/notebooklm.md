@@ -189,6 +189,19 @@ both below mem0's measured median 381 and rag-vector's 1892. Accuracy on the fre
 tier is unmeasured. `struct_tau` is a calibration parameter validated on a dev split — not
 a proven constant.
 
+## Live free-tier collection harness (`bench/notebooklm_freetier_run.py`)
+
+Collects, key-free, live free-tier answers for a committed holdout window: one notebook
+per conversation namespace (same isolation as the benchmark), exports the verified claim
+graph **plus** packed raw-record sources (the graph is compact but lossy — affect and
+detail live in the records; packing respects the free tier's per-notebook source cap with
+provenance headers intact inside the text), then records per question: the Gemini answer,
+citation confirmation, quote grounding, latency, and a **prefix-tolerant containment
+heuristic labeled NOT-the-judge**. `bench/notebooklm_freetier_report.py` aggregates it
+into a labeled report and re-scores from stored answers. The jsonl is judge-ready: with a
+funded key, `bench.judge` scores the same rows properly. Nothing from this harness is
+merged into the benchmark scoreboard.
+
 ## Incremental content-hash sync (`IncrementalSync`)
 
 `IncrementalSync(bridge, manifest_path).sync(namespace, notebook_id)` diffs on
