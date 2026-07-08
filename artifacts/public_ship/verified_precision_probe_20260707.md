@@ -55,16 +55,30 @@ An earlier `bigram_repeat` rule was **dropped**: it looked good on tune but brok
 lists ("X shop and Y shop") and parallel timelines — an overfit patch, caught by the SMQE
 invariant suite. Only the two rules that generalize survive.
 
-## 4. What is NOT fixed (stated plainly)
+## 4. Scope of the claim (precise — this is a producer fix, not a measured benchmark-row win)
+
+The gate makes the **SMQE structured producer** stop minting these verified-wrong rows. What
+happens next depends on the surface:
+
+- **Typed surfaces with NO reader fallback** — `structured_recall` (the MCP tool) and the
+  NotebookLM Tier-1 path — this is an *unambiguous end-to-end win*: the malformed answer is
+  withheld instead of returned as verified.
+- **The `eidetic-plus-full` benchmark adapter** — when `structured_answer` returns None the
+  adapter falls through to the **reader** (not to an abstention). So the offline "verified-wrong
+  29→28" measures the *structured producer in isolation*; the end-to-end benchmark row for those
+  cases would run the reader fallback, whose outcome is **unmeasured (key-blocked)** and which
+  itself contributed 35 of the 87 wrongs. We do **not** claim a measured benchmark-accuracy
+  improvement.
+
+## 5. What is NOT fixed (stated plainly)
 
 The majority of verified-wrong is wrong-but-well-formed dates/counts/entities. Form cannot detect
 these without ground truth (the correct answers include bare dates too), so they are **not**
 offline-fixable — they need a live re-run through the reader, which is key-blocked here. This fix
-makes the `verified` column *more* trustworthy on the malformed subset; it does not close the
-raw-accuracy gap to rag-vector, and verified-wrong→abstain leaves accuracy flat while raising
-abstention. For a verify-or-abstain agent that is the correct trade, but it is a narrow one.
+makes the `verified` column *more* trustworthy on the malformed subset only; it does not close the
+raw-accuracy gap to rag-vector.
 
-## 5. Verification
+## 6. Verification
 
 - Leakage audit: PASS (0 findings, 1639 needles, 103k shingles).
 - New synthetic-only regression test: `tests/test_smqe_clean_fact_form.py` (13 cases).

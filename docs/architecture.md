@@ -5,7 +5,10 @@
 Photographic memory is a human myth. Eidetic-Plus does not try to *be* a perfect
 human memory; it builds the thing the brain only approximates -- **lossless capture
 decoupled from forgetting, recall that does not degrade with a memory's age, and
-verified reconstruction with full provenance so it never confabulates.**
+verified reconstruction with full provenance so it never fabricates *ungrounded* --
+every answer is cited to stored source or abstains.** (Grounded is not the same as
+correct: a verified answer can still be off-target; measured verified-precision is
+~56%. Provenance is the guarantee, not accuracy.)
 
 Three defensible, beyond-human properties fall out of the design:
 

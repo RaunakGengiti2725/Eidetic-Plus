@@ -142,8 +142,10 @@ bash bench/demo_war_room.sh   # fully offline -- fake embeddings, zero API calls
 | `ask_problem` | Natural-language questions answered from the history with revision-backed citations (single-digit ms). |
 
 Answers ride the same verify-or-abstain path as fact recall: structured, citation
--backed, never confabulated ("Why did we decide to raise the pool size?" ->
-"confirmed saturation hypothesis", cited to the recorded revision).
+-backed, never *ungrounded* ("Why did we decide to raise the pool size?" ->
+"confirmed saturation hypothesis", cited to the recorded revision). Grounded is not
+the same as correct -- a cited answer can still be off-target (measured
+verified-precision ~56%); the guarantee is provenance, not accuracy.
 
 ---
 

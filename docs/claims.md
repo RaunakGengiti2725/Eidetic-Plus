@@ -9,9 +9,13 @@ explicitly labeled "not yet measured." A passing demo is not a measurement.
 
 **Claim A -- competence under a fair reader.** With the *same* shared reader and the *same* judge
 given to every system (`bench/reader.py:answer_with_fixed_reader`, pinned `qwen-plus`; `bench/judge.py`,
-pinned `qwen3-max`), eidetic matches or beats full-context RAG, vector RAG, and Mem0 on LongMemEval
-at a fraction of the token cost. The shared reader is the whole point: it makes this a memory
-comparison, not a reader comparison. The Tier-A reader fixes are applied to every system equally.
+pinned `qwen3-max`), eidetic is competitive with full-context RAG, vector RAG, and Mem0 on
+LongMemEval at a fraction of the token cost. **Honest scope (do not overstate):** on LoCoMo raw
+accuracy the opposite holds — across 6 disjoint windows (r9–r14, n=240) full-context and vector
+RAG *beat* eidetic (58.8% vs 53.3%); see [PUBLIC_CLAIMS.md](PUBLIC_CLAIMS.md) limitations. eidetic's
+edge is the verified/provenance column (at ~56% verified-precision), not raw accuracy leadership.
+The shared reader is the whole point: it makes this a memory comparison, not a reader comparison.
+The Tier-A reader fixes are applied to every system equally.
 
 **Claim B -- attribution.** The long-horizon gain is mechanistically earned, shown by ablation:
 turn the metabolism *memory* components off (consolidation/dreaming, the gist/co-activation/struct
