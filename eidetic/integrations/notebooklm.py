@@ -756,8 +756,13 @@ def _cli() -> int:  # pragma: no cover - thin argparse wrapper
     ap.add_argument("--require-gate", action="store_true")
     ap.add_argument("--manifest", default=os.environ.get("NOTEBOOKLM_SYNC_MANIFEST",
                                                          "notebooklm_sync_manifest.json"))
+    ap.add_argument("--data-dir", default=os.environ.get("DATA_DIR", ""),
+                    help="eidetic store to read (default $DATA_DIR). Point at your live "
+                         "store, e.g. ~/.eidetic-plus/data, or the CLI sees an empty store.")
     args = ap.parse_args()
 
+    if args.data_dir:
+        os.environ["DATA_DIR"] = os.path.expanduser(args.data_dir)
     eng = Engine(get_settings())
     if args.action == "preview":
         bridge = NotebookLMBridge(eng, backend=None)
@@ -792,9 +797,17 @@ def _cli() -> int:  # pragma: no cover - thin argparse wrapper
         print(json.dumps(bridge.export_namespace(
             args.namespace, args.notebook_id, limit=args.limit), indent=2))
     elif args.action == "export-graph":
-        print(json.dumps(bridge.export_graph(
+        res = bridge.export_graph(
             args.namespace, args.notebook_id, at=args.at,
-            include_history=not args.no_history, max_entities=args.max_entities), indent=2))
+            include_history=not args.no_history, max_entities=args.max_entities)
+        if not res.get("exported"):
+            # Empty graph (no consolidated edges yet) -> fall back to per-record export so
+            # the notebook still gets the verified memories (provenance headers intact).
+            fb = bridge.export_namespace(args.namespace, args.notebook_id, limit=args.limit)
+            res = {"graph_export": res, "fell_back_to_per_record": fb,
+                   "note": "graph had no edges (needs consolidation); exported raw records "
+                           "instead. `remember` + let it consolidate for a graph."}
+        print(json.dumps(res, indent=2))
     elif args.action == "sync":
         print(json.dumps(IncrementalSync(bridge, args.manifest).sync(
             args.namespace, args.notebook_id), indent=2))

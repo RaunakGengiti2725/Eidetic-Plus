@@ -46,25 +46,43 @@ fi
 echo "logged in."
 
 say "3/5  Create or reuse the notebook \"$NB_NAME\""
-NB_ID="$("$NLM" notebook list 2>/dev/null | awk -v n="$NB_NAME" 'index($0,n){print $1; exit}')"
+# Robust: `nlm notebook list --json` gives structured {id,title}; match by title. If none,
+# `nlm notebook create --json` returns the new id. Parse JSON with python (portable, no jq).
+resolve_id() {
+  "$NLM" notebook list --json 2>/dev/null | "$PY" - "$NB_NAME" <<'PYJSON'
+import json,sys
+name=sys.argv[1]
+try: data=json.load(sys.stdin)
+except Exception: sys.exit(0)
+items=data if isinstance(data,list) else (data.get("notebooks") or data.get("items") or [])
+for it in items:
+    if isinstance(it,dict) and str(it.get("title","")).strip()==name:
+        print(it.get("id") or it.get("notebook_id") or it.get("notebookId") or ""); break
+PYJSON
+}
+NB_ID="$(resolve_id)"
 if [ -z "${NB_ID:-}" ]; then
-  "$NLM" notebook create "$NB_NAME" >/dev/null 2>&1 || true
-  NB_ID="$("$NLM" notebook list 2>/dev/null | awk -v n="$NB_NAME" 'index($0,n){print $1; exit}')"
+  # create it, parse the returned id from --json
+  NB_ID="$("$NLM" notebook create "$NB_NAME" --json 2>/dev/null | "$PY" -c \
+    'import json,sys;d=json.load(sys.stdin);print(d.get("id") or d.get("notebook_id") or d.get("notebookId") or "")' 2>/dev/null || true)"
+  [ -z "${NB_ID:-}" ] && NB_ID="$(resolve_id)"   # fallback: re-list after create
 fi
 if [ -z "${NB_ID:-}" ]; then
-  echo "Could not resolve a notebook id from \`nlm notebook list\`. Paste its output to me"
-  echo "(safe, no secrets) and I'll adjust the parser."; exit 1
+  echo "Could not resolve a notebook id. Paste the output of:  \"$NLM\" notebook list --json"
+  echo "(safe -- no secrets) and I'll fix the parser."; exit 1
 fi
 echo "notebook id: $NB_ID"
-export NLM_BIN="$NLM"   # so the python module's CliBackend uses the SAME nlm binary
+export NLM_BIN="$NLM"                                   # module CliBackend uses the SAME nlm
+export DATA_DIR="${DATA_DIR:-$HOME/.eidetic-plus/data}" # read your LIVE store, not an empty one
+echo "reading eidetic store: $DATA_DIR"
 
-say "4/5  Export eidetic's VERIFIED claim graph into the notebook (free)"
+say "4/5  Export eidetic's VERIFIED memory into the notebook (free)"
 "$PY" -m eidetic.integrations.notebooklm export-graph \
-  --namespace "$NS" --notebook-id "$NB_ID" --backend cli
+  --namespace "$NS" --notebook-id "$NB_ID" --backend cli --data-dir "$DATA_DIR"
 
 say "5/5  Ask through the FREE Gemini read -> 0 caller tokens + provenance"
 "$PY" -m eidetic.integrations.notebooklm routed-answer \
-  --namespace "$NS" --notebook-id "$NB_ID" --backend cli --question "$QUESTION"
+  --namespace "$NS" --notebook-id "$NB_ID" --backend cli --data-dir "$DATA_DIR" --question "$QUESTION"
 
 cat <<EOF
 
