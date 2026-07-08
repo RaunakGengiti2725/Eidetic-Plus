@@ -18,21 +18,27 @@ QUESTION="${3:-What do you remember about me?}"
 say() { printf '\n\033[1m== %s ==\033[0m\n' "$*"; }
 
 say "1/5  Is the nlm tool installed?"
-if ! command -v nlm >/dev/null 2>&1; then
+# Prefer this repo's venv (Homebrew Python is externally-managed, so plain pip is blocked).
+if [ -x "$ROOT/.venv/bin/nlm" ]; then NLM="$ROOT/.venv/bin/nlm"
+elif command -v nlm >/dev/null 2>&1; then NLM="$(command -v nlm)"
+else NLM=""; fi
+if [ -z "$NLM" ]; then
   cat <<EOF
-nlm is NOT installed. Install it once (community tool, not a Google product):
-  https://github.com/jacob-bd/notebooklm-mcp-cli   (follow its README)
+nlm is NOT installed. The PyPI package is 'notebooklm-mcp-cli' (it gives you the \`nlm\`
+command). Install it into THIS repo's venv (no system pollution, no PEP-668 error):
+  "$ROOT/.venv/bin/pip" install notebooklm-mcp-cli
+(or globally: brew install pipx && pipx install notebooklm-mcp-cli)
 Then re-run this script.
 EOF
   exit 1
 fi
-echo "nlm found: $(command -v nlm)"
+echo "nlm found: $NLM"
 
 say "2/5  Are you logged into your Google account?  (this is the ONLY step I can't do)"
-if ! nlm login --check >/dev/null 2>&1; then
+if ! "$NLM" login --check >/dev/null 2>&1; then
   cat <<EOF
 Not logged in. Run this ONE command yourself (opens YOUR browser, YOUR account):
-  nlm login
+  "$NLM" login
 Then re-run this script. I never touch your credentials.
 EOF
   exit 1
@@ -40,16 +46,17 @@ fi
 echo "logged in."
 
 say "3/5  Create or reuse the notebook \"$NB_NAME\""
-NB_ID="$(nlm notebook list 2>/dev/null | awk -v n="$NB_NAME" 'index($0,n){print $1; exit}')"
+NB_ID="$("$NLM" notebook list 2>/dev/null | awk -v n="$NB_NAME" 'index($0,n){print $1; exit}')"
 if [ -z "${NB_ID:-}" ]; then
-  nlm notebook create "$NB_NAME" >/dev/null 2>&1 || true
-  NB_ID="$(nlm notebook list 2>/dev/null | awk -v n="$NB_NAME" 'index($0,n){print $1; exit}')"
+  "$NLM" notebook create "$NB_NAME" >/dev/null 2>&1 || true
+  NB_ID="$("$NLM" notebook list 2>/dev/null | awk -v n="$NB_NAME" 'index($0,n){print $1; exit}')"
 fi
 if [ -z "${NB_ID:-}" ]; then
   echo "Could not resolve a notebook id from \`nlm notebook list\`. Paste its output to me"
   echo "(safe, no secrets) and I'll adjust the parser."; exit 1
 fi
 echo "notebook id: $NB_ID"
+export NLM_BIN="$NLM"   # so the python module's CliBackend uses the SAME nlm binary
 
 say "4/5  Export eidetic's VERIFIED claim graph into the notebook (free)"
 "$PY" -m eidetic.integrations.notebooklm export-graph \

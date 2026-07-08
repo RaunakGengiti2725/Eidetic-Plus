@@ -32,6 +32,7 @@ import os
 import shutil
 import subprocess
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Callable, Iterable, Optional
 
 from eidetic.graph import CO_ACTIVATED, _norm
@@ -54,6 +55,20 @@ def _iso(ts: Optional[float]) -> str:
 import re as _re
 
 _EIDETIC_REF_RE = _re.compile(r"eidetic:([0-9a-zA-Z_\-]{4,32})")
+
+
+def _resolve_nlm() -> Optional[str]:
+    """Locate the `nlm` binary. Order: $NLM_BIN, PATH, then this repo's own .venv/bin/nlm
+    (so `.venv/bin/pip install notebooklm-mcp-cli` works without activating the venv or
+    polluting a Homebrew-managed system Python)."""
+    env = os.environ.get("NLM_BIN")
+    if env and Path(env).exists():
+        return env
+    found = shutil.which("nlm")
+    if found:
+        return found
+    venv_nlm = Path(__file__).resolve().parents[2] / ".venv" / "bin" / "nlm"
+    return str(venv_nlm) if venv_nlm.exists() else None
 
 
 def format_source(record: MemoryRecord, claims: Iterable[ClaimRecord] = ()) -> dict:
@@ -345,17 +360,28 @@ class CliBackend:
     runner: Callable[[list[str]], str] = None
 
     def __post_init__(self) -> None:
+        # Construction NEVER fails on a missing binary -- so `doctor` can still report the
+        # install hint. The runner is wired only if nlm is present; operations raise otherwise.
         if self.runner is None:
-            if shutil.which("nlm") is None:
-                raise NotebookLMError("`nlm` CLI not found on PATH "
-                                      "(pip install / see github.com/jacob-bd/notebooklm-mcp-cli)")
-            self.runner = lambda args: subprocess.run(
-                ["nlm", *args], capture_output=True, text=True, check=True).stdout
+            nlm = _resolve_nlm()
+            if nlm is not None:
+                self.runner = lambda args: subprocess.run(
+                    [nlm, *args], capture_output=True, text=True, check=True).stdout
+
+    def _require_runner(self):
+        if self.runner is None:
+            raise NotebookLMError(
+                "`nlm` not found. Install the PyPI package 'notebooklm-mcp-cli' "
+                "(it provides the `nlm` command): into this repo's venv with "
+                "`.venv/bin/pip install notebooklm-mcp-cli`, or globally with "
+                "`pipx install notebooklm-mcp-cli`. Set NLM_BIN to override the path.")
+        return self.runner
 
     def batch_create_sources(self, notebook_id: str, sources: list[dict]) -> dict:
         # Real nlm syntax (notebooklm-mcp-cli): `nlm source add <notebook> --text "..."`.
         # notebook is POSITIONAL (no --notebook flag); text sources take no name flag, so
         # the provenance rides inside the text body (the header), not a display-name arg.
+        self._require_runner()
         created = 0
         for s in sources:
             self.runner(["source", "add", notebook_id, "--text", s["text_content"]])
@@ -364,24 +390,34 @@ class CliBackend:
 
     def query(self, notebook_id: str, question: str) -> dict:
         # Real nlm syntax: `nlm notebook query <notebook> "question"`.
+        self._require_runner()
         out = self.runner(["notebook", "query", notebook_id, question])
         return {"answer": out.strip(), "backend": "nlm-cli (gemini-side, UNVERIFIED)"}
 
     def doctor(self) -> dict:
         """Preflight: is `nlm` reachable + logged in, and what commands will we run? Never
         raises -- returns a status dict so the user sees the plan before a live export."""
-        status = {"backend": "cli", "reachable": False, "logged_in": None,
+        nlm_path = _resolve_nlm()
+        # A wired runner (real binary OR an injected test double) means we can probe login;
+        # only when there's no runner AND no binary do we report the install hint.
+        reachable = self.runner is not None or nlm_path is not None
+        status = {"backend": "cli", "nlm_path": nlm_path, "reachable": reachable,
+                  "logged_in": None,
+                  "install_hint": None if reachable else
+                      ".venv/bin/pip install notebooklm-mcp-cli   (or: pipx install notebooklm-mcp-cli)",
                   "commands": {
                       "add_source": "nlm source add <notebook> --text \"<provenance+body>\"",
                       "query": "nlm notebook query <notebook> \"<question>\"",
                       "login": "nlm login   (check: nlm login --check)"}}
+        if not reachable:
+            status["logged_in"] = "n/a -- install notebooklm-mcp-cli first"
+            return status
         try:
-            out = self.runner(["login", "--check"])
-            status["reachable"] = True
-            status["logged_in"] = "logged in" if "not" not in (out or "").lower() else "NOT logged in (run `nlm login`)"
-        except Exception as exc:  # nlm missing OR not logged in
-            status["reachable"] = shutil.which("nlm") is not None
-            status["logged_in"] = f"unknown ({type(exc).__name__}); run `nlm login` first"
+            out = self._require_runner()(["login", "--check"])
+            status["logged_in"] = ("logged in" if "not" not in (out or "").lower()
+                                   else "NOT logged in (run `nlm login`)")
+        except Exception as exc:
+            status["logged_in"] = f"NOT logged in / error ({type(exc).__name__}); run `nlm login`"
         return status
 
 
