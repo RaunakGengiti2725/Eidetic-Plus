@@ -2082,3 +2082,21 @@ window, unfixable without semantic slot-matching) still ship wrong and cap the g
 tie. The defensible outcome is "accuracy PARITY with rag-vector + 35 verified vs 0" --
 win on provenance, tie on accuracy -- not "beats on accuracy". One window is noisy; more
 ensemble windows follow to confirm the parity holds.
+
+## SLICE 13 (r13, window 12) -- ensemble WINS +1; deficit eliminated across two windows
+
+| system | r13 | verified |
+|---|---|---|
+| eidetic-plus-full (ensemble) | 26/40 (65%) | 34 |
+| rag-vector | 25/40 (63%) | 0 |
+
+eidetic-ensemble WINS by +1 (26 vs 25), 34 verified vs 0. Ensemble fired 4 (3 correct).
+
+TWO-WINDOW ENSEMBLE VERDICT (r12+r13, fresh, n=80): eidetic 50 vs rag-vector 49 (+1).
+The dense-topk ensemble ELIMINATED the pre-ensemble accuracy deficit: eidetic went from
+losing every measured window (r9/r10/r11: 20/19/16 vs 22/25/22, avg -4.7) to tie+win
+(24=24, 26-25). Honest bound: the +1 aggregate is within judge noise -- the accurate
+statement is "match-or-beat", not a dominant beat -- and it is an ENSEMBLE that absorbs
+rag-vector's own retrieval on unverified rows, not proof that eidetic's memory is more
+accurate. The durable, un-noisy win is provenance: 69 verified answers across the two
+windows vs 0. r14 next for a 3-window aggregate.
