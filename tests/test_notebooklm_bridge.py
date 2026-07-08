@@ -12,11 +12,12 @@ import pytest
 from eidetic.integrations.notebooklm import (
     CliBackend,
     EnterpriseBackend,
+    IncrementalSync,
     NotebookLMBridge,
     NotebookLMError,
     format_source,
 )
-from eidetic.models import ClaimRecord, MemoryRecord, Scope
+from eidetic.models import ClaimRecord, Edge, MemoryRecord, Scope
 
 _SCOPE = Scope(namespace="nb-test")
 
@@ -53,6 +54,9 @@ class _FakeStore:
         self._claims = claims or {}
 
     def active_records_at(self, t, scope):
+        return list(self._records)
+
+    def all_records(self, scope):
         return list(self._records)
 
     def claims_by_source(self, memory_id):
@@ -163,3 +167,327 @@ def test_reader_mode_zero_user_tokens_and_provenance():
     assert out["answer"].startswith("Berlin")
     assert out["provenance"] and out["provenance"][0]["content_sha256"] == "cafebabe"
     assert "NOT eidetic-verify" in out["caveat"]
+
+
+# ==========================================================================
+# Router-aware answer path (routed_answer) + incremental sync tests.
+# Shared richer fakes exposing structured_recall / reflex_recall / all_edges /
+# all_records / graph.node_features, all synthetic (no network, no model call).
+# ==========================================================================
+class _FakePacket:
+    def __init__(self, cids, coverage=1.0):
+        self._cids = list(cids)
+        self.coverage = coverage
+
+    def candidate_ids(self):
+        return list(self._cids)
+
+
+class _RouterStore:
+    def __init__(self, records):
+        self._records = list(records)
+
+    def all_records(self, scope):
+        return list(self._records)
+
+    def active_records_at(self, t, scope):
+        return list(self._records)
+
+    def all_edges(self, scope, include_inferred=False):
+        return []
+
+
+class _RouterGraph:
+    def node_features(self, at, scope):
+        return {}
+
+
+class _FakeAnswer:
+    """Stands in for the real pydantic `Answer`: exposes .model_dump() (NOT a bare dict), so
+    production code that does `engine.ask(...).model_dump()` exercises the real shape."""
+
+    def __init__(self, answer, citations):
+        self._answer = answer
+        self._citations = citations
+
+    def model_dump(self):
+        return {"answer": self._answer, "citations": list(self._citations)}
+
+
+class _RouterEngine:
+    """A fake engine whose structured/reflex outputs are canned per test."""
+
+    def __init__(self, records, structured, reflex_cids):
+        self.store = _RouterStore(records)
+        self.graph = _RouterGraph()
+        self._structured = structured
+        self._reflex_cids = reflex_cids
+        self.recall_calls = []
+
+    def structured_recall(self, query, *, scope=None, as_of=None):
+        return dict(self._structured)
+
+    def reflex_recall(self, query, *, scope=None, as_of=None, emit=True, begin_turn=True):
+        return _FakePacket(self._reflex_cids)
+
+    def ask(self, query, *, verify=True, scope=None, as_of=None, at=None):
+        # Mirror the REAL Engine.ask contract: no `prove=` kwarg, returns an object whose
+        # .model_dump() yields a dict with a `citations` list of dicts (as Citation.model_dump()
+        # would). Records the verify flag so the test can assert the gate actually ran.
+        self.recall_calls.append((query, verify))
+        return _FakeAnswer(
+            answer="gate-verified answer",
+            citations=[{"memory_id": "mem_gate00000001", "content_hash": "f" * 64,
+                        "raw_uri": "cas://" + "f" * 64, "valid_at": 42.0}],
+        )
+
+
+def _prov_answer_backend(token):
+    class _B:
+        def query(self, notebook_id, question):
+            return {"answer": f"free gemini answer citing eidetic:{token}.",
+                    "backend": "nlm free tier"}
+    return _B()
+
+
+def test_router_tier1_when_structured_verified():
+    rec = _rec("Priya moved to Berlin.", mid="mem_t1000000000001", ch="a" * 64)
+    struct = {"answered": True, "abstained": False, "verified": True,
+              "immutable_proof": True, "confidence": 0.9, "answer": "Berlin",
+              "citations": [{"memory_id": rec.memory_id, "content_hash": "a" * 64,
+                             "raw_uri": "cas://" + "a" * 64}]}
+    eng = _RouterEngine([rec], struct, reflex_cids=[rec.memory_id])
+    bridge = NotebookLMBridge(eng, _prov_answer_backend("mem_t1000000000001"))
+    out = bridge.routed_answer("nb-test", "Where?", "nbk_1", struct_tau=0.5)
+    assert out["tier"] == 1
+    assert out["gate_verified"] is True
+    assert out["provenance_verb"] == "gate-verified"
+    assert out["caller_llm_tokens"] > 0  # structured path is cheap but metered
+    assert eng.recall_calls == []  # never escalated
+
+
+def test_router_tier2_free_read_when_abstained_no_gate():
+    rec = _rec("Priya moved to Berlin.", mid="mem_t2000000000001", ch="b" * 64)
+    struct = {"answered": False, "abstained": True, "verified": False,
+              "immutable_proof": False, "confidence": 0.0}
+    eng = _RouterEngine([rec], struct, reflex_cids=[rec.memory_id])
+    bridge = NotebookLMBridge(eng, _prov_answer_backend("mem_t2000000000001"))
+    out = bridge.routed_answer("nb-test", "Where?", "nbk_1", require_gate_verification=False)
+    assert out["tier"] == 2
+    assert out["caller_llm_tokens"] == 0
+    assert out["gate_verified"] is False
+    assert out["provenance_verb"] == "provenance-mapped"
+    # reflex cross-check populated and intersecting the resolved provenance
+    assert rec.memory_id in out["reflex_cross_check"]["candidate_ids"]
+    assert rec.memory_id in out["reflex_cross_check"]["intersection"]
+    assert eng.recall_calls == []
+
+
+def test_router_tier3_metered_only_when_abstained_and_gate_required():
+    rec = _rec("Priya moved to Berlin.", mid="mem_t3000000000001", ch="c" * 64)
+    struct = {"answered": False, "abstained": True, "verified": False,
+              "immutable_proof": False, "confidence": 0.0}
+    eng = _RouterEngine([rec], struct, reflex_cids=[rec.memory_id])
+    bridge = NotebookLMBridge(eng, _prov_answer_backend("mem_t3000000000001"))
+    out = bridge.routed_answer("nb-test", "Where?", "nbk_1", require_gate_verification=True)
+    assert out["tier"] == 3
+    assert out["gate_verified"] is True
+    assert out["provenance_verb"] == "gate-verified"
+    assert out["caller_llm_tokens"] > 0
+    assert eng.recall_calls and eng.recall_calls[0][1] is True  # prove=True
+
+
+def test_router_no_fallthrough_low_conf_verified_with_gate():
+    """Advisor blocking-fix #1: answered+verified+immutable_proof but confidence<tau AND
+    require_gate_verification=True must NOT fall through -- it escalates to Tier 3."""
+    rec = _rec("Priya moved to Berlin.", mid="mem_t4000000000001", ch="d" * 64)
+    struct = {"answered": True, "abstained": False, "verified": True,
+              "immutable_proof": True, "confidence": 0.2,  # below tau
+              "citations": [{"memory_id": rec.memory_id, "content_hash": "d" * 64,
+                             "raw_uri": "cas://" + "d" * 64}]}
+    eng = _RouterEngine([rec], struct, reflex_cids=[rec.memory_id])
+    bridge = NotebookLMBridge(eng, _prov_answer_backend("mem_t4000000000001"))
+    out = bridge.routed_answer("nb-test", "Where?", "nbk_1",
+                               require_gate_verification=True, struct_tau=0.8)
+    assert out["tier"] == 3  # escalated, not dropped
+    assert eng.recall_calls  # gate ran
+
+
+def test_router_return_carries_honesty_boundaries():
+    rec = _rec("Priya moved to Berlin.", mid="mem_t5000000000001", ch="e" * 64)
+    struct = {"answered": False, "abstained": True, "verified": False,
+              "immutable_proof": False, "confidence": 0.0}
+    eng = _RouterEngine([rec], struct, reflex_cids=[rec.memory_id])
+    bridge = NotebookLMBridge(eng, _prov_answer_backend("mem_t5000000000001"))
+    out = bridge.routed_answer("nb-test", "Where?", "nbk_1")
+    blob = " ".join(str(v) for v in out["honesty"].values())
+    low = blob.lower()
+    # the boundary strings NEGATE these claims, so the words appear only in a "No SOTA" /
+    # "NOT ... best" negation -- assert the honest negations are present, not absent.
+    assert "not free globally" in low
+    assert "not" in low and "eidetic-verify-or-abstain" in low
+    assert "no sota" in low  # explicitly disclaims SOTA
+    assert "provenance" in low
+
+
+# ---- graph export wiring ----
+class _GraphStore:
+    def __init__(self, edges, records):
+        self._edges = list(edges)
+        self._records = list(records)
+
+    def all_edges(self, scope, include_inferred=False):
+        return [e for e in self._edges if include_inferred or not e.inferred]
+
+    def all_records(self, scope):
+        return list(self._records)
+
+    def active_records_at(self, t, scope):
+        return list(self._records)
+
+
+class _GraphEngine:
+    def __init__(self, edges, records):
+        self.store = _GraphStore(edges, records)
+        self.graph = _RouterGraph()
+
+
+def test_build_graph_source_offline_and_export_wires_backend():
+    edges = [Edge(src="Priya", dst="Berlin", relation="lives_in",
+                  source_memory_id="mem_g1000000000001", scope=_SCOPE, valid_at=10.0)]
+    recs = [_rec("Priya lives in Berlin.", mid="mem_g1000000000001", ch="a" * 64)]
+    eng = _GraphEngine(edges, recs)
+    # offline (backend=None) still measures compression
+    bridge = NotebookLMBridge(eng, backend=None)
+    src = bridge.build_graph_source("nb-test", at=100.0)
+    assert src["stats"]["n_relations"] == 1
+    assert "EIDETIC VERIFIED CLAIM GRAPH" in src["text_content"]
+    # export pushes exactly one graph source through the backend
+    backend = _RecordingBackend()
+    bridge2 = NotebookLMBridge(eng, backend)
+    res = bridge2.export_graph("nb-test", "nbk_1")
+    assert res["exported"] == 1
+    assert len(backend.batches) == 1 and len(backend.batches[0][1]) == 1
+
+
+def test_export_namespace_include_graph_appends_source():
+    """MUST 'additional source': export_namespace(include_graph=True) appends the graph
+    as one extra source without changing default behaviour."""
+    edges = [Edge(src="Priya", dst="Berlin", relation="lives_in",
+                  source_memory_id="mem_h1000000000001", scope=_SCOPE, valid_at=10.0)]
+    recs = [_rec("Priya lives in Berlin.", mid="mem_h1000000000001", ch="a" * 64)]
+    eng = _GraphEngine(edges, recs)
+    backend = _RecordingBackend()
+    bridge = NotebookLMBridge(eng, backend)
+    base = bridge.export_namespace("nb-test", "nbk_1")
+    n_base = base["exported"]
+    backend2 = _RecordingBackend()
+    bridge2 = NotebookLMBridge(_GraphEngine(edges, recs), backend2)
+    withg = bridge2.export_namespace("nb-test", "nbk_1", include_graph=True)
+    assert withg["exported"] == n_base + 1
+    pushed = [s for _, ss in backend2.batches for s in ss]
+    assert any("EIDETIC VERIFIED CLAIM GRAPH" in s["text_content"] for s in pushed)
+
+
+# ---- incremental content-hash sync ----
+def test_sync_idempotent_by_content_hash(tmp_path):
+    recs = [_rec("fact one", mid="mem_s1000000000001", ch="h1"),
+            _rec("fact two", mid="mem_s2000000000002", ch="h2")]
+    eng = _GraphEngine([], recs)
+    backend = _RecordingBackend()
+    bridge = NotebookLMBridge(eng, backend)
+    manifest = str(tmp_path / "sync_manifest.json")
+    r1 = IncrementalSync(bridge, manifest).sync("nb-test", "nbk_1")
+    assert r1["pushed"] == 2 and r1["skipped"] == 0
+    r2 = IncrementalSync(bridge, manifest).sync("nb-test", "nbk_1")
+    assert r2["pushed"] == 0 and r2["skipped"] == 2  # idempotent
+
+
+def test_sync_pushes_only_new_content_hash(tmp_path):
+    recs = [_rec("fact one", mid="mem_s1000000000001", ch="h1")]
+    eng = _GraphEngine([], recs)
+    backend = _RecordingBackend()
+    bridge = NotebookLMBridge(eng, backend)
+    manifest = str(tmp_path / "sync_manifest.json")
+    IncrementalSync(bridge, manifest).sync("nb-test", "nbk_1")
+    # add a new record with a NEW content hash; the old one is unchanged
+    eng.store._records.append(_rec("fact three", mid="mem_s3000000000003", ch="h3"))
+    r = IncrementalSync(bridge, manifest).sync("nb-test", "nbk_1")
+    assert r["pushed"] == 1 and r["skipped"] == 1
+
+
+# ---- regression: fake-masks-reality guard for the Tier 3 verified-reader path ----
+def test_real_engine_has_ask_not_recall():
+    """The flagship gate-verified path (routed_answer Tier 3) MUST call an API the real
+    Engine actually exposes. The prior bug called `engine.recall(...)`, which does not exist
+    on the real class -- it only passed tests because a fake supplied it. Assert against the
+    REAL class so the fakes can never drift from reality again."""
+    from eidetic.engine import Engine
+    assert hasattr(Engine, "ask"), "Engine.ask is the verify-or-abstain entry point"
+    assert not hasattr(Engine, "recall"), (
+        "Engine has NO `recall` method; routed_answer Tier 3 must use ask()/prove() "
+        "(see mcp_server.recall). A `recall` attribute here would mean the fix regressed.")
+
+
+def test_router_tier3_calls_ask_with_verify_and_maps_provenance():
+    """Tier 3 uses ask(verify=True) (NOT the non-existent recall) and maps the returned
+    Citation dicts back to content-hash provenance."""
+    rec = _rec("Priya moved to Berlin.", mid="mem_t3000000000001", ch="c" * 64)
+    struct = {"answered": False, "abstained": True, "verified": False,
+              "immutable_proof": False, "confidence": 0.0}
+    eng = _RouterEngine([rec], struct, reflex_cids=[rec.memory_id])
+    bridge = NotebookLMBridge(eng, _prov_answer_backend("mem_t3000000000001"))
+    out = bridge.routed_answer("nb-test", "Where?", "nbk_1", require_gate_verification=True)
+    assert out["tier"] == 3
+    assert out["gate_verified"] is True
+    # ask() was called with verify=True (the gate actually ran)
+    assert eng.recall_calls and eng.recall_calls[0][1] is True
+    # the Citation dicts from ask().model_dump() mapped into provenance with content hashes
+    assert out["provenance"] and out["provenance"][0]["content_sha256"] == "f" * 64
+    assert out["provenance"][0]["memory_id"] == "mem_gate00000001"
+
+
+# ---- regression: _resolve_provenance must not misattribute a short/truncated token ----
+def test_resolve_provenance_rejects_short_prefix_misattribution():
+    """A truncated/hallucinated citation token (e.g. `eidetic:mem_`) must NOT be mapped to
+    every `mem_`-prefixed record. Only exact memory_id or memory_id[:16] matches count."""
+    recs = [
+        _rec("fact A", mid="mem_aaaa000000000001", ch="ch_a"),
+        _rec("fact B", mid="mem_bbbb000000000002", ch="ch_b"),
+        _rec("fact C", mid="mem_cccc000000000003", ch="ch_c"),
+    ]
+    eng = _FakeEngine(_FakeStore(recs))
+    bridge = NotebookLMBridge(eng, _RecordingBackend())
+    # A lazy 4-char token that is a prefix of all three memory_ids.
+    prov = bridge._resolve_provenance("nb-test", "see eidetic:mem_ for details")
+    assert prov == [], "short prefix must resolve to nothing, not to every mem_ record"
+    # An EXACT 16-char short id still resolves.
+    prov2 = bridge._resolve_provenance("nb-test", "see eidetic:mem_bbbb000000000002")
+    assert len(prov2) == 1 and prov2[0]["content_sha256"] == "ch_b"
+
+
+# ---- regression: compression_ratio numerator counts only rendered records ----
+def test_compression_ratio_ignores_unrendered_records():
+    """A big record that is truncated out by max_entities (never serialized) must NOT inflate
+    raw_record_chars -- the surfaced ratio measures only what was actually compacted."""
+    edges = [
+        Edge(src="Priya", dst="Berlin", relation="lives_in",
+             source_memory_id="mem_ref00000000001", scope=_SCOPE, valid_at=10.0),
+        Edge(src="Zzz", dst="Moon", relation="visits",
+             source_memory_id="mem_drop00000000002", scope=_SCOPE, valid_at=10.0),
+    ]
+    records_by_id = {
+        "mem_ref00000000001": _rec("Priya lives in Berlin.", mid="mem_ref00000000001", ch="a" * 64),
+        # dropped entity's record is HUGE; it must not enter raw_record_chars when truncated out.
+        "mem_drop00000000002": _rec("X" * 5000, mid="mem_drop00000000002", ch="b" * 64),
+    }
+    from eidetic.integrations.notebooklm import format_graph_source
+    # node_features ranks "priya" as the hub so max_entities=1 keeps it and drops "zzz".
+    nf = {"priya": {"degree": 5.0, "ppr": 1.0}, "zzz": {"degree": 0.0, "ppr": 0.0}}
+    src = format_graph_source(edges, records_by_id, scope_label="nb-test", at=100.0,
+                              node_features=nf, max_entities=1)
+    assert src["stats"]["n_entities"] == 1
+    # only the rendered record's ~22 chars count -- not the 5000-char dropped one.
+    assert src["stats"]["raw_record_chars"] < 100
+    # and the ratio is not inflated by the phantom 5000 chars.
+    assert src["stats"]["compression_ratio"] < 1.0

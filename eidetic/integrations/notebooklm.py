@@ -34,7 +34,8 @@ import subprocess
 from dataclasses import dataclass, field
 from typing import Any, Callable, Iterable, Optional
 
-from eidetic.models import ClaimRecord, MemoryRecord, Scope
+from eidetic.graph import CO_ACTIVATED, _norm
+from eidetic.models import ClaimRecord, Edge, MemoryRecord, Scope
 
 _ENTERPRISE_HOST_TMPL = "https://{loc}-discoveryengine.googleapis.com"
 _API_VERSION = "v1alpha"
@@ -82,6 +83,192 @@ def format_source(record: MemoryRecord, claims: Iterable[ClaimRecord] = ()) -> d
     text = "\n".join(header_lines) + "\n\n" + body
     name = f"eidetic:{record.memory_id[:16]} @ {_iso(record.valid_at)}"
     return {"display_name": name, "text_content": text}
+
+
+# The four honest boundary labels. Carried VERBATIM on every graph source and every
+# router return so the honesty can never be dropped downstream (docs/claims.md).
+_HONESTY_BOUNDARIES = {
+    "caller_token_cost": (
+        "~0 tokens on YOUR metered model per recall IF read via NotebookLM/Gemini free "
+        "tier -- WITH provenance (content-hash-mapped)."
+    ),
+    "not_free_globally": (
+        "NOT free globally: Google spends real compute on the Gemini read; only the "
+        "CALLER's metered model sees ~0 tokens."
+    ),
+    "not_verified": (
+        "A NotebookLM/Gemini ANSWER over this source is Gemini-side and is NOT "
+        "eidetic-verify-or-abstain (provenance-mapped only, not gate-verified). Use "
+        "eidetic.recall() for a gate-verified cited answer."
+    ),
+    "not_a_benchmark_row": (
+        "NOT a row in the fixed-qwen-reader benchmark table (different, off-meter reader). "
+        "No SOTA / best / strongest claim is made or implied."
+    ),
+}
+
+_GRAPH_HONESTY_BLOCK = "\n".join([
+    "HONESTY: ~0 tokens on YOUR metered model IF read via NotebookLM/Gemini free tier",
+    "  (Google spends real compute -- NOT free globally). This is the VERIFIED claim graph,",
+    "  so the SOURCE is trustworthy; a NotebookLM/Gemini ANSWER over it is Gemini-side and",
+    "  NOT eidetic-verify-or-abstain (provenance-mapped only).",
+    "  NOT a row in the fixed-qwen-reader benchmark table (different, off-meter reader).",
+    "  No SOTA/\"best\" claim.",
+])
+
+
+def _graph_ref(source_memory_id: str) -> str:
+    """Short, regex-matching provenance token: eidetic:<memory_id[:16]> (within the
+    _EIDETIC_REF_RE {4,32} window and character class)."""
+    return "eidetic:" + (source_memory_id or "")[:16]
+
+
+def format_graph_source(
+    edges: "list[Edge]",
+    records_by_id: "dict[str, MemoryRecord]",
+    *,
+    scope_label: str,
+    at: Optional[float] = None,
+    node_features: Optional[dict] = None,
+    include_history: bool = True,
+    max_entities: Optional[int] = None,
+    include_inferred: bool = False,
+) -> dict:
+    """Serialize a VERIFIED claim graph into ONE compact, provenance-carrying NotebookLM
+    source. Iterates raw `Edge` objects (NOT build_nx, which drops
+    source_memory_id/valid_at/invalid_at/supersedes and collapses parallel edges);
+    build_nx/node_features are used ONLY for hub ordering.
+
+    Four labeled text regions: HONESTY, PROVENANCE LEGEND (short-id -> immutable
+    content_hash, hoisted once), ACTIVE FACTS (entity blocks, hub-first), HISTORY
+    (superseded facts with correct successor pointers). Returns
+    {display_name, text_content, stats}. compression_ratio is MEASURED per call and
+    surfaced -- never asserted (a sparse graph can invert)."""
+    # ---- edge filtering (do this FIRST) ----
+    survivors: list[Edge] = []
+    for e in edges:
+        if e.relation == CO_ACTIVATED:
+            continue
+        if getattr(e, "pruned", False):
+            continue
+        if e.inferred and not include_inferred:
+            continue
+        survivors.append(e)
+
+    active = [e for e in survivors if e.is_active_at(at)]
+    superseded = [
+        e for e in survivors
+        if e.invalid_at is not None and not e.is_active_at(at)
+    ]
+
+    # ---- supersession reverse index: successor.supersedes == closed_edge.edge_id ----
+    successor_of = {e.supersedes: e for e in survivors if e.supersedes}
+
+    # ---- referenced-id accumulator (drives the legend; keeps it minimal) ----
+    referenced_ids: list[str] = []
+    seen_ref: set[str] = set()
+
+    def _note_ref(mid: str) -> None:
+        if mid and mid not in seen_ref:
+            seen_ref.add(mid)
+            referenced_ids.append(mid)
+
+    # ---- ACTIVE FACTS: group by _norm(src) (matches node_features keys) ----
+    groups: dict[str, list[Edge]] = {}
+    display_name_of: dict[str, str] = {}
+    for e in active:
+        key = _norm(e.src)
+        groups.setdefault(key, []).append(e)
+        display_name_of.setdefault(key, e.src)
+
+    def _order_key(entity_key: str):
+        if node_features:
+            feat = node_features.get(entity_key, {})
+            return (-float(feat.get("degree", 0.0)), -float(feat.get("ppr", 0.0)), entity_key)
+        return (0.0, 0.0, entity_key)  # alphabetical fallback (last element breaks ties)
+
+    ordered_keys = sorted(groups.keys(), key=_order_key)
+    if max_entities is not None:
+        ordered_keys = ordered_keys[:max_entities]
+
+    active_lines: list[str] = []
+    n_relations = 0
+    for key in ordered_keys:
+        active_lines.append(display_name_of[key])
+        for e in sorted(groups[key], key=lambda x: (x.relation, x.dst)):
+            _note_ref(e.source_memory_id)
+            ref = _graph_ref(e.source_memory_id)
+            active_lines.append(f"  {e.relation} -> {e.dst}   [{ref} @{_iso(e.valid_at)}]")
+            n_relations += 1
+
+    # ---- HISTORY: superseded facts with correct successor pointers ----
+    history_lines: list[str] = []
+    if include_history:
+        for c in sorted(superseded, key=lambda x: (x.valid_at, x.edge_id)):
+            _note_ref(c.source_memory_id)
+            window = f"{_iso(c.valid_at)}..{_iso(c.invalid_at)}"
+            succ = successor_of.get(c.edge_id)
+            if succ is not None:
+                _note_ref(succ.source_memory_id)
+                tail = f"(superseded by {_graph_ref(succ.source_memory_id)})"
+            else:
+                tail = "(superseded)"
+            history_lines.append(f"{c.src} {c.relation} {c.dst}   {window}   {tail}")
+
+    # ---- PROVENANCE LEGEND: one line per DISTINCT referenced source_memory_id ----
+    legend_lines: list[str] = []
+    for mid in referenced_ids:
+        rec = records_by_id.get(mid)
+        if rec is None:
+            continue
+        legend_lines.append(
+            f"{_graph_ref(mid)}  sha256={rec.content_hash}  source={rec.source}  "
+            f"valid_at={_iso(rec.valid_at)}"
+        )
+
+    # ---- assemble text ----
+    parts: list[str] = []
+    parts.append("--- EIDETIC VERIFIED CLAIM GRAPH (provenance) ---")
+    parts.append(f"scope: {scope_label}   as_of: {_iso(at)}")
+    parts.append(_GRAPH_HONESTY_BLOCK)
+    parts.append("--- END HONESTY ---")
+    parts.append("")
+    parts.append("--- PROVENANCE LEGEND (short-id -> immutable hash) ---")
+    parts.extend(legend_lines)
+    parts.append("--- END LEGEND ---")
+    parts.append("")
+    parts.append("--- ACTIVE FACTS (entity blocks) ---")
+    parts.extend(active_lines)
+    parts.append("--- END ACTIVE FACTS ---")
+    if include_history:
+        parts.append("")
+        parts.append("--- HISTORY (superseded facts, temporal) ---")
+        parts.extend(history_lines)
+        parts.append("--- END HISTORY ---")
+    text_content = "\n".join(parts)
+
+    # Numerator = chars of ONLY the records actually rendered into this source (referenced,
+    # post-max_entities). Summing over ALL records_by_id would inflate the ratio whenever the
+    # graph is truncated or graph-sparse -- a big record that was never serialized would count
+    # in the "raw" side though it never entered the compacted source. This makes the surfaced
+    # compression_ratio a true measure of what was compacted.
+    raw_record_chars = 0
+    for mid in referenced_ids:
+        r = records_by_id.get(mid)
+        if r is not None:
+            raw_record_chars += len((r.text or r.summary or ""))
+    serialized_chars = len(text_content)
+    stats = {
+        "n_entities": len(ordered_keys),
+        "n_relations": n_relations,
+        "n_active": len(active),
+        "n_superseded": len(superseded),
+        "serialized_chars": serialized_chars,
+        "raw_record_chars": raw_record_chars,
+        "compression_ratio": raw_record_chars / max(1, serialized_chars),
+    }
+    display_name = f"eidetic:graph:{scope_label} @ {_iso(at)}"
+    return {"display_name": display_name, "text_content": text_content, "stats": stats}
 
 
 class NotebookLMError(RuntimeError):
@@ -191,10 +378,18 @@ class NotebookLMBridge:
         return out
 
     def export_namespace(self, namespace: str, notebook_id: str, *,
-                         limit: Optional[int] = None, batch_size: int = 20) -> dict:
+                         limit: Optional[int] = None, batch_size: int = 20,
+                         include_graph: bool = False) -> dict:
         """Push a namespace's verified memories into `notebook_id` as sources. Returns a
-        summary; raises NotebookLMError on backend failure (no partial silent success)."""
+        summary; raises NotebookLMError on backend failure (no partial silent success).
+
+        include_graph=True (opt-in, default off) appends the VERIFIED CLAIM GRAPH as one
+        ADDITIONAL compact provenance source alongside the per-record sources."""
         sources = self.build_sources(namespace, limit)
+        if include_graph:
+            gsrc = self.build_graph_source(namespace)
+            if gsrc["stats"]["n_relations"] > 0:
+                sources = sources + [{k: gsrc[k] for k in ("display_name", "text_content")}]
         if not sources:
             return {"exported": 0, "notebook_id": notebook_id, "note": "no records"}
         exported = 0
@@ -223,9 +418,18 @@ class NotebookLMBridge:
             return []
         scope = Scope(namespace=namespace)
         out = []
-        for rec in self.engine.store.active_records_at(None, scope):
+        # all_records (NOT active_records_at): the graph legend hoists BOTH active and
+        # superseded record hashes, so the resolver must read the same record set or a
+        # Gemini answer citing a history token would dangle. Widening is strictly more
+        # permissive -- it maps a token to an immutable record regardless of validity.
+        # EXACT match only: the tokens the serializer emits are always the full memory_id or
+        # memory_id[:16] (16 chars, unique). An unanchored startswith on a token as short as 4
+        # chars (the _EIDETIC_REF_RE floor) would match EVERY record sharing that prefix, so a
+        # truncated/hallucinated Gemini citation like `eidetic:mem_` could be misattributed to
+        # many (now also superseded) records with the wrong content hashes.
+        for rec in self.engine.store.all_records(scope):
             short = rec.memory_id[:16]
-            if rec.memory_id in ids or short in ids or any(rec.memory_id.startswith(i) for i in ids):
+            if rec.memory_id in ids or short in ids:
                 out.append({"memory_id": rec.memory_id,
                             "content_sha256": rec.content_hash,
                             "valid_at": _iso(rec.valid_at)})
@@ -241,8 +445,8 @@ class NotebookLMBridge:
         Returns {answer, provenance, user_llm_tokens, backend, caveat}. Honest labels:
         `user_llm_tokens: 0` means ZERO tokens on the CALLER's metered model -- it does NOT
         mean the compute was free globally, and the answer is Gemini-side, NOT run through
-        eidetic's verify-or-abstain proof gate. Use `engine.recall()` when you need a cited,
-        gate-verified answer instead of a free one."""
+        eidetic's verify-or-abstain proof gate. Use `engine.ask(verify=True)` (the MCP
+        `recall` tool) when you need a cited, gate-verified answer instead of a free one."""
         res = self.backend.query(notebook_id, question)
         answer_text = res.get("answer") or res.get("text") or json.dumps(res)
         provenance = self._resolve_provenance(namespace, answer_text
@@ -257,6 +461,211 @@ class NotebookLMBridge:
                        "Provenance below maps it back to immutable content hashes."),
         }
 
+    # ---- graph-native serializer wiring -------------------------------------
+    def build_graph_source(self, namespace: str, *, at: Optional[float] = None,
+                           include_history: bool = True, max_entities: Optional[int] = None,
+                           include_inferred: bool = False) -> dict:
+        """Build (offline; works with backend=None) the ONE compact verified-claim-graph
+        source for `namespace`. Hash-join uses all_records (NOT active_records_at): a
+        superseded history edge can point to a later-invalidated record, so all_records is
+        the only source that keeps every history token's sha256 resolvable."""
+        scope = Scope(namespace=namespace)
+        edges = self.engine.store.all_edges(scope, include_inferred=include_inferred)
+        records = self.engine.store.all_records(scope)
+        records_by_id = {r.memory_id: r for r in records}
+        try:
+            nf = self.engine.graph.node_features(at, scope)
+        except Exception:
+            nf = None
+        return format_graph_source(
+            edges, records_by_id, scope_label=namespace, at=at, node_features=nf,
+            include_history=include_history, max_entities=max_entities,
+            include_inferred=include_inferred,
+        )
+
+    def export_graph(self, namespace: str, notebook_id: str, *, at: Optional[float] = None,
+                     include_history: bool = True, max_entities: Optional[int] = None) -> dict:
+        """Push the verified claim graph as one ADDITIONAL compact provenance source."""
+        src = self.build_graph_source(namespace, at=at, include_history=include_history,
+                                      max_entities=max_entities)
+        if src["stats"]["n_relations"] == 0:
+            return {"exported": 0, "notebook_id": notebook_id, "note": "empty graph"}
+        self.backend.batch_create_sources(
+            notebook_id, [{k: src[k] for k in ("display_name", "text_content")}])
+        return {
+            "exported": 1, "notebook_id": notebook_id, "namespace": namespace,
+            "stats": src["stats"],
+            "note": ("compact VERIFIED claim graph source (provenance-carrying); a "
+                     "NotebookLM/Gemini answer over it is Gemini-side and NOT "
+                     "eidetic-verify-or-abstain -- NOT a row in the fixed-qwen-reader "
+                     "benchmark table. No SOTA claim."),
+        }
+
+    # ---- router-aware answer path -------------------------------------------
+    # Per-tier caller-token costs are DESIGN-SUPPLIED constants labeled as such; the P_*
+    # hit-rate weights that would blend them are UNMEASURED (to be measured on a dev split).
+    # We ship the FORMULA, never a specific blended figure.
+    _COST_STRUCTURED = 45   # design-supplied midpoint of the ~6-85 structured band
+    _COST_METERED = 4034    # design-supplied metered verified-reader cost
+
+    def routed_answer(self, namespace: str, question: str, notebook_id: str, *,
+                      require_gate_verification: bool = False,
+                      struct_tau: float = 0.0) -> dict:
+        """Route one question across four tiers, cheapest-verified first.
+
+        Tier 0 reflex pre-filter (0 caller tokens, no model call) -> candidate cross-check.
+        Tier 1 structured, cheap + gate-verified (answered+verified+immutable_proof and
+                confidence>=struct_tau).
+        Tier 2 free NotebookLM read (0 caller tokens) when NOT struct-ok AND not
+                require_gate_verification -- Gemini-side, provenance-mapped, NOT gate-verified.
+        Tier 3 metered verified reader (engine.ask verify=True) when NOT struct-ok AND
+                require_gate_verification -- the ONLY path that runs the proof gate on a
+                GENERATED answer.
+
+        NOTE the asymmetry fix: Tier 3 gates on `not struct_ok`, never on 'abstained', so a
+        verified-but-low-confidence answer under require_gate_verification escalates instead
+        of falling through."""
+        scope = Scope(namespace=namespace)
+
+        # Tier 0 -- reflex pre-filter (emits no answer).
+        packet = self.engine.reflex_recall(question, scope=scope)
+        reflex_ids = list(packet.candidate_ids())
+
+        def _honesty() -> dict:
+            return dict(_HONESTY_BOUNDARIES)
+
+        # Tier 1 -- structured, verify-or-abstain (itself gate-verified when it answers).
+        s = self.engine.structured_recall(question, scope=scope)
+        struct_ok = bool(
+            s.get("answered") and s.get("verified") and s.get("immutable_proof")
+            and float(s.get("confidence", 0.0)) >= struct_tau
+        )
+        if struct_ok:
+            prov = []
+            for cit in (s.get("citations") or []):
+                if isinstance(cit, dict) and cit.get("memory_id"):
+                    prov.append({"memory_id": cit.get("memory_id"),
+                                 "content_sha256": cit.get("content_hash", ""),
+                                 "valid_at": cit.get("valid_at", "")})
+            return {
+                "tier": 1,
+                "answer": s.get("answer", ""),
+                "provenance": prov,
+                "caller_llm_tokens": self._COST_STRUCTURED,
+                "gate_verified": True,
+                "provenance_verb": "gate-verified",
+                "reflex_cross_check": {
+                    "candidate_ids": reflex_ids,
+                    "intersection": [p["memory_id"] for p in prov if p["memory_id"] in reflex_ids],
+                },
+                "honesty": _honesty(),
+            }
+
+        # Tier 3 -- metered verified reader (proof gate on a generated answer).
+        # Engine has NO `recall` method: its verify-or-abstain path is `ask()` (which runs the
+        # NLI proof gate when verify=True) and its proof-tree method is `prove()`. We mirror
+        # mcp_server.recall: ask(verify=True) -> Answer.model_dump(); citations are Citation
+        # objects whose model_dump carries memory_id / content_hash / valid_at.
+        if require_gate_verification:
+            ans = self.engine.ask(question, verify=True, scope=scope)
+            res = ans.model_dump()
+            prov = []
+            for cit in (res.get("citations") or []):
+                if isinstance(cit, dict) and cit.get("memory_id"):
+                    prov.append({"memory_id": cit.get("memory_id"),
+                                 "content_sha256": cit.get("content_hash", ""),
+                                 "valid_at": cit.get("valid_at", "")})
+            return {
+                "tier": 3,
+                "answer": res.get("answer", ""),
+                "provenance": prov,
+                "caller_llm_tokens": self._COST_METERED,
+                "gate_verified": True,
+                "provenance_verb": "gate-verified",
+                "reflex_cross_check": {
+                    "candidate_ids": reflex_ids,
+                    "intersection": [p["memory_id"] for p in prov if p["memory_id"] in reflex_ids],
+                },
+                "honesty": _honesty(),
+            }
+
+        # Tier 2 -- free NotebookLM read (0 caller tokens), provenance-mapped only.
+        r = self.answer(namespace, question, notebook_id)
+        resolved_ids = [p["memory_id"] for p in r.get("provenance", [])]
+        return {
+            "tier": 2,
+            "answer": r.get("answer", ""),
+            "provenance": r.get("provenance", []),
+            "caller_llm_tokens": 0,
+            "gate_verified": False,
+            "provenance_verb": "provenance-mapped",
+            "reflex_cross_check": {
+                "candidate_ids": reflex_ids,
+                "intersection": [i for i in resolved_ids if i in reflex_ids],
+            },
+            "honesty": _honesty(),
+        }
+
+
+class IncrementalSync:
+    """Content-hash-diffed push of a namespace into a NotebookLM notebook. Dedupe key is
+    record.content_hash (already stamped into each source header, so a diff needs no
+    read-back from NotebookLM). The manifest is a per-(namespace, notebook_id) sidecar JSON
+    of pushed hashes.
+
+    Supersession policy = APPEND-ONLY (matches eidetic's write-once ethos): a changed fact
+    is a NEW content_hash pushed as a NEW source; the superseded record's header already
+    carries invalidated_at. TRADEOFF: NotebookLM source count grows monotonically (a ceiling
+    concern at scale); pruning is a separate opt-in policy, deliberately NOT the default."""
+
+    def __init__(self, bridge: "NotebookLMBridge", manifest_path: str) -> None:
+        self.bridge = bridge
+        self.manifest_path = manifest_path
+
+    def _load(self) -> dict:
+        try:
+            with open(self.manifest_path, "r", encoding="utf-8") as fh:
+                return json.load(fh)
+        except (FileNotFoundError, ValueError):
+            return {}
+
+    def _save(self, data: dict) -> None:
+        with open(self.manifest_path, "w", encoding="utf-8") as fh:
+            json.dump(data, fh, indent=2, sort_keys=True)
+
+    def sync(self, namespace: str, notebook_id: str) -> dict:
+        key = f"{namespace}::{notebook_id}"
+        manifest = self._load()
+        pushed_hashes = set(manifest.get(key, []))
+        scope = Scope(namespace=namespace)
+        records = self.bridge.engine.store.active_records_at(None, scope)
+        records = [r for r in records if (r.text or r.summary)]
+        to_push, skipped = [], 0
+        new_hashes = []
+        for rec in records:
+            if rec.content_hash in pushed_hashes:
+                skipped += 1
+                continue
+            try:
+                claims = self.bridge.engine.store.claims_by_source(rec.memory_id)
+            except Exception:
+                claims = []
+            to_push.append(format_source(rec, claims))
+            new_hashes.append(rec.content_hash)
+        if to_push:
+            self.bridge.backend.batch_create_sources(notebook_id, to_push)
+            pushed_hashes.update(new_hashes)
+            manifest[key] = sorted(pushed_hashes)
+            self._save(manifest)
+        return {
+            "pushed": len(to_push),
+            "skipped": skipped,
+            "total": len(records),
+            "note": ("APPEND-ONLY: changed facts push as NEW content_hash sources; NotebookLM "
+                     "source count grows monotonically (pruning is opt-in, not default). "
+                     "Sources are Gemini-side reads, NOT eidetic-verify-or-abstain."),
+        }
+
 
 def _cli() -> int:  # pragma: no cover - thin argparse wrapper
     import argparse
@@ -264,7 +673,8 @@ def _cli() -> int:  # pragma: no cover - thin argparse wrapper
     from eidetic.engine import Engine
 
     ap = argparse.ArgumentParser(description="Export eidetic verified memory into NotebookLM")
-    ap.add_argument("action", choices=["export", "query", "preview"])
+    ap.add_argument("action", choices=["export", "query", "preview", "preview-graph",
+                                       "export-graph", "sync", "routed-answer"])
     ap.add_argument("--namespace", default="default")
     ap.add_argument("--notebook-id", default=os.environ.get("NOTEBOOKLM_NOTEBOOK_ID", ""))
     ap.add_argument("--backend", choices=["enterprise", "cli"], default="enterprise")
@@ -272,6 +682,12 @@ def _cli() -> int:  # pragma: no cover - thin argparse wrapper
     ap.add_argument("--location", default=os.environ.get("NOTEBOOKLM_LOCATION", "global"))
     ap.add_argument("--limit", type=int, default=None)
     ap.add_argument("--question", default="")
+    ap.add_argument("--at", type=float, default=None)
+    ap.add_argument("--no-history", action="store_true")
+    ap.add_argument("--max-entities", type=int, default=None)
+    ap.add_argument("--require-gate", action="store_true")
+    ap.add_argument("--manifest", default=os.environ.get("NOTEBOOKLM_SYNC_MANIFEST",
+                                                         "notebooklm_sync_manifest.json"))
     args = ap.parse_args()
 
     eng = Engine(get_settings())
@@ -281,12 +697,32 @@ def _cli() -> int:  # pragma: no cover - thin argparse wrapper
         print(json.dumps({"sources": len(srcs),
                           "first": srcs[0] if srcs else None}, indent=2))
         return 0
+    if args.action == "preview-graph":
+        bridge = NotebookLMBridge(eng, backend=None)
+        src = bridge.build_graph_source(args.namespace, at=args.at,
+                                        include_history=not args.no_history,
+                                        max_entities=args.max_entities)
+        preview = "\n".join(src["text_content"].splitlines()[:40])
+        print(json.dumps({"stats": src["stats"], "display_name": src["display_name"],
+                          "text_preview": preview}, indent=2))
+        return 0
     backend = (EnterpriseBackend(project_number=args.project_number, location=args.location)
                if args.backend == "enterprise" else CliBackend())
     bridge = NotebookLMBridge(eng, backend)
     if args.action == "export":
         print(json.dumps(bridge.export_namespace(
             args.namespace, args.notebook_id, limit=args.limit), indent=2))
+    elif args.action == "export-graph":
+        print(json.dumps(bridge.export_graph(
+            args.namespace, args.notebook_id, at=args.at,
+            include_history=not args.no_history, max_entities=args.max_entities), indent=2))
+    elif args.action == "sync":
+        print(json.dumps(IncrementalSync(bridge, args.manifest).sync(
+            args.namespace, args.notebook_id), indent=2))
+    elif args.action == "routed-answer":
+        print(json.dumps(bridge.routed_answer(
+            args.namespace, args.question, args.notebook_id,
+            require_gate_verification=args.require_gate), indent=2))
     else:
         print(json.dumps(bridge.query(args.notebook_id, args.question), indent=2))
     return 0
