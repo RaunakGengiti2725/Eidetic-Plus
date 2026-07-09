@@ -670,7 +670,11 @@ class NotebookLMBridge:
         }
 
     # ---- qwen post-hoc faithfulness AUDIT of the Gemini free answer -----------
-    _CLAIM_SPLIT_RE = _re.compile(r"(?<=[.!?])\s+|\n+|;\s+")
+    # split on sentence enders / newlines / semicolons, but NOT after common abbreviations
+    # (Dr. Mr. Mrs. Ms. St. etc.) which would strip the claim's subject/object into sub-min
+    # fragments that never reach the audit.
+    _ABBREV = r"(?<!\bDr)(?<!\bMr)(?<!\bMrs)(?<!\bMs)(?<!\bSt)(?<!\bJr)(?<!\bSr)(?<!\bvs)(?<!\bNo)"
+    _CLAIM_SPLIT_RE = _re.compile(_ABBREV + r"(?<=[.!?])\s+|\n+|;\s+")
 
     def qwen_memory_check(self, namespace: str, question: str, answer_text: str,
                           cited_memory_ids: list[str]) -> dict:
@@ -699,14 +703,21 @@ class NotebookLMBridge:
         claims = [c for c in claims
                   if len(c) >= min_chars and reader_answer_form_credible(question, c)]
 
-        def _lexical_entails(claim: str) -> bool:  # Tier 0, free
-            toks = [t for t in _re.findall(r"[a-z0-9][a-z0-9'-]{2,}", claim.lower())
-                    if t not in self._GROUND_STOP]
+        def _lexical_entails(claim: str) -> bool:  # Tier 0, free -- POSITIVE claims only
+            # A negation cue makes lexical overlap UNSOUND (it cannot tell "Bob is the
+            # manager" from "Bob is NOT the manager"), so a negated claim MUST fall through
+            # to NLI where a contradiction can be caught. (Bug: Tier0 was masking contradictions.)
+            if _re.search(r"\b(?:not|no|never|none|n't|without|neither|nor|isn't|aren't|"
+                          r"wasn't|weren't|didn't|doesn't|don't|can't|won't)\b", claim.lower()):
+                return False
+            toks = {t for t in _re.findall(r"[a-z0-9][a-z0-9'-]{2,}", claim.lower())
+                    if t not in self._GROUND_STOP}
             if not toks:
                 return False
             for _mid, body in blocks:
-                low = body.lower()
-                if sum(1 for t in set(toks) if t in low) / len(set(toks)) >= 0.9:
+                # WORD-BOUNDARY membership (not substring: 'art' must not match 'apart')
+                btoks = set(_re.findall(r"[a-z0-9][a-z0-9'-]{2,}", body.lower()))
+                if sum(1 for t in toks if t in btoks) / len(toks) >= 0.9:
                     return True
             return False
 
@@ -718,18 +729,23 @@ class NotebookLMBridge:
             if _lexical_entails(claim):
                 verdict, tier = "entailed", 0
             else:
-                contradicted_by = None
-                for mid, body in blocks:                       # Tier 1: per-block, early-stop
+                # Tier 1: scan ALL cited blocks -- contradiction HARD-FAILS and dominates
+                # entailment (per the docstring), so we must not early-stop on entailment and
+                # let a later contradicting block go unseen.
+                entail_mid = entail_conf = None
+                contra_mid = contra_conf = None
+                for mid, body in blocks:
                     label, c = r.verify(body, claim)
                     nli_calls += 1
-                    if label == NLILabel.ENTAILMENT:
-                        verdict, tier, by_mid, conf = "entailed", 1, mid, c
-                        break
-                    if label == NLILabel.CONTRADICTION:
-                        contradicted_by, conf = mid, c
-                if verdict != "entailed" and contradicted_by is not None:
-                    verdict, by_mid = "contradicted", contradicted_by
-                elif verdict != "entailed" and concat:         # Tier 2: union rescue per-claim
+                    if label == NLILabel.CONTRADICTION and contra_mid is None:
+                        contra_mid, contra_conf = mid, c
+                    elif label == NLILabel.ENTAILMENT and entail_mid is None:
+                        entail_mid, entail_conf = mid, c
+                if contra_mid is not None:                     # contradiction dominates
+                    verdict, by_mid, conf = "contradicted", contra_mid, contra_conf
+                elif entail_mid is not None:
+                    verdict, tier, by_mid, conf = "entailed", 1, entail_mid, entail_conf
+                elif concat:                                   # Tier 2: union rescue per-claim
                     label, c = r.verify(concat, claim)
                     nli_calls += 1
                     if label == NLILabel.ENTAILMENT:
@@ -742,12 +758,15 @@ class NotebookLMBridge:
         entailed = sum(1 for p in per_claim if p["verdict"] == "entailed")
         neutral = sum(1 for p in per_claim if p["verdict"] == "neutral")
         contradicted = sum(1 for p in per_claim if p["verdict"] == "contradicted")
-        if contradicted:
+        if not per_claim:
+            decision = "no_checkable_claims"    # honest: nothing substantive to audit (was
+            # silently reported "consistent" -- an abstention/pleasantry is not "consistent")
+        elif contradicted:
             decision = "diverges_from_cited_memory"
         elif neutral:
             decision = "unsupported_by_cited_memory"
         else:
-            decision = "consistent_with_cited_memory"   # incl. the vacuous no-claims case
+            decision = "consistent_with_cited_memory"
         return {
             "decision": decision,
             "claims_total": len(per_claim),

@@ -48,3 +48,43 @@ def test_block_extraction_handles_dict_and_list_shapes():
     assert HindsightSystem._blocks({"results": [{"text": "a"}, {"content": "b"}]}) == ["a", "b"]
     assert HindsightSystem._blocks([{"text": "x"}]) == ["x"]
     assert HindsightSystem._blocks(None) == []
+
+
+class _EmptyClient:
+    """A daemon client whose worker indexed NOTHING (e.g. extraction LLM 400'd every chunk)."""
+    def list_memories(self, namespace, limit=1000):
+        return type("R", (), {"total": 0, "items": []})()
+    def delete_bank(self, ns):
+        pass
+    def create_bank(self, ns):
+        pass
+
+
+def _adapter_with(client):
+    # bypass __init__ (which requires a live key) to unit-test the post-ingest logic
+    a = HindsightSystem.__new__(HindsightSystem)
+    a._h = type("H", (), {"client": client})()
+    a._seen_banks = set()
+    return a
+
+
+def test_consolidate_fails_loud_when_worker_indexes_nothing(monkeypatch):
+    import bench.adapters.hindsight_adapter as mod
+    monkeypatch.setenv("HINDSIGHT_CONSOLIDATE_TIMEOUT_SEC", "0.1")  # don't actually wait
+    a = _adapter_with(_EmptyClient())
+    a._seen_banks.add("ns")            # we DID ingest into this bank
+    import pytest as _p
+    with _p.raises(RuntimeError):      # 0 indexed after ingest -> fail loud, not silent 0
+        a.consolidate("ns")
+
+
+class _DirtyClient(_EmptyClient):
+    def list_memories(self, namespace, limit=1000):
+        return type("R", (), {"total": 5, "items": [1, 2, 3, 4, 5]})()   # stale, not cleared
+
+
+def test_reset_fails_loud_if_bank_not_empty_after_clear():
+    import pytest as _p
+    a = _adapter_with(_DirtyClient())
+    with _p.raises(RuntimeError):      # delete silently failed -> stale bank -> refuse
+        a.reset("ns")

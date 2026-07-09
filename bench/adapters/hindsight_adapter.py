@@ -127,11 +127,28 @@ class HindsightSystem(MemorySystem):
         try:
             c.delete_bank(namespace)
         except Exception:
-            pass  # first run: bank does not exist yet
+            pass  # first run: bank does not exist yet (only not-found is tolerable)
         try:
             c.create_bank(namespace)
         except Exception:
-            pass  # already exists / created lazily by retain
+            pass  # 'create or update'; retain also lazily creates
+        # VERIFY isolation instead of trusting a swallowed delete: a silently-failed delete
+        # leaves stale memories that would corrupt this namespace's row. Fail loud if the
+        # bank is not empty after reset.
+        try:
+            resp = c.list_memories(namespace, limit=1)
+            total = getattr(resp, "total", None)
+            if isinstance(resp, dict):
+                total = resp.get("total")
+            if isinstance(total, int) and total > 0:
+                raise RuntimeError(
+                    f"Hindsight reset did not clear bank '{namespace}' (total={total} after "
+                    f"delete+create). Refusing to ingest into a dirty bank -- would corrupt "
+                    f"the row. Use a fresh HINDSIGHT_PROFILE.")
+        except RuntimeError:
+            raise
+        except Exception:
+            pass  # list_memories unavailable on this client shape -> best effort
         self._seen_banks.discard(namespace)
 
     def ingest_session(self, namespace: str, session_id: str, turns: list[dict],
@@ -187,8 +204,16 @@ class HindsightSystem(MemorySystem):
                 stable = 0
             last = count
             time.sleep(3.0)
+        # FAIL LOUD if the worker indexed NOTHING after ingest (e.g. the extraction LLM
+        # 400'd on every chunk): a silent 0-index would answer every question from an empty
+        # store and those wrong rows would count in accuracy, silently corrupting the row.
+        if namespace in self._seen_banks and max(last, 0) == 0:
+            raise RuntimeError(
+                f"Hindsight consolidation indexed 0 memories for '{namespace}' after ingest "
+                f"({polls} polls / {timeout}s). The extraction worker likely failed (check "
+                f"the daemon log). Refusing to score an empty store as answers.")
         return {"indexed": max(last, 0), "polls": polls, "settled": False,
-                "note": "consolidation did not settle within timeout"}
+                "note": "consolidation did not settle within timeout (partial index)"}
 
     def answer(self, namespace: str, question: str,
                as_of: Optional[float] = None) -> AnswerResult:
@@ -215,17 +240,32 @@ class HindsightSystem(MemorySystem):
 
     def teardown(self) -> None:
         # HindsightEmbedded starts a PERSISTENT daemon (survives the process) whose LLM
-        # config is fixed at launch. If a later run changes the model/key, a reused daemon
-        # keeps the STALE config (observed live: a stale daemon 404'd on the old model name).
-        # Closing it here forces the next run to relaunch with fresh config.
-        for m in ("close", "stop", "shutdown"):
-            fn = getattr(self._h, m, None)
-            if callable(fn):
+        # config is fixed at launch. A bare close() defaults to stop_daemon=False, leaving the
+        # daemon alive with STALE config (observed live: a stale daemon 404'd on the old model)
+        # -> a later run silently reuses the wrong model. Force an ACTUAL stop.
+        h = self._h
+        stopped = False
+        fn = getattr(h, "close", None)
+        if callable(fn):
+            try:
+                fn(stop_daemon=True)   # the real fix: actually stop the daemon
+                stopped = True
+            except TypeError:
                 try:
-                    fn()
+                    fn()               # older signature without the kwarg
                 except Exception:
                     pass
-                break
+            except Exception:
+                pass
+        if not stopped:
+            for m in ("stop", "shutdown"):
+                g = getattr(h, m, None)
+                if callable(g):
+                    try:
+                        g()
+                    except Exception:
+                        pass
+                    break
 
     @staticmethod
     def _blocks(resp: Any) -> list[str]:

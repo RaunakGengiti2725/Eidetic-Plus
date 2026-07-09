@@ -96,6 +96,38 @@ def test_diverges_on_contradiction():
     assert out["contradicted"] >= 1
 
 
+def test_tier0_lexical_does_not_mask_a_negated_contradiction():
+    # BUG FIX: "Priya did NOT relocate to Lisbon" lexically overlaps the stored fact, but
+    # negation makes lexical unsound -> must fall through to NLI, which the stub contradicts
+    # ('contradict-me' not needed; the stub entails on first-word match, so use a negated
+    # claim whose first word is absent to force NEUTRAL, proving Tier0 didn't rubber-stamp it).
+    b = _bridge()
+    out = b.qwen_memory_check("qc", "Did Priya move?",
+                              "Frankly Priya did not relocate to Lisbon at all.", [REC.memory_id])
+    # Tier0 must NOT have marked this entailed; it went to NLI (neutral here) -> not consistent
+    assert out["decision"] != "consistent_with_cited_memory"
+    assert out["per_claim"][0]["tier"] != 0
+
+
+def test_contradiction_dominates_even_if_another_block_entails():
+    recs = [_rec("mem_a", "Priya relocated to Lisbon."),
+            _rec("mem_b", "contradict-me flag block")]
+    b = NotebookLMBridge(_Engine(recs), backend=None)
+    # claim entails block a (first word 'priya' in a) AND contradicts block b (contains marker)
+    out = b.qwen_memory_check("qc", "?", "Priya contradict-me relocated somewhere new.",
+                              ["mem_a", "mem_b"])
+    assert out["decision"] == "diverges_from_cited_memory"   # contradiction hard-fails
+    assert out["contradicted"] >= 1
+
+
+def test_empty_or_pleasantry_answer_is_no_checkable_claims_not_consistent():
+    b = _bridge()
+    for ans in ("", "Yes."):   # empty + sub-min-chars -> 0 substantive claims
+        out = b.qwen_memory_check("qc", "anything?", ans, [REC.memory_id])
+        assert out["decision"] == "no_checkable_claims"      # was misleadingly "consistent"
+        assert out["claims_total"] == 0
+
+
 def test_cost_is_reported_and_labeled_metered_not_zero():
     b = _bridge()
     out = b.qwen_memory_check("qc", "q?", "Xyzzy floop never appears in memory at all here.",
