@@ -189,8 +189,24 @@ Live structured-path results on the 13 numeric questions (op | answer | gold):
 | a4996e51 | count_aggregate | (abstain) | 50 | ✗ (miss) |
 
 **5/13 correct on the deterministic path.** The LME-S numeric-aggregation failure is broad
-(count over/undercount, sum misroute, non-numeric leak, temporal miss) and NOT closed by
-tonight's scope-gate. `_measure_type_sum` fix stands as narrow synthetic hardening only;
-bc149d6b + the count/sum family remain OPEN (#41/#42). No accuracy progress claimed; the
-honest lesson is that a suite-green synthetic fix must be validated on the live failure set
-before any framing — which this measurement now enforces. Raw: `measure_sum_live.json`.
+(count over/undercount, sum misroute, non-numeric leak, temporal miss). Raw:
+`measure_sum_live.json`.
+
+### Resolution: the scope-gate fix was REVERTED (revert of `c64c10aee`)
+Held to the "validated changes only" bar: on the live window the fix delivered **zero
+benefit** (bc149d6b unchanged at 1226.3 — the only measure-type question) while carrying a
+**demonstrated downside** (the cross-session subject-silent undercount, 70→50 — so the first
+"conservative / never hurts" framing was itself wrong). A live-path behavior change,
+motivated by a now-disproven root cause, validated on nothing but synthetic atoms → reverted.
+The measurement + `bench/measure_sum_live_probe.py` (a reusable live gate) are the clean
+deliverables; the numeric fix is deferred to a session that runs the probe as its gate.
+
+### HEADLINE — the real, measured finding
+**Verify-or-abstain does NOT protect numeric aggregation.** On live LME-S the deterministic
+computed path ships **5/13 verified-WRONG** — a plausible wrong count (4 vs 3, 6 vs 5, "one"
+vs 23) or an over-summed measure (1226.3 vs 70) passes as `verified=True`, because the answer
+is well-formed and its citations are real; only the *arithmetic/scope* is wrong, which
+NLI-against-sources cannot catch. This reframes #38/#41 from "characterized ceiling" to a
+**measured leak in the core thesis for computed answers, with a reusable probe**. The
+type-floor still helps (it abstained f0e564bc's non-numeric "Apply the Dr"); the open gap is
+plausible-but-wrong numerics. No accuracy claim; still < Chronos 95.6%.
