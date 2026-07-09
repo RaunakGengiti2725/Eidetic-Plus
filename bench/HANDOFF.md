@@ -262,3 +262,32 @@ bench/measure_sum_live_probe.py`.
   unified routed recall ✅ | release gate documented ✅ | REMAINING: product-beats-RAG on ≥2
   windows w/ judged significance, ≥10-run NBL gate, polar/inhibitory-edge eval — all
   live-quota-gated (≥10-run = ~400 free-tier queries; ~30 burned today, ~130 on 07-07).
+
+## HARDENING WAVE (2026-07-09 late, commit 410b53b2f) — the fix's own bypasses, closed
+
+28-agent adversarial review (4 dimensions × verify) of the day's P0/P1 commits confirmed
+22 findings; all criticals/majors fixed same-day, each regression-proven on the review's
+own end-to-end repros:
+
+- **Citation floor layer 2** (`eidetic/smqe/verify.py`): op-mistagged aggregations
+  (planner routes "average"/money-worded counts to latest_value, whose executor still
+  derives multi-atom arithmetic) now fail closed via query-shaped floors; difference
+  exemption requires comparative ADJACENCY ("...longer than five miles" = filter, no
+  exemption); comma-grouped cardinals compare numerically ($1,220 vs '1' — both the
+  bypass AND the stated-total false-abstain fixed).
+- **Reader path** (`eidetic/retrieval.py`): aggregation-shaped question whose number is
+  not stated in any entailed source → unverified (`reader_numeric_floor_enabled`).
+- **Gate honesty**: release_gate + merge_artifacts FAIL CLOSED on sidecars missing
+  `expected_abstain_cases` (a stale all-verified pass contains the leak); fullpath
+  expect_abstain also requires the reader tier was consulted.
+- **Provenance resolver**: symmetric normalization, 0.1 overlap margin, `superseded`
+  flag, active-record verbatim tiebreak, zero-record guard, APPEND-semantics note.
+- **Tests**: fail-closed aggregate tests pin the DERIVATION VALUE via structured_recall
+  trace — abstention alone can't distinguish fail-closed from SMQE never running.
+
+Live panel unchanged: 4 verified-correct / 0 verified-wrong / 9 abstain. Suite 1613.
+NBL 10-run gate: 3 full runs (85.0/82.5/82.5), quota-blocked until reset (run3 healed to
+35/40 then RESOURCE_EXHAUSTED; resume via bench/nbl_run_cycle.sh <window> 3 then 4..9).
+Hindsight r15: relaunched on fresh profile eidetic-bench-r15b after pg0-corruption
+5-attempt start failure; ingesting (5/40 at handoff). Provenance live re-validation of
+the hardened resolver ALSO waits on quota (unit tests cover it meanwhile).
