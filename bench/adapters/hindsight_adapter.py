@@ -20,6 +20,18 @@ harness-uniform ``approx_tokens`` so writes compare across systems.
 Bi-temporal: the benchmark's per-question ``as_of`` maps directly to Hindsight's
 ``recall(query_timestamp=...)``; each turn is retained with its own event timestamp, so
 "answer as of T" replays the store's state at T.
+
+LIVE-VERIFIED (2026-07-08) and the two integration bugs the live smoke caught:
+  1. Model name: pass the BARE model (``qwen-plus``); Hindsight prefixes the provider, so
+     ``openai/qwen-plus`` becomes ``openai/openai/qwen-plus`` -> 404. Confirmed fixed:
+     daemon logs ``Connection verified: openai/qwen-plus``.
+  2. Drain signal: ``list_memories`` returns ``.total``/``.items`` (NOT ``memory_units``);
+     ``consolidate`` polls ``.total`` until the async worker settles.
+KNOWN NEXT-SESSION INFRA ITEM (not adapter logic): ``HindsightEmbedded`` owns a persistent
+daemon and its startup has a race -- on a cold ``pg0`` + LLM connection-verify the client can
+raise "Failed to start daemon" even though the daemon comes up moments later; and a stale
+daemon must be stopped before a config change is picked up (``teardown`` closes it). Give the
+daemon a warm start (or retry construction) before the r13/r14/r15 head-to-head.
 """
 from __future__ import annotations
 
@@ -63,27 +75,35 @@ class HindsightSystem(MemorySystem):
 
         # litellm 'openai/<model>' + DashScope OpenAI-compatible base = same Qwen family as
         # every other baseline. Embedded pg0 backend: no external Postgres to provision.
+        # llm_provider already selects the openai-compatible path; pass the BARE model name
+        # (Hindsight prefixes the provider itself -- passing "openai/qwen-plus" yields the
+        # 404'ing "openai/openai/qwen-plus").
         self._h = h.HindsightEmbedded(
             profile="eidetic-bench",
             llm_provider="openai",
             llm_api_key=key,
-            llm_model=f"openai/{_LLM_MODEL}",
+            llm_model=_LLM_MODEL,
             llm_base_url=settings.compatible_base_url,
         )
         self._seen_banks: set[str] = set()
 
+    @property
+    def _c(self):
+        # bank management + list_memories live on the underlying client; retain/recall are
+        # proxied on the embedded object, but be explicit for the management calls.
+        return getattr(self._h, "client", None) or self._h
+
     def reset(self, namespace: str) -> None:
-        # Banks are logical + isolated by bank_id; the harness already hands a unique
-        # namespace per conversation (sys-dataset-gN-rM). Best-effort clear if the client
-        # exposes one, else the fresh bank_id is the isolation boundary.
-        for m in ("delete_bank", "clear_bank", "forget_bank"):
-            fn = getattr(self._h, m, None)
-            if callable(fn):
-                try:
-                    fn(namespace)
-                except Exception:
-                    pass
-                break
+        # Real isolation: drop + recreate the bank so a re-run never sees stale memories.
+        c = self._c
+        try:
+            c.delete_bank(namespace)
+        except Exception:
+            pass  # first run: bank does not exist yet
+        try:
+            c.create_bank(namespace)
+        except Exception:
+            pass  # already exists / created lazily by retain
         self._seen_banks.discard(namespace)
 
     def ingest_session(self, namespace: str, session_id: str, turns: list[dict],
@@ -107,6 +127,41 @@ class HindsightSystem(MemorySystem):
         return WriteResult(tokens=approx_tokens("x" * total_chars),
                            ms=(time.perf_counter() - t0) * 1000.0)
 
+    def consolidate(self, namespace: str) -> dict:
+        """Hindsight ingests ASYNC (a background worker extracts + indexes retained turns).
+        recall() before that drains returns 0 hits -- so we WAIT here (the harness calls
+        consolidate after all ingest, before any answer) by polling list_memories until the
+        indexed count stops growing, bounded by HINDSIGHT_CONSOLIDATE_TIMEOUT_SEC (default
+        180). This is a fair, real settle -- not a fixed sleep -- and fails loud if the
+        worker never indexes anything."""
+        timeout = float(os.environ.get("HINDSIGHT_CONSOLIDATE_TIMEOUT_SEC", "180"))
+        deadline = time.perf_counter() + timeout
+        last, stable, polls = -1, 0, 0
+        while time.perf_counter() < deadline:
+            try:
+                resp = self._c.list_memories(namespace, limit=1000)
+            except Exception:
+                resp = None
+            # ListMemoryUnitsResponse exposes .total (int) + .items (list).
+            count = 0
+            if resp is not None:
+                total = getattr(resp, "total", None)
+                items = getattr(resp, "items", None)
+                if isinstance(resp, dict):
+                    total = resp.get("total"); items = resp.get("items") or resp.get("results")
+                count = int(total) if isinstance(total, int) else (len(items) if items is not None else 0)
+            polls += 1
+            if count > 0 and count == last:
+                stable += 1
+                if stable >= 2:            # two consecutive equal non-zero reads => drained
+                    return {"indexed": count, "polls": polls, "settled": True}
+            else:
+                stable = 0
+            last = count
+            time.sleep(3.0)
+        return {"indexed": max(last, 0), "polls": polls, "settled": False,
+                "note": "consolidation did not settle within timeout"}
+
     def answer(self, namespace: str, question: str,
                as_of: Optional[float] = None) -> AnswerResult:
         t0 = time.perf_counter()
@@ -129,6 +184,20 @@ class HindsightSystem(MemorySystem):
             abstained=False,
             extra={"hits": len(blocks), "recall_budget": _RECALL_BUDGET},
         )
+
+    def teardown(self) -> None:
+        # HindsightEmbedded starts a PERSISTENT daemon (survives the process) whose LLM
+        # config is fixed at launch. If a later run changes the model/key, a reused daemon
+        # keeps the STALE config (observed live: a stale daemon 404'd on the old model name).
+        # Closing it here forces the next run to relaunch with fresh config.
+        for m in ("close", "stop", "shutdown"):
+            fn = getattr(self._h, m, None)
+            if callable(fn):
+                try:
+                    fn()
+                except Exception:
+                    pass
+                break
 
     @staticmethod
     def _blocks(resp: Any) -> list[str]:
