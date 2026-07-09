@@ -572,8 +572,39 @@ class NotebookLMBridge:
             out.append(format_source(rec, claims))
         return out
 
+    def _computed_advisory_source(self, namespace: str, question: str) -> Optional[dict]:
+        """Run eidetic's DETERMINISTIC structured recall and, if it produces a verified typed
+        answer (a count/sum/delta the free reader tends to miscompute across long sessions),
+        return it as ONE clearly-labeled ADVISORY source. Advisory, NOT authoritative: it sits
+        alongside the raw retrieved records, so a CORRECT computation (e.g. the two-event day
+        delta) helps, while a wrong one can't force the answer -- the reader still has the raw
+        evidence to override. Returns None if there is no confident structured answer."""
+        try:
+            from eidetic.smqe import structured_answer
+            from eidetic.models import Scope as _Scope, now as _now
+            scope = _Scope(namespace=namespace)
+            active = self.engine.store.active_records_at(_now(), scope)
+            sa = structured_answer(self.engine.retriever, question, active, None,
+                                   verify=True, scope=scope)
+        except Exception:
+            return None
+        if sa is None or not getattr(sa, "answer", None) or not getattr(sa, "verified", False):
+            return None
+        return {
+            "display_name": "eidetic-computed (deterministic, advisory)",
+            "text_content": (
+                "--- EIDETIC STRUCTURED RECALL (deterministic computation, ADVISORY) ---\n"
+                "This value was computed by eidetic's typed structured-recall over the verified "
+                "memory (counts/sums/date-deltas the reader often miscomputes). Treat it as a "
+                "strong hint, but VERIFY it against the record sources below; if they disagree, "
+                "trust the records.\n"
+                f"computed_answer: {sa.answer}\n"
+                f"basis: {sa.note or 'smqe'}\n"
+                "--- END EIDETIC COMPUTED ---"),
+        }
+
     def retrieval_guided_sources(self, namespace: str, question: str,
-                                 top_k: int = 6) -> list[dict]:
+                                 top_k: int = 6, inject_computed: bool = False) -> list[dict]:
         """Retrieval-GUIDED free-read sources: instead of exporting a whole conversation (which
         buries a fact inside dozens of records so NotebookLM/Gemini answers 'no information' on
         long sessions -- measured on LongMemEval-S), let eidetic's OWN qwen retriever pick the
@@ -598,6 +629,10 @@ class NotebookLMBridge:
             except Exception:
                 claims = []
             out.append(format_source(rec, claims))
+        if inject_computed:
+            adv = self._computed_advisory_source(namespace, question)
+            if adv is not None:
+                out.insert(0, adv)   # advisory computed value, first, alongside the raw records
         return out
 
     def export_namespace(self, namespace: str, notebook_id: str, *,

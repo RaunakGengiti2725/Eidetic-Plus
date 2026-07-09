@@ -63,3 +63,35 @@ def test_sources_carry_provenance():
     b = NotebookLMBridge(_Engine(), backend=None)
     srcs = b.retrieval_guided_sources("rg", "jewelry designer?", top_k=1)
     assert srcs and "content_sha256" in srcs[0]["text_content"]
+
+
+def test_inject_computed_prepends_advisory_source_when_present():
+    b = NotebookLMBridge(_Engine(), backend=None)
+    # stub the deterministic computation to a known advisory
+    b._computed_advisory_source = lambda ns, q: {
+        "display_name": "eidetic-computed (deterministic, advisory)",
+        "text_content": "--- EIDETIC STRUCTURED RECALL (deterministic computation, ADVISORY) ---\n"
+                        "computed_answer: 29 days\n--- END EIDETIC COMPUTED ---"}
+    srcs = b.retrieval_guided_sources("rg", "how many days between A and B?", top_k=2,
+                                      inject_computed=True)
+    assert "EIDETIC STRUCTURED RECALL" in srcs[0]["text_content"]     # advisory is FIRST
+    assert "29 days" in srcs[0]["text_content"]
+    assert len(srcs) == 3                                             # advisory + top-2
+
+
+def test_inject_computed_off_by_default_leaves_sources_unchanged():
+    b = NotebookLMBridge(_Engine(), backend=None)
+    b._computed_advisory_source = lambda ns, q: {"display_name": "x", "text_content": "y"}
+    srcs = b.retrieval_guided_sources("rg", "jewelry designer?", top_k=2)  # inject_computed default False
+    assert all("EIDETIC STRUCTURED RECALL" not in s["text_content"] for s in srcs)
+
+
+def test_advisory_source_is_labeled_non_authoritative():
+    # the advisory text must tell the reader to trust the records if they disagree
+    b = NotebookLMBridge(_Engine(), backend=None)
+    b._computed_advisory_source = lambda ns, q: {
+        "display_name": "eidetic-computed (deterministic, advisory)",
+        "text_content": "ADVISORY ... VERIFY it against the record sources below; if they "
+                        "disagree, trust the records."}
+    srcs = b.retrieval_guided_sources("rg", "q?", top_k=1, inject_computed=True)
+    assert "trust the records" in srcs[0]["text_content"]
