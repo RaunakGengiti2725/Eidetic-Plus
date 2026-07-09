@@ -665,6 +665,126 @@ class NotebookLMBridge:
         }
         return r
 
+    # Insufficiency markers the free reader emits when the focused set lacks the fact. Kept
+    # deliberately narrow: matching a NEGATIVE ANSWER ("no, you did not...") would trigger a
+    # pointless second round on a correctly-answered polarity question.
+    _INSUFFICIENT_ANSWER_RE = _re.compile(
+        r"\b(?:no\s+information|not\s+(?:mentioned|specified|stated|provided|available)|"
+        r"sources?\s+do(?:es)?\s+not|cannot\s+(?:determine|find|answer)|"
+        r"unable\s+to\s+(?:determine|find|answer)|insufficient\s+(?:information|context))\b",
+        _re.I)
+
+    def iterative_recall(self, namespace: str, question: str, notebook_id: str, *,
+                         top_k: int = 6, max_rounds: int = 2) -> dict:
+        """AGENTIC free reading: retrieval-guided read, and when the reader SAYS the focused
+        set lacks the fact, decompose-and-widen for another round -- the measured gap lives in
+        the READ stage, not retrieval (dense recall@10 is 97.5-100% on burned windows while the
+        fixed reader loses 53.3 vs 63.3; the same top-k through a better reader scores 78.6).
+
+        Round 1: retrieval_guided_answer (qwen retrieval -> focused export -> free read).
+        If the answer matches the insufficiency markers and rounds remain:
+          widen the read set two ways, both free of metered tokens --
+          (a) DECOMPOSITION: the free reader itself proposes 2-3 standalone sub-questions;
+              each sub-question runs its own qwen retrieval; union the records.
+          (b) GRAPH HOP: records one claim-graph edge from the round-1 candidates' entities
+              (spreading activation applied at read-set construction, the one stage the
+              retrieval-recall probe showed it recovers anything).
+        New records export into the SAME notebook (append), then the original question is
+        re-asked over the widened set. Honest labels unchanged: Gemini-side, NOT gate-verified;
+        provenance/citation_map ride on every round. Free-tier quota: each round costs one
+        query (+1 for decomposition)."""
+        rounds: list[dict] = []
+        r = self.retrieval_guided_answer(namespace, question, notebook_id, top_k=top_k)
+        rounds.append({"round": 1, "answer": (r.get("answer") or "")[:300],
+                       "exported": r.get("retrieval_guided", {}).get("exported", 0)})
+        scope = Scope(namespace=namespace)
+        retr = getattr(self.engine, "retriever", None)
+        # Seed the dedupe set with round 1's exported records (same deterministic retrieval),
+        # or a widening round re-exports them -- duplicate sources + a wasted free query.
+        exported_ids: set[str] = set()
+        if retr is not None and hasattr(retr, "retrieve"):
+            for c in retr.retrieve(question, at=None, scope=scope)[:max(1, top_k)]:
+                rec = getattr(c, "record", None)
+                if rec is not None:
+                    exported_ids.add(rec.memory_id)
+        for round_no in range(2, max_rounds + 1):
+            answer_text = r.get("answer") or ""
+            if not self._INSUFFICIENT_ANSWER_RE.search(answer_text):
+                break
+            widen: list = []
+            # (a) reader-proposed decomposition (free)
+            sub_questions: list[str] = []
+            try:
+                dq = self.backend.query(
+                    notebook_id,
+                    "To answer this question, what 2-3 specific facts would you need to look "
+                    f"up? Question: {question}\nReturn each as one short standalone question, "
+                    "one per line, nothing else.")
+                for line in (dq.get("answer") or "").splitlines():
+                    line = line.strip().lstrip("-*0123456789. ").strip()
+                    if line.endswith("?") and 8 <= len(line) <= 200:
+                        sub_questions.append(line)
+            except Exception:
+                pass  # decomposition is best-effort; the graph hop below still widens
+            if retr is not None and hasattr(retr, "retrieve"):
+                for sq in sub_questions[:3]:
+                    for c in retr.retrieve(sq, at=None, scope=scope)[:max(1, top_k // 2)]:
+                        rec = getattr(c, "record", None)
+                        if rec is not None:
+                            widen.append(rec)
+            # (b) one claim-graph hop from round-1 candidates' entities
+            try:
+                seeds: set[str] = set()
+                if retr is not None and hasattr(retr, "retrieve"):
+                    for c in retr.retrieve(question, at=None, scope=scope)[:top_k]:
+                        rec = getattr(c, "record", None)
+                        for e in (getattr(rec, "entities", None) or []):
+                            seeds.add(str(e).lower())
+                if seeds:
+                    by_id = {rec.memory_id: rec
+                             for rec in self.engine.store.all_records(scope)}
+                    for edge in self.engine.store.all_edges(scope, include_inferred=False):
+                        if (str(edge.src or "").lower() in seeds
+                                or str(edge.dst or "").lower() in seeds):
+                            rec = by_id.get(edge.source_memory_id or "")
+                            if rec is not None:
+                                widen.append(rec)
+            except Exception:
+                pass
+            fresh = []
+            seen_round: set[str] = set()
+            for rec in widen:
+                if rec.memory_id in exported_ids or rec.memory_id in seen_round:
+                    continue
+                seen_round.add(rec.memory_id)
+                try:
+                    claims = self.engine.store.claims_by_source(rec.memory_id)
+                except Exception:
+                    claims = []
+                fresh.append(format_source(rec, claims))
+            if not fresh:
+                rounds.append({"round": round_no, "widened": 0,
+                               "note": "no new records reachable; stopping"})
+                break
+            exported_ids |= seen_round
+            self.backend.batch_create_sources(notebook_id, fresh)
+            r2 = self.answer(namespace, question, notebook_id)
+            rounds.append({"round": round_no, "widened": len(fresh),
+                           "sub_questions": sub_questions[:3],
+                           "answer": (r2.get("answer") or "")[:300]})
+            # keep the better round: a non-insufficient answer wins; else keep the widest read
+            if not self._INSUFFICIENT_ANSWER_RE.search(r2.get("answer") or ""):
+                r = r2
+                r["retrieval_guided"] = {"exported": len(fresh), "top_k": top_k,
+                                         "round": round_no, "widened": True}
+                break
+            r = r2
+        r["iterative"] = {"rounds": rounds, "max_rounds": max_rounds,
+                          "note": ("free-tier agentic read: reader-declared insufficiency "
+                                   "triggers decomposition + one graph hop; every round is "
+                                   "Gemini-side and NOT gate-verified")}
+        return r
+
     def export_namespace(self, namespace: str, notebook_id: str, *,
                          limit: Optional[int] = None, batch_size: int = 20,
                          include_graph: bool = False) -> dict:

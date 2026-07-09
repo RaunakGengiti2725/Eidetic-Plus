@@ -378,12 +378,15 @@ def notebooklm_answer(question: str, notebook_id: str,
 
 @_threaded_tool
 def notebooklm_recall(question: str, notebook_id: str, namespace: Optional[str] = None,
-                      top_k: int = 6) -> dict:
+                      top_k: int = 6, iterative: bool = False) -> dict:
     """RETRIEVAL-GUIDED free recall (the strongest measured accuracy path): eidetic's own
     retriever picks the top_k records relevant to THIS question, exports ONLY those into the
     notebook, then NotebookLM/Gemini reads the focused set at 0 tokens on the caller's metered
     model. Returns answer + provenance + citation_map ([n] references resolved by quote content
-    to memory_id + content hash) + grounding. HONEST BOUNDARY: Gemini-side, NOT
+    to memory_id + content hash) + grounding. iterative=True adds AGENTIC reading: when the
+    reader says the focused set lacks the fact, it proposes sub-questions, eidetic re-retrieves,
+    the set widens (plus one claim-graph hop), and the question is re-asked -- still 0 metered
+    tokens, one extra free query per round. HONEST BOUNDARY: Gemini-side, NOT
     eidetic-verify-or-abstain -- use `recall` for a gate-verified answer. Requires `nlm login`
     and an existing notebook_id."""
     from eidetic.integrations.notebooklm import CliBackend, NotebookLMBridge, NotebookLMError
@@ -392,8 +395,10 @@ def notebooklm_recall(question: str, notebook_id: str, namespace: Optional[str] 
     top_k = max(1, min(int(top_k), 24))
     ns = namespace or _scope(namespace, None, None).namespace
     try:
-        return NotebookLMBridge(engine(), CliBackend()).retrieval_guided_answer(
-            ns, question, notebook_id, top_k=top_k)
+        bridge = NotebookLMBridge(engine(), CliBackend())
+        if iterative:
+            return bridge.iterative_recall(ns, question, notebook_id, top_k=top_k)
+        return bridge.retrieval_guided_answer(ns, question, notebook_id, top_k=top_k)
     except NotebookLMError as e:
         raise RuntimeError(
             f"NotebookLM retrieval-guided read failed (no answer fabricated): {e}. "

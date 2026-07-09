@@ -496,6 +496,123 @@ def test_retrieval_guided_answer_exports_focused_set_then_reads():
     assert out["user_llm_tokens"] == 0
 
 
+class _IterativeStore(_FakeStore):
+    """Fake store with graph edges so the widening hop is exercisable offline."""
+
+    def __init__(self, records, edges=None, claims=None):
+        super().__init__(records, claims)
+        self._edges = edges or []
+
+    def all_edges(self, scope, include_inferred=False):
+        return list(self._edges)
+
+
+class _IterativeRetriever:
+    """Query-keyed canned retrieval: the ORIGINAL question surfaces only the decoy record;
+    the reader-proposed SUB-question surfaces the record holding the fact."""
+
+    def __init__(self, by_query):
+        self._by_query = by_query
+
+    def retrieve(self, query, at=None, scope=None):
+        class _C:
+            def __init__(self, rec):
+                self.record = rec
+        for key, recs in self._by_query.items():
+            if key.lower() in (query or "").lower():
+                return [_C(r) for r in recs]
+        return []
+
+
+def test_iterative_recall_widens_on_insufficiency_and_recovers():
+    """Round 1 reads a focused set missing the fact -> reader says 'no information' ->
+    decomposition + re-retrieval widen the set -> round 2 answers. All rounds free-tier."""
+    decoy = _rec("We talked about the weather in March.", mid="mem_decoy000000001", ch="h_d")
+    fact = _rec("Priya's startup Loomworks raised $2M from Cedar Fund.",
+                mid="mem_fact0000000002", ch="h_f")
+    eng = _FakeEngine(_IterativeStore([decoy, fact]))
+    eng.retriever = _IterativeRetriever({
+        "who invested": [decoy],                    # round-1 focused set misses the fact
+        "which fund": [fact],                       # the sub-question finds it
+    })
+
+    class _TwoRoundBackend(_RecordingBackend):
+        def __init__(self):
+            super().__init__()
+            self.queries = []
+
+        def query(self, notebook_id, question):
+            self.queries.append(question)
+            if "what 2-3 specific facts" in question.lower():
+                return {"answer": "Which fund invested in Loomworks?\n"}
+            # after the widening export, the fact is in the notebook
+            if any("Loomworks raised" in s["text_content"]
+                   for _nb, sources in self.batches for s in sources):
+                return {"answer": "Cedar Fund invested $2M [1].",
+                        "references": [{"cited_text": "raised $2M from Cedar Fund"}]}
+            return {"answer": "The sources contain no information about who invested."}
+
+    backend = _TwoRoundBackend()
+    out = NotebookLMBridge(eng, backend).iterative_recall(
+        "nb-test", "Who invested in Priya's startup?", "nbk_1", top_k=2, max_rounds=2)
+
+    assert "Cedar Fund" in out["answer"]
+    assert len(out["iterative"]["rounds"]) == 2
+    assert out["iterative"]["rounds"][1]["widened"] >= 1
+    assert out["iterative"]["rounds"][1]["sub_questions"] == ["Which fund invested in Loomworks?"]
+    # the widened record resolves in the citation map -- provenance rides every round
+    assert any(c.get("resolved") and c.get("content_sha256") == "h_f"
+               for c in out["citation_map"])
+
+
+def test_iterative_recall_single_round_when_answer_sufficient():
+    """A confident round-1 answer must NOT trigger decomposition -- no wasted free-tier
+    queries, no notebook pollution."""
+    rec = _rec("Priya moved to Berlin in 2021.", mid="mem_suff000000001", ch="h_s")
+    eng = _FakeEngine(_IterativeStore([rec]))
+    eng.retriever = _IterativeRetriever({"where did": [rec]})
+
+    class _OneRoundBackend(_RecordingBackend):
+        def __init__(self):
+            super().__init__()
+            self.queries = []
+
+        def query(self, notebook_id, question):
+            self.queries.append(question)
+            return {"answer": "Berlin, in 2021 [1].",
+                    "references": [{"cited_text": "Priya moved to Berlin in 2021."}]}
+
+    backend = _OneRoundBackend()
+    out = NotebookLMBridge(eng, backend).iterative_recall(
+        "nb-test", "Where did Priya move?", "nbk_1", max_rounds=2)
+    assert len(out["iterative"]["rounds"]) == 1
+    assert len(backend.queries) == 1          # exactly one read; no decomposition call
+
+
+def test_iterative_recall_stops_honestly_when_nothing_new_reachable():
+    """Insufficient answer + no reachable new records -> stop with the honest note instead
+    of spinning rounds or fabricating."""
+    rec = _rec("We talked about gardening.", mid="mem_only000000001", ch="h_o")
+    eng = _FakeEngine(_IterativeStore([rec]))
+    eng.retriever = _IterativeRetriever({"": [rec]})  # every query returns the same record
+
+    class _StuckBackend(_RecordingBackend):
+        def query(self, notebook_id, question):
+            if "what 2-3 specific facts" in question.lower():
+                return {"answer": "What was the launch code?\n"}
+            return {"answer": "The sources contain no information about that."}
+
+    out = NotebookLMBridge(eng, _StuckBackend()).iterative_recall(
+        "nb-test", "What was the launch code?", "nbk_1", max_rounds=3)
+    rounds = out["iterative"]["rounds"]
+    # round 2 must stop IMMEDIATELY: the only reachable record was already exported in
+    # round 1 (dedupe seeded from round-1's retrieval) -- no duplicate export, no extra query
+    assert len(rounds) == 2
+    assert rounds[1].get("widened") == 0
+    assert "no new records reachable" in rounds[1]["note"]
+    assert "no information" in out["answer"].lower()   # the honest answer survives
+
+
 def test_router_no_fallthrough_low_conf_verified_with_gate():
     """Advisor blocking-fix #1: answered+verified+immutable_proof but confidence<tau AND
     require_gate_verification=True must NOT fall through -- it escalates to Tier 3."""
