@@ -129,6 +129,10 @@ def main() -> int:
     ap.add_argument("window")
     ap.add_argument("--limit", type=int, default=0, help="first N questions only (smoke)")
     ap.add_argument("--out", default="", help="output jsonl (default <window>/notebooklm_freetier.jsonl)")
+    ap.add_argument("--skip-export", action="store_true",
+                    help="REPEAT RUNS: reuse the already-exported per-namespace notebooks "
+                         "(re-exporting would duplicate sources and change what Gemini sees "
+                         "between runs -- variance measurement needs identical notebooks)")
     args = ap.parse_args()
     window = Path(args.window)
     out_path = Path(args.out) if args.out else window / "notebooklm_freetier.jsonl"
@@ -157,10 +161,11 @@ def main() -> int:
             try:
                 if ns not in exported:
                     nb = ensure_notebook(bridge.backend, f"eidetic-{window.name}-{ns[-6:]}")
-                    bridge.export_graph(ns, nb)  # compact verified facts (may be empty)
-                    packed = pack_record_sources(bridge, ns)
-                    if packed:  # raw evidence the graph compaction drops
-                        bridge.backend.batch_create_sources(nb, packed)
+                    if not args.skip_export:
+                        bridge.export_graph(ns, nb)  # compact verified facts (may be empty)
+                        packed = pack_record_sources(bridge, ns)
+                        if packed:  # raw evidence the graph compaction drops
+                            bridge.backend.batch_create_sources(nb, packed)
                     exported[ns] = nb
                 t0 = time.time()
                 ans = bridge.answer(ns, row["question"], exported[ns])
