@@ -1,0 +1,43 @@
+{
+  "n_runs": 4,
+  "min_runs": 10,
+  "per_run": [
+    {
+      "file": "notebooklm_freetier.judged.json",
+      "correct": 31,
+      "answered": 40,
+      "accuracy": 0.775
+    },
+    {
+      "file": "notebooklm_freetier.judged.json",
+      "correct": 37,
+      "answered": 40,
+      "accuracy": 0.925
+    },
+    {
+      "file": "notebooklm_freetier.judged.json",
+      "correct": 34,
+      "answered": 40,
+      "accuracy": 0.85
+    },
+    {
+      "file": "notebooklm_freetier_run1.judged.json",
+      "correct": 28,
+      "answered": 33,
+      "accuracy": 0.8485
+    }
+  ],
+  "mean_accuracy": 0.8496,
+  "stdev": 0.053,
+  "ci95_mean": [
+    0.8496,
+    0.8496
+  ],
+  "comparator": {
+    "name": "rag-vector",
+    "accuracy": 0.592
+  },
+  "verdict": "PARTIAL",
+  "verdict_reason": "4/10 runs -- need 6 more",
+  "honest_note": "PASS here is a STATISTICAL gate (>= min_runs runs, bootstrap CI clears the comparator). It is NOT itself a 'best/SOTA' claim -- that wording additionally needs named-comparator breadth and remains a human editorial decision. Different (Gemini) reader than the fixed-qwen table; own product row."
+}
