@@ -2026,6 +2026,67 @@ def _format_unit_sum(total: float, unit: str) -> str:
     return f"{total:g} {label}"
 
 
+# A measure TYPE named in the question ("total WEIGHT / DISTANCE / VOLUME") maps to a family
+# of units that appear in the ANSWER atoms ("70 pounds"), not in the question itself. This is
+# the fix for LME-S multi_session_sum weight questions that formerly misrouted to money.
+_MEASURE_TYPE_UNITS = {
+    "weight": ("pound", "lb", "kilogram", "kg", "gram", "g", "ounce", "oz", "ton", "tonne"),
+    "mass": ("pound", "lb", "kilogram", "kg", "gram", "g", "ounce", "oz", "ton", "tonne"),
+    "distance": ("mile", "kilometer", "kilometre", "km", "meter", "metre", "m", "yard", "foot", "feet"),
+    "length": ("mile", "kilometer", "kilometre", "km", "meter", "metre", "m", "yard", "foot", "feet", "inch"),
+    "volume": ("liter", "litre", "l", "gallon", "gal", "milliliter", "ml", "cup", "quart", "pint"),
+    "calories": ("calorie", "cal", "kcal"),
+}
+_MEASURE_TYPE_RE = re.compile(
+    r"\b(weight|weigh(?:s|ed|ing)?|heavy|mass|distance|length|volume|calories?)\b", re.I)
+
+
+def _measure_type_sum_answer(query: str, atoms: list[tuple[float, object, str]]) -> tuple[str, list[tuple[float, object, str]]]:
+    """Sum a NON-money measure ('total weight of the feed I bought' -> add up the pounds/kg
+    across sessions). The question names the measure TYPE; the units live in the atoms."""
+    m = _MEASURE_TYPE_RE.search(query or "")
+    if not m:
+        return "", []
+    key = m.group(1).lower()
+    key = ("weight" if key.startswith("weigh") or key == "heavy" else
+           "distance" if key in ("distance",) else
+           "length" if key == "length" else
+           "volume" if key == "volume" else
+           "calories" if key.startswith("calor") else "mass" if key == "mass" else key)
+    units = _MEASURE_TYPE_UNITS.get(key)
+    if not units:
+        return "", []
+    number = r"\d+(?:\.\d+)?|one|two|three|four|five|six|seven|eight|nine|ten"
+    unit_alt = "|".join(re.escape(u) for u in units)
+    pat = re.compile(rf"\b({number})[-\s]*({unit_alt})s?\b", re.I)
+    total = 0.0
+    disp_unit = None
+    selected: list[tuple[float, object, str]] = []
+    counted: set[tuple[str, str]] = set()
+    for score, item, atom in atoms:
+        text = _strip_role(atom)
+        hits = pat.findall(text)
+        if not hits:
+            continue
+        atom_key = (_group_key(item), re.sub(r"\W+", " ", text.lower()).strip())
+        if atom_key in counted:
+            continue
+        added = False
+        for numtok, unittok in hits:
+            v = _number_value(numtok)
+            if v is not None:
+                total += v
+                disp_unit = disp_unit or unittok.lower()
+                added = True
+        if added:
+            counted.add(atom_key)
+            selected.append((score, item, atom))
+    if total and selected and disp_unit:
+        plural = "" if total == 1 else "s"
+        return f"{total:g} {disp_unit}{plural}", selected[:6]
+    return "", []
+
+
 def _generic_quantity_sum_answer(query: str, atoms: list[tuple[float, object, str]]) -> tuple[str, list[tuple[float, object, str]]]:
     unit = _generic_sum_unit(query)
     if not unit:
@@ -5352,7 +5413,16 @@ def _execute_atoms(plan: ExecutionPlan, query: str,
         values: list[float] = []
         supports: list[StructuredSupport] = []
         unit_hint = "hour" if re.search(r"\bhours?\b", query, re.I) else ("day" if re.search(r"\bdays?\b", query, re.I) else "")
-        money = not unit_hint and bool(re.search(
+        # A non-money MEASURE TYPE in the question ("total WEIGHT of the feed I purchased")
+        # must not be treated as a money sum just because it also says "purchased/bought" --
+        # that misrouted a weight question to the money branch and shipped "$28" verified for
+        # a "70 pounds" answer. When such a measure type is present, suppress money so the
+        # quantity path handles it (or it abstains) instead of confabulating a dollar total.
+        measure_type = bool(re.search(
+            r"\b(?:weight|weigh(?:s|ed|ing)?|heavy|mass|distance|length|volume|area|"
+            r"pounds?|lbs?|kilograms?|kgs?|grams?|ounces?|miles?|kilomet(?:er|re)s?|km|"
+            r"lit(?:er|re)s?|gallons?|calories?)\b", query, re.I))
+        money = not unit_hint and not measure_type and bool(re.search(
             r"\b(?:money|costs?|spent|spend|spending|amount|pre[-\s]?approved|"
             r"expenses?|paid|pay|bought|buy|purchas(?:e|ed|ing)?|price)\b",
             query,
@@ -5389,9 +5459,18 @@ def _execute_atoms(plan: ExecutionPlan, query: str,
             else:
                 answer = f"{total:g}"
             return _result(answer, plan, backend, supports[:5])
+        # Non-money measure sum (weight/distance/volume) BEFORE count helpers: a weight
+        # question must add pounds/kg, never be answered by counting item mentions.
+        answer, selected = _measure_type_sum_answer(query, atoms)
+        if answer and selected:
+            return result_from(answer, selected)
         answer, selected = _generic_quantity_sum_answer(query, atoms)
         if answer and selected:
             return result_from(answer, selected)
+        # A measure-type question that found no summable units must ABSTAIN, not fall to a
+        # count helper that would answer "one" (a wrong count for a "how much weight" question).
+        if _MEASURE_TYPE_RE.search(query or ""):
+            return None
         for helper in (
             _generic_itemized_count_answer,
             _generic_acquired_item_count_answer,
