@@ -14,3 +14,10 @@ fastembed==0.8.0
 # (free Neo4j AuraDB cloud works with no Docker; set NEO4J_URI/USER/PASSWORD).
 graphiti-core==0.29.2
 neo4j==6.2.0
+
+# Hindsight baseline (Vectorize.io, MIT). Embedded pg0/pgvector backend -- NO external
+# server. retain() extraction LLM points at DashScope via litellm; recall() is retrieval-
+# only and feeds the shared fixed reader (neutrality). Verified: install leaves the core
+# suite green (1560 passed). The `hindsight-all` meta-pin pulls torch/transformers; if that
+# is too heavy, `hindsight-client` + a running server is the lighter alternative.
+hindsight-all==0.6.1

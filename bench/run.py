@@ -88,6 +88,9 @@ def make_system(name: str):
     if name == "graphiti":
         from .adapters.graphiti_adapter import GraphitiSystem
         return GraphitiSystem()
+    if name == "hindsight":
+        from .adapters.hindsight_adapter import HindsightSystem
+        return HindsightSystem()
     if name in ("rag-full", "ragfull"):
         from .adapters.rag_adapter import RagFullSystem
         return RagFullSystem()
@@ -102,7 +105,7 @@ def make_system(name: str):
         return EideticProductSystem()
     raise SystemExit(
         f"Unknown system '{name}' (choose from eidetic, eidetic-full, eidetic-product, mem0, "
-        "graphiti, rag-full, rag-vector).")
+        "graphiti, hindsight, rag-full, rag-vector).")
 
 
 def _slice(samples: list, subset: int, offset: int) -> list:
