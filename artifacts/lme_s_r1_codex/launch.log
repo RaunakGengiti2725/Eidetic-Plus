@@ -1,0 +1,12 @@
+systems=eidetic-full,rag-vector dataset=longmemeval variant=longmemeval_s
+started=2026-07-09T06:57:06.698601Z
+Judge: {'judge_model': 'qwen3-max', 'judge_backend': 'dashscope'}
+Loaded 30 samples (longmemeval, split=test); categories: {'knowledge-update': 5, 'multi-session': 7, 'single-session-assistant': 4, 'single-session-preference': 2, 'single-session-user': 4, 'temporal-reasoning': 8}
+Running eidetic-plus-full: 30 samples x 1 run(s)...
+Running rag-vector: 30 samples x 1 run(s)...
+
+Scoreboard -> /Users/raunakgengiti/Eidetic-Plus/artifacts/lme_s_r1_codex/scoreboard.md
+Curves     -> {'ok': True, 'recall_png': '/Users/raunakgengiti/Eidetic-Plus/artifacts/lme_s_r1_codex/recall_vs_age.png', 'latency_png': '/Users/raunakgengiti/Eidetic-Plus/artifacts/lme_s_r1_codex/latency_vs_age.png', 'slopes': {'eidetic-plus-full': {'recall_slope_per_year': 1.0571396237647637, 'latency_slope_ms_per_year': -95862.35358512355}, 'rag-vector': {'recall_slope_per_year': 1.5616835351070373, 'latency_slope_ms_per_year': 4367.3613964707965}}}
+Manifest   -> /Users/raunakgengiti/Eidetic-Plus/artifacts/lme_s_r1_codex/run_manifest.json
+Reproduce (full, >=10 runs): bash bench/reproduce.sh
+finished=2026-07-09T09:26:08.075563Z rc=0

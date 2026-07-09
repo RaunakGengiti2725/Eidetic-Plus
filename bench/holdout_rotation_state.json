@@ -126,6 +126,20 @@
           "rollover": false
         }
       ]
+    },
+    "longmemeval": {
+      "epoch": 0,
+      "next_window": 1,
+      "draws": [
+        {
+          "digest": "988f7ba646ad6bced7215aa3a05d475c52dc1b839646917d0adcfd6c3d0da17e",
+          "epoch": 0,
+          "window": 0,
+          "n": 30,
+          "commit": "3111f0a60",
+          "rollover": false
+        }
+      ]
     }
   }
 }
