@@ -11,8 +11,8 @@
   {
     "sample_id": "gpt4_2f91af09",
     "op": "multi_session_sum",
-    "answered": true,
-    "verified": true,
+    "answered": false,
+    "verified": false,
     "answer": "one",
     "gold": "23",
     "question": "How many total pieces of writing have I completed since I started writing again three weeks ago, including short stories, poems, and pieces for the writing challenge?"
@@ -56,8 +56,8 @@
   {
     "sample_id": "bc149d6b",
     "op": "multi_session_sum",
-    "answered": true,
-    "verified": true,
+    "answered": false,
+    "verified": false,
     "answer": "1226.3 pounds",
     "gold": "70 pounds",
     "question": "What is the total weight of the new feed I purchased in the past two months?"
@@ -65,8 +65,8 @@
   {
     "sample_id": "gpt4_2f8be40d",
     "op": "count_aggregate",
-    "answered": true,
-    "verified": true,
+    "answered": false,
+    "verified": false,
     "answer": "4 weddings: California; Florida; Hawaii; Outer Banks in North Carolina",
     "gold": "I attended three weddings. The couples were Rachel and Mike, Emily and Sarah, and Jen and Tom.",
     "question": "How many weddings have I attended in this year?"
@@ -74,8 +74,8 @@
   {
     "sample_id": "06db6396",
     "op": "count_aggregate",
-    "answered": true,
-    "verified": true,
+    "answered": false,
+    "verified": false,
     "answer": "6",
     "gold": "5",
     "question": "How many projects have I completed since starting painting classes?"
@@ -83,8 +83,8 @@
   {
     "sample_id": "a3838d2b",
     "op": "count_aggregate",
-    "answered": true,
-    "verified": true,
+    "answered": false,
+    "verified": false,
     "answer": "3",
     "gold": "4",
     "question": "How many charity events did I participate in before the 'Run for the Cure' event?"

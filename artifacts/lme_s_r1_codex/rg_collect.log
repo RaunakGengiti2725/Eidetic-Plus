@@ -1,0 +1,34 @@
+[1] 603deb26 ok
+[2] gpt4_2f91af09 ok
+[3] b759caee ok
+[4] afdc33df ok
+[5] a82c026e ok
+Traceback (most recent call last):
+  File "/private/tmp/claude-501/-Users-raunakgengiti-Eidetic-Plus/66eb8ee1-f861-4eb3-95b1-7f49aa8cf55f/scratchpad/rg_collect.py", line 20, in <module>
+    ns=row.get("namespace"); q=row["question"]; gold=row["gold"]
+                               ~~~^^^^^^^^^^^^
+KeyError: 'question'
+[6] gpt4_8e165409 ok
+[7] f0e564bc ok
+[8] 5c40ec5b ok
+[9] 60d45044 ok
+[10] gpt4_85da3956 ok
+[11] bc149d6b ok
+[12] 65240037 ok
+[13] gpt4_93159ced_abs ok
+[14] gpt4_2f8be40d ok
+[15] 06db6396 ok
+[16] 36580ce8 ok
+[17] gpt4_76048e76 ok
+[18] a1cc6108 ok
+[19] 778164c6 ok
+[20] a3838d2b ok
+[21] 3fe836c9 ok
+[22] 57f827a0 ok
+[23] 8a137a7f ok
+[24] gpt4_74aed68e ok
+[25] a4996e51 ok
+[26] b01defab ok
+[27] 8cf51dda ok
+[28] gpt4_2655b836 ok
+done ok=28
