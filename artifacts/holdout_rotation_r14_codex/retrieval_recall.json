@@ -1,0 +1,65 @@
+{
+  "window": "artifacts/holdout_rotation_r14_codex",
+  "k": 10,
+  "per_category": {
+    "multi-hop": {
+      "answerable": 5,
+      "dense_hit": 3,
+      "expand_hit": 5,
+      "rows": 7,
+      "no_namespace": 0,
+      "not_in_store": 2
+    },
+    "open-domain": {
+      "answerable": 1,
+      "dense_hit": 1,
+      "expand_hit": 1,
+      "rows": 3,
+      "no_namespace": 0,
+      "not_in_store": 2
+    },
+    "single-hop": {
+      "answerable": 14,
+      "dense_hit": 14,
+      "expand_hit": 14,
+      "rows": 22,
+      "no_namespace": 0,
+      "not_in_store": 8
+    },
+    "temporal": {
+      "answerable": 0,
+      "dense_hit": 0,
+      "expand_hit": 0,
+      "rows": 8,
+      "no_namespace": 0,
+      "not_in_store": 8
+    }
+  },
+  "totals": {
+    "answerable": 20,
+    "dense_hit": 18,
+    "expand_hit": 20,
+    "rows": 40,
+    "no_namespace": 0,
+    "not_in_store": 20
+  },
+  "dense_recall": 0.9,
+  "expansion_ceiling_recall": 1.0,
+  "misses": [
+    {
+      "sample_id": "c4_q7",
+      "category": "multi-hop",
+      "gold": "California, London, the Smoky Mountains",
+      "recovered_by_expansion": true,
+      "expansion_pool": 27
+    },
+    {
+      "sample_id": "c4_q35",
+      "category": "multi-hop",
+      "gold": "Hiking, surfing",
+      "recovered_by_expansion": true,
+      "expansion_pool": 26
+    }
+  ],
+  "method": "gold-part containment over top-k record texts; answerable = gold parts covered by the union of the question's own namespace records. Expansion ceiling = dense top-k plus records linked by one claim-graph hop from the dense candidates' entities (upper bound for a spreading-activation channel; NOT a product path). Reader-free, judge-free."
+}

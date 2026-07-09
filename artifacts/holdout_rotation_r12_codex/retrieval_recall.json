@@ -1,0 +1,50 @@
+{
+  "window": "artifacts/holdout_rotation_r12_codex",
+  "k": 10,
+  "per_category": {
+    "multi-hop": {
+      "answerable": 5,
+      "dense_hit": 5,
+      "expand_hit": 5,
+      "rows": 8,
+      "no_namespace": 0,
+      "not_in_store": 3
+    },
+    "open-domain": {
+      "answerable": 1,
+      "dense_hit": 1,
+      "expand_hit": 1,
+      "rows": 3,
+      "no_namespace": 0,
+      "not_in_store": 2
+    },
+    "single-hop": {
+      "answerable": 16,
+      "dense_hit": 16,
+      "expand_hit": 16,
+      "rows": 21,
+      "no_namespace": 0,
+      "not_in_store": 5
+    },
+    "temporal": {
+      "answerable": 0,
+      "dense_hit": 0,
+      "expand_hit": 0,
+      "rows": 8,
+      "no_namespace": 0,
+      "not_in_store": 8
+    }
+  },
+  "totals": {
+    "answerable": 22,
+    "dense_hit": 22,
+    "expand_hit": 22,
+    "rows": 40,
+    "no_namespace": 0,
+    "not_in_store": 18
+  },
+  "dense_recall": 1.0,
+  "expansion_ceiling_recall": 1.0,
+  "misses": [],
+  "method": "gold-part containment over top-k record texts; answerable = gold parts covered by the union of the question's own namespace records. Expansion ceiling = dense top-k plus records linked by one claim-graph hop from the dense candidates' entities (upper bound for a spreading-activation channel; NOT a product path). Reader-free, judge-free."
+}
