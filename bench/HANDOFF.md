@@ -308,3 +308,25 @@ one claim-graph hop (spreading activation at read-SET construction, where the
 probe showed it recovers), re-export (deduped vs round 1), re-read. 0 metered
 tokens; +1-2 free queries per widened round. Offline-tested end-to-end with
 fakes; LIVE A/B is quota-gated (queued with run4+).
+
+## MISS-FORENSICS FLEET + FIXES (2026-07-09 night, commits 474c57b56..373fa60e9)
+
+69-agent fleet root-caused ALL 58 judged-wrong product-path rows against real
+stores; top clusters adversarially audited. Evidence:
+artifacts/forensics/miss_forensics_fleet_20260709.json.
+
+FIXED SAME NIGHT (373fa60e9):
+1. SILENT EXPORT TRUNCATION (16/58 rows, 3/3 skeptics): pack_record_sources
+   dropped everything past ~23x12KB via packed[:max_sources] -- "no
+   information" answers about facts IN the store. Now lossless-or-loud
+   (data-driven budget with fragmentation bound + two raising invariants).
+   Predicted +10-14 rows on LME-S whole-export. RE-COLLECT (fresh notebooks!)
+   at quota reset = the measurement.
+2. TEMPORAL ANCHOR CORRUPTION (8/58, 2/3 skeptics): naive-local parse + UTC
+   render = ±1 day on evening sessions. Both loaders now tz-aware; invariant
+   test sweeps machine TZs. Fresh ingests only (committed stores immutable).
+
+NOT model work: 19/58 = judge/gold miscalibration (incl. 2-3 LoCoMo label
+defects). Remaining small clusters: enumeration completeness-mode (4), reader
+verification loop (3), rg blind spots (2, iterative_recall covers).
+Suite 1621 green. Hindsight r15 at 26/40 (19 correct, 0 errors) at handoff.
