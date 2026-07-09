@@ -1,0 +1,17 @@
+system=mem0 (comparator on slice 15)
+started=2026-07-09T02:13:13.638519Z
+cmd: /Users/raunakgengiti/Eidetic-Plus/.venv/bin/python -m bench.run --systems mem0 --dataset locomo --samples-file /Users/raunakgengiti/Eidetic-Plus/artifacts/holdout_rotation_r15_codex/holdout40.samples.json --split test --holdout-profile holdout --runs 1 --out /Users/raunakgengiti/Eidetic-Plus/artifacts/holdout_rotation_r15_codex
+[PostHog] Multiple active PostHog clients detected for the same project API key and host. Reuse one Posthog instance per app or process when possible to avoid competing background queues and missed shutdown flushes. Multiple clients are supported when intentional.
+Judge: {'judge_model': 'qwen3-max', 'judge_backend': 'dashscope'}
+Loaded 40 samples (locomo, split=test); categories: {'multi-hop': 8, 'open-domain': 2, 'single-hop': 21, 'temporal': 9}
+Running mem0: 40 samples x 1 run(s)...
+Fetching 18 files:   0%|          | 0/18 [00:00<?, ?it/s]Fetching 18 files:   6%|▌         | 1/18 [00:00<00:02,  6.87it/s]Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Fetching 18 files:  28%|██▊       | 5/18 [00:00<00:00, 23.02it/s]Fetching 18 files:  56%|█████▌    | 10/18 [00:00<00:00, 32.20it/s]Fetching 18 files: 100%|██████████| 18/18 [00:00<00:00, 43.86it/s]Fetching 18 files: 100%|██████████| 18/18 [00:00<00:00, 36.21it/s]
+/Users/raunakgengiti/Eidetic-Plus/.venv/lib/python3.14/site-packages/mem0/vector_stores/qdrant.py:174: UserWarning: Payload indexes have no effect in the local Qdrant. Please use server Qdrant if you need payload indexes.
+  self.client.create_payload_index(
+
+Scoreboard -> /Users/raunakgengiti/Eidetic-Plus/artifacts/holdout_rotation_r15_codex/scoreboard.md
+Curves     -> {'ok': True, 'recall_png': '/Users/raunakgengiti/Eidetic-Plus/artifacts/holdout_rotation_r15_codex/recall_vs_age.png', 'latency_png': '/Users/raunakgengiti/Eidetic-Plus/artifacts/holdout_rotation_r15_codex/latency_vs_age.png', 'slopes': {'eidetic-plus-full': {'recall_slope_per_year': -0.19137692194644962, 'latency_slope_ms_per_year': 18560.060817246624}, 'mem0': {'recall_slope_per_year': 0.2658012804811813, 'latency_slope_ms_per_year': 2286.80260616685}, 'rag-vector': {'recall_slope_per_year': -0.47312627925650025, 'latency_slope_ms_per_year': 8599.421508040841}}}
+Manifest   -> /Users/raunakgengiti/Eidetic-Plus/artifacts/holdout_rotation_r15_codex/run_manifest.json
+Reproduce (full, >=10 runs): bash bench/reproduce.sh
+finished=2026-07-09T03:50:04.543505Z rc=0

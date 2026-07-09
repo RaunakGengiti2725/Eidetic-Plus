@@ -18,6 +18,23 @@ eidetic tokens resolve to immutable records by content hash; 0 quoted spans unma
 
 Sidecars: `artifacts/holdout_rotation_r1{3,4,5}_codex/notebooklm_freetier.judged.json`.
 
+### r15 four-system snapshot (all systems, same window + judge)
+| system | r15 accuracy | median caller tokens/q |
+|---|---|---|
+| **eidetic + NotebookLM (free)** | **34/40 = 85.0%** | **0** |
+| rag-vector | 23/40 = 57.5% | 1902 |
+| eidetic fixed-reader | 22/40 = 55.0% | 4967 |
+| mem0 | 12/40 = 30.0% | 401 |
+
+r15 is the fully-prospective window (drawn after all code existed). On this window the
+free-tier product row leads every comparator while spending zero caller tokens. mem0 was
+only run on r15 (not r13/r14), so it is a single-window comparator, labeled as such.
+
+### Variance (toward the ≥10-run gate — still partial)
+r15 has two runs over identical notebooks: run 1 = 85.0% (40/40 answered), run 2 = 84.8%
+(28/33; 7 rows hit the free-tier daily quota, recorded as errors, retry-on-reset). Two
+partial runs is NOT the gate; it is an early variance signal (tight so far).
+
 ## What this is
 The PRODUCT configuration measured honestly: eidetic's verified claim graph + provenance-
 stamped records exported to NotebookLM, read by Gemini's free tier, every citation
