@@ -1,0 +1,14 @@
+systems=eidetic-full,rag-vector (r14 config + clean-fact form gate in core)
+sha=94df0a93a547e45554f0d561e6141554ae48ea19
+started=2026-07-09T00:48:00.153767Z
+cmd: /Users/raunakgengiti/Eidetic-Plus/.venv/bin/python -m bench.run --systems eidetic-full,rag-vector --dataset locomo --samples-file /Users/raunakgengiti/Eidetic-Plus/artifacts/holdout_rotation_r15_codex/holdout40.samples.json --split test --holdout-profile holdout --runs 1 --out /Users/raunakgengiti/Eidetic-Plus/artifacts/holdout_rotation_r15_codex --overwrite
+Judge: {'judge_model': 'qwen3-max', 'judge_backend': 'dashscope'}
+Loaded 40 samples (locomo, split=test); categories: {'multi-hop': 8, 'open-domain': 2, 'single-hop': 21, 'temporal': 9}
+Running eidetic-plus-full: 40 samples x 1 run(s)...
+Running rag-vector: 40 samples x 1 run(s)...
+
+Scoreboard -> /Users/raunakgengiti/Eidetic-Plus/artifacts/holdout_rotation_r15_codex/scoreboard.md
+Curves     -> {'ok': True, 'recall_png': '/Users/raunakgengiti/Eidetic-Plus/artifacts/holdout_rotation_r15_codex/recall_vs_age.png', 'latency_png': '/Users/raunakgengiti/Eidetic-Plus/artifacts/holdout_rotation_r15_codex/latency_vs_age.png', 'slopes': {'eidetic-plus-full': {'recall_slope_per_year': -0.19137692194644962, 'latency_slope_ms_per_year': 18560.060817246624}, 'rag-vector': {'recall_slope_per_year': -0.47312627925650025, 'latency_slope_ms_per_year': 8599.421508040841}}}
+Manifest   -> /Users/raunakgengiti/Eidetic-Plus/artifacts/holdout_rotation_r15_codex/run_manifest.json
+Reproduce (full, >=10 runs): bash bench/reproduce.sh
+finished=2026-07-09T01:33:44.720922Z rc=0
