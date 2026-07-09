@@ -856,6 +856,50 @@ def _event_date(rec: object, atom: str) -> Optional[date]:
         return None
 
 
+_TWO_EVENT_BETWEEN_RE = re.compile(
+    r"\bhow\s+many\s+days\b[^?]*\bbetween\b\s+(?:the\s+day\s+)?(?:i\s+|we\s+)?(.+?)\s+\band\b\s+"
+    r"(?:the\s+day\s+)?(?:i\s+|we\s+|of\s+)?(.+?)\s*[?.]?\s*$", re.I)
+
+
+def _two_event_delta_answer(query: str, atoms: list[tuple[float, object, str]]):
+    """A TWO-EVENT day gap ('how many days between doing X and doing Y') -- a shape the
+    single-event 'days ago did I X' path never handled (it returned 0). Match each event phrase
+    to its best atom by content-word overlap, take each atom's _event_date, and return the day
+    gap. Fires ONLY on the explicit 'between X and Y' shape; returns None otherwise so existing
+    temporal_delta behaviour is untouched (purely additive)."""
+    m = _TWO_EVENT_BETWEEN_RE.search(query or "")
+    if not m:
+        return "", []
+    stop = {"the", "a", "an", "my", "our", "of", "in", "on", "at", "to", "day", "event", "and"}
+
+    def _terms(s):
+        return {t for t in re.findall(r"[a-z0-9][a-z0-9'-]{2,}", (s or "").lower())
+                if t not in stop}
+
+    def _best(phrase):
+        pt = _terms(phrase)
+        if not pt:
+            return None
+        best, best_score = None, 0
+        for score, item, atom in atoms:
+            overlap = len(pt & _terms(atom))
+            if overlap > best_score:
+                best, best_score = (item, atom), overlap
+        return best if best_score >= 1 else None
+
+    a, b = _best(m.group(1)), _best(m.group(2))
+    if not a or not b:
+        return "", []
+    da, db = _event_date(a[0], a[1]), _event_date(b[0], b[1])
+    if da is None or db is None or da == db:
+        return "", []
+    days = abs((db - da).days)
+    if days <= 0 or days > 3650:          # sanity: a plausible within-decade gap
+        return "", []
+    sels = [(1.0, a[0], a[1]), (1.0, b[0], b[1])]
+    return f"{days} days", sels
+
+
 _QUERY_WINDOW_EXPR_RE = re.compile(
     r"^(?:recently|lately|fortnight|past\s+(?:day|week|month|year)s?|"
     r"(?:past|previous|last)\s+(?:a\s+)?(?:couple|few|several|\d+)\s+"
@@ -5482,6 +5526,14 @@ def _execute_atoms(plan: ExecutionPlan, query: str,
             if answer and selected:
                 return result_from(answer, selected)
         return None
+
+    if op == "temporal_delta":
+        # TWO-EVENT delta ("days between the day I <A> and the day I <B>") -- handled first
+        # because the single-event 'days ago did I X' path below returns 0 for it. Additive:
+        # fires only on the explicit 'between X and Y' shape, else falls through unchanged.
+        answer, selected = _two_event_delta_answer(query, atoms)
+        if answer and selected:
+            return result_from(answer, selected)
 
     if op in {"temporal_delta", "relative_temporal"}:
         # A delta about an ACTION ("How many days ago did I buy that grill?") must anchor on
