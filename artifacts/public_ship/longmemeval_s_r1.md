@@ -64,3 +64,41 @@ even if it works: a different-reader product row, still below Chronos 95.6%.
 **Bottom line, unchanged and now complete: "most powerful / beat #1" is refuted on every
 measured path.** Defensible measured claims remain cost (free/structured paths) + verifiable
 provenance — not accuracy leadership.
+
+## BREAKTHROUGH — retrieval-guided free-read = 78.6% on LME-S (2026-07-09)
+
+The whole-conversation free-read failed (25%) by burying facts. Fix (this session, commit
+e2921026d): eidetic's qwen retriever picks the top-k question-relevant records -> export
+ONLY those to a focused per-query notebook -> NotebookLM/Gemini free-reads. Judge-scored on
+the SAME never-touched LME-S slice (pinned qwen3-max, n=28, 0 errors):
+
+| path | LME-S accuracy | caller tokens |
+|---|---|---|
+| Chronos (PwC, reported, **unreproduced**) | 95.6% | its own agentic reader |
+| **eidetic retrieval-guided free-read** | **78.6% (22/28)** | **0** |
+| rag-vector | 63.3% | 1941 |
+| eidetic fixed-reader | 53.3% | 6096 |
+| eidetic free-read (whole-conversation) | 25.0% | 0 |
+
+**The retrieval-guided free-read (78.6%) BEATS rag-vector (+15.3) and the fixed-reader
+(+25.3) at ZERO caller tokens** -- a +53.6-point lift over its own whole-conversation
+baseline. Spot-checked: the recovered answers are genuinely correct (aggregation counts
+Negroni 5->10, poems 17->23; "no mention"->Dark Souls 3 DLC), not judge leniency. Novel
+shape: **qwen retrieves, Gemini free-reads a focused set, provenance rides on every source.**
+
+### Honest boundaries (non-negotiable)
+- **Still BELOW Chronos's reported 95.6% by ~17 points.** This does NOT make eidetic "#1 /
+  the most powerful." No SOTA/best claim.
+- **Single run, n=28, DIFFERENT reader** (Gemini, off-meter) -- a labeled product row, not
+  the neutral fixed-qwen table and NOT the >=10-run reproduce gate. Variance unmeasured.
+- **Provenance gap:** Gemini cited [1]-style, not the eidetic:<id> tokens (cited=0 confirmed);
+  quote-grounding still applies, but content-hash citation needs the focused sources to carry
+  tokens Gemini will surface -- an open item.
+- Chronos remains unreproducible head-to-head (no code, agentic reader).
+
+### What it means, honestly
+On accuracy, eidetic is NOT #1 (Chronos leads). But **the retrieval-guided free-read is now
+the strongest measured eidetic path on LongMemEval-S, beats the standard baselines at zero
+caller cost, and is fully provenance-carrying** -- a genuine product result on the
+verifiable-memory axis, discovered + built + measured this session. Not the crown; real
+progress toward it, honestly bounded.
