@@ -140,7 +140,10 @@ def main() -> int:
     if args.limit:
         rows = rows[: args.limit]
 
-    done = {r["sample_id"] for r in _rows(out_path)} if out_path.exists() else set()
+    # resume: skip answered rows, RETRY errored ones (a transient nlm failure must not
+    # permanently hole the collection)
+    done = ({r["sample_id"] for r in _rows(out_path) if "error" not in r}
+            if out_path.exists() else set())
     exported: dict[str, str] = {}   # namespace -> notebook_id (graph exported this run)
     n_ok = n_err = 0
     with open(out_path, "a") as fh:
