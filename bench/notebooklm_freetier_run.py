@@ -86,8 +86,24 @@ def pack_record_sources(bridge: NotebookLMBridge, namespace: str,
     per-notebook source cap. Each packed source concatenates whole record sources --
     provenance headers ride INSIDE the text, so citation resolution and quote grounding
     are unaffected. The graph source gives Gemini the compact verified facts; these give
-    it the raw evidence the graph compaction drops (affect, detail, phrasing)."""
-    singles = bridge.build_sources(namespace)
+    it the raw evidence the graph compaction drops (affect, detail, phrasing).
+
+    NLM_CHUNK_CHARS>0 (default off): split long records into per-chunk sources so a fact
+    buried in a long LongMemEval-S turn is separately surfaceable (see format_source_chunks).
+    Off => byte-identical to the shipped behavior, so LoCoMo numbers are untouched."""
+    import os as _os
+    chunk_chars = int(_os.environ.get("NLM_CHUNK_CHARS", "0") or "0")
+    if chunk_chars > 0:
+        from eidetic.integrations.notebooklm import format_source_chunks
+        singles = []
+        for rec in bridge._records(namespace, None):  # noqa: SLF001 - same records as build_sources
+            try:
+                claims = bridge.engine.store.claims_by_source(rec.memory_id)
+            except Exception:
+                claims = []
+            singles.extend(format_source_chunks(rec, claims, chunk_chars=chunk_chars))
+    else:
+        singles = bridge.build_sources(namespace)
     packed: list[dict] = []
     buf: list[str] = []
     size = 0

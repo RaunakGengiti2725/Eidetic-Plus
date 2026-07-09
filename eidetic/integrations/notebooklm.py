@@ -167,6 +167,50 @@ def format_source(record: MemoryRecord, claims: Iterable[ClaimRecord] = ()) -> d
     return {"display_name": name, "text_content": text}
 
 
+def format_source_chunks(record: MemoryRecord, claims: Iterable[ClaimRecord] = (),
+                         chunk_chars: int = 0) -> list[dict]:
+    """Long-session export fix: a fact buried deep in a LONG record (e.g. a multi-paragraph
+    'write a blog post about ...' turn) is present in the exported source but the reader's
+    attention over one big block misses it -- observed on LongMemEval-S (the answer was in
+    the store yet NotebookLM said 'no information'). When chunk_chars>0 and the body exceeds
+    it, split the body on paragraph/sentence boundaries into multiple sources, each carrying
+    the SAME provenance header (so the eidetic:<id> token + content hash ride on every chunk
+    and citation/grounding still round-trip). Short records fall back to a single source.
+
+    Default off (chunk_chars=0) -> byte-identical to format_source, so LoCoMo + the shipped
+    free-read numbers are untouched."""
+    single = format_source(record, claims)
+    body = (record.text or record.summary or "").strip()
+    if chunk_chars <= 0 or len(body) <= chunk_chars:
+        return [single]
+    header = single["text_content"].split("\n\n", 1)[0]   # the provenance block
+    # split on blank lines first, then hard-wrap any still-oversized piece on sentence ends
+    pieces: list[str] = []
+    for para in _re.split(r"\n\s*\n", body):
+        para = para.strip()
+        if not para:
+            continue
+        if len(para) <= chunk_chars:
+            pieces.append(para)
+            continue
+        cur = ""
+        for sent in _re.split(r"(?<=[.!?])\s+", para):
+            if cur and len(cur) + len(sent) > chunk_chars:
+                pieces.append(cur.strip())
+                cur = ""
+            cur += (" " if cur else "") + sent
+        if cur.strip():
+            pieces.append(cur.strip())
+    mid = record.memory_id[:16]
+    out = []
+    for i, piece in enumerate(pieces):
+        out.append({
+            "display_name": f"eidetic:{mid} @ {_iso(record.valid_at)} [{i + 1}/{len(pieces)}]",
+            "text_content": f"{header}\n(chunk {i + 1} of {len(pieces)})\n\n{piece}",
+        })
+    return out
+
+
 # The four honest boundary labels. Carried VERBATIM on every graph source and every
 # router return so the honesty can never be dropped downstream (docs/claims.md).
 _HONESTY_BOUNDARIES = {
