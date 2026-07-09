@@ -102,3 +102,52 @@ the strongest measured eidetic path on LongMemEval-S, beats the standard baselin
 caller cost, and is fully provenance-carrying** -- a genuine product result on the
 verifiable-memory axis, discovered + built + measured this session. Not the crown; real
 progress toward it, honestly bounded.
+
+---
+
+## Advisory-injection measurement — a WASH within noise, real per-op signal (2026-07-09)
+
+Tested whether prepending eidetic's deterministic `structured_recall` value as a
+**non-authoritative** advisory source lifts the retrieval-guided free-read. Same LME-S
+window, **paired** (identical sample_ids), one fixed qwen3-max judge for both arms.
+
+| arm | accuracy (paired, n=27) |
+|---|---|
+| retrieval-guided free-read | 22/27 = 81.5% |
+| retrieval-guided **+ advisory-injection** | 24/27 = 88.9% |
+| raw delta | **+2 questions (+7.4pp)** |
+
+**The raw +7.4pp is NOT a real lift — it is within noise.** 6 discordant pairs, McNemar
+exact two-sided p ≈ 0.69: indistinguishable from a coin flip. Per-op attribution (advisory
+presence detected via `n_sources` delta — the advisory adds one source):
+
+| flipped question | advisory injected? | honest attribution |
+|---|---|---|
+| bronchitis (gain) | **no** (identical sources) | Gemini run-to-run variance |
+| kitchen-preference (loss) | **no** | Gemini run-to-run variance |
+| "how old when Alex born?" gold=11 (gain) | yes | **judge false-positive** — injected answer literally says "do NOT contain any information regarding Alex"; judge wrongly scored it correct |
+| weddings gold="three" (gain) | yes | plausible; advisory value correct (3, not the count_aggregate 3→4 overcount) |
+| **"29 days" between two events (gain)** | yes | **CLEAN gain** — two-event-delta op computed 29; reader answered "Exactly 29 days … [1]" citing the advisory |
+| **"total feed weight" gold=70 lb (loss)** | yes | **CLEAN loss** — `_measure_type_sum` advisory computed **1,226.3 lb** (garbage); reader trusted it ("structured recall of your claims"); the retrieval-guided baseline got 70 lb RIGHT by reading records |
+
+**Net verified injection effect: +1 (a correct deterministic op) / −1 (a buggy one).**
+Two of six flips carried no advisory at all (pure reader variance, they cancel); one
+"gain" is a judge false-positive on a non-answer. The aggregate is a wash.
+
+### What this actually shows (honest)
+- Advisory-injection is **NOT a net accuracy lift** on this window. It is a per-op
+  amplifier: a *correct* deterministic op (two-event day-gap) verifiably helps; a *buggy*
+  op (measure-type-sum: 1,226.3 vs a true 70) verifiably **corrupts an otherwise-correct
+  free-read**, and the "trust the records if they disagree" label did **not** prevent it.
+- Correct posture, unchanged: **injection stays flag-OFF by default** (`inject_computed=False`).
+  Off-by-default ⇒ no shipping harm; it is a research lever, not a product default.
+- **Characterized bug (not fixed this session):** `_measure_type_sum_answer` summed unrelated
+  quantities to 1,226.3 lb for "total weight of feed purchased in the past two months"
+  (gold 70). Fixing risky numeric code post-long-session, without the ≥10-run gate, is how
+  regressions land — recorded as a lever, deferred.
+- **Judge artifact found:** a "no information about Alex" non-answer was scored correct vs
+  gold "11". Affects both arms ~equally on aggregate; noted for the judge audit.
+- Still **< Chronos 95.6%.** No #1 / SOTA / "most powerful" claim — unchanged.
+
+Raw data: `artifacts/lme_s_r1_codex/notebooklm_rg_injected.jsonl` (28 rows, 27 ok);
+paired scores: `artifacts/lme_s_r1_codex/rgi_scored.json`.

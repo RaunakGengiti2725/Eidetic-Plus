@@ -1,0 +1,245 @@
+[
+  {
+    "sample_id": "06db6396",
+    "category": "knowledge-update",
+    "rg": true,
+    "inj": true,
+    "gold": "5",
+    "rg_ans": "You have completed **five projects** since you started your painting classes [1], [2]. \n\nYou mentioned this milestone wh",
+    "inj_ans": "You have completed **five projects** since you started your painting classes [1, 2].\n\nYou recently shared that you had *"
+  },
+  {
+    "sample_id": "36580ce8",
+    "category": "single-session-user",
+    "rg": false,
+    "inj": true,
+    "gold": "bronchitis",
+    "rg_ans": "Based on the provided sources and our conversation history, there is **no mention of a health issue** that you initially",
+    "inj_ans": "Based on the provided sources, there is **no mention of a health issue** that you initially thought was just a cold. \n\nT"
+  },
+  {
+    "sample_id": "3fe836c9",
+    "category": "multi-session",
+    "rg": true,
+    "inj": true,
+    "gold": "$25,000",
+    "rg_ans": "The pre-approval amount was **$25,000** more than the final sale price of the house.\n\nAccording to the sources, the lend",
+    "inj_ans": "The pre-approval amount for the mortgage was **$25,000 more** than the final sale price of the house [1]. \n\nThis is base"
+  },
+  {
+    "sample_id": "57f827a0",
+    "category": "single-session-preference",
+    "rg": true,
+    "inj": true,
+    "gold": "The user would prefer responses that take into account their existing plans to replace the bedroom dresser and their interest in mid-century modern style, suggesting furniture layouts that accommodate the new dresser and incorporate elements of this design aesthetic. They might not prefer general furniture arrangement tips or suggestions that do not consider their specific design preferences.",
+    "rg_ans": "Rearranging your bedroom can significantly impact both the functionality and the overall feel of the space. Based on the",
+    "inj_ans": "Rearranging your bedroom can be a great way to refresh your space. Based on the sources, here are several tips to consid"
+  },
+  {
+    "sample_id": "5c40ec5b",
+    "category": "knowledge-update",
+    "rg": true,
+    "inj": true,
+    "gold": "We've met up twice.",
+    "rg_ans": "You have met up with Alex from Germany **twice already** [1-4]. You first met him at a **music festival**, and you menti",
+    "inj_ans": "Based on the sources, you have met up with Alex from Germany **twice** already [1-4].\n\nYou originally met him at a **mus"
+  },
+  {
+    "sample_id": "603deb26",
+    "category": "knowledge-update",
+    "rg": true,
+    "inj": true,
+    "gold": "10",
+    "rg_ans": "According to the sources, you have tried making a Negroni at home **10 times** since your friend Emma showed you how to ",
+    "inj_ans": "You have tried making a Negroni at home **10 times** since your friend Emma showed you how to make it [1], [2], [3], [4]"
+  },
+  {
+    "sample_id": "60d45044",
+    "category": "single-session-user",
+    "rg": true,
+    "inj": true,
+    "gold": "Japanese short-grain rice",
+    "rg_ans": "Based on the provided sources and our conversation history, there is **no mention of your favorite type of rice**.\n\nThe ",
+    "inj_ans": "Based on the sources provided, there is **no mention of your favorite type of rice**.\n\nThe sources cover various topics,"
+  },
+  {
+    "sample_id": "65240037",
+    "category": "single-session-assistant",
+    "rg": true,
+    "inj": true,
+    "gold": "The recommended ratio is 1:10, meaning one part tea tree oil to ten parts carrier oil.",
+    "rg_ans": "The recommended ratio for diluting tea tree oil with a carrier oil before applying it to your skin is **1:10** [1], [2].",
+    "inj_ans": "The recommended ratio for diluting tea tree oil with a carrier oil before applying it to your skin is **1:10** [1], [2]."
+  },
+  {
+    "sample_id": "8a137a7f",
+    "category": "single-session-user",
+    "rg": true,
+    "inj": true,
+    "gold": "Philips LED bulb",
+    "rg_ans": "You replaced the bulb in your bedside lamp with a **Philips LED bulb** [1, 2]. You mentioned that you particularly enjoy",
+    "inj_ans": "You replaced the bulb in your bedside lamp with a **Philips LED bulb** [1, 2]. You specifically noted that you liked the"
+  },
+  {
+    "sample_id": "8cf51dda",
+    "category": "single-session-assistant",
+    "rg": true,
+    "inj": true,
+    "gold": "The three objectives were: 1) to identify molecular subtypes of endometrial cancer, 2) to investigate their clinical and biological significance, and 3) to develop biomarkers for early detection and prognosis.",
+    "rg_ans": "In the project regarding molecular subtypes and endometrial cancer, the three outlined objectives are:\n\n1.  **To identif",
+    "inj_ans": "The three objectives outlined for the project on molecular subtypes and endometrial cancer are:\n\n1.  **To identify molec"
+  },
+  {
+    "sample_id": "a1cc6108",
+    "category": "multi-session",
+    "rg": false,
+    "inj": true,
+    "gold": "11",
+    "rg_ans": "I am sorry, but the provided sources and our conversation history **do not contain any information** regarding your age,",
+    "inj_ans": "The provided sources and conversation history **do not contain any information** regarding a person named Alex, his birt"
+  },
+  {
+    "sample_id": "a3838d2b",
+    "category": "temporal-reasoning",
+    "rg": false,
+    "inj": false,
+    "gold": "4",
+    "rg_ans": "You participated in **three** charity events prior to the \"Run for the Cure\" event on October 15th [1, 2]. \n\nThe events ",
+    "inj_ans": "You participated in **two** charity events before the \"Run for the Cure\" event, which took place on **October 15th** [1]"
+  },
+  {
+    "sample_id": "a4996e51",
+    "category": "multi-session",
+    "rg": true,
+    "inj": true,
+    "gold": "50",
+    "rg_ans": "During peak campaign seasons, you typically work **up to 50 hours per week** [1, 2].\n\nWhile your standard workload is **",
+    "inj_ans": "During **peak campaign seasons**, you typically work **up to 50 hours per week** [1-3]. While your standard workload is "
+  },
+  {
+    "sample_id": "a82c026e",
+    "category": "single-session-user",
+    "rg": true,
+    "inj": true,
+    "gold": "Dark Souls 3 DLC",
+    "rg_ans": "Last weekend, you finally beat the last boss in the **Dark Souls 3 DLC** after weeks of trying [1, 2]. You mentioned tha",
+    "inj_ans": "Last weekend, you finally beat the last boss in the **Dark Souls 3 DLC** after weeks of effort [1]."
+  },
+  {
+    "sample_id": "afdc33df",
+    "category": "single-session-preference",
+    "rg": true,
+    "inj": false,
+    "gold": "The user would prefer responses that acknowledge and build upon their existing efforts to organize their kitchen, such as utilizing their new utensil holder to keep countertops clutter-free. They would also appreciate tips that address their concern for maintaining their granite surface, particularly around the sink area. Preferred responses would provide practical and actionable steps to maintain cleanliness, leveraging the user's current tools and setup. They might not prefer generic or vague suggestions that do not take into account their specific kitchen setup or concerns.",
+    "rg_ans": "To help you get your kitchen back in order and keep it clean, the sources provide several strategies ranging from deep-c",
+    "inj_ans": "To help you get your kitchen back in order and keep it that way, you can combine organizational strategies, specific cle"
+  },
+  {
+    "sample_id": "b01defab",
+    "category": "knowledge-update",
+    "rg": true,
+    "inj": true,
+    "gold": "Yes",
+    "rg_ans": "Yes, you **finished reading \"The Nightingale\"** by Kristin Hannah recently [1-3]. \n\nIn your previous conversations, you ",
+    "inj_ans": "Yes, according to the sources, you have **finished reading \"The Nightingale\"** by Kristin Hannah [1-4]. \n\nWhile you had "
+  },
+  {
+    "sample_id": "b759caee",
+    "category": "single-session-assistant",
+    "rg": true,
+    "inj": true,
+    "gold": "@jessica_poole_jewellery",
+    "rg_ans": "The UK-based designer from our previous conversation who has a passion for working with **unusual gemstones** is **Jessi",
+    "inj_ans": "The UK-based jewelry designer you are thinking of is **Jessica Poole**, and her Instagram handle is **@jessica_poole_jew"
+  },
+  {
+    "sample_id": "bc149d6b",
+    "category": "multi-session",
+    "rg": true,
+    "inj": false,
+    "gold": "70 pounds",
+    "rg_ans": "Based on the sources, the total weight of the new feed you purchased that has a specified weight is **70 pounds**.\n\nThis",
+    "inj_ans": "Based on your recent purchase records and the structured recall of your claims, the total weight of the new feed you pur"
+  },
+  {
+    "sample_id": "f0e564bc",
+    "category": "multi-session",
+    "rg": true,
+    "inj": true,
+    "gold": "$1,300",
+    "rg_ans": "The total amount you spent on the designer handbag and high-end skincare products is **$1,300**.\n\nAccording to the sourc",
+    "inj_ans": "The total amount you spent on the designer handbag and high-end skincare products is **$1,300**.\n\nThis total is based on"
+  },
+  {
+    "sample_id": "gpt4_2655b836",
+    "category": "temporal-reasoning",
+    "rg": true,
+    "inj": true,
+    "gold": "GPS system not functioning correctly",
+    "rg_ans": "The first issue you encountered with your new car following its initial service on March 15th was a problem with the **G",
+    "inj_ans": "The first issue you had with your new car following its first service on March 15th was a problem with the **GPS system*"
+  },
+  {
+    "sample_id": "gpt4_2f8be40d",
+    "category": "multi-session",
+    "rg": false,
+    "inj": true,
+    "gold": "I attended three weddings. The couples were Rachel and Mike, Emily and Sarah, and Jen and Tom.",
+    "rg_ans": "Based on the provided sources, there is no mention of any weddings you have attended during the current year of **2026**",
+    "inj_ans": "Based on the provided sources, you have attended **three weddings** during the year (specifically 2023, based on the doc"
+  },
+  {
+    "sample_id": "gpt4_2f91af09",
+    "category": "multi-session",
+    "rg": true,
+    "inj": true,
+    "gold": "23",
+    "rg_ans": "Since you started writing again three weeks ago, you have completed a total of **23 pieces of writing**. This total incl",
+    "inj_ans": "Since you started writing again three weeks ago, you have completed a total of **23 pieces of writing** [1-3]. This tota"
+  },
+  {
+    "sample_id": "gpt4_74aed68e",
+    "category": "temporal-reasoning",
+    "rg": false,
+    "inj": true,
+    "gold": "29 days. 30 days (including the last day) is also acceptable.",
+    "rg_ans": "**28 days** passed between the day you replaced your spark plugs and the day you participated in the Turbocharged Tuesda",
+    "inj_ans": "Exactly **29 days** passed between the day you replaced your spark plugs and the day you participated in the Turbocharge"
+  },
+  {
+    "sample_id": "gpt4_76048e76",
+    "category": "temporal-reasoning",
+    "rg": true,
+    "inj": true,
+    "gold": "bike",
+    "rg_ans": "You took care of your **bike** first in February. \n\nAccording to the sources, you took your bike in for repairs in **mid",
+    "inj_ans": "You took care of your **bike** first in February [1, 2]. According to your records, you took your bike in for repairs in"
+  },
+  {
+    "sample_id": "gpt4_85da3956",
+    "category": "temporal-reasoning",
+    "rg": true,
+    "inj": true,
+    "gold": "3 weeks ago",
+    "rg_ans": "You attended the \"Summer Nights\" festival at Universal Studios Hollywood **three weeks ago** [1, 2]. \n\nDuring that visit",
+    "inj_ans": "You attended the \"Summer Nights\" festival at Universal Studios Hollywood **three weeks ago** [1, 2]. \n\nAccording to the "
+  },
+  {
+    "sample_id": "gpt4_8e165409",
+    "category": "temporal-reasoning",
+    "rg": true,
+    "inj": true,
+    "gold": "14 days. 15 days (including the last day) is also acceptable.",
+    "rg_ans": "Based on the provided sources, the **spider plant was repotted on March 4, 2023** [1, 2]. In a conversation on that date",
+    "inj_ans": "Based on the sources provided, **14 days** passed between the day you repotted your previous spider plant and the day yo"
+  },
+  {
+    "sample_id": "gpt4_93159ced_abs",
+    "category": "temporal-reasoning",
+    "rg": true,
+    "inj": true,
+    "gold": "The information provided is not enough. From the information provided, You haven't started working at Google yet.",
+    "rg_ans": "Based on the provided sources and our conversation history, there is **no information available regarding your employmen",
+    "inj_ans": "I reviewed the provided sources, and they **do not contain any information regarding your employment history** or the du"
+  }
+]
