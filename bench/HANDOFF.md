@@ -241,3 +241,24 @@ bench/measure_sum_live_probe.py`.
   recovery is a SEPARATE dev-split lever (stated-total detection / retrieval-guided read), NOT to
   be pursued by weakening the gate — any re-open needs a live-probe-proven zero regression.
   (3) NotebookLM Tier-1 unified recall + provenance (P1/P2) still open.
+
+## P4 + P1 SAME DAY (2026-07-09, commits ce3b5a041..17850edcd)
+
+- **Release gate re-run honest FAIL 156/471** (`d265f4e7a`): gate checks re-scoped to
+  answerable cases (expected_abstain_cases published in reports — auditable denominator);
+  9 SMQE sidecars regenerated green under the fail-closed contract; the one flipped check
+  (ablation:valid_json) reports a transient never-committed file honestly.
+- **P1 provenance bar MET LIVE (`6923015ec` + `17850edcd`):** quote-content citation_map —
+  [n] → memory_id → content_hash by quote bytes (verbatim → unique-best overlap ≥0.8;
+  ambiguous/junk unattributed with reason). Live re-query of 26 surviving LME-S rgi
+  notebooks: **25/26 rows (96%), 198/204 references (97%)** — was 0/28 token-based. Gate:
+  `bench/provenance_live_probe.py`. Single miss = zero-citation Gemini answer.
+- **Unified recall wired:** MCP `notebooklm_recall` (retrieval-guided one-call:
+  qwen retrieval → focused export → free read) + `recall_routed` (T0 reflex → T1 structured
+  → T2 free read / T3 metered gate). `retrieval_guided_answer()` replaces ad-hoc collectors;
+  `routed_answer` abstains honestly without notebook_id (no silent metered escalation).
+  Suite 1613 green.
+- **Goal checklist state:** numeric fail-closed ✅ (0 VW live) | provenance >80% ✅ (96%) |
+  unified routed recall ✅ | release gate documented ✅ | REMAINING: product-beats-RAG on ≥2
+  windows w/ judged significance, ≥10-run NBL gate, polar/inhibitory-edge eval — all
+  live-quota-gated (≥10-run = ~400 free-tier queries; ~30 burned today, ~130 on 07-07).
