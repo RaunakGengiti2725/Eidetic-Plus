@@ -572,6 +572,34 @@ class NotebookLMBridge:
             out.append(format_source(rec, claims))
         return out
 
+    def retrieval_guided_sources(self, namespace: str, question: str,
+                                 top_k: int = 6) -> list[dict]:
+        """Retrieval-GUIDED free-read sources: instead of exporting a whole conversation (which
+        buries a fact inside dozens of records so NotebookLM/Gemini answers 'no information' on
+        long sessions -- measured on LongMemEval-S), let eidetic's OWN qwen retriever pick the
+        top_k records relevant to THIS question and export ONLY those into a focused notebook.
+        The answer fact is then front-and-centre. LIVE-VALIDATED: recovered a buried
+        '@handle' answer that the whole-conversation export returned 'no information' for.
+
+        Novel shape: qwen retrieval (the memory engine) selects; NotebookLM/Gemini reads the
+        focused set for free (0 caller tokens); provenance headers still ride on each source."""
+        r = getattr(self.engine, "retriever", None)
+        if r is None or not hasattr(r, "retrieve"):
+            return self.build_sources(namespace, limit=top_k)
+        scope = Scope(namespace=namespace)
+        cands = r.retrieve(question, at=None, scope=scope)[:max(1, top_k)]
+        out = []
+        for c in cands:
+            rec = getattr(c, "record", None)
+            if rec is None:
+                continue
+            try:
+                claims = self.engine.store.claims_by_source(rec.memory_id)
+            except Exception:
+                claims = []
+            out.append(format_source(rec, claims))
+        return out
+
     def export_namespace(self, namespace: str, notebook_id: str, *,
                          limit: Optional[int] = None, batch_size: int = 20,
                          include_graph: bool = False) -> dict:
