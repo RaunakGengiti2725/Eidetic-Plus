@@ -105,12 +105,52 @@ def render_md(rep: dict) -> str:
     return "\n".join(lines)
 
 
+def judge_rows(path: Path, judge=None) -> dict:
+    """THE decisive scoring step -- runs the SAME pinned qwen3-max judge the benchmark
+    uses over the collected free-tier answers. Needs a funded DASHSCOPE key; refuses with
+    a plain message otherwise. Writes a `judged` sidecar so the result is durable. This is
+    the ONLY path that turns the collection into a judge-scored accuracy number; the
+    heuristic rate above never substitutes for it."""
+    rows = [json.loads(l) for l in path.read_text().splitlines() if l.strip()]
+    ok = [r for r in rows if "error" not in r]
+    if judge is None:
+        import os
+        if not os.environ.get("DASHSCOPE_API_KEY"):
+            return {"judged": False,
+                    "reason": "DASHSCOPE_API_KEY not set -- the pinned qwen3-max judge "
+                              "cannot run. Collection is judge-ready; set the key and "
+                              "re-run with --judge."}
+        from .judge import Judge
+        judge = Judge()
+    correct = 0
+    per = []
+    for r in ok:
+        c = bool(judge.judge_locomo(r["question"], r["gold"], r.get("nb_answer", "")))
+        per.append({"sample_id": r["sample_id"], "correct": c, "category": r.get("category")})
+        correct += c
+    out = {"judged": True, "judge": "pinned bench judge (same as scoreboard rows)",
+           "n": len(ok), "correct": correct,
+           "accuracy": round(correct / len(ok), 3) if ok else None,
+           "rows": per,
+           "label": ("judge-scored accuracy of the NotebookLM free-read tier on this "
+                     "window. Different READER than the fixed-qwen table (off-meter "
+                     "Gemini), so present it as its own labeled row, never merged into "
+                     "the fixed-reader comparison.")}
+    side = path.with_suffix(".judged.json")
+    side.write_text(json.dumps(out, indent=2))
+    return out
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("jsonl")
     ap.add_argument("--out")
+    ap.add_argument("--judge", action="store_true",
+                    help="ALSO judge-score with the pinned bench judge (needs DASHSCOPE key)")
     args = ap.parse_args()
     rep = build(Path(args.jsonl))
+    if args.judge:
+        rep["judge_scored"] = judge_rows(Path(args.jsonl))
     print(json.dumps(rep, indent=2))
     if args.out:
         out = Path(args.out)

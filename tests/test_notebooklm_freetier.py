@@ -47,6 +47,45 @@ def test_find_notebook_id_strict_never_falls_back_to_first_id():
     assert find_notebook_id(listing, "My Memory", strict=True) == "nb_DEMO_12345"
 
 
+def test_judge_rows_scores_with_injected_judge_and_writes_sidecar(tmp_path):
+    """--judge path: same pinned-judge interface as the scoreboard, durable sidecar,
+    honest different-reader label. Injected fake judge -> no key, no network."""
+    import json
+    from bench.notebooklm_freetier_report import judge_rows
+
+    p = tmp_path / "col.jsonl"
+    rows = [
+        {"sample_id": "s1", "question": "q1", "gold": "g1", "nb_answer": "right", "category": "single-hop"},
+        {"sample_id": "s2", "question": "q2", "gold": "g2", "nb_answer": "wrong", "category": "temporal"},
+        {"sample_id": "s3", "error": "boom"},
+    ]
+    p.write_text("\n".join(json.dumps(r) for r in rows))
+
+    class _J:
+        def judge_locomo(self, q, gold, hyp):
+            return hyp == "right"
+
+    out = judge_rows(p, judge=_J())
+    assert out["judged"] is True
+    assert out["n"] == 2 and out["correct"] == 1 and out["accuracy"] == 0.5
+    assert "never merged" in out["label"]
+    side = json.loads((tmp_path / "col.judged.json").read_text())
+    assert side["accuracy"] == 0.5
+
+
+def test_judge_rows_refuses_plainly_without_key(tmp_path, monkeypatch):
+    import json
+    from bench.notebooklm_freetier_report import judge_rows
+
+    monkeypatch.delenv("DASHSCOPE_API_KEY", raising=False)
+    p = tmp_path / "col.jsonl"
+    p.write_text(json.dumps({"sample_id": "s1", "question": "q", "gold": "g",
+                             "nb_answer": "a"}))
+    out = judge_rows(p)
+    assert out["judged"] is False
+    assert "DASHSCOPE_API_KEY" in out["reason"]
+
+
 def test_pack_preserves_record_text_verbatim():
     sources = [{"display_name": "s0",
                 "text_content": "--- EIDETIC VERIFIED MEMORY (provenance) ---\nbody text"}]

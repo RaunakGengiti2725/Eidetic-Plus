@@ -351,6 +351,32 @@ def structured_recall(query: str, namespace: Optional[str] = None, agent_id: Opt
 
 
 @_threaded_tool
+def notebooklm_answer(question: str, notebook_id: str,
+                      namespace: Optional[str] = None) -> dict:
+    """FREE recall through NotebookLM/Gemini: answers over the namespace's previously
+    EXPORTED sources at 0 tokens on the caller's metered model (Google's free tier does
+    the read; requires `nlm login` on this machine -- works WITHOUT a DASHSCOPE key).
+    Returns the clean answer + provenance (content-hash-mapped records) + cited_sources
+    (how many of Gemini's eidetic:<id> citations resolve to REAL immutable records) +
+    grounding (deterministic quote-faithfulness vs the exported bytes -- catches
+    fabricated/altered quotes; lexical, NOT NLI). HONEST BOUNDARY: the answer is
+    Gemini-side and NOT eidetic-verify-or-abstain -- use `recall` for a gate-verified
+    cited answer. Export first via `python -m eidetic.integrations.notebooklm
+    export-graph` (one-time per namespace)."""
+    from eidetic.integrations.notebooklm import CliBackend, NotebookLMBridge, NotebookLMError
+    question = _text_arg(question, "question", max_chars=_MAX_QUERY_CHARS)
+    notebook_id = _text_arg(notebook_id, "notebook_id", max_chars=128)
+    ns = namespace or _scope(namespace, None, None).namespace
+    try:
+        return NotebookLMBridge(engine(), CliBackend()).answer(ns, question, notebook_id)
+    except NotebookLMError as e:
+        raise RuntimeError(
+            f"NotebookLM read failed (no answer fabricated): {e}. Install/login the free "
+            "CLI: `.venv/bin/pip install notebooklm-mcp-cli` then `nlm login`."
+        )
+
+
+@_threaded_tool
 def truth_ledger(query: str, namespace: Optional[str] = None, agent_id: Optional[str] = None,
                  project_id: Optional[str] = None, verify: bool = True,
                  as_of: Optional[float] = None) -> dict:

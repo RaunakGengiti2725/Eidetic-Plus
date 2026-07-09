@@ -411,3 +411,42 @@ def test_remember_many_bulk_stores_and_dedups(mcp_engine):
     # second call is fully deduped against the store
     again = mcp_server.remember_many(contents=["The greenhouse fan runs at night."])
     assert again["unique"] == 1 and mcp_server.list_memories()["total"] == 2
+
+
+# ---- notebooklm_answer (free grounded recall; no key, no network in tests) ------------------
+def test_notebooklm_answer_routes_to_bridge_with_scope_default(mcp_engine, monkeypatch):
+    import eidetic.integrations.notebooklm as nb
+
+    calls = {}
+
+    class _FakeBridge:
+        def __init__(self, engine, backend):
+            calls["engine"] = engine
+            calls["backend_type"] = type(backend).__name__
+
+        def answer(self, namespace, question, notebook_id):
+            calls["args"] = (namespace, question, notebook_id)
+            return {"answer": "free grounded answer", "user_llm_tokens": 0,
+                    "grounding": {"quotes_unmatched": 0}}
+
+    monkeypatch.setattr(nb, "NotebookLMBridge", _FakeBridge)
+    out = mcp_server.notebooklm_answer("where did I work?", "nbk_123", namespace="proj")
+    assert out["user_llm_tokens"] == 0
+    assert calls["args"] == ("proj", "where did I work?", "nbk_123")
+    assert calls["backend_type"] == "CliBackend"
+
+
+def test_notebooklm_answer_fails_plainly_without_fabricating(mcp_engine, monkeypatch):
+    import eidetic.integrations.notebooklm as nb
+
+    class _Boom:
+        def __init__(self, engine, backend):
+            pass
+
+        def answer(self, namespace, question, notebook_id):
+            raise nb.NotebookLMError("nlm not found")
+
+    monkeypatch.setattr(nb, "NotebookLMBridge", _Boom)
+    import pytest as _pytest
+    with _pytest.raises(RuntimeError, match="no answer fabricated"):
+        mcp_server.notebooklm_answer("q?", "nbk_123", namespace="proj")
