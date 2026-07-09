@@ -635,6 +635,28 @@ class NotebookLMBridge:
                 out.insert(0, adv)   # advisory computed value, first, alongside the raw records
         return out
 
+    def retrieval_guided_answer(self, namespace: str, question: str, notebook_id: str, *,
+                                top_k: int = 6, inject_computed: bool = False) -> dict:
+        """One-call retrieval-guided free read: qwen retrieval picks the top_k records for
+        THIS question, exports ONLY those into `notebook_id`, then runs the free NotebookLM
+        read over the focused set. The strongest measured accuracy path (LME-S 78.6% vs
+        fixed-reader 53.3%), previously driven by ad-hoc bench scripts -- this is the
+        library/product surface for it. Same honest labels as answer(): Gemini-side, NOT
+        gate-verified; provenance + citation_map let the caller CHECK every cited source
+        against the immutable store. inject_computed stays default-OFF (measured WASH, and
+        one live case where a wrong computed sum corrupted a correct free-read)."""
+        sources = self.retrieval_guided_sources(
+            namespace, question, top_k=top_k, inject_computed=inject_computed)
+        if not sources:
+            return {"answer": "", "abstained": True, "provenance": [], "citation_map": [],
+                    "user_llm_tokens": 0,
+                    "note": f"no records to export for namespace {namespace!r}"}
+        self.backend.batch_create_sources(notebook_id, sources)
+        r = self.answer(namespace, question, notebook_id)
+        r["retrieval_guided"] = {"exported": len(sources), "top_k": top_k,
+                                 "inject_computed": inject_computed}
+        return r
+
     def export_namespace(self, namespace: str, notebook_id: str, *,
                          limit: Optional[int] = None, batch_size: int = 20,
                          include_graph: bool = False) -> dict:
@@ -691,6 +713,85 @@ class NotebookLMBridge:
                 out.append({"memory_id": rec.memory_id,
                             "content_sha256": rec.content_hash,
                             "valid_at": _iso(rec.valid_at)})
+        return out
+
+    def resolve_reference_provenance(self, namespace: str, references: list) -> list[dict]:
+        """Map each NotebookLM reference (the [n]-style citations Gemini emits) to the ONE
+        eidetic record whose exported source text contains its quote -- provenance by QUOTE
+        CONTENT, not by token. Measured need: on the live LME-S retrieval-guided run, Gemini's
+        free-tier answers cited [1]/[2] markers whose reference snippets had the `eidetic:<id>`
+        tokens stripped, so `_resolve_provenance` (token-based) resolved 0/28 rows even though
+        the quotes themselves were verbatim from exported sources. This resolver recovers the
+        mapping [n] -> memory_id -> content_sha256 from the quote bytes.
+
+        Attribution is deliberately conservative: a quote is attributed only when it matches
+        exactly ONE record (verbatim substring first, then token-overlap >= the grounding
+        floor with a UNIQUE argmax). A quote matching several records (shared boilerplate) or
+        none is returned unattributed with the reason -- never a guessed content hash. Same
+        honest label as verify_grounding: lexical, deterministic, no model call; it proves the
+        quote came from that record, not that Gemini's reasoning is right."""
+        refs = [r for r in (references or []) if isinstance(r, dict)]
+        if not refs:
+            return []
+        scope = Scope(namespace=namespace)
+        bodies: list[tuple[object, str, set[str]]] = []   # (record, norm_body, body_tokens)
+        for rec in self.engine.store.all_records(scope):
+            try:
+                claims = self.engine.store.claims_by_source(rec.memory_id)
+            except Exception:
+                claims = []
+            body = format_source(rec, claims)["text_content"]
+            norm = _re.sub(r"\s+", " ", (body or "").lower()).strip()
+            if not norm:
+                continue
+            toks = {t for t in self._GROUND_TOKEN_RE.findall(norm)
+                    if t not in self._GROUND_STOP}
+            bodies.append((rec, norm, toks))
+        out: list[dict] = []
+        for idx, ref in enumerate(refs, start=1):
+            quote = _EIDETIC_REF_RE.sub("", str(ref.get("cited_text", "")))
+            quote = _re.sub(r"[\[\]()]+", " ", quote)
+            qn = _re.sub(r"\s+", " ", quote.lower()).strip()
+            row: dict = {"ref_index": idx, "quote": qn[:200]}
+            if len(qn) < self._QUOTE_MIN_CHARS:
+                out.append({**row, "resolved": False, "reason": "quote-too-short"})
+                continue
+            verbatim = [(rec, norm) for rec, norm, _t in bodies if qn in norm]
+            if len(verbatim) == 1:
+                rec = verbatim[0][0]
+                out.append({**row, "resolved": True, "match": "verbatim",
+                            "memory_id": rec.memory_id,
+                            "content_sha256": rec.content_hash,
+                            "valid_at": _iso(rec.valid_at)})
+                continue
+            if len(verbatim) > 1:
+                out.append({**row, "resolved": False, "reason": "ambiguous-verbatim",
+                            "candidates": len(verbatim)})
+                continue
+            qtoks = {t for t in self._GROUND_TOKEN_RE.findall(qn)
+                     if t not in self._GROUND_STOP}
+            if not qtoks:
+                out.append({**row, "resolved": False, "reason": "no-content-tokens"})
+                continue
+            scored = sorted(
+                ((sum(1 for t in qtoks if t in toks) / len(qtoks), rec)
+                 for rec, _n, toks in bodies),
+                key=lambda x: -x[0],
+            )
+            best, second = scored[0], (scored[1] if len(scored) > 1 else (0.0, None))
+            if best[0] >= self._QUOTE_OVERLAP_FLOOR and best[0] > second[0]:
+                rec = best[1]
+                out.append({**row, "resolved": True, "match": "high-overlap",
+                            "overlap": round(best[0], 3),
+                            "memory_id": rec.memory_id,
+                            "content_sha256": rec.content_hash,
+                            "valid_at": _iso(rec.valid_at)})
+            elif best[0] >= self._QUOTE_OVERLAP_FLOOR:
+                out.append({**row, "resolved": False, "reason": "ambiguous-overlap",
+                            "overlap": round(best[0], 3)})
+            else:
+                out.append({**row, "resolved": False, "reason": "unmatched",
+                            "overlap": round(best[0], 3)})
         return out
 
     # ---- deterministic grounding check (no model calls, no caller tokens) ----
@@ -922,6 +1023,20 @@ class NotebookLMBridge:
         # though the Gemini REASONING itself is not gate-verified.
         confirmed = {p["memory_id"] for p in provenance} | {p["memory_id"][:16] for p in provenance}
         n_confirmed = len([i for i in cited_ids if i in confirmed])
+        # CITATION MAP: quote-content resolution of each [n] reference to its record +
+        # content hash. Complements the token path above -- Gemini's free tier strips the
+        # eidetic:<id> tokens from reference snippets (measured live: 0/28 rows resolved by
+        # token while the quotes were verbatim), so the quote bytes are the recoverable link.
+        citation_map = self.resolve_reference_provenance(
+            namespace, res.get("references") or [])
+        seen_mids = {p["memory_id"] for p in provenance}
+        for c in citation_map:
+            if c.get("resolved") and c["memory_id"] not in seen_mids:
+                seen_mids.add(c["memory_id"])
+                provenance.append({"memory_id": c["memory_id"],
+                                   "content_sha256": c["content_sha256"],
+                                   "valid_at": c["valid_at"],
+                                   "resolved_by": "quote"})
         # GROUNDING: deterministic quote-faithfulness + answer-token-coverage vs the exported
         # bytes rebuilt from the immutable store. Free (no model call), catches fabricated or
         # altered quotes; labeled honestly as lexical, not NLI/gate.
@@ -937,11 +1052,16 @@ class NotebookLMBridge:
         return {
             "answer": answer_text,
             "provenance": provenance,
+            "citation_map": citation_map,
             "cited_sources": {
                 "cited": len(cited_ids),
                 "confirmed_in_eidetic": n_confirmed,
+                "references_total": len(citation_map),
+                "references_quote_resolved": sum(1 for c in citation_map if c.get("resolved")),
                 "note": "each confirmed citation resolves to a real eidetic memory by content "
-                        "hash; unconfirmed ones are Gemini's and are NOT backed by your store."},
+                        "hash; unconfirmed ones are Gemini's and are NOT backed by your store. "
+                        "citation_map resolves [n] references by quote content when Gemini "
+                        "strips the eidetic:<id> tokens."},
             "grounding": grounding,
             **({"qwen_memory_check": qwen_check} if qwen_check is not None else {}),
             # trimmed raw references: lets any caller inspect exactly WHAT NotebookLM
@@ -1005,7 +1125,8 @@ class NotebookLMBridge:
     _COST_STRUCTURED = 45   # design-supplied midpoint of the ~6-85 structured band
     _COST_METERED = 4034    # design-supplied metered verified-reader cost
 
-    def routed_answer(self, namespace: str, question: str, notebook_id: str, *,
+    def routed_answer(self, namespace: str, question: str,
+                      notebook_id: Optional[str] = None, *,
                       require_gate_verification: bool = False,
                       struct_tau: float = 0.0) -> dict:
         """Route one question across four tiers, cheapest-verified first.
@@ -1087,12 +1208,31 @@ class NotebookLMBridge:
             }
 
         # Tier 2 -- free NotebookLM read (0 caller tokens), provenance-mapped only.
+        if not notebook_id:
+            # No notebook to read: abstain honestly instead of failing inside the backend or
+            # silently escalating to the metered reader the caller did not ask to pay for.
+            return {
+                "tier": 2,
+                "answer": "",
+                "abstained": True,
+                "provenance": [],
+                "caller_llm_tokens": 0,
+                "gate_verified": False,
+                "provenance_verb": "none",
+                "note": ("structured recall abstained and no notebook_id was provided for the "
+                         "free NotebookLM read. Export the namespace (export_namespace / "
+                         "retrieval_guided_answer) and pass notebook_id, or set "
+                         "require_gate_verification=True for the metered verified reader."),
+                "reflex_cross_check": {"candidate_ids": reflex_ids, "intersection": []},
+                "honesty": _honesty(),
+            }
         r = self.answer(namespace, question, notebook_id)
         resolved_ids = [p["memory_id"] for p in r.get("provenance", [])]
         return {
             "tier": 2,
             "answer": r.get("answer", ""),
             "provenance": r.get("provenance", []),
+            "citation_map": r.get("citation_map", []),
             "cited_sources": r.get("cited_sources", {}),
             "grounding": r.get("grounding", {}),
             "caller_llm_tokens": 0,

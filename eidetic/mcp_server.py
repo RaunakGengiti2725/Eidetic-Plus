@@ -377,6 +377,60 @@ def notebooklm_answer(question: str, notebook_id: str,
 
 
 @_threaded_tool
+def notebooklm_recall(question: str, notebook_id: str, namespace: Optional[str] = None,
+                      top_k: int = 6) -> dict:
+    """RETRIEVAL-GUIDED free recall (the strongest measured accuracy path): eidetic's own
+    retriever picks the top_k records relevant to THIS question, exports ONLY those into the
+    notebook, then NotebookLM/Gemini reads the focused set at 0 tokens on the caller's metered
+    model. Returns answer + provenance + citation_map ([n] references resolved by quote content
+    to memory_id + content hash) + grounding. HONEST BOUNDARY: Gemini-side, NOT
+    eidetic-verify-or-abstain -- use `recall` for a gate-verified answer. Requires `nlm login`
+    and an existing notebook_id."""
+    from eidetic.integrations.notebooklm import CliBackend, NotebookLMBridge, NotebookLMError
+    question = _text_arg(question, "question", max_chars=_MAX_QUERY_CHARS)
+    notebook_id = _text_arg(notebook_id, "notebook_id", max_chars=128)
+    top_k = max(1, min(int(top_k), 24))
+    ns = namespace or _scope(namespace, None, None).namespace
+    try:
+        return NotebookLMBridge(engine(), CliBackend()).retrieval_guided_answer(
+            ns, question, notebook_id, top_k=top_k)
+    except NotebookLMError as e:
+        raise RuntimeError(
+            f"NotebookLM retrieval-guided read failed (no answer fabricated): {e}. "
+            "Install/login the free CLI: `.venv/bin/pip install notebooklm-mcp-cli` "
+            "then `nlm login`."
+        )
+
+
+@_threaded_tool
+def recall_routed(question: str, namespace: Optional[str] = None,
+                  notebook_id: Optional[str] = None,
+                  require_gate_verification: bool = False) -> dict:
+    """ONE routed recall across the cost tiers, cheapest-verified first: Tier 0 reflex
+    pre-filter (free) -> Tier 1 structured verify-or-abstain (cheap, gate-verified) -> then
+    EITHER the free NotebookLM read (0 caller tokens, provenance-mapped, NOT gate-verified;
+    needs notebook_id) OR, when require_gate_verification=True, the metered verified reader
+    (the only path that runs the proof gate on a generated answer). Every result labels its
+    tier, cost, and provenance_verb honestly; with no notebook_id the free tier abstains
+    rather than fail or silently charge you."""
+    from eidetic.integrations.notebooklm import CliBackend, NotebookLMBridge, NotebookLMError
+    question = _text_arg(question, "question", max_chars=_MAX_QUERY_CHARS)
+    if notebook_id is not None:
+        notebook_id = _text_arg(notebook_id, "notebook_id", max_chars=128)
+    ns = namespace or _scope(namespace, None, None).namespace
+    try:
+        return NotebookLMBridge(engine(), CliBackend()).routed_answer(
+            ns, question, notebook_id,
+            require_gate_verification=bool(require_gate_verification))
+    except NotebookLMError as e:
+        raise RuntimeError(
+            f"NotebookLM tier failed (no answer fabricated): {e}. Structured/metered tiers "
+            "are unaffected -- retry with require_gate_verification=True, or fix the free "
+            "tier: `.venv/bin/pip install notebooklm-mcp-cli` then `nlm login`."
+        )
+
+
+@_threaded_tool
 def truth_ledger(query: str, namespace: Optional[str] = None, agent_id: Optional[str] = None,
                  project_id: Optional[str] = None, verify: bool = True,
                  as_of: Optional[float] = None) -> dict:

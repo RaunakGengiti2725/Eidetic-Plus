@@ -249,6 +249,82 @@ def test_reader_mode_zero_user_tokens_and_provenance():
     assert "NOT eidetic-verify" in out["caveat"]
 
 
+def test_citation_map_resolves_bracket_references_by_quote_content():
+    """The measured live gap (LME-S r1): Gemini's free tier cites [1]/[2] markers and STRIPS
+    the eidetic:<id> tokens from reference snippets, so token-based provenance resolved 0/28
+    rows while the quotes themselves were verbatim from the exported sources. The citation
+    map must recover [n] -> memory_id -> content_sha256 from the quote bytes alone."""
+    rec_a = _rec("I tried making a Negroni at home 10 times since Emma showed me.",
+                 mid="mem_negroni00000001", ch="hash_a")
+    rec_b = _rec("The farmers market on Saturdays sells fresh basil.",
+                 mid="mem_basil0000000002", ch="hash_b")
+    eng = _FakeEngine(_FakeStore([rec_a, rec_b]))
+
+    class _BracketBackend:
+        def query(self, notebook_id, question):
+            # No eidetic:<id> tokens anywhere -- the live free-tier shape.
+            return {"answer": "You made it **10 times** [1], and you buy basil weekly [2].",
+                    "references": [
+                        {"cited_text": "I tried making a Negroni at home 10 times"},
+                        {"cited_text": "farmers market on Saturdays sells fresh basil"},
+                    ],
+                    "backend": "nlm-cli (gemini free tier)"}
+
+    out = NotebookLMBridge(eng, _BracketBackend()).answer("nb-test", "how many negronis?", "nbk_1")
+    cmap = out["citation_map"]
+    assert [c["ref_index"] for c in cmap] == [1, 2]
+    assert cmap[0]["resolved"] and cmap[0]["memory_id"] == "mem_negroni00000001"
+    assert cmap[0]["content_sha256"] == "hash_a" and cmap[0]["match"] == "verbatim"
+    assert cmap[1]["resolved"] and cmap[1]["content_sha256"] == "hash_b"
+    # quote-resolved records flow into provenance (tagged) and the counts are published
+    prov_hashes = {p["content_sha256"] for p in out["provenance"]}
+    assert {"hash_a", "hash_b"} <= prov_hashes
+    assert all(p.get("resolved_by") == "quote" for p in out["provenance"])
+    assert out["cited_sources"]["references_total"] == 2
+    assert out["cited_sources"]["references_quote_resolved"] == 2
+
+
+def test_citation_map_refuses_ambiguous_shared_and_junk_quotes():
+    """Conservative attribution: a quote contained in SEVERAL records (shared boilerplate)
+    or matching nothing must come back unresolved with the reason -- never a guessed
+    content hash (a wrong provenance link is worse than none)."""
+    shared = "We confirmed the quarterly numbers on the call."
+    rec_a = _rec(shared, mid="mem_dup0000000000a1", ch="hash_a")
+    rec_b = _rec(shared, mid="mem_dup0000000000b2", ch="hash_b")
+    eng = _FakeEngine(_FakeStore([rec_a, rec_b]))
+    bridge = NotebookLMBridge(eng, _RecordingBackend())
+
+    cmap = bridge.resolve_reference_provenance("nb-test", [
+        {"cited_text": shared},                                   # in BOTH records
+        {"cited_text": "ok"},                                     # too short to mean anything
+        {"cited_text": "the moon is made of green cheese today"}, # matches nothing
+    ])
+    assert cmap[0]["resolved"] is False and cmap[0]["reason"] == "ambiguous-verbatim"
+    assert cmap[0]["candidates"] == 2
+    assert cmap[1]["resolved"] is False and cmap[1]["reason"] == "quote-too-short"
+    assert cmap[2]["resolved"] is False and cmap[2]["reason"] == "unmatched"
+    assert not any("content_sha256" in c for c in cmap)
+
+
+def test_citation_map_high_overlap_requires_unique_best_record():
+    """A non-verbatim quote (Gemini reflows text) still attributes when its content tokens
+    land overwhelmingly in exactly ONE record; below the floor or tied, it stays unresolved."""
+    rec_a = _rec("Priya adopted a beagle named Biscuit from the Harbor Shelter in 2021.",
+                 mid="mem_beagle000000001", ch="hash_a")
+    rec_b = _rec("The kiln firing schedule moved to Tuesday evenings.",
+                 mid="mem_kiln0000000002", ch="hash_b")
+    eng = _FakeEngine(_FakeStore([rec_a, rec_b]))
+    bridge = NotebookLMBridge(eng, _RecordingBackend())
+
+    cmap = bridge.resolve_reference_provenance("nb-test", [
+        # reflowed word order: not a substring, but every content token is rec_a's
+        {"cited_text": "Biscuit the beagle Priya adopted from Harbor Shelter"},
+    ])
+    assert cmap[0]["resolved"] is True and cmap[0]["match"] == "high-overlap"
+    assert cmap[0]["memory_id"] == "mem_beagle000000001"
+    assert cmap[0]["overlap"] >= 0.8
+
+
 # ==========================================================================
 # Router-aware answer path (routed_answer) + incremental sync tests.
 # Shared richer fakes exposing structured_recall / reflex_recall / all_edges /
@@ -375,6 +451,49 @@ def test_router_tier3_metered_only_when_abstained_and_gate_required():
     assert out["provenance_verb"] == "gate-verified"
     assert out["caller_llm_tokens"] > 0
     assert eng.recall_calls and eng.recall_calls[0][1] is True  # prove=True
+
+
+def test_router_tier2_abstains_honestly_without_notebook_id():
+    """No notebook_id + structured abstained + no gate requirement: the router must abstain
+    with an actionable note -- never crash inside the backend, never silently escalate to
+    the metered reader the caller did not ask to pay for."""
+    rec = _rec("Priya moved to Berlin.", mid="mem_t2b00000000001", ch="e" * 64)
+    struct = {"answered": False, "abstained": True, "verified": False,
+              "immutable_proof": False, "confidence": 0.0}
+    eng = _RouterEngine([rec], struct, reflex_cids=[rec.memory_id])
+    bridge = NotebookLMBridge(eng, _prov_answer_backend("mem_t2b00000000001"))
+    out = bridge.routed_answer("nb-test", "Where?", None)
+    assert out["tier"] == 2 and out["abstained"] is True
+    assert out["answer"] == "" and out["caller_llm_tokens"] == 0
+    assert "notebook_id" in out["note"]
+    assert eng.recall_calls == []  # the metered reader was NOT silently invoked
+
+
+def test_retrieval_guided_answer_exports_focused_set_then_reads():
+    """One-call product surface for the strongest measured path: sources are pushed to the
+    notebook, the free read runs, and the result carries the retrieval_guided summary plus
+    citation_map provenance."""
+    rec = _rec("Priya moved to Berlin in 2021.", mid="mem_rg000000000001", ch="hash_rg")
+    eng = _FakeEngine(_FakeStore([rec]))
+
+    class _RGBackend(_RecordingBackend):
+        def query(self, notebook_id, question):
+            return {"answer": "Berlin [1].",
+                    "references": [{"cited_text": "Priya moved to Berlin in 2021."}],
+                    "backend": "nlm free tier"}
+
+    backend = _RGBackend()
+    out = NotebookLMBridge(eng, backend).retrieval_guided_answer(
+        "nb-test", "Where did Priya move?", "nbk_1", top_k=6)
+    # the focused set was exported before the read
+    assert backend.batches and backend.batches[0][0] == "nbk_1"
+    assert "EIDETIC VERIFIED MEMORY" in backend.batches[0][1][0]["text_content"]
+    assert out["retrieval_guided"]["exported"] == 1
+    assert out["retrieval_guided"]["inject_computed"] is False
+    # [1] resolves by quote content to the record's hash
+    assert out["citation_map"][0]["resolved"] is True
+    assert out["citation_map"][0]["content_sha256"] == "hash_rg"
+    assert out["user_llm_tokens"] == 0
 
 
 def test_router_no_fallthrough_low_conf_verified_with_gate():
