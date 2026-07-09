@@ -97,11 +97,17 @@ def run_eval(*, seed: Optional[int] = None, cases: int = 24) -> dict:
                     "claim_types": dict(sorted(case_types.items())),
                     "proof": proof[:500],
                 })
+    expected_abstain_cases = sum(1 for c in generated if getattr(c, "expect_abstain", False))
     return {
         "pass": not failures,
         "seed": seed,
         "seed_mode": seed_mode,
         "cases": cases,
+        # P0 fail-closed (2026-07-09): derived count/sum cases assert abstention, so they can
+        # never be claim-backed. The gate computes claim-backend rate over ANSWERABLE cases
+        # (cases - expected_abstain_cases); publishing the count here keeps that scoping honest
+        # and auditable rather than silently shrinking the denominator.
+        "expected_abstain_cases": expected_abstain_cases,
         "correct": cases - len(failures),
         "claim_backend_correct": cases - len(failures),
         "claims_extracted": total_claims,

@@ -121,6 +121,10 @@ _SMQE_REQUIRED_SYNTHETIC_OPS = {
 }
 _SMQE_REQUIRED_PLANNER_OPS = _SMQE_REQUIRED_SYNTHETIC_OPS | {"event_order"}
 _SMQE_ALLOWED_BACKENDS = {"claim", "record"}
+# P0 fail-closed (2026-07-09): DERIVED count/sum answers no longer verify (aggregate citation
+# floor, eidetic/smqe/verify.py) -- these ops abstain in the coverage harnesses, so gate checks
+# that demand claim-backing must exclude them or they would demand the verified-wrong leak back.
+_SMQE_FAIL_CLOSED_AGGREGATE_OPS = {"count_aggregate", "multi_session_sum"}
 _METABOLISM_ABLATION_KEYS = (
     "metabolism_off",
     "consolidation_off",
@@ -841,7 +845,12 @@ def _reflex_recall_summary(report: dict, *, min_cases: int,
 
 def _smqe_synthetic_summary(report: dict, *, min_cases: int,
                             max_avg_proof_tokens: float,
-                            require_record_backend: bool = True) -> dict:
+                            require_record_backend: bool = True,
+                            required_ops: frozenset | set | None = None) -> dict:
+    # required_ops: the op set that must appear >=2x in the report's operator_counts. The
+    # synthetic harness counts ops per CASE (fail-closed aggregates stay visible), so the full
+    # set is right there; the fullpath harness counts ops per ANSWER, where fail-closed
+    # aggregates abstain and must be exempted by the caller.
     min_op_count = 2
     op_counts = report.get("operator_counts") or {}
     backend_counts = report.get("backend_counts") or {}
@@ -860,7 +869,8 @@ def _smqe_synthetic_summary(report: dict, *, min_cases: int,
     if correct != cases or cases <= 0:
         failures.append(f"correct:{correct}/{cases}")
     missing_ops = sorted(
-        _SMQE_REQUIRED_SYNTHETIC_OPS - {str(k) for k, v in op_counts.items() if _as_int(v, 0) >= min_op_count}
+        (set(required_ops) if required_ops is not None else _SMQE_REQUIRED_SYNTHETIC_OPS)
+        - {str(k) for k, v in op_counts.items() if _as_int(v, 0) >= min_op_count}
     )
     if missing_ops:
         failures.append(f"ops_below_{min_op_count}:" + ",".join(missing_ops))
@@ -944,7 +954,14 @@ def _smqe_claim_coverage_summary(report: dict, *, min_cases: int,
     )
     cases = int(base["cases"] or 0)
     claim_backend = _as_int((base["backend_counts"] or {}).get("claim", 0), 0)
-    rate = (claim_backend / cases) if cases else 0.0
+    # P0 fail-closed contract (2026-07-09, eidetic/smqe/verify.py aggregate citation floor):
+    # DERIVED count/sum cases assert ABSTENTION, so they can never be claim-backed. The
+    # claim-backend rate is therefore scoped to ANSWERABLE cases; the report publishes
+    # expected_abstain_cases so the scoping is auditable. Requiring 1.0 over all cases would
+    # force re-opening the verified-wrong leak this floor closed (5/13 live, 5/6 holdout).
+    expected_abstain = _as_int(report.get("expected_abstain_cases", 0), 0)
+    answerable = max(0, cases - expected_abstain)
+    rate = (claim_backend / answerable) if answerable else 0.0
     failures = list(base["failures"])
     if rate < min_claim_backend_rate:
         failures.append(f"claim_backend_rate:{rate:.3f}<required:{min_claim_backend_rate:.3f}")
@@ -958,6 +975,9 @@ def _smqe_claim_coverage_summary(report: dict, *, min_cases: int,
         claim_backend_operator_counts = {}
     operator_counts = base["operator_counts"] or {}
     for op, expected in sorted(operator_counts.items()):
+        if op in _SMQE_FAIL_CLOSED_AGGREGATE_OPS:
+            # These ops fail closed by design; demanding claim-backing here would demand the leak.
+            continue
         expected_n = _as_int(expected, 0)
         claim_n = _as_int(claim_backend_operator_counts.get(op, 0), 0)
         if expected_n > 0 and claim_n < expected_n:
@@ -966,6 +986,8 @@ def _smqe_claim_coverage_summary(report: dict, *, min_cases: int,
         **base,
         "pass": not failures,
         "claim_backend_rate": round(rate, 4),
+        "expected_abstain_cases": expected_abstain,
+        "answerable_cases": answerable,
         "claim_backend_correct": _as_int(report.get("claim_backend_correct", claim_backend), 0),
         "claims_extracted": claims_extracted,
         "avg_claims_per_case": _as_float(report.get("avg_claims_per_case", 0.0)),
@@ -984,9 +1006,18 @@ def _smqe_fullpath_summary(report: dict, *, min_cases: int,
         min_cases=min_cases,
         max_avg_proof_tokens=max_avg_proof_tokens,
         require_record_backend=False,
+        # Fullpath operator_counts are per-ANSWER; fail-closed aggregates abstain by design
+        # (P0 2026-07-09), so they cannot appear there. Their case-level presence is still
+        # enforced by the case_ops check below.
+        required_ops=_SMQE_REQUIRED_SYNTHETIC_OPS - _SMQE_FAIL_CLOSED_AGGREGATE_OPS,
     )
     cases = int(base["cases"] or 0)
     failures = list(base["failures"])
+    # P0 fail-closed scoping: derived count/sum cases ABSTAIN (correct-or-silent), so the
+    # all-cases-verified contract applies to the answerable remainder. expected_abstain_cases
+    # ships in the report so this scoping is auditable.
+    expected_abstain = _as_int(report.get("expected_abstain_cases", 0), 0)
+    answerable = max(0, cases - expected_abstain)
     verified = _as_int(report.get("verified", 0), 0)
     structured = _as_int(report.get("structured_recall", 0), 0)
     reader_calls = _as_int(report.get("reader_calls", 0), 0)
@@ -1000,16 +1031,16 @@ def _smqe_fullpath_summary(report: dict, *, min_cases: int,
     case_operator_counts = report.get("case_operator_counts") or {}
     if not isinstance(case_operator_counts, dict):
         case_operator_counts = {}
-    if verified != cases or cases <= 0:
-        failures.append(f"verified:{verified}/{cases}")
-    if structured != cases or cases <= 0:
-        failures.append(f"structured_recall:{structured}/{cases}")
+    if verified != answerable or answerable <= 0:
+        failures.append(f"verified:{verified}/{answerable}")
+    if structured != answerable or answerable <= 0:
+        failures.append(f"structured_recall:{structured}/{answerable}")
     if reader_calls != 0:
         failures.append(f"reader_calls:{reader_calls}")
-    if proof_link_checks < cases or cases <= 0:
-        failures.append(f"proof_link_checks:{proof_link_checks}<expected:{cases}")
-    if claim_backend != cases or cases <= 0:
-        failures.append(f"claim_backend_correct:{claim_backend}/{cases}")
+    if proof_link_checks < answerable or answerable <= 0:
+        failures.append(f"proof_link_checks:{proof_link_checks}<expected:{answerable}")
+    if claim_backend != answerable or answerable <= 0:
+        failures.append(f"claim_backend_correct:{claim_backend}/{answerable}")
     if claims_extracted < cases:
         failures.append(f"claims_extracted:{claims_extracted}<cases:{cases}")
     if avg_context > max_avg_context_tokens:
@@ -1033,6 +1064,8 @@ def _smqe_fullpath_summary(report: dict, *, min_cases: int,
     return {
         **base,
         "pass": not failures,
+        "expected_abstain_cases": expected_abstain,
+        "answerable_cases": answerable,
         "verified": verified,
         "structured_recall": structured,
         "reader_calls": reader_calls,

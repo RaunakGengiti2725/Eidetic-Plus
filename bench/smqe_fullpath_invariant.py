@@ -260,6 +260,11 @@ def run_eval(*, seed: Optional[int] = None, cases: int = 24) -> dict:
         "seed": seed,
         "seed_mode": seed_mode,
         "cases": cases,
+        # P0 fail-closed (2026-07-09): derived count/sum cases assert abstention; published so
+        # the release gate can scope its all-cases-verified checks to the answerable remainder.
+        "expected_abstain_cases": sum(
+            1 for case in generated if getattr(case, "expect_abstain", False)
+        ),
         "correct": cases - len(failures),
         "verified": verified,
         "structured_recall": structured,
