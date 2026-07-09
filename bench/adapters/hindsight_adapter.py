@@ -73,6 +73,12 @@ class HindsightSystem(MemorySystem):
                 "(pointed at DashScope's OpenAI-compatible endpoint). No key => fail loud.")
         import hindsight as h  # lazy
 
+        # Hindsight's retain fact-extraction defaults max_completion_tokens=64000, but
+        # qwen-plus caps OUTPUT at 32768 -> HTTP 400. The daemon (a subprocess) reads this
+        # from the environment, so set it BEFORE launch. Must exceed RETAIN_CHUNK_SIZE(3000).
+        os.environ.setdefault("HINDSIGHT_API_RETAIN_MAX_COMPLETION_TOKENS",
+                              os.environ.get("HINDSIGHT_RETAIN_MAX_COMPLETION_TOKENS", "32000"))
+
         # litellm 'openai/<model>' + DashScope OpenAI-compatible base = same Qwen family as
         # every other baseline. Embedded pg0 backend: no external Postgres to provision.
         # llm_provider already selects the openai-compatible path; pass the BARE model name
