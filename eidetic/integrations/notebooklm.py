@@ -187,6 +187,17 @@ _HONESTY_BOUNDARIES = {
         "NOT a row in the fixed-qwen-reader benchmark table (different, off-meter reader). "
         "No SOTA / best / strongest claim is made or implied."
     ),
+    "qwen_memory_check": (
+        "qwen (the model that BUILT these sources) ran post-hoc, per-claim NLI of Gemini's "
+        "free answer against ONLY the exported qwen sources Gemini CITED. A self-consistency "
+        "/ faithfulness AUDIT that FLAGS where the draft diverges from or is unsupported by "
+        "the cited memory. NOT a correctness guarantee, NOT independent verification, NOT "
+        "eidetic's verify-or-abstain generation gate; the answer is returned regardless. "
+        "Premises = cited memories only, so a correct claim whose block Gemini did not cite "
+        "can be flagged unsupported. On the current self-sourced benchmark it demonstrates 0 "
+        "catches; value is prospective / out-of-distribution (non-self-sourced reads) only. "
+        "NLI is metered qwen-plus (NOT 0 tokens); it is reported separately from generation."
+    ),
 }
 
 _GRAPH_HONESTY_BLOCK = "\n".join([
@@ -658,7 +669,102 @@ class NotebookLMBridge:
                        "quotes_unmatched>0 is the strong signal."),
         }
 
-    def answer(self, namespace: str, question: str, notebook_id: str) -> dict:
+    # ---- qwen post-hoc faithfulness AUDIT of the Gemini free answer -----------
+    _CLAIM_SPLIT_RE = _re.compile(r"(?<=[.!?])\s+|\n+|;\s+")
+
+    def qwen_memory_check(self, namespace: str, question: str, answer_text: str,
+                          cited_memory_ids: list[str]) -> dict:
+        """Post-hoc, NON-BLOCKING, per-claim NLI of Gemini's free answer against ONLY the
+        qwen-built sources Gemini CITED. This is an AUDITOR, not an arbiter: the answer was
+        already emitted; this observes whether it stays faithful to the cited memory. qwen
+        (verify_model) is the model that built those sources, so it checks self-consistency
+        against its own prior claims. Scheme (per the red-team spec): decompose -> substantive
+        filter -> per claim {Tier0 free lexical, Tier1 per-block NLI early-stop, Tier2 union
+        rescue}; gate on ENTAILMENT; contradiction hard-fails. NLI is metered qwen (NOT 0)."""
+        from eidetic.smqe.verify import reader_answer_form_credible
+        from eidetic.models import NLILabel
+
+        r = self.engine.retriever
+        s = self.engine.settings
+        # premises = ONLY cited records' bodies (honest scope: cited_only)
+        blocks: list[tuple[str, str]] = []   # (memory_id, text)
+        for mid in cited_memory_ids:
+            rec = self.engine.store.get_record(mid)
+            body = (rec.text or rec.summary or "").strip() if rec else ""
+            if body:
+                blocks.append((mid, body))
+        min_chars = getattr(s, "span_nli_min_chars", 12)
+        # decompose + substantive filter (a chatty-but-correct answer false-negatives without it)
+        claims = [c.strip() for c in self._CLAIM_SPLIT_RE.split(answer_text or "") if c.strip()]
+        claims = [c for c in claims
+                  if len(c) >= min_chars and reader_answer_form_credible(question, c)]
+
+        def _lexical_entails(claim: str) -> bool:  # Tier 0, free
+            toks = [t for t in _re.findall(r"[a-z0-9][a-z0-9'-]{2,}", claim.lower())
+                    if t not in self._GROUND_STOP]
+            if not toks:
+                return False
+            for _mid, body in blocks:
+                low = body.lower()
+                if sum(1 for t in set(toks) if t in low) / len(set(toks)) >= 0.9:
+                    return True
+            return False
+
+        per_claim = []
+        nli_calls = 0
+        concat = "\n\n".join(b for _m, b in blocks)[:6000]
+        for claim in claims:
+            verdict, tier, by_mid, conf = "neutral", None, None, 0.0
+            if _lexical_entails(claim):
+                verdict, tier = "entailed", 0
+            else:
+                contradicted_by = None
+                for mid, body in blocks:                       # Tier 1: per-block, early-stop
+                    label, c = r.verify(body, claim)
+                    nli_calls += 1
+                    if label == NLILabel.ENTAILMENT:
+                        verdict, tier, by_mid, conf = "entailed", 1, mid, c
+                        break
+                    if label == NLILabel.CONTRADICTION:
+                        contradicted_by, conf = mid, c
+                if verdict != "entailed" and contradicted_by is not None:
+                    verdict, by_mid = "contradicted", contradicted_by
+                elif verdict != "entailed" and concat:         # Tier 2: union rescue per-claim
+                    label, c = r.verify(concat, claim)
+                    nli_calls += 1
+                    if label == NLILabel.ENTAILMENT:
+                        verdict, tier, conf = "entailed", 2, c
+                    elif label == NLILabel.CONTRADICTION:
+                        verdict, conf = "contradicted", c
+            per_claim.append({"claim": claim[:200], "verdict": verdict, "tier": tier,
+                              "by_memory_id": by_mid, "confidence": round(float(conf), 3)})
+
+        entailed = sum(1 for p in per_claim if p["verdict"] == "entailed")
+        neutral = sum(1 for p in per_claim if p["verdict"] == "neutral")
+        contradicted = sum(1 for p in per_claim if p["verdict"] == "contradicted")
+        if contradicted:
+            decision = "diverges_from_cited_memory"
+        elif neutral:
+            decision = "unsupported_by_cited_memory"
+        else:
+            decision = "consistent_with_cited_memory"   # incl. the vacuous no-claims case
+        return {
+            "decision": decision,
+            "claims_total": len(per_claim),
+            "entailed": entailed, "neutral": neutral, "contradicted": contradicted,
+            "per_claim": per_claim,
+            "premise_scope": "cited_only",
+            "cost": {
+                "qwen_nli_calls": nli_calls,
+                "nli_input_tokens_est": (sum(len(b) for _m, b in blocks) // 4) * max(1, len(claims)),
+                "note": "NLI, not generation, not a gate; metered qwen-plus, NOT 0 tokens. "
+                        "Some calls may be verify() LRU cache hits (cost 0).",
+            },
+            "note": _HONESTY_BOUNDARIES["qwen_memory_check"],
+        }
+
+    def answer(self, namespace: str, question: str, notebook_id: str,
+               verify_with_qwen: bool = False) -> dict:
         """NotebookLM READER MODE -- the token-efficient product path. NotebookLM answers
         over eidetic's exported VERIFIED sources using Gemini's free tier, so the answer
         costs ~0 of the caller's own LLM tokens (Google eats the compute). We then map the
@@ -669,7 +775,13 @@ class NotebookLMBridge:
         `user_llm_tokens: 0` means ZERO tokens on the CALLER's metered model -- it does NOT
         mean the compute was free globally, and the answer is Gemini-side, NOT run through
         eidetic's verify-or-abstain proof gate. Use `engine.ask(verify=True)` (the MCP
-        `recall` tool) when you need a cited, gate-verified answer instead of a free one."""
+        `recall` tool) when you need a cited, gate-verified answer instead of a free one.
+
+        verify_with_qwen (default False, opt-in): after Gemini answers, qwen (the model that
+        BUILT the sources) runs a post-hoc, NON-BLOCKING per-claim faithfulness AUDIT of the
+        draft against the cited memory (adds `qwen_memory_check`). It does NOT change the
+        answer and does NOT make it gate-verified. `user_llm_tokens` stays 0 (generation is
+        still free); the NLI cost is metered qwen, reported ONLY inside `qwen_memory_check.cost`."""
         res = self.backend.query(notebook_id, question)
         answer_text = res.get("answer") or res.get("text") or json.dumps(res)
         # cited_text is where the eidetic:<id> tokens live (references' cited_text); fall back
@@ -689,6 +801,13 @@ class NotebookLMBridge:
         # altered quotes; labeled honestly as lexical, not NLI/gate.
         grounding = self.verify_grounding(namespace, answer_text,
                                           res.get("references") or [])
+        # OPT-IN qwen faithfulness AUDIT (default off). Non-blocking, post-hoc: the free
+        # answer above is returned regardless. Its NLI cost is reported inside the block,
+        # NEVER folded into user_llm_tokens (which stays 0 -- generation only).
+        qwen_check = None
+        if verify_with_qwen:
+            cited_mids = [p["memory_id"] for p in provenance]
+            qwen_check = self.qwen_memory_check(namespace, question, answer_text, cited_mids)
         return {
             "answer": answer_text,
             "provenance": provenance,
@@ -698,6 +817,7 @@ class NotebookLMBridge:
                 "note": "each confirmed citation resolves to a real eidetic memory by content "
                         "hash; unconfirmed ones are Gemini's and are NOT backed by your store."},
             "grounding": grounding,
+            **({"qwen_memory_check": qwen_check} if qwen_check is not None else {}),
             # trimmed raw references: lets any caller inspect exactly WHAT NotebookLM
             # quoted when a grounding verdict says unmatched (diagnosability -- the
             # contamination incident was only debuggable via a live re-ask without these)
@@ -941,6 +1061,10 @@ def _cli() -> int:  # pragma: no cover - thin argparse wrapper
     ap.add_argument("--no-history", action="store_true")
     ap.add_argument("--max-entities", type=int, default=None)
     ap.add_argument("--require-gate", action="store_true")
+    ap.add_argument("--verify-with-qwen", action="store_true",
+                    help="opt-in: qwen post-hoc per-claim faithfulness AUDIT of the free "
+                         "Gemini answer against cited memory (non-blocking; metered NLI, "
+                         "reported separately; user_llm_tokens stays 0)")
     ap.add_argument("--manifest", default=os.environ.get("NOTEBOOKLM_SYNC_MANIFEST",
                                                          "notebooklm_sync_manifest.json"))
     ap.add_argument("--data-dir", default=os.environ.get("DATA_DIR", ""),
@@ -1027,9 +1151,10 @@ def _cli() -> int:  # pragma: no cover - thin argparse wrapper
             args.namespace, args.notebook_id), indent=2))
     elif args.action == "answer":
         # Free NotebookLM read + provenance + cited-source check + deterministic grounding.
-        # Needs NO metered model key: the read is Gemini-side, the checks are lexical.
+        # Needs NO metered model key unless --verify-with-qwen (adds a metered qwen NLI audit).
         print(json.dumps(bridge.answer(
-            args.namespace, args.question, args.notebook_id), indent=2))
+            args.namespace, args.question, args.notebook_id,
+            verify_with_qwen=args.verify_with_qwen), indent=2))
     elif args.action == "routed-answer":
         print(json.dumps(bridge.routed_answer(
             args.namespace, args.question, args.notebook_id,
