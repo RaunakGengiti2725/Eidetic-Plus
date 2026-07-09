@@ -1,0 +1,49 @@
+[1] c2_q5 contains_gold=True confirmed=0/0 18.4s
+[2] c2_q75 contains_gold=False confirmed=4/4 13.7s
+[3] c2_q2 contains_gold=True confirmed=4/4 20.2s
+[4] c2_q45 contains_gold=False confirmed=0/0 19.4s
+[5] c2_q151 contains_gold=True confirmed=0/0 13.5s
+[6] c5_q79 contains_gold=True confirmed=4/4 15.2s
+[7] c5_q83 contains_gold=True confirmed=7/7 15.5s
+[8] c5_q8 contains_gold=False confirmed=9/9 15.9s
+[9] c5_q2 contains_gold=False confirmed=0/0 17.8s
+[10] c7_q167 contains_gold=True confirmed=0/0 14.3s
+[ERR] c7_q39: Command '['/Users/raunakgengiti/Eidetic-Plus/.venv/bin/nlm', 'notebook', 'query', '5db06d34-d667-43a8-a1a7-3bda396ad311', 'What time management techniques do Deborah and Jolene use?', '--json']' returned non-zero exit status 1.
+[ERR] c7_q112: Command '['/Users/raunakgengiti/Eidetic-Plus/.venv/bin/nlm', 'notebook', 'query', '5db06d34-d667-43a8-a1a7-3bda396ad311', 'What gave Deborah peace in the garden she visited?', '--json']' returned non-zero exit status 1.
+[ERR] c7_q116: Command '['/Users/raunakgengiti/Eidetic-Plus/.venv/bin/nlm', 'notebook', 'query', '5db06d34-d667-43a8-a1a7-3bda396ad311', 'According to Jolene, what does exercise help her to feel?', '--json']' returned non-zero exit status 1.
+[11] c3_q37 contains_gold=True confirmed=0/0 18.6s
+[12] c3_q115 contains_gold=False confirmed=5/5 19.2s
+[13] c3_q31 contains_gold=False confirmed=0/0 18.4s
+[14] c3_q34 contains_gold=False confirmed=0/0 19.0s
+[15] c4_q52 contains_gold=True confirmed=0/0 22.6s
+[16] c4_q174 contains_gold=True confirmed=9/9 18.8s
+[17] c4_q63 contains_gold=True confirmed=0/0 13.7s
+[18] c4_q39 contains_gold=True confirmed=0/0 14.0s
+[19] c0_q116 contains_gold=False confirmed=6/6 16.6s
+[20] c0_q73 contains_gold=True confirmed=0/0 14.7s
+[21] c0_q23 contains_gold=False confirmed=0/0 15.8s
+[22] c0_q92 contains_gold=True confirmed=4/4 13.8s
+[23] c0_q41 contains_gold=False confirmed=0/0 17.7s
+[24] c6_q25 contains_gold=True confirmed=0/0 15.9s
+[25] c6_q139 contains_gold=True confirmed=0/0 16.3s
+[26] c6_q126 contains_gold=True confirmed=0/0 14.2s
+[27] c6_q29 contains_gold=True confirmed=8/8 17.1s
+[28] c6_q107 contains_gold=False confirmed=0/0 22.4s
+[29] c6_q70 contains_gold=True confirmed=0/0 12.7s
+[30] c6_q76 contains_gold=True confirmed=8/8 19.4s
+[31] c9_q112 contains_gold=True confirmed=0/0 17.4s
+[32] c9_q137 contains_gold=True confirmed=0/0 20.0s
+[33] c9_q64 contains_gold=False confirmed=0/0 19.2s
+[34] c8_q33 contains_gold=False confirmed=0/0 14.0s
+[35] c8_q86 contains_gold=True confirmed=0/0 17.0s
+[ERR] c1_q2: Command '['/Users/raunakgengiti/Eidetic-Plus/.venv/bin/nlm', 'notebook', 'query', '17c2096b-3107-46ac-b26f-2ffa5e9d3725', 'How do Jon and Gina both like to destress?', '--json']' returned non-zero exit status 1.
+[ERR] c1_q52: Command '['/Users/raunakgengiti/Eidetic-Plus/.venv/bin/nlm', 'notebook', 'query', '17c2096b-3107-46ac-b26f-2ffa5e9d3725', 'What did Jon say about creating a special experience for customers?', '--json']' returned non-zero exit status 1.
+
+done ok=35 err=5 -> artifacts/holdout_rotation_r15_codex/notebooklm_freetier_run3.jsonl
+[ERR] c7_q39: Command '['/Users/raunakgengiti/Eidetic-Plus/.venv/bin/nlm', 'notebook', 'query', '5db06d34-d667-43a8-a1a7-3bda396ad311', 'What time management techniques do Deborah and Jolene use?', '--json']' returned non-zero exit status 1.
+[ERR] c7_q112: Command '['/Users/raunakgengiti/Eidetic-Plus/.venv/bin/nlm', 'notebook', 'query', '5db06d34-d667-43a8-a1a7-3bda396ad311', 'What gave Deborah peace in the garden she visited?', '--json']' returned non-zero exit status 1.
+[ERR] c7_q116: Command '['/Users/raunakgengiti/Eidetic-Plus/.venv/bin/nlm', 'notebook', 'query', '5db06d34-d667-43a8-a1a7-3bda396ad311', 'According to Jolene, what does exercise help her to feel?', '--json']' returned non-zero exit status 1.
+[ERR] c1_q2: Command '['/Users/raunakgengiti/Eidetic-Plus/.venv/bin/nlm', 'notebook', 'query', '17c2096b-3107-46ac-b26f-2ffa5e9d3725', 'How do Jon and Gina both like to destress?', '--json']' returned non-zero exit status 1.
+[ERR] c1_q52: Command '['/Users/raunakgengiti/Eidetic-Plus/.venv/bin/nlm', 'notebook', 'query', '17c2096b-3107-46ac-b26f-2ffa5e9d3725', 'What did Jon say about creating a special experience for customers?', '--json']' returned non-zero exit status 1.
+
+done ok=0 err=5 -> artifacts/holdout_rotation_r15_codex/notebooklm_freetier_run3.jsonl

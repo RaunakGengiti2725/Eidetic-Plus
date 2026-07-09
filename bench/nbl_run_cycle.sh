@@ -29,9 +29,10 @@ DATA_DIR="$WINDOW/data" "$PY" -m bench.notebooklm_freetier_run "$WINDOW" \
   --out "$WINDOW/notebooklm_gate.json" | "$PY" -c "
 import json, sys
 d = json.load(sys.stdin)
-for r in d['runs']:
+runs = d.get('per_run') or d.get('runs') or []
+for r in runs:
     print(f\"{r['file']:44} {r['correct']}/{r['answered']} acc={r['accuracy']:.3f} \"
-          + ('counts' if r['counts_toward_gate'] else 'EXCLUDED'))
-print(f\"mean={d['mean_accuracy']} stdev={d['stdev']} ci95={d['ci95_mean']}\")
-print(f\"VERDICT: {d['verdict']} -- {d['verdict_reason']}\")
+          + ('counts' if r.get('counts_toward_gate') else 'EXCLUDED'))
+print(f\"mean={d.get('mean_accuracy')} stdev={d.get('stdev')} ci95={d.get('ci95_mean')}\")
+print(f\"VERDICT: {d.get('verdict')} -- {d.get('verdict_reason')}\")
 "
