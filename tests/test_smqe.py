@@ -1112,7 +1112,7 @@ def test_structured_answer_count_matches_es_plural_to_singular_route(tmp_path):
     out = _assert_aggregate_fails_closed(
         store, "How many bike routes did I visit this month?", at=1_700_000_400, scope=scope)
     assert out["answer"] == str(len(routes))
-    assert out["note"].startswith("smqe:count_aggregate")
+    assert out["note"].startswith("smqe:count_aggregate:record")
     assert "museum exhibits" not in _proof_of(out)
 
 
@@ -2086,14 +2086,15 @@ def test_structured_answer_numeric_average_computes_same_unit_values(tmp_path):
                 if add_claims:
                     store.add_claims(claims_for_record(rec))
 
-            ans = structured_answer(_Retriever(store), question, at=1_700_001_100, scope=scope)
-
-            assert ans is not None
-            assert ans.answer == expected
-            assert ans.verified is True
-            assert ans.note == f"smqe:latest_value:{backend}"
-            assert len(ans.citations) == citation_count
-            proof = " ".join(c.snippet for c in ans.citations)
+            # P0 fail-closed extension (adversarial review 2026-07-09): a derived multi-atom
+            # AVERAGE is a value NO source states -- the same verified-wrong class as derived
+            # counts/sums (a mistagged latest_value average shipped '$60' verified from atoms
+            # stating only $80 and $40). The derivation still computes (trace below); the
+            # verify-or-abstain surface withholds the badge.
+            out = _assert_aggregate_fails_closed(store, question, at=1_700_001_100, scope=scope)
+            assert out["answer"] == expected
+            assert out["note"] == f"smqe:latest_value:{backend}"
+            proof = _proof_of(out)
             for bad in forbidden:
                 assert bad not in proof
 

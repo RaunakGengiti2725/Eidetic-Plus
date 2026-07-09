@@ -22,41 +22,67 @@ _NUMERIC_ANSWER_RE = re.compile(
     r"thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|"
     r"fifty|sixty|seventy|eighty|ninety|hundred|thousand|million|no|none|zero)\b", re.I)
 # The aggregate CITATION floor extracts the answer's operative cardinal (leading number
-# token) to check it is actually STATED in the sole cited source. Spelled small numbers and
-# decimals both count; a leading '$'/unit is not part of the token.
+# token) to check it is actually STATED in the cited source. Spelled small numbers, decimals,
+# and COMMA-GROUPED thousands all count ('$1,220' -> 1220, not '1' -- the truncated-cardinal
+# hole let a derived sum pass on a stray '1' in the atom while genuinely stated 4-digit totals
+# could never match).
 _ANSWER_CARDINAL_RE = re.compile(
-    r"\d+(?:\.\d+)?|\b(?:zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|"
-    r"thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|"
-    r"fifty|sixty|seventy|eighty|ninety|hundred|thousand|million)\b", re.I)
+    r"\d[\d,]*(?:\.\d+)?|\b(?:zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|"
+    r"twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|"
+    r"forty|fifty|sixty|seventy|eighty|ninety|hundred|thousand|million)\b", re.I)
+_ATOM_NUMBER_RE = re.compile(r"\d[\d,]*(?:\.\d+)?")
 # count / cross-session-sum ops: NLI proves each cited atom is verbatim-present, never that the
 # atom SET is the right one, so a value derived by counting/summing across atoms ships
 # "verified" while wrong. These two ops face the source-cardinality floor below.
 _AGGREGATE_OPS = {"count_aggregate", "multi_session_sum"}
-# A comparative DIFFERENCE ("how much MORE did X cost than Y", "how many more miles") is a
-# fixed TWO-anchor arithmetic, not a variable-N enumeration -- both operands are cited and the
-# subtraction is exact, so it is recompute-verifiable exactly like temporal_delta / latest_value
-# differences (which already verify). The planner sometimes tags it count_aggregate; the
-# cardinality floor must NOT abstain it. Keyed on the comparative frame only, so a plain count
-# ("how many weddings") never matches.
+# Ops whose numeric answers are legitimately DERIVED and separately verifiable: temporal deltas
+# recompute from record.valid_at anchors (not atom text); relative_temporal resolves a date.
+_TEMPORAL_NUMERIC_OPS = {"temporal_delta", "relative_temporal"}
+# A comparative DIFFERENCE is a fixed TWO-anchor arithmetic, not a variable-N enumeration --
+# both operands are cited and the subtraction is exact, so it is recompute-verifiable exactly
+# like temporal_delta differences. ADJACENCY REQUIRED: the comparative must sit within two
+# words of "how much/many" ("how much MORE did X cost than Y", "how many more miles ... than").
+# A comparative floating later in the sentence is a FILTER, not a difference ("how many hikes
+# did I go on that were LONGER THAN five miles" is a count with a filter -- the leaked class),
+# and gets no exemption. Mirrors the executor's own adjacency rule (_numeric_difference_direction).
 _DIFFERENCE_QUERY_RE = re.compile(
-    r"\bhow\s+(?:much|many)\b[^?]*\b(?:more|less|fewer|greater|higher|lower|longer|shorter|"
-    r"farther|further)\b[^?]*\bthan\b|\bdifference\s+between\b", re.I)
+    r"\bhow\s+(?:much|many)\s+(?:\w+\s+){0,2}?(?:more|less|fewer|greater|higher|lower|longer|"
+    r"shorter|farther|further)\b[^?]*\bthan\b|\bdifference\s+between\b", re.I)
+# Aggregation-SHAPED queries, for the derivation-keyed floor: the planner mistags some
+# aggregation questions to non-aggregate ops (measured: 'average cost' and money-worded counts
+# plan as latest_value), whose executors still derive multi-atom arithmetic -- so an op-keyed
+# floor alone is bypassable. Two shapes: an explicit AMOUNT aggregation word, or a COUNT frame.
+_AMOUNT_AGG_QUERY_RE = re.compile(
+    r"\b(?:total|sum|combined|altogether|overall|in\s+all|average|mean)\b", re.I)
+_COUNT_QUERY_RE = re.compile(r"\bhow\s+many\b", re.I)
 
 
 def _answer_cardinal(answer: str) -> str:
-    """The answer's operative number token (leading cardinal), lowercased. '' if none."""
+    """The answer's operative number token (leading cardinal), comma-stripped, lowercased.
+    '' if none."""
     m = _ANSWER_CARDINAL_RE.search(answer or "")
-    return m.group(0).lower() if m else ""
+    return m.group(0).lower().replace(",", "") if m else ""
 
 
 def _atom_states_cardinal(atom: str, cardinal: str) -> bool:
-    """True when the answer's number appears verbatim (boundary-safe) in the cited atom -- the
-    source STATES the value rather than the executor DERIVING it. Digit tokens must not match
-    inside a longer number ('5' in '1226.34'); spelled tokens match on word boundaries."""
+    """True when the answer's number appears in the cited atom -- the source STATES the value
+    rather than the executor DERIVING it. Digit cardinals compare NUMERICALLY against every
+    number token in the atom (comma-tolerant, so '$1,220' matches '1220' and vice versa; '5'
+    never matches inside '1226.34'); spelled cardinals match on word boundaries."""
     if not cardinal or not atom:
         return False
     if cardinal[0].isdigit():
-        return re.search(rf"(?<!\d)(?<!\d\.){re.escape(cardinal)}(?!\.?\d)", atom) is not None
+        try:
+            want = float(cardinal)
+        except ValueError:
+            return False
+        for tok in _ATOM_NUMBER_RE.findall(atom):
+            try:
+                if abs(float(tok.replace(",", "")) - want) < 1e-9:
+                    return True
+            except ValueError:
+                continue
+        return False
     return re.search(rf"\b{re.escape(cardinal)}\b", atom, re.I) is not None
 
 
@@ -599,6 +625,8 @@ def answer_from_result(retriever, query: str, result: StructuredAnswerResult,
     # multi-support by nature -> they abstain (a computed sum no single source states cannot be
     # citation-verified; that is correct-or-silent, not a regression). temporal_delta is left
     # untouched: its anchors are record.valid_at, not atom text, and it is 0-wrong on the panel.
+    # LAYER 1 -- op-keyed strict floor: aggregate-tagged results verify only from a SOLE atom
+    # that states the value.
     if verify and result.op in _AGGREGATE_OPS and not _DIFFERENCE_QUERY_RE.search(query or ""):
         cardinal = _answer_cardinal(result.answer)
         sole_atom = (result.supports[0].proof_atom or result.supports[0].answer_atom or "") \
@@ -606,6 +634,34 @@ def answer_from_result(retriever, query: str, result: StructuredAnswerResult,
         if not (len(result.supports) == 1 and cardinal
                 and _atom_states_cardinal(sole_atom, cardinal)):
             return None
+    # LAYER 2 -- derivation-keyed floors for OP-MISTAGGED aggregations (adversarial review,
+    # 2026-07-09): the planner routes some aggregation questions to non-aggregate ops whose
+    # executors still derive multi-atom arithmetic, bypassing layer 1. Measured: 'What was the
+    # average cost of the dinners I hosted?' plans latest_value and shipped a derived mean
+    # ('$60' from atoms stating only $80 and $40) verified=True; money-worded count questions
+    # ('How many hotels ... cost more than $200?') also plan latest_value and shipped a scraped
+    # numeral as a count. Two query-shaped floors close the class:
+    if verify and result.op not in _AGGREGATE_OPS | _TEMPORAL_NUMERIC_OPS \
+            and not _DIFFERENCE_QUERY_RE.search(query or ""):
+        cardinal = _answer_cardinal(result.answer)
+        if cardinal:
+            # (a) COUNT-shaped query answered by a non-count op with a bare numeric answer is a
+            # mis-route: the number is a scraped measurement ('8' from '8 miles'), not a count
+            # of anything. No citation check can save it (the source really states 8 -- of the
+            # wrong thing). Fail closed. Non-numeric answers (names, dates) pass -- 'how many'
+            # questions legitimately answered by enumerating NAMES are list answers, not counts.
+            if _COUNT_QUERY_RE.search(query or "") and re.match(
+                    r"^\s*\$?\d[\d,]*(?:\.\d+)?\s*(?:[a-z%]+\s*){0,2}[.!]?\s*$",
+                    result.answer or "", re.I):
+                return None
+            # (b) AMOUNT-aggregation-shaped query (total/sum/average/...): the numeric answer
+            # must be STATED in at least one cited atom -- a derived mean/total no source
+            # states abstains. Looser than layer 1 (any atom, not sole) because lookups
+            # legitimately carry context atoms alongside the value atom.
+            if _AMOUNT_AGG_QUERY_RE.search(query or "") and not any(
+                    _atom_states_cardinal(s.proof_atom or s.answer_atom or "", cardinal)
+                    for s in result.supports):
+                return None
     # Preference FORM refusal: untagged preference_synth answers must be bounded noun
     # phrases (or protected polarity/title/number shapes). The ':suggestion_synth' tag
     # marks the one deliberate fragment carve-out (provenance-gated suggestion synthesis).

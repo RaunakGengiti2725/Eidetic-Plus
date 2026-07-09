@@ -1,13 +1,13 @@
 {
   "pass": true,
-  "seed": 659885743,
+  "seed": 1486866673,
   "seed_mode": "random",
   "cases": 46,
   "expected_abstain_cases": 9,
   "correct": 46,
   "claim_backend_correct": 46,
-  "claims_extracted": 222,
-  "avg_claims_per_case": 4.83,
+  "claims_extracted": 223,
+  "avg_claims_per_case": 4.85,
   "failures": [],
   "operator_counts": {
     "count_aggregate": 6,
@@ -30,7 +30,7 @@
     "temporal_delta": 3
   },
   "claim_type_counts": {
-    "event": 74,
+    "event": 75,
     "interval": 2,
     "preference": 16,
     "quantity": 11,
@@ -40,5 +40,5 @@
   "backend_counts": {
     "claim": 37
   },
-  "avg_proof_tokens": 28.5
+  "avg_proof_tokens": 28.59
 }

@@ -39,6 +39,9 @@ _SMQE_REQUIRED_SYNTHETIC_OPS = {
 }
 _SMQE_FULLPATH_MAX_AVG_CONTEXT_TOKENS = 80.0
 _SMQE_FULLPATH_MAX_P95_LATENCY_MS = 100.0
+# P0 fail-closed (2026-07-09): derived count/sum cases abstain by design (aggregate citation
+# floor, eidetic/smqe/verify.py) -- claim-backed expectations must exclude these ops.
+_SMQE_FAIL_CLOSED_AGGREGATE_OPS = {"count_aggregate", "multi_session_sum"}
 
 
 def _load_json(path: Path) -> dict:
@@ -1229,6 +1232,7 @@ def _write_composite_smqe_claim_coverage(out: Path, sources: list[Path]) -> Path
     total_correct = 0
     total_claim_backend = 0
     total_claims = 0
+    total_expected_abstain = 0
     proof_weighted = 0.0
     ok = True
     for src in sources:
@@ -1241,10 +1245,18 @@ def _write_composite_smqe_claim_coverage(out: Path, sources: list[Path]) -> Path
         correct = int(data.get("correct", 0) or 0)
         claim_backend = int(data.get("claim_backend_correct", 0) or 0)
         claims = int(data.get("claims_extracted", 0) or 0)
+        # P0 fail-closed contract: derived-aggregate cases abstain and are never claim-backed;
+        # the claim-backed expectations scope to the answerable remainder. A child WITHOUT the
+        # field predates the contract (its all-claim-backed pass contains the aggregate leak)
+        # and fails closed.
+        has_abstain_field = "expected_abstain_cases" in data
+        expected_abstain = int(data.get("expected_abstain_cases", 0) or 0)
+        answerable = max(0, cases - expected_abstain)
         total_cases += cases
         total_correct += correct
         total_claim_backend += claim_backend
         total_claims += claims
+        total_expected_abstain += expected_abstain
         proof_weighted += float(data.get("avg_proof_tokens", 0.0) or 0.0) * cases
         child_op_counts = {
             str(k): int(v or 0) for k, v in (data.get("operator_counts") or {}).items()
@@ -1263,10 +1275,14 @@ def _write_composite_smqe_claim_coverage(out: Path, sources: list[Path]) -> Path
         passed = (
             bool(data.get("pass"))
             and cases > 0
+            and has_abstain_field
+            and 0 <= expected_abstain <= cases
             and correct == cases
             and claim_backend == cases
+            and int((data.get("backend_counts") or {}).get("claim", 0) or 0) == answerable
             and claims >= cases
-            and all(child_claim_op_counts.get(op, 0) >= n for op, n in child_op_counts.items())
+            and all(child_claim_op_counts.get(op, 0) >= n for op, n in child_op_counts.items()
+                    if op not in _SMQE_FAIL_CLOSED_AGGREGATE_OPS)
             and int((data.get("backend_counts") or {}).get("record", 0) or 0) == 0
             and not child_failures
         )
@@ -1290,6 +1306,7 @@ def _write_composite_smqe_claim_coverage(out: Path, sources: list[Path]) -> Path
         "artifact_kind": "composite",
         "seed_mode": _composite_seed_mode_for_sources(sources, path.name),
         "cases": total_cases,
+        "expected_abstain_cases": total_expected_abstain,
         "correct": total_correct,
         "claim_backend_correct": total_claim_backend,
         "claims_extracted": total_claims,
@@ -1319,6 +1336,7 @@ def _write_composite_smqe_fullpath(out: Path, sources: list[Path]) -> Path:
     total_proof_link_checks = 0
     total_claim_backend = 0
     total_claims = 0
+    total_expected_abstain = 0
     total_latency_budget_checks = 0
     max_p95_latency = 0.0
     max_latency = 0.0
@@ -1339,6 +1357,12 @@ def _write_composite_smqe_fullpath(out: Path, sources: list[Path]) -> Path:
         proof_link_checks = int(data.get("proof_link_checks", 0) or 0)
         claim_backend = int(data.get("claim_backend_correct", 0) or 0)
         claims = int(data.get("claims_extracted", 0) or 0)
+        # P0 fail-closed contract: derived-aggregate cases abstain; the all-verified
+        # expectations scope to answerable cases. Missing field = pre-contract child -> fail.
+        has_abstain_field = "expected_abstain_cases" in data
+        expected_abstain = int(data.get("expected_abstain_cases", 0) or 0)
+        answerable = max(0, cases - expected_abstain)
+        total_expected_abstain += expected_abstain
         latency_budget = int(data.get("latency_budget_checks", 0) or 0)
         p95_latency_raw = data.get("p95_latency_ms")
         max_latency_raw = data.get("max_latency_ms")
@@ -1385,13 +1409,15 @@ def _write_composite_smqe_fullpath(out: Path, sources: list[Path]) -> Path:
         passed = (
             bool(data.get("pass"))
             and cases > 0
+            and has_abstain_field
+            and 0 <= expected_abstain <= cases
             and correct == cases
-            and verified == cases
-            and structured == cases
+            and verified == answerable
+            and structured == answerable
             and reader_calls == 0
-            and proof_link_checks >= cases
-            and claim_backend == cases
-            and claims >= cases
+            and proof_link_checks >= answerable
+            and claim_backend == answerable
+            and claims >= answerable
             and child_context_valid
             and child_latency_valid
             and latency_budget >= cases
@@ -1422,13 +1448,14 @@ def _write_composite_smqe_fullpath(out: Path, sources: list[Path]) -> Path:
     avg_proof = round(proof_weighted / total_cases, 2) if total_cases else 0.0
     avg_context = round(context_weighted / total_cases, 2) if total_cases else 0.0
     avg_claims = round(total_claims / total_cases, 2) if total_cases else 0.0
+    total_answerable = max(0, total_cases - total_expected_abstain)
     path = out / "smqe_fullpath_invariant.json"
     path.write_text(json.dumps({
         "pass": ok and total_cases > 0 and total_correct == total_cases
-        and total_verified == total_cases and total_structured == total_cases
-        and total_reader_calls == 0 and total_claim_backend == total_cases
-        and total_proof_link_checks >= total_cases
-        and total_claims >= total_cases
+        and total_verified == total_answerable and total_structured == total_answerable
+        and total_reader_calls == 0 and total_claim_backend == total_answerable
+        and total_proof_link_checks >= total_answerable
+        and total_claims >= total_answerable
         and total_latency_budget_checks >= total_cases
         and max_p95_latency <= _SMQE_FULLPATH_MAX_P95_LATENCY_MS
         and avg_context <= _SMQE_FULLPATH_MAX_AVG_CONTEXT_TOKENS
@@ -1437,6 +1464,7 @@ def _write_composite_smqe_fullpath(out: Path, sources: list[Path]) -> Path:
         "artifact_kind": "composite",
         "seed_mode": _composite_seed_mode_for_sources(sources, path.name),
         "cases": total_cases,
+        "expected_abstain_cases": total_expected_abstain,
         "correct": total_correct,
         "verified": total_verified,
         "structured_recall": total_structured,

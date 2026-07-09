@@ -271,6 +271,8 @@ def _write_source(path: Path, *, dataset: str, category: str, sample_id: str,
         "seed": 424242,
         "seed_mode": "random",
         "cases": 27,
+        # P0 fail-closed contract: the 6 derived-aggregate cases abstain, not claim-backed.
+        "expected_abstain_cases": 6,
         "correct": 27,
         "claim_backend_correct": 27,
         "claims_extracted": 86,
@@ -288,9 +290,7 @@ def _write_source(path: Path, *, dataset: str, category: str, sample_id: str,
             "temporal_delta": 3,
         },
         "claim_backend_operator_counts": {
-            "count_aggregate": 3,
             "latest_value": 3,
-            "multi_session_sum": 3,
             "open_inference": 3,
             "preference_synth": 3,
             "relative_temporal": 3,
@@ -299,7 +299,7 @@ def _write_source(path: Path, *, dataset: str, category: str, sample_id: str,
             "temporal_delta": 3,
         },
         "claim_type_counts": {"event": 26, "preference": 9, "quantity": 9, "state": 33, "table": 9},
-        "backend_counts": {"claim": 27},
+        "backend_counts": {"claim": 21},
         "avg_proof_tokens": 18.0,
     }))
     (path / "smqe_fullpath_invariant.json").write_text(json.dumps({
@@ -307,12 +307,14 @@ def _write_source(path: Path, *, dataset: str, category: str, sample_id: str,
         "seed": 424242,
         "seed_mode": "random",
         "cases": 27,
+        "expected_abstain_cases": 6,
         "correct": 27,
-        "verified": 27,
-        "structured_recall": 27,
+        "verified": 21,
+        "structured_recall": 21,
         "reader_calls": 0,
-        "proof_link_checks": 27,
-        "claim_backend_correct": 27,
+        "reader_consults": 6,
+        "proof_link_checks": 21,
+        "claim_backend_correct": 21,
         "claims_extracted": 86,
         "avg_claims_per_case": 3.0,
         "failures": [],
@@ -785,11 +787,14 @@ def test_merge_artifacts_builds_release_gate_visible_composite(tmp_path):
     fullpath = json.loads((out / "smqe_fullpath_invariant.json").read_text())
     assert fullpath["pass"] is True
     assert fullpath["cases"] == 54
-    assert fullpath["verified"] == 54
-    assert fullpath["structured_recall"] == 54
+    # fail-closed contract: 12 derived-aggregate cases (6 per source) abstain by design;
+    # the all-verified expectations apply to the 42 answerable cases.
+    assert fullpath["expected_abstain_cases"] == 12
+    assert fullpath["verified"] == 42
+    assert fullpath["structured_recall"] == 42
     assert fullpath["reader_calls"] == 0
-    assert fullpath["proof_link_checks"] == 54
-    assert fullpath["claim_backend_correct"] == 54
+    assert fullpath["proof_link_checks"] == 42
+    assert fullpath["claim_backend_correct"] == 42
     assert sum(fullpath["case_operator_counts"].values()) == 54
     assert min(fullpath["case_operator_counts"].values()) >= 6
     assert fullpath["latency_budget_checks"] == 54
@@ -797,8 +802,14 @@ def test_merge_artifacts_builds_release_gate_visible_composite(tmp_path):
     claim_coverage = json.loads((out / "smqe_claim_coverage.json").read_text())
     assert claim_coverage["pass"] is True
     assert claim_coverage["cases"] == 54
+    assert claim_coverage["expected_abstain_cases"] == 12
     assert claim_coverage["claim_backend_correct"] == 54
-    assert claim_coverage["claim_backend_operator_counts"] == claim_coverage["operator_counts"]
+    # fail-closed contract: the two derived-aggregate ops abstain, so they appear in the
+    # case-level operator_counts but never in the claim-backed tally.
+    assert claim_coverage["claim_backend_operator_counts"] == {
+        op: n for op, n in claim_coverage["operator_counts"].items()
+        if op not in {"count_aggregate", "multi_session_sum"}
+    }
     abstention = json.loads((out / "smqe_abstention_invariant.json").read_text())
     assert abstention["pass"] is True
     assert abstention["cases"] == 48
@@ -1016,15 +1027,16 @@ def test_merge_artifacts_marks_smqe_fullpath_missing_proof_links_nonpassing(tmp_
         sample_id="release_test_1_q0",
     )
     sidecar = json.loads((first / "smqe_fullpath_invariant.json").read_text())
-    sidecar["proof_link_checks"] = 26
+    # fail-closed contract: expected = answerable cases (27 - 6 abstaining aggregates = 21)
+    sidecar["proof_link_checks"] = 20
     (first / "smqe_fullpath_invariant.json").write_text(json.dumps(sidecar))
 
     merge_artifacts([first, second], tmp_path / "composite")
     composite = json.loads((tmp_path / "composite" / "smqe_fullpath_invariant.json").read_text())
 
     assert composite["pass"] is False
-    assert composite["proof_link_checks"] == 53
-    assert any(source["proof_link_checks"] == 26 and source["pass"] is False
+    assert composite["proof_link_checks"] == 41   # 20 (broken child) + 21 (healthy child)
+    assert any(source["proof_link_checks"] == 20 and source["pass"] is False
                for source in composite["sources"])
 
 

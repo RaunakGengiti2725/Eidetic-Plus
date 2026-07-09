@@ -359,6 +359,11 @@ def run_eval(*, seed: Optional[int] = None, cases: int = 24) -> dict:
         "cases": cases,
         "checks": cases * 2,
         "correct": cases - len(failures),
+        # P0 fail-closed: expect_abstain cases pass by ABSTAINING under both backends; they are
+        # counted in record/claim_backend_correct as contract-passes, not as backend answers.
+        # Published so a gate reader can scope the answered contract to cases - this count.
+        "expected_abstain_cases": sum(
+            1 for c in generated if getattr(c, "expect_abstain", False)),
         "record_backend_correct": record_correct,
         "claim_backend_correct": claim_correct,
         "failures": failures,

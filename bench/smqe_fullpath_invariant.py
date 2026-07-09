@@ -223,7 +223,11 @@ def run_eval(*, seed: Optional[int] = None, cases: int = 24) -> dict:
                     # the product ABSTAINS -- correct-or-silent. The structured path no longer
                     # answers these, so the zero-reader-call invariant does not apply to them; a
                     # reader-tier consult that itself abstains is the designed fallback.
-                    ok = extra.get("verified") is not True and bool(answer.abstained)
+                    # The reader consult is REQUIRED (adversarial review): abstention alone
+                    # cannot distinguish designed fail-closed from SMQE never running at all --
+                    # a broken adapter that abstains everywhere would keep this gate green.
+                    ok = (extra.get("verified") is not True and bool(answer.abstained)
+                          and len(client.reader_models) > 0)
                 else:
                     ok = (
                         extra.get("verified") is True

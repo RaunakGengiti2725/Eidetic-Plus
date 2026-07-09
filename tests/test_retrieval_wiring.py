@@ -610,6 +610,23 @@ def _structured_recall_answer(fresh_settings, query: str, rec: MemoryRecord, *, 
     return _structured_recall_answer_records(fresh_settings, query, [rec], at=at, scope=rec.scope)
 
 
+def _structured_recall_trace_records(fresh_settings, query, records, *, at, scope=None):
+    """Full structured_recall trace for fail-closed aggregate tests: proves the derivation RAN
+    and computed the expected value while the verify-or-abstain surface withheld the badge --
+    `ans is None` alone cannot distinguish fail-closed from the pipeline never executing."""
+    from eidetic.smqe.engine import structured_recall as _sr
+    s = replace(
+        fresh_settings,
+        cascade_enabled=False,
+        abstention_v2_enabled=False,
+        abstention_threshold=0.0,
+        conflict_resolver_enabled=True,
+    )
+    answer_scope = scope or (records[0].scope if records else Scope())
+    r = _retriever(s, _GeneratorShouldNotRun(), store=_SourceScanStore(records))
+    return _sr(r, query, records=records, at=at, verify=True, scope=answer_scope)
+
+
 def _source_rec(scope: Scope, memory_id: str, text: str, valid_at: float) -> MemoryRecord:
     return MemoryRecord(
         memory_id=memory_id,
@@ -688,7 +705,7 @@ def test_retriever_answer_runs_smqe_operator_before_generator(fresh_settings):
     assert ans.generated_by == "smqe"
     assert ans.verified is True
     assert ans.answer == "2024-05-12"
-    assert any(c.memory_id == "studio-b" for c in ans.citations)
+    assert {c.memory_id for c in ans.citations} == {"studio-b"}
 
 
 def test_retriever_smqe_candidate_path_upserts_only_active_records(fresh_settings):
@@ -1023,6 +1040,15 @@ def test_product_structured_recall_answers_clothing_pickup_return_count(fresh_se
     # a cross-atom count no single source states is exactly the leak class (5/6 verified-WRONG on
     # holdout), so the structured path returns None (abstains) rather than ship "3".
     assert ans is None
+    trace = _structured_recall_trace_records(
+        fresh_settings,
+        "How many clothing items do I still need to pick up or eventually return from a shop?",
+        [blazer, boots],
+        at=3.0,
+        scope=scope,
+    )
+    assert trace["answer"] == "3"             # derivation still computes; badge withheld
+    assert trace["note"].startswith("smqe:count_aggregate")
 
 
 def test_product_structured_recall_answers_gallery_day_interval(fresh_settings):
@@ -1118,10 +1144,20 @@ def test_product_structured_recall_answers_latest_entity_count(fresh_settings):
         scope=scope,
     )
 
-    # P0 fail-closed (2026-07-09): a DERIVED count abstains (eidetic/smqe/verify.py). The engine's
-    # active-record filtering still supersedes "three" with the latest "four"; the count itself now
-    # fails closed rather than verify.
+    # P0 fail-closed (2026-07-09): a DERIVED count abstains (eidetic/smqe/verify.py). The
+    # SUPERSESSION pin survives via the trace: the derivation must still pick the latest "four"
+    # over the superseded "three" -- the badge is withheld, not the computation.
     assert ans is None
+    trace = _structured_recall_trace_records(
+        fresh_settings,
+        "How many blue loom studios have I tried in my city?",
+        [older, latest],
+        at=datetime(2023, 10, 1, 12, 0).timestamp(),
+        scope=scope,
+    )
+    assert trace["answered"] is False and trace["verified"] is False
+    assert trace["answer"] == "four"          # latest wins; "three" superseded
+    assert trace["note"].startswith("smqe:count_aggregate")
 
 
 def test_product_structured_recall_answers_week_delta_from_named_object(fresh_settings):
@@ -1183,6 +1219,16 @@ def test_product_structured_recall_answers_duration_sum_filters_matching_trip_to
     # 5 days + 3 days across two trips (excluding the 7-day non-camping distractor) is a total no
     # single source states -- the leak class -- so the structured path returns None.
     assert ans is None
+    trace = _structured_recall_trace_records(
+        fresh_settings,
+        "How many days did I actually spend on camping trips this year?",
+        records,
+        at=datetime(2023, 4, 30, 6, 45).timestamp(),
+        scope=scope,
+    )
+    assert trace["answer"] == "8 days"        # distractor-excluding derivation still computes
+    proof = " ".join(s.get("proof_atom") or "" for s in trace.get("supports") or [])
+    assert "Red Mesa" not in proof
 
 
 def test_product_structured_recall_answers_consecutive_charity_event_month_delta(fresh_settings):
@@ -1306,6 +1352,15 @@ def test_product_structured_recall_answers_recent_acquired_items_with_decoy(fres
     # enumerating 3 plants across two sessions (excluding the "fern" decoy) is the leak class, so
     # the structured path returns None rather than ship "3 plants".
     assert ans is None
+    trace = _structured_recall_trace_records(
+        fresh_settings,
+        "How many plants did I actually acquire over the last month?",
+        records,
+        at=datetime(2023, 5, 31, 4, 51).timestamp(),
+        scope=scope,
+    )
+    assert trace["answer"].startswith("3 plants:")
+    assert "fern" not in trace["answer"]      # decoy exclusion still computes; badge withheld
 
 
 def test_product_structured_recall_answers_latest_preapproval_amount(fresh_settings):
@@ -1548,6 +1603,14 @@ def test_product_structured_recall_answers_spending_sum_and_inspiration_preferen
     # returns None. The preference answer (a non-aggregate op) still verifies unchanged, which is
     # what keeps this a useful "sum fails closed but preferences still work" regression pair.
     assert ans_bike is None
+    trace = _structured_recall_trace_records(
+        fresh_settings,
+        "How much have I spent altogether on bike-related costs since the start of this year?",
+        [bike, painting],
+        at=datetime(2023, 5, 31, 12, 0).timestamp(),
+        scope=scope,
+    )
+    assert trace["answer"] == "$185"          # derivation still sums; badge withheld
     assert "Instagram" in ans_painting.answer
     assert "online tutorials" in ans_painting.answer
     assert "30-day painting challenge" in ans_painting.answer
@@ -1592,6 +1655,14 @@ def test_product_structured_recall_answers_drive_hour_sum_with_range_estimate(fr
     # 4 + 5-6 + 6 hours across three trips is a derived total no single source states -- the leak
     # class -- so the structured path returns None rather than ship the range estimate.
     assert ans is None
+    trace = _structured_recall_trace_records(
+        fresh_settings,
+        "How many hours in total did I actually spend driving out to my three road trip destinations combined?",
+        records,
+        at=datetime(2023, 5, 31, 12, 0).timestamp(),
+        scope=scope,
+    )
+    assert trace["answer"].startswith("15 hours")   # derivation still computes; badge withheld
 
 
 def test_product_structured_recall_answers_named_visit_month_delta(fresh_settings):

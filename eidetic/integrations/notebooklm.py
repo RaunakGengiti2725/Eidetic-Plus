@@ -653,8 +653,16 @@ class NotebookLMBridge:
                     "note": f"no records to export for namespace {namespace!r}"}
         self.backend.batch_create_sources(notebook_id, sources)
         r = self.answer(namespace, question, notebook_id)
-        r["retrieval_guided"] = {"exported": len(sources), "top_k": top_k,
-                                 "inject_computed": inject_computed}
+        r["retrieval_guided"] = {
+            "exported": len(sources), "top_k": top_k, "inject_computed": inject_computed,
+            # APPEND semantics, stated plainly: batch_create_sources adds to whatever the
+            # notebook already holds -- repeated calls against ONE notebook accumulate sources
+            # and dilute the focused top_k premise. Use a per-question (or per-session-batch)
+            # notebook, as the bench harness does; IncrementalSync is the dedupe surface for
+            # long-lived notebooks.
+            "note": "sources APPEND to the notebook; reuse across questions dilutes the "
+                    "focused set -- prefer a fresh notebook per question/batch",
+        }
         return r
 
     def export_namespace(self, namespace: str, notebook_id: str, *,
@@ -734,6 +742,17 @@ class NotebookLMBridge:
         if not refs:
             return []
         scope = Scope(namespace=namespace)
+
+        def _norm_side(text: str) -> str:
+            # SYMMETRIC normalization (quote AND body): the ref tokens ride inside [brackets],
+            # and stripping brackets/parens from only the quote side would defeat verbatim
+            # matching for any source text that itself contains parentheses.
+            text = _re.sub(r"[\[\]()]+", " ", text or "")
+            return _re.sub(r"\s+", " ", text.lower()).strip()
+
+        # all_records on purpose: an old notebook legitimately quotes a source exported before
+        # its record was superseded -- that record IS the provenance. The `superseded` flag on
+        # each resolved row keeps the temporal status honest.
         bodies: list[tuple[object, str, set[str]]] = []   # (record, norm_body, body_tokens)
         for rec in self.engine.store.all_records(scope):
             try:
@@ -741,30 +760,46 @@ class NotebookLMBridge:
             except Exception:
                 claims = []
             body = format_source(rec, claims)["text_content"]
-            norm = _re.sub(r"\s+", " ", (body or "").lower()).strip()
+            norm = _norm_side(body)
             if not norm:
                 continue
             toks = {t for t in self._GROUND_TOKEN_RE.findall(norm)
                     if t not in self._GROUND_STOP}
             bodies.append((rec, norm, toks))
+        # Overlap attribution needs a clear winner, not merely a strict inequality: a long
+        # record whose tokens are a SUPERSET of the true source's can edge it by one token.
+        _OVERLAP_MARGIN = 0.1
+
+        def _resolved_row(row: dict, rec, match: str, **extra) -> dict:
+            return {**row, "resolved": True, "match": match,
+                    "memory_id": rec.memory_id,
+                    "content_sha256": rec.content_hash,
+                    "valid_at": _iso(rec.valid_at),
+                    "superseded": rec.invalid_at is not None, **extra}
+
         out: list[dict] = []
         for idx, ref in enumerate(refs, start=1):
             quote = _EIDETIC_REF_RE.sub("", str(ref.get("cited_text", "")))
-            quote = _re.sub(r"[\[\]()]+", " ", quote)
-            qn = _re.sub(r"\s+", " ", quote.lower()).strip()
+            qn = _norm_side(quote)
             row: dict = {"ref_index": idx, "quote": qn[:200]}
+            if not bodies:
+                out.append({**row, "resolved": False, "reason": "no-records-in-namespace"})
+                continue
             if len(qn) < self._QUOTE_MIN_CHARS:
                 out.append({**row, "resolved": False, "reason": "quote-too-short"})
                 continue
             verbatim = [(rec, norm) for rec, norm, _t in bodies if qn in norm]
             if len(verbatim) == 1:
-                rec = verbatim[0][0]
-                out.append({**row, "resolved": True, "match": "verbatim",
-                            "memory_id": rec.memory_id,
-                            "content_sha256": rec.content_hash,
-                            "valid_at": _iso(rec.valid_at)})
+                out.append(_resolved_row(row, verbatim[0][0], "verbatim"))
                 continue
             if len(verbatim) > 1:
+                # One deliberate tiebreak: a quote in exactly ONE ACTIVE record plus its own
+                # superseded predecessors is not ambiguous -- supersession copies text forward.
+                active = [rec for rec, _n in verbatim if rec.invalid_at is None]
+                if len(active) == 1:
+                    out.append(_resolved_row(row, active[0], "verbatim",
+                                             also_in_superseded=len(verbatim) - 1))
+                    continue
                 out.append({**row, "resolved": False, "reason": "ambiguous-verbatim",
                             "candidates": len(verbatim)})
                 continue
@@ -778,14 +813,11 @@ class NotebookLMBridge:
                  for rec, _n, toks in bodies),
                 key=lambda x: -x[0],
             )
-            best, second = scored[0], (scored[1] if len(scored) > 1 else (0.0, None))
-            if best[0] >= self._QUOTE_OVERLAP_FLOOR and best[0] > second[0]:
-                rec = best[1]
-                out.append({**row, "resolved": True, "match": "high-overlap",
-                            "overlap": round(best[0], 3),
-                            "memory_id": rec.memory_id,
-                            "content_sha256": rec.content_hash,
-                            "valid_at": _iso(rec.valid_at)})
+            best = scored[0]
+            second_score = scored[1][0] if len(scored) > 1 else 0.0
+            if best[0] >= self._QUOTE_OVERLAP_FLOOR and best[0] - second_score >= _OVERLAP_MARGIN:
+                out.append(_resolved_row(row, best[1], "high-overlap",
+                                         overlap=round(best[0], 3)))
             elif best[0] >= self._QUOTE_OVERLAP_FLOOR:
                 out.append({**row, "resolved": False, "reason": "ambiguous-overlap",
                             "overlap": round(best[0], 3)})

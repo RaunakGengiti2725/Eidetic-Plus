@@ -775,6 +775,15 @@ def test_eidetic_full_uses_structured_recall_for_clothing_pickup_return_count(tm
     assert ar.abstained is True
     assert ar.extra["verified"] is False
     assert client.reader_models != []          # falls through to the reader tier, which declines
+    # Derivation-value pin (adversarial review): the SMQE trace must still COMPUTE "3" and
+    # withhold the badge -- abstention alone cannot distinguish fail-closed from SMQE never
+    # running (a broken adapter that abstains everywhere would pass otherwise).
+    trace = e.structured_recall(
+        "How many clothing items do I still need to pick up or return at a shop?",
+        scope=Scope(namespace="ns"))
+    assert trace["answered"] is False and trace["verified"] is False
+    assert trace["answer"] == "3"
+    assert trace["note"].startswith("smqe:count_aggregate")
     get_settings.cache_clear()
 
 
@@ -805,11 +814,18 @@ def test_eidetic_full_structured_recall_is_not_gated_by_user_evidence_context(tm
     ar = sys.answer("ns", "How many clothing items do I still need to pick up or return at a shop?")
 
     # P0 fail-closed (2026-07-09): a DERIVED count abstains (eidetic/smqe/verify.py). The point of
-    # THIS test -- that the structured path is not gated by user-evidence context -- is now moot for
-    # aggregates, which fail closed regardless; it survives as a fail-closed regression guard.
+    # THIS test -- that the structured path is not gated by user-evidence context -- survives via
+    # the trace pin below: with user_evidence_context DISABLED the SMQE derivation must still RUN
+    # and compute "3" (then withhold the badge). Abstention alone would also pass if the flag
+    # wrongly gated SMQE off entirely -- the original bug this test pinned.
     assert ar.abstained is True
     assert ar.extra["verified"] is False
     assert client.reader_models != []
+    trace = e.structured_recall(
+        "How many clothing items do I still need to pick up or return at a shop?",
+        scope=Scope(namespace="ns"))
+    assert trace["answer"] == "3"
+    assert trace["note"].startswith("smqe:count_aggregate")
     get_settings.cache_clear()
 
 

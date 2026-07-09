@@ -5039,6 +5039,31 @@ class Retriever:
                              if c.nli_label == NLILabel.ENTAILMENT else c
                              for c in citations]
 
+        # Numeric-aggregation CITATION floor on the reader path (adversarial review 2026-07-09).
+        # NLI proves sentences are grounded, never that ARITHMETIC is right: a reader answer to
+        # an aggregation-shaped question ('how many X', 'total/average Y') whose number is not
+        # STATED in any entailed source is a derived value the citations cannot back -- the
+        # exact verified-wrong class measured live on the structured path (5/13) and in holdout
+        # reader rows. No difference/temporal exemptions here: unlike SMQE, the reader has no
+        # deterministic recompute to stand on. Demotes to UNVERIFIED (the answer still ships,
+        # honestly unbadged); the abstention gate below then applies its normal policy.
+        numeric_floor_failed = False
+        if (verify and entailed > 0 and not advice_anchor
+                and getattr(self.settings, "reader_numeric_floor_enabled", True)):
+            from .smqe.verify import (_AMOUNT_AGG_QUERY_RE, _COUNT_QUERY_RE,
+                                      _answer_cardinal, _atom_states_cardinal)
+            if _COUNT_QUERY_RE.search(query or "") or _AMOUNT_AGG_QUERY_RE.search(query or ""):
+                cardinal = _answer_cardinal(text)
+                if cardinal and cardinal[0].isdigit() and not any(
+                        _atom_states_cardinal(c.snippet or "", cardinal)
+                        for c in citations if c.nli_label == NLILabel.ENTAILMENT):
+                    numeric_floor_failed = True
+                    entailed = 0
+                    citations = [c.model_copy(update={"nli_label": NLILabel.NEUTRAL,
+                                                      "nli_score": 0.0})
+                                 if c.nli_label == NLILabel.ENTAILMENT else c
+                                 for c in citations]
+
         verified = (entailed > 0) if verify else False
         unverified: list[str] = []
         abstained = False
@@ -5050,6 +5075,9 @@ class Retriever:
         elif form_failed:
             _unverified_reason = ("unverified: answer form is non-responsive "
                                   "(verbatim echo/fragment answers nothing)")
+        elif numeric_floor_failed:
+            _unverified_reason = ("unverified: aggregation answer's number is not stated in any "
+                                  "entailed source (derived arithmetic cannot be citation-backed)")
         else:
             _unverified_reason = "unverified: no source entails the answer"
         # Calibrated abstention (Phase 2). When ABSTENTION_V2 is on, gate on a multi-signal

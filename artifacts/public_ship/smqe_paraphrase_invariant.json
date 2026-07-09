@@ -1,10 +1,11 @@
 {
   "pass": true,
-  "seed": 917280327,
+  "seed": 2130345341,
   "seed_mode": "random",
   "cases": 24,
   "checks": 48,
   "correct": 24,
+  "expected_abstain_cases": 5,
   "record_backend_correct": 24,
   "claim_backend_correct": 24,
   "failures": [],
@@ -23,5 +24,5 @@
     "claim": 24,
     "record": 24
   },
-  "avg_proof_tokens": 11.04
+  "avg_proof_tokens": 11.0
 }

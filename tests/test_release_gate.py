@@ -296,6 +296,9 @@ def _write_artifacts(path: Path, *, split: str = "test", runs: int = 2) -> None:
         "seed": 424242,
         "seed_mode": "random",
         "cases": 27,
+        # P0 fail-closed contract: the 6 derived-aggregate cases (count_aggregate 3 +
+        # multi_session_sum 3) pass by ABSTAINING and are not claim-backed.
+        "expected_abstain_cases": 6,
         "correct": 27,
         "claim_backend_correct": 27,
         "claims_extracted": 86,
@@ -313,9 +316,7 @@ def _write_artifacts(path: Path, *, split: str = "test", runs: int = 2) -> None:
             "temporal_delta": 3,
         },
         "claim_backend_operator_counts": {
-            "count_aggregate": 3,
             "latest_value": 3,
-            "multi_session_sum": 3,
             "open_inference": 3,
             "preference_synth": 3,
             "relative_temporal": 3,
@@ -324,7 +325,7 @@ def _write_artifacts(path: Path, *, split: str = "test", runs: int = 2) -> None:
             "temporal_delta": 3,
         },
         "claim_type_counts": {"event": 26, "preference": 9, "quantity": 9, "state": 33, "table": 9},
-        "backend_counts": {"claim": 27},
+        "backend_counts": {"claim": 21},
         "avg_proof_tokens": 18.0,
     }))
     (path / "smqe_fullpath_invariant.json").write_text(json.dumps({
@@ -332,12 +333,16 @@ def _write_artifacts(path: Path, *, split: str = "test", runs: int = 2) -> None:
         "seed": 424242,
         "seed_mode": "random",
         "cases": 27,
+        # P0 fail-closed contract: 6 derived-aggregate cases abstain; the all-verified
+        # expectations apply to the 21 answerable cases.
+        "expected_abstain_cases": 6,
         "correct": 27,
-        "verified": 27,
-        "structured_recall": 27,
+        "verified": 21,
+        "structured_recall": 21,
         "reader_calls": 0,
-        "proof_link_checks": 27,
-        "claim_backend_correct": 27,
+        "reader_consults": 6,
+        "proof_link_checks": 21,
+        "claim_backend_correct": 21,
         "claims_extracted": 86,
         "avg_claims_per_case": 3.0,
         "failures": [],
@@ -1713,7 +1718,8 @@ def test_release_gate_rejects_slow_smqe_fullpath_sidecar(tmp_path):
 def test_release_gate_rejects_missing_smqe_fullpath_proof_links(tmp_path):
     _write_artifacts(tmp_path)
     sidecar = json.loads((tmp_path / "smqe_fullpath_invariant.json").read_text())
-    sidecar["proof_link_checks"] = 26
+    # fail-closed contract: expected = answerable cases (27 - 6 abstaining aggregates = 21)
+    sidecar["proof_link_checks"] = 20
     (tmp_path / "smqe_fullpath_invariant.json").write_text(json.dumps(sidecar))
     _write_logs(tmp_path)
 
@@ -1722,7 +1728,7 @@ def test_release_gate_rejects_missing_smqe_fullpath_proof_links(tmp_path):
     failed = {check["name"] for check in report["failed_checks"]}
     details = json.dumps(report["failed_checks"])
     assert "smqe_fullpath:evidence" in failed
-    assert "proof_link_checks:26<expected:27" in details
+    assert "proof_link_checks:20<expected:21" in details
 
 
 def test_release_gate_rejects_weak_smqe_synthetic_sidecar(tmp_path):
@@ -1789,11 +1795,17 @@ def test_release_gate_rejects_operator_gap_in_smqe_claim_coverage_sidecar(tmp_pa
         "table_lookup": 3,
         "temporal_delta": 3,
     }
-    claim_op_counts = dict(op_counts)
+    # fail-closed contract: aggregates abstain, so claim-backed ops exclude them; the gap under
+    # test is on a NON-aggregate op (latest_value 2/3).
+    claim_op_counts = {op: n for op, n in op_counts.items()
+                       if op not in {"count_aggregate", "multi_session_sum"}}
     claim_op_counts["latest_value"] = 2
     (tmp_path / "smqe_claim_coverage.json").write_text(json.dumps({
         "pass": True,
+        "seed": 424242,
+        "seed_mode": "random",
         "cases": 24,
+        "expected_abstain_cases": 6,
         "correct": 24,
         "claim_backend_correct": 24,
         "claims_extracted": 24,
@@ -1801,7 +1813,7 @@ def test_release_gate_rejects_operator_gap_in_smqe_claim_coverage_sidecar(tmp_pa
         "operator_counts": op_counts,
         "claim_backend_operator_counts": claim_op_counts,
         "claim_type_counts": {"state": 24},
-        "backend_counts": {"claim": 24},
+        "backend_counts": {"claim": 18},
         "avg_proof_tokens": 18.0,
     }))
     _write_logs(tmp_path)

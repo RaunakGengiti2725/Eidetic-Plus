@@ -959,10 +959,31 @@ def _smqe_claim_coverage_summary(report: dict, *, min_cases: int,
     # claim-backend rate is therefore scoped to ANSWERABLE cases; the report publishes
     # expected_abstain_cases so the scoping is auditable. Requiring 1.0 over all cases would
     # force re-opening the verified-wrong leak this floor closed (5/13 live, 5/6 holdout).
+    # FAIL CLOSED on stale reports (adversarial review 2026-07-09): a pre-contract report has
+    # no expected_abstain_cases field. Defaulting it to 0 would make the OLD all-cases contract
+    # apply -- and an old report that passed it contains exactly the verified-wrong aggregate
+    # leak the floor closed. Require the field; regenerating the sidecar is one offline command.
+    if "expected_abstain_cases" not in report:
+        failures = list(base["failures"])
+        failures.append("expected_abstain_cases:missing (report predates the fail-closed "
+                        "aggregate contract; regenerate the sidecar)")
+        return {**base, "pass": False, "claim_backend_rate": 0.0,
+                "expected_abstain_cases": None, "answerable_cases": None,
+                "claim_backend_correct": _as_int(report.get("claim_backend_correct", 0), 0),
+                "claims_extracted": _as_int(report.get("claims_extracted", 0), 0),
+                "avg_claims_per_case": _as_float(report.get("avg_claims_per_case", 0.0)),
+                "claim_backend_operator_counts": report.get("claim_backend_operator_counts") or {},
+                "claim_type_counts": report.get("claim_type_counts") or {},
+                "failures": failures}
     expected_abstain = _as_int(report.get("expected_abstain_cases", 0), 0)
+    failures = list(base["failures"])
+    # An internally inconsistent report (abstain count outside [0, cases]) must fail, not
+    # silently clamp into a passing rate.
+    if not 0 <= expected_abstain <= cases:
+        failures.append(f"expected_abstain_cases:inconsistent:{expected_abstain}/{cases}")
+        expected_abstain = min(max(expected_abstain, 0), cases)
     answerable = max(0, cases - expected_abstain)
     rate = (claim_backend / answerable) if answerable else 0.0
-    failures = list(base["failures"])
     if rate < min_claim_backend_rate:
         failures.append(f"claim_backend_rate:{rate:.3f}<required:{min_claim_backend_rate:.3f}")
     claims_extracted = _as_int(report.get("claims_extracted", 0), 0)
@@ -1015,8 +1036,16 @@ def _smqe_fullpath_summary(report: dict, *, min_cases: int,
     failures = list(base["failures"])
     # P0 fail-closed scoping: derived count/sum cases ABSTAIN (correct-or-silent), so the
     # all-cases-verified contract applies to the answerable remainder. expected_abstain_cases
-    # ships in the report so this scoping is auditable.
+    # ships in the report so this scoping is auditable. A report WITHOUT the field predates
+    # the fail-closed contract (its all-verified pass contains the aggregate leak) -> FAIL,
+    # regenerate the sidecar; an inconsistent count fails rather than silently clamping.
+    if "expected_abstain_cases" not in report:
+        failures.append("expected_abstain_cases:missing (report predates the fail-closed "
+                        "aggregate contract; regenerate the sidecar)")
     expected_abstain = _as_int(report.get("expected_abstain_cases", 0), 0)
+    if not 0 <= expected_abstain <= cases:
+        failures.append(f"expected_abstain_cases:inconsistent:{expected_abstain}/{cases}")
+        expected_abstain = min(max(expected_abstain, 0), cases)
     answerable = max(0, cases - expected_abstain)
     verified = _as_int(report.get("verified", 0), 0)
     structured = _as_int(report.get("structured_recall", 0), 0)
