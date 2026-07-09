@@ -78,14 +78,36 @@ class HindsightSystem(MemorySystem):
         # llm_provider already selects the openai-compatible path; pass the BARE model name
         # (Hindsight prefixes the provider itself -- passing "openai/qwen-plus" yields the
         # 404'ing "openai/openai/qwen-plus").
+        profile = os.environ.get("HINDSIGHT_PROFILE", "eidetic-bench")
         self._h = h.HindsightEmbedded(
-            profile="eidetic-bench",
+            profile=profile,
             llm_provider="openai",
             llm_api_key=key,
             llm_model=_LLM_MODEL,
             llm_base_url=settings.compatible_base_url,
         )
         self._seen_banks: set[str] = set()
+        self._warm_start()
+
+    def _warm_start(self) -> None:
+        """Force the embedded daemon up, tolerating the cold-start race. HindsightEmbedded's
+        internal start timeout (~30s) can be exceeded by a first-ever ``pg0`` init + LLM
+        connection-verify, raising "Failed to start daemon" even though the daemon comes up
+        moments later. ``ensure_running`` is idempotent, so we retry the first daemon-touch
+        with backoff (total ~4 min) -- a later attempt attaches to the now-healthy daemon.
+        Fails loud only if every attempt fails."""
+        attempts = int(os.environ.get("HINDSIGHT_START_ATTEMPTS", "5"))
+        last = None
+        for i in range(attempts):
+            try:
+                _ = self._h.client            # triggers _ensure_started
+                return
+            except Exception as e:             # noqa: BLE001 - retry the documented race
+                last = e
+                time.sleep(min(20.0 * (i + 1), 60.0))
+        raise RuntimeError(
+            f"Hindsight daemon failed to start after {attempts} attempts "
+            f"(cold pg0 start race). Last error: {last}")
 
     @property
     def _c(self):
