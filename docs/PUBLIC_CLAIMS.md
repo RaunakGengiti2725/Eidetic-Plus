@@ -76,6 +76,39 @@ r6 without the stack at 910 / 887,824), and the cost per verified-correct answer
 fallen every window as accuracy rises — 41,322 (r6) → 36,317 (r7) → **31,761 (r8)**
 total tokens per verified answer (`bench/cost_report.py`).
 
+## Claim 3b — verify-or-abstain is now fail-closed on derived numeric aggregates (2026-07-09)
+
+The live LME-S numeric panel exposed a leak in the core promise: 5/13 computed answers
+(cross-session counts/sums) shipped `verified=True` while WRONG — every cited atom was real,
+but the atom SET or arithmetic was wrong, which NLI-against-sources cannot catch. Fixed by
+an aggregate CITATION floor (`eidetic/smqe/verify.py`): a count or cross-session sum is
+verified ONLY when a single cited source states the value; a value DERIVED by enumerating
+across atoms abstains. Live panel now **0 verified-wrong** (4 verified-correct preserved,
+9 abstentions). The trade is explicit and chosen: correct-or-silent over coverage.
+
+Evidence: `bench/measure_sum_live_probe.py` against
+`artifacts/lme_s_r1_codex/measure_sum_live.json`; release gate re-scoped with auditable
+denominators (`artifacts/public_ship/GATE_STATUS.md`, update 2026-07-09).
+
+## Claim 3c — the free-read product row, judged, with checkable provenance
+
+Different-reader product row (NotebookLM/Gemini free tier reads eidetic's exported verified
+sources; 0 tokens on the caller's metered model) — kept OUT of the fixed-reader benchmark
+table, never merged:
+
+- **Judged accuracy: 102/120 = 85.0%** over three disjoint LoCoMo holdout windows
+  (r14 77.5% / r13 92.5% / r15 85.0%, r15 fully prospective), pinned qwen3-max judge,
+  vs same-window/same-judge rag-vector 74/120 = 59.2% (paired McNemar p<1e-5).
+  Single run per window — the ≥10-run gate has NOT passed; no SOTA wording.
+- **Citation provenance, measured live (2026-07-09):** the quote-content citation map
+  resolves Gemini's `[n]` references to immutable content hashes on **25/26 rows (96%),
+  198/204 references (97%)** of the LME-S retrieval-guided panel
+  (`artifacts/lme_s_r1_codex/provenance_citation_map_live.json`,
+  gate `bench/provenance_live_probe.py`). Attribution is conservative: ambiguous or
+  unmatched quotes are returned unattributed with the reason, never guessed.
+- Honest boundary unchanged: the free answer is Gemini-side and NOT gate-verified;
+  provenance lets you CHECK every cited source against the immutable store.
+
 ## Claim 4 — forgetting never destroys, and provably so
 
 Snap-back fidelity over the full r8 benchmark corpus: **272/272 records byte-identical**
