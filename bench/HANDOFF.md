@@ -291,3 +291,20 @@ NBL 10-run gate: 3 full runs (85.0/82.5/82.5), quota-blocked until reset (run3 h
 Hindsight r15: relaunched on fresh profile eidetic-bench-r15b after pg0-corruption
 5-attempt start failure; ingesting (5/40 at handoff). Provenance live re-validation of
 the hardened resolver ALSO waits on quota (unit tests cover it meanwhile).
+
+## READ-STAGE PIVOT (2026-07-09 night, commits 474c57b56 + a2736fd39)
+
+Asked "which new algorithm buys 8->10": measured the premise first.
+`bench/retrieval_recall_probe.py` over six burned LoCoMo windows + LME-S:
+dense recall@10 = 116/119 (97.5%), 1-hop graph ceiling 119/119 -- RETRIEVAL IS
+NOT THE BOTTLENECK; spreading-activation/polar/quantum re-ranking ideas target
+a stage at ceiling. The gap is the READ stage (same top-k, better reader:
+53.3 -> 78.6 LME-S; the 95.6% comparator reads agentically).
+
+Shipped the corresponding lever: `iterative_recall` (bridge + MCP
+notebooklm_recall iterative=True) -- reader-declared insufficiency triggers
+free decomposition (reader proposes sub-questions -> qwen re-retrieves) plus
+one claim-graph hop (spreading activation at read-SET construction, where the
+probe showed it recovers), re-export (deduped vs round 1), re-read. 0 metered
+tokens; +1-2 free queries per widened round. Offline-tested end-to-end with
+fakes; LIVE A/B is quota-gated (queued with run4+).
