@@ -2103,54 +2103,28 @@ def _measure_type_sum_answer(query: str, atoms: list[tuple[float, object, str]])
     number = r"\d+(?:\.\d+)?|one|two|three|four|five|six|seven|eight|nine|ten"
     unit_alt = "|".join(re.escape(u) for u in units)
     pat = re.compile(rf"\b({number})[-\s]*({unit_alt})s?\b", re.I)
-    # Subject gate: the retrieved atoms can mix the queried measure (feed weight) with
-    # UNRELATED ones (body weight, gym plates). Summing every pound on the page overcounts
-    # (the 1226.3-vs-70 corruption). Sum only atoms that mention the query's subject when
-    # that subject appears at all; if it appears nowhere (amount sentences omit it), fall
-    # back to summing every measured unit so subject-silent sums are unaffected.
-    _action_terms, _profile_targets = _sum_profile(query, money=False)
-    _measure_words = {key, "weight", "weigh", "weighs", "weighed", "weighing", "heavy",
-                      "mass", "distance", "length", "volume", "calorie", "calories", "total"}
-    _measure_words |= set(units) | {u + "s" for u in units}
-    subject_terms = {t for t in _profile_targets if t not in _measure_words and len(t) > 2}
-    group_terms_by_key: dict[str, set[str]] = {}
-    for _s, _item, _atom in atoms:
-        group_terms_by_key.setdefault(_group_key(_item), set()).update(_expanded_terms(_atom))
-
-    def _sum_atoms(gate: bool) -> tuple[float, Optional[str], list[tuple[float, object, str]]]:
-        total = 0.0
-        disp_unit: Optional[str] = None
-        selected: list[tuple[float, object, str]] = []
-        counted: set[tuple[str, str]] = set()
-        for score, item, atom in atoms:
-            text = _strip_role(atom)
-            hits = pat.findall(text)
-            if not hits:
-                continue
-            if gate and subject_terms:
-                terms = _expanded_terms(text)
-                gterms = group_terms_by_key.get(_group_key(item), set())
-                if (_target_hit_count(terms, subject_terms) < 1
-                        and _target_hit_count(gterms, subject_terms) < 1):
-                    continue
-            atom_key = (_group_key(item), re.sub(r"\W+", " ", text.lower()).strip())
-            if atom_key in counted:
-                continue
-            added = False
-            for numtok, unittok in hits:
-                v = _number_value(numtok)
-                if v is not None:
-                    total += v
-                    disp_unit = disp_unit or unittok.lower()
-                    added = True
-            if added:
-                counted.add(atom_key)
-                selected.append((score, item, atom))
-        return total, disp_unit, selected
-
-    total, disp_unit, selected = _sum_atoms(gate=True)
-    if not selected:                       # subject appears in no atom -> ungated fallback
-        total, disp_unit, selected = _sum_atoms(gate=False)
+    total = 0.0
+    disp_unit = None
+    selected: list[tuple[float, object, str]] = []
+    counted: set[tuple[str, str]] = set()
+    for score, item, atom in atoms:
+        text = _strip_role(atom)
+        hits = pat.findall(text)
+        if not hits:
+            continue
+        atom_key = (_group_key(item), re.sub(r"\W+", " ", text.lower()).strip())
+        if atom_key in counted:
+            continue
+        added = False
+        for numtok, unittok in hits:
+            v = _number_value(numtok)
+            if v is not None:
+                total += v
+                disp_unit = disp_unit or unittok.lower()
+                added = True
+        if added:
+            counted.add(atom_key)
+            selected.append((score, item, atom))
     if total and selected and disp_unit:
         plural = "" if total == 1 else "s"
         return f"{total:g} {disp_unit}{plural}", selected[:6]
