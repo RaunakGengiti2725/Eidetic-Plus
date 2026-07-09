@@ -1,0 +1,38 @@
+[
+  {
+    "sample_id": "603deb26",
+    "namespace": "eidetic-plus-full-longmemeval-g0-r0",
+    "store_records": 48,
+    "store_superseded": 0,
+    "gold_rank": 1,
+    "superseded_ranks": [],
+    "stale_above_gold": false
+  },
+  {
+    "sample_id": "5c40ec5b",
+    "namespace": "eidetic-plus-full-longmemeval-g8-r0",
+    "store_records": 51,
+    "store_superseded": 0,
+    "gold_rank": 1,
+    "superseded_ranks": [],
+    "stale_above_gold": false
+  },
+  {
+    "sample_id": "06db6396",
+    "namespace": "eidetic-plus-full-longmemeval-g15-r0",
+    "store_records": 51,
+    "store_superseded": 0,
+    "gold_rank": 1,
+    "superseded_ranks": [],
+    "stale_above_gold": false
+  },
+  {
+    "sample_id": "b01defab",
+    "namespace": "eidetic-plus-full-longmemeval-g27-r0",
+    "store_records": 50,
+    "store_superseded": 0,
+    "gold_rank": 1,
+    "superseded_ranks": [],
+    "stale_above_gold": false
+  }
+]
