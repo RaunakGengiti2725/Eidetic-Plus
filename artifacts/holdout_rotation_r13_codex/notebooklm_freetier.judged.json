@@ -1,0 +1,210 @@
+{
+  "judged": true,
+  "judge": "pinned bench judge (same as scoreboard rows)",
+  "n": 40,
+  "correct": 37,
+  "accuracy": 0.925,
+  "rows": [
+    {
+      "sample_id": "c8_q136",
+      "correct": true,
+      "category": "single-hop"
+    },
+    {
+      "sample_id": "c8_q48",
+      "correct": true,
+      "category": "multi-hop"
+    },
+    {
+      "sample_id": "c8_q95",
+      "correct": true,
+      "category": "single-hop"
+    },
+    {
+      "sample_id": "c8_q134",
+      "correct": true,
+      "category": "single-hop"
+    },
+    {
+      "sample_id": "c0_q49",
+      "correct": false,
+      "category": "temporal"
+    },
+    {
+      "sample_id": "c0_q128",
+      "correct": true,
+      "category": "single-hop"
+    },
+    {
+      "sample_id": "c0_q68",
+      "correct": true,
+      "category": "temporal"
+    },
+    {
+      "sample_id": "c0_q144",
+      "correct": true,
+      "category": "single-hop"
+    },
+    {
+      "sample_id": "c0_q11",
+      "correct": true,
+      "category": "multi-hop"
+    },
+    {
+      "sample_id": "c0_q19",
+      "correct": true,
+      "category": "multi-hop"
+    },
+    {
+      "sample_id": "c0_q60",
+      "correct": true,
+      "category": "multi-hop"
+    },
+    {
+      "sample_id": "c0_q29",
+      "correct": true,
+      "category": "temporal"
+    },
+    {
+      "sample_id": "c9_q44",
+      "correct": true,
+      "category": "temporal"
+    },
+    {
+      "sample_id": "c9_q37",
+      "correct": true,
+      "category": "open-domain"
+    },
+    {
+      "sample_id": "c5_q71",
+      "correct": true,
+      "category": "single-hop"
+    },
+    {
+      "sample_id": "c5_q106",
+      "correct": true,
+      "category": "single-hop"
+    },
+    {
+      "sample_id": "c5_q22",
+      "correct": true,
+      "category": "temporal"
+    },
+    {
+      "sample_id": "c5_q115",
+      "correct": true,
+      "category": "single-hop"
+    },
+    {
+      "sample_id": "c5_q57",
+      "correct": true,
+      "category": "temporal"
+    },
+    {
+      "sample_id": "c5_q50",
+      "correct": true,
+      "category": "multi-hop"
+    },
+    {
+      "sample_id": "c3_q134",
+      "correct": true,
+      "category": "single-hop"
+    },
+    {
+      "sample_id": "c3_q71",
+      "correct": true,
+      "category": "multi-hop"
+    },
+    {
+      "sample_id": "c3_q142",
+      "correct": true,
+      "category": "single-hop"
+    },
+    {
+      "sample_id": "c3_q104",
+      "correct": true,
+      "category": "single-hop"
+    },
+    {
+      "sample_id": "c6_q81",
+      "correct": true,
+      "category": "single-hop"
+    },
+    {
+      "sample_id": "c6_q134",
+      "correct": true,
+      "category": "single-hop"
+    },
+    {
+      "sample_id": "c6_q12",
+      "correct": true,
+      "category": "open-domain"
+    },
+    {
+      "sample_id": "c6_q135",
+      "correct": true,
+      "category": "single-hop"
+    },
+    {
+      "sample_id": "c2_q24",
+      "correct": true,
+      "category": "temporal"
+    },
+    {
+      "sample_id": "c2_q121",
+      "correct": true,
+      "category": "single-hop"
+    },
+    {
+      "sample_id": "c2_q132",
+      "correct": true,
+      "category": "single-hop"
+    },
+    {
+      "sample_id": "c2_q110",
+      "correct": true,
+      "category": "single-hop"
+    },
+    {
+      "sample_id": "c2_q150",
+      "correct": true,
+      "category": "single-hop"
+    },
+    {
+      "sample_id": "c7_q10",
+      "correct": true,
+      "category": "temporal"
+    },
+    {
+      "sample_id": "c7_q41",
+      "correct": false,
+      "category": "multi-hop"
+    },
+    {
+      "sample_id": "c1_q64",
+      "correct": true,
+      "category": "single-hop"
+    },
+    {
+      "sample_id": "c4_q86",
+      "correct": false,
+      "category": "single-hop"
+    },
+    {
+      "sample_id": "c4_q125",
+      "correct": true,
+      "category": "single-hop"
+    },
+    {
+      "sample_id": "c4_q37",
+      "correct": true,
+      "category": "temporal"
+    },
+    {
+      "sample_id": "c9_q3",
+      "correct": true,
+      "category": "multi-hop"
+    }
+  ],
+  "label": "judge-scored accuracy of the NotebookLM free-read tier on this window. Different READER than the fixed-qwen table (off-meter Gemini), so present it as its own labeled row, never merged into the fixed-reader comparison."
+}
