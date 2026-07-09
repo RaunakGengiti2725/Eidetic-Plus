@@ -8,6 +8,7 @@ from pathlib import Path
 from eidetic.models import ClaimRecord, MemoryRecord, NLILabel, Scope, StructuredAnswerResult, StructuredSupport
 from eidetic.smqe import structured_answer
 from eidetic.smqe.engine import structured_answer as engine_structured_answer
+from eidetic.smqe.engine import structured_recall as engine_structured_recall
 from eidetic.smqe.claim_extraction import claims_for_record, validate_extracted_claims
 from eidetic.smqe.executor import execute_plan
 from eidetic.smqe.planner import plan_query
@@ -36,6 +37,34 @@ def _record(text: str, *, scope: Scope, valid_at: float = 1_700_000_000.0) -> Me
         content_hash="h-" + str(abs(hash(text))),
         raw_uri="mem://synthetic",
     )
+
+
+def _assert_aggregate_fails_closed(store, query, *, at, scope):
+    """P0 fail-closed contract (2026-07-09; eidetic/smqe/verify.py aggregate citation floor).
+
+    A count / cross-session sum DERIVED by enumerating across atoms is no longer marked
+    verified. NLI proves each cited atom is verbatim-present, never that the atom SET is the
+    right one, so this path shipped 5/6 verified-WRONG on real holdout data (place-names in a
+    generic suggestion counted as weddings; body-weight formulas summed into a feed total). Only
+    a SINGLE source that STATES the value verifies (the negroni-"10 times" live case) or a fixed
+    two-anchor DIFFERENCE (recompute-exact). Everything else abstains -- correct-or-silent.
+
+    The derivation itself is unchanged. This returns the structured_recall trace so the caller
+    can still assert the computation produced the right value and selected the right atoms; only
+    the verified badge is withheld. `structured_answer` (the verify-or-abstain surface) now
+    returns None for these queries."""
+    out = engine_structured_recall(_Retriever(store), query, at=at, scope=scope)
+    assert out["answered"] is False, f"expected fail-closed abstention, got {out['answer']!r}"
+    assert out["verified"] is False
+    assert structured_answer(_Retriever(store), query, at=at, scope=scope) is None
+    return out
+
+
+def _proof_of(out) -> str:
+    """Support-atom text of an abstained aggregate trace (the derivation's selected atoms),
+    the fail-closed analogue of joining citation snippets on a verified answer."""
+    return " ".join(s.get("proof_atom") or s.get("answer_atom") or ""
+                    for s in (out.get("supports") or []))
 
 
 def test_claim_store_is_scope_and_time_filtered(tmp_path):
@@ -980,18 +1009,12 @@ def test_structured_answer_handles_randomized_unseen_record_questions(tmp_path):
         for offset, text in enumerate(texts):
             store.upsert_record(_record(text, scope=scope, valid_at=1_700_000_100 + offset))
 
-        ans = structured_answer(
-            _Retriever(store),
-            f"How much money in total have I spent on {topic}-related expenses?",
-            at=1_700_000_200,
-            scope=scope,
-        )
-
-        assert ans is not None
-        assert ans.answer == f"${sum(amounts):,}"
-        assert ans.verified is True
-        assert ans.note == "smqe:multi_session_sum:record"
-        proof = " ".join(c.snippet for c in ans.citations)
+        out = _assert_aggregate_fails_closed(
+            store, f"How much money in total have I spent on {topic}-related expenses?",
+            at=1_700_000_200, scope=scope)
+        assert out["answer"] == f"${sum(amounts):,}"
+        assert out["note"] == "smqe:multi_session_sum:record"
+        proof = _proof_of(out)
         assert "$999" not in proof
         assert "fantasy budget" not in proof
         assert f"{other_topic} case" not in proof
@@ -1005,18 +1028,11 @@ def test_structured_answer_handles_randomized_unseen_record_questions(tmp_path):
     ]:
         store.upsert_record(_record(text, scope=scope, valid_at=valid_at))
 
-    ans = structured_answer(
-        _Retriever(store),
-        "How many total hours did I spend on the harbor map 15?",
-        at=1_700_000_400,
-        scope=scope,
-    )
-
-    assert ans is not None
-    assert ans.answer == "6 hours"
-    assert ans.verified is True
-    proof = " ".join(c.snippet for c in ans.citations)
-    assert "mural ledger" not in proof
+    out = _assert_aggregate_fails_closed(
+        store, "How many total hours did I spend on the harbor map 15?",
+        at=1_700_000_400, scope=scope)
+    assert out["answer"] == "6 hours"
+    assert "mural ledger" not in _proof_of(out)
 
     store = RecordStore(tmp_path / "sum-unseen-days.sqlite")
     scope = Scope(namespace="sum-unseen-days")
@@ -1028,18 +1044,12 @@ def test_structured_answer_handles_randomized_unseen_record_questions(tmp_path):
     ]:
         store.upsert_record(_record(text, scope=scope, valid_at=valid_at))
 
-    ans = structured_answer(
-        _Retriever(store),
-        "How many days did I spend on the quartz meadow index?",
-        at=1_700_000_600,
-        scope=scope,
-    )
-
-    assert ans is not None
-    assert ans.answer == "5 days"
-    assert ans.verified is True
-    assert ans.note == "smqe:count_aggregate:record"
-    proof = " ".join(c.snippet for c in ans.citations)
+    out = _assert_aggregate_fails_closed(
+        store, "How many days did I spend on the quartz meadow index?",
+        at=1_700_000_600, scope=scope)
+    assert out["answer"] == "5 days"
+    assert out["note"] == "smqe:count_aggregate:record"
+    proof = _proof_of(out)
     assert "cedar archive" not in proof
     assert "never spent" not in proof
 
@@ -1073,13 +1083,11 @@ def test_structured_answer_handles_randomized_unseen_record_questions(tmp_path):
     ]):
         store.upsert_record(_record(text, scope=scope, valid_at=1_700_000_350 + idx))
 
-    ans = structured_answer(_Retriever(store), "How many pottery studios did I visit this month?", at=1_700_000_400, scope=scope)
-
-    assert ans is not None
-    assert ans.answer == str(len(studios))
-    assert ans.verified is True
-    assert ans.note == "smqe:count_aggregate:record"
-    proof = " ".join(c.snippet for c in ans.citations)
+    out = _assert_aggregate_fails_closed(
+        store, "How many pottery studios did I visit this month?", at=1_700_000_400, scope=scope)
+    assert out["answer"] == str(len(studios))
+    assert out["note"] == "smqe:count_aggregate:record"
+    proof = _proof_of(out)
     assert "bookmarked" not in proof
     assert "river museum" not in proof
     assert "Studio 7" not in proof
@@ -1101,14 +1109,11 @@ def test_structured_answer_count_matches_es_plural_to_singular_route(tmp_path):
         valid_at=1_700_000_350,
     ))
 
-    ans = structured_answer(_Retriever(store), "How many bike routes did I visit this month?", at=1_700_000_400, scope=scope)
-
-    assert ans is not None
-    assert ans.answer == str(len(routes))
-    assert ans.verified is True
-    assert ans.note == "smqe:count_aggregate:record"
-    proof = " ".join(c.snippet for c in ans.citations)
-    assert "museum exhibits" not in proof
+    out = _assert_aggregate_fails_closed(
+        store, "How many bike routes did I visit this month?", at=1_700_000_400, scope=scope)
+    assert out["answer"] == str(len(routes))
+    assert out["note"].startswith("smqe:count_aggregate")
+    assert "museum exhibits" not in _proof_of(out)
 
 
 def test_structured_answer_count_computes_subject_item_lists(tmp_path):
@@ -1124,17 +1129,10 @@ def test_structured_answer_count_computes_subject_item_lists(tmp_path):
         if add_claims:
             store.add_claims(claims_for_record(rec))
 
-        ans = structured_answer(
-            _Retriever(store),
-            "How many release blockers are there?",
-            at=1_700_000_400,
-            scope=scope,
-        )
-
-        assert ans is not None
-        assert ans.answer == "3 release blockers: auth; billing; search"
-        assert ans.verified is True
-        assert ans.note.startswith(f"smqe:count_aggregate:{backend}")
+        out = _assert_aggregate_fails_closed(
+            store, "How many release blockers are there?", at=1_700_000_400, scope=scope)
+        assert out["answer"] == "3 release blockers: auth; billing; search"
+        assert out["note"].startswith(f"smqe:count_aggregate:{backend}")
 
 
 def test_structured_answer_count_computes_generic_action_item_lists(tmp_path):
@@ -1150,17 +1148,10 @@ def test_structured_answer_count_computes_generic_action_item_lists(tmp_path):
         if add_claims:
             store.add_claims(claims_for_record(rec))
 
-        ans = structured_answer(
-            _Retriever(store),
-            "How many items did I buy?",
-            at=1_700_000_400,
-            scope=scope,
-        )
-
-        assert ans is not None
-        assert ans.answer == "3 items: apples; oranges; pears"
-        assert ans.verified is True
-        assert ans.note.startswith(f"smqe:count_aggregate:{backend}")
+        out = _assert_aggregate_fails_closed(
+            store, "How many items did I buy?", at=1_700_000_400, scope=scope)
+        assert out["answer"] == "3 items: apples; oranges; pears"
+        assert out["note"].startswith(f"smqe:count_aggregate:{backend}")
 
 
 def test_structured_answer_count_extracts_unseen_action_from_query(tmp_path):
@@ -1179,18 +1170,11 @@ def test_structured_answer_count_extracts_unseen_action_from_query(tmp_path):
             if add_claims:
                 store.add_claims(claims_for_record(rec))
 
-        ans = structured_answer(
-            _Retriever(store),
-            "How many books did I read this month?",
-            at=1_700_000_400,
-            scope=scope,
-        )
-
-        assert ans is not None
-        assert ans.answer == "2"
-        assert ans.verified is True
-        assert ans.note.startswith(f"smqe:count_aggregate:{backend}")
-        proof = " ".join(c.snippet for c in ans.citations)
+        out = _assert_aggregate_fails_closed(
+            store, "How many books did I read this month?", at=1_700_000_400, scope=scope)
+        assert out["answer"] == "2"
+        assert out["note"].startswith(f"smqe:count_aggregate:{backend}")
+        proof = _proof_of(out)
         assert "Foundation" not in proof
         assert "Arrival" not in proof
 
@@ -1210,19 +1194,11 @@ def test_structured_answer_count_rejects_instead_of_action_mentions(tmp_path):
             if add_claims:
                 store.add_claims(claims_for_record(rec))
 
-        ans = structured_answer(
-            _Retriever(store),
-            "How many clients did I call?",
-            at=1_700_000_400,
-            scope=scope,
-        )
-
-        assert ans is not None
-        assert ans.answer == "2"
-        assert ans.verified is True
-        assert ans.note.startswith(f"smqe:count_aggregate:{backend}")
-        proof = " ".join(c.snippet for c in ans.citations)
-        assert "Cedarline" not in proof
+        out = _assert_aggregate_fails_closed(
+            store, "How many clients did I call?", at=1_700_000_400, scope=scope)
+        assert out["answer"] == "2"
+        assert out["note"].startswith(f"smqe:count_aggregate:{backend}")
+        assert "Cedarline" not in _proof_of(out)
 
 
 def test_structured_answer_dynamic_action_count_requires_target_evidence(tmp_path):
@@ -1260,18 +1236,11 @@ def test_structured_answer_count_handles_checked_out_action_without_directory_de
         valid_at=1_700_000_350,
     ))
 
-    ans = structured_answer(
-        _Retriever(store),
-        "What is the number of ceramic studios I checked out this month?",
-        at=1_700_000_400,
-        scope=scope,
-    )
-
-    assert ans is not None
-    assert ans.answer == str(len(studios))
-    assert ans.verified is True
-    proof = " ".join(c.snippet for c in ans.citations)
-    assert "directory" not in proof
+    out = _assert_aggregate_fails_closed(
+        store, "What is the number of ceramic studios I checked out this month?",
+        at=1_700_000_400, scope=scope)
+    assert out["answer"] == str(len(studios))
+    assert "directory" not in _proof_of(out)
 
 
 def test_structured_answer_count_uses_counted_entity_not_just_action_or_plural(tmp_path):
@@ -1290,17 +1259,11 @@ def test_structured_answer_count_uses_counted_entity_not_just_action_or_plural(t
         valid_at=1_700_000_200,
     ))
 
-    ans = structured_answer(
-        _Retriever(store),
-        "How many blue loom studios have I tried in my city?",
-        at=1_700_000_300,
-        scope=scope,
-    )
-
-    assert ans is not None
-    assert ans.answer == "four"
-    assert ans.verified is True
-    proof = " ".join(c.snippet for c in ans.citations)
+    out = _assert_aggregate_fails_closed(
+        store, "How many blue loom studios have I tried in my city?",
+        at=1_700_000_300, scope=scope)
+    assert out["answer"] == "four"
+    proof = _proof_of(out)
     assert "blue loom studios" in proof
     assert "copper garden" not in proof
     assert "nine" not in proof
@@ -1384,14 +1347,10 @@ def test_structured_answer_count_respects_rolling_temporal_windows(tmp_path):
                 if add_claims:
                     store.add_claims(claims_for_record(rec))
 
-            ans = structured_answer(_Retriever(store), question, at=ref.timestamp(), scope=scope)
-
-            assert ans is not None
-            assert ans.note.startswith(f"smqe:count_aggregate:{backend}")
-            assert ans.verified is True
-            assert ans.answer == "2"
-            proof = " ".join(c.snippet for c in ans.citations)
-            assert "Maple" not in proof
+            out = _assert_aggregate_fails_closed(store, question, at=ref.timestamp(), scope=scope)
+            assert out["note"].startswith(f"smqe:count_aggregate:{backend}")
+            assert out["answer"] == "2"
+            assert "Maple" not in _proof_of(out)
 
 
 def test_structured_answer_sum_respects_rolling_temporal_window(tmp_path):
@@ -1410,19 +1369,12 @@ def test_structured_answer_sum_respects_rolling_temporal_window(tmp_path):
             if add_claims:
                 store.add_claims(claims_for_record(rec))
 
-        ans = structured_answer(
-            _Retriever(store),
-            "What is the total number of hours I spent on audits recently?",
-            at=ref.timestamp(),
-            scope=scope,
-        )
-
-        assert ans is not None
-        assert ans.note == f"smqe:multi_session_sum:{backend}"
-        assert ans.verified is True
-        assert ans.answer == "5 hours"
-        proof = " ".join(c.snippet for c in ans.citations)
-        assert "maple audit" not in proof
+        out = _assert_aggregate_fails_closed(
+            store, "What is the total number of hours I spent on audits recently?",
+            at=ref.timestamp(), scope=scope)
+        assert out["note"] == f"smqe:multi_session_sum:{backend}"
+        assert out["answer"] == "5 hours"
+        assert "maple audit" not in _proof_of(out)
 
 
 def test_structured_answer_plural_list_respects_rolling_temporal_window(tmp_path):
@@ -1619,17 +1571,11 @@ def test_structured_answer_count_allows_anaphoric_same_record_target_bridge(tmp_
         valid_at=datetime(2024, 6, 4, 12, 0).timestamp(),
     ))
 
-    ans = structured_answer(
-        _Retriever(store),
-        "How many blue loom studios have I tried?",
-        at=datetime(2024, 6, 4, 12, 1).timestamp(),
-        scope=scope,
-    )
-
-    assert ans is not None
-    assert ans.answer == "four"
-    assert ans.verified is True
-    proof = " ".join(c.snippet for c in ans.citations)
+    out = _assert_aggregate_fails_closed(
+        store, "How many blue loom studios have I tried?",
+        at=datetime(2024, 6, 4, 12, 1).timestamp(), scope=scope)
+    assert out["answer"] == "four"
+    proof = _proof_of(out)
     assert "blue loom studios" in proof
     assert "four different ones" in proof
 
@@ -1673,22 +1619,17 @@ def test_structured_answer_model_kit_count_splits_generic_scale_models(tmp_path)
     for idx, text in enumerate(rows):
         store.upsert_record(_record(text, scope=scope, valid_at=1_700_000_420 + idx))
 
-    ans = structured_answer(
-        _Retriever(store),
-        "How many model kits have I bought or worked on?",
-        at=1_700_000_500,
-        scope=scope,
-    )
-
-    assert ans is not None
-    assert ans.answer.startswith("5 model kits:")
-    assert "Orion Falcon glider kit" in ans.answer
-    assert "1/48 scale Harbor tug boat" in ans.answer
-    assert "1/16 scale Alpine tram vehicle" in ans.answer
-    assert "1/72 scale lunar rover" in ans.answer
-    assert "1/24 scale metro bus" in ans.answer
-    assert "had to learn" not in ans.answer
-    assert "laptop" not in " ".join(c.snippet for c in ans.citations)
+    out = _assert_aggregate_fails_closed(
+        store, "How many model kits have I bought or worked on?",
+        at=1_700_000_500, scope=scope)
+    assert out["answer"].startswith("5 model kits:")
+    assert "Orion Falcon glider kit" in out["answer"]
+    assert "1/48 scale Harbor tug boat" in out["answer"]
+    assert "1/16 scale Alpine tram vehicle" in out["answer"]
+    assert "1/72 scale lunar rover" in out["answer"]
+    assert "1/24 scale metro bus" in out["answer"]
+    assert "had to learn" not in out["answer"]
+    assert "laptop" not in _proof_of(out)
 
 
 def test_structured_answer_itemized_count_splits_arbitrary_target_lists(tmp_path):
@@ -1706,22 +1647,15 @@ def test_structured_answer_itemized_count_splits_arbitrary_target_lists(tmp_path
             if add_claims:
                 store.add_claims(claims_for_record(rec))
 
-        ans = structured_answer(
-            _Retriever(store),
-            "How many fabric swatches did I buy?",
-            at=1_700_000_600,
-            scope=scope,
-        )
-
-        assert ans is not None
-        assert ans.answer.startswith("2 fabric swatches:")
-        assert "crimson linen fabric swatch" in ans.answer
-        assert "blue wool fabric swatch" in ans.answer
-        assert "directory" not in ans.answer
-        assert "kiln token" not in ans.answer
-        assert ans.verified is True
-        assert ans.note.startswith(f"smqe:count_aggregate:{backend}")
-        proof = " ".join(c.snippet for c in ans.citations)
+        out = _assert_aggregate_fails_closed(
+            store, "How many fabric swatches did I buy?", at=1_700_000_600, scope=scope)
+        assert out["answer"].startswith("2 fabric swatches:")
+        assert "crimson linen fabric swatch" in out["answer"]
+        assert "blue wool fabric swatch" in out["answer"]
+        assert "directory" not in out["answer"]
+        assert "kiln token" not in out["answer"]
+        assert out["note"].startswith(f"smqe:count_aggregate:{backend}")
+        proof = _proof_of(out)
         assert "directory" not in proof
         assert "kiln token" not in proof
 
@@ -1738,22 +1672,16 @@ def test_structured_answer_acquired_item_count_is_domain_neutral(tmp_path):
     for idx, text in enumerate(rows):
         store.upsert_record(_record(text, scope=scope, valid_at=1_700_000_620 + idx))
 
-    ans = structured_answer(
-        _Retriever(store),
-        "How many workshop supplies did I acquire last month?",
-        at=1_700_000_700,
-        scope=scope,
-    )
-
-    assert ans is not None
-    assert ans.answer.startswith("3 workshop supplies:")
-    assert "blue awl" in ans.answer
-    assert "copper clamp" in ans.answer
-    assert "brass workshop supply bin" in ans.answer
-    assert "coffee mug" not in ans.answer
-    assert "steel ruler" not in ans.answer
-    assert ans.verified is True
-    proof = " ".join(c.snippet for c in ans.citations)
+    out = _assert_aggregate_fails_closed(
+        store, "How many workshop supplies did I acquire last month?",
+        at=1_700_000_700, scope=scope)
+    assert out["answer"].startswith("3 workshop supplies:")
+    assert "blue awl" in out["answer"]
+    assert "copper clamp" in out["answer"]
+    assert "brass workshop supply bin" in out["answer"]
+    assert "coffee mug" not in out["answer"]
+    assert "steel ruler" not in out["answer"]
+    proof = _proof_of(out)
     assert "coffee mug" not in proof
     assert "steel ruler" not in proof
 
@@ -1810,14 +1738,10 @@ def test_structured_answer_money_sum_parses_text_number_amounts(tmp_path):
                 if add_claims:
                     store.add_claims(claims_for_record(rec))
 
-            ans = structured_answer(_Retriever(store), question, at=1_700_001_100, scope=scope)
-
-            assert ans is not None
-            assert ans.answer == "$12"
-            assert ans.verified is True
-            assert ans.note == f"smqe:multi_session_sum:{backend}"
-            proof = " ".join(c.snippet for c in ans.citations)
-            assert "tea tins" not in proof
+            out = _assert_aggregate_fails_closed(store, question, at=1_700_001_100, scope=scope)
+            assert out["answer"] == "$12"
+            assert out["note"] == f"smqe:multi_session_sum:{backend}"
+            assert "tea tins" not in _proof_of(out)
 
 
 def test_structured_answer_duration_sum_ignores_negated_work_duration(tmp_path):
@@ -1835,19 +1759,12 @@ def test_structured_answer_duration_sum_ignores_negated_work_duration(tmp_path):
             if add_claims:
                 store.add_claims(claims_for_record(rec))
 
-        ans = structured_answer(
-            _Retriever(store),
-            "How many hours did I work on the atlas migration total?",
-            at=1_700_001_100,
-            scope=scope,
-        )
-
-        assert ans is not None
-        assert ans.answer == "5 hours"
-        assert ans.verified is True
-        assert ans.note == f"smqe:multi_session_sum:{backend}"
-        proof = " ".join(c.snippet for c in ans.citations)
-        assert "did not work" not in proof
+        out = _assert_aggregate_fails_closed(
+            store, "How many hours did I work on the atlas migration total?",
+            at=1_700_001_100, scope=scope)
+        assert out["answer"] == "5 hours"
+        assert out["note"] == f"smqe:multi_session_sum:{backend}"
+        assert "did not work" not in _proof_of(out)
 
 
 def test_structured_answer_generic_quantity_sum_handles_unseen_units(tmp_path):
@@ -1897,13 +1814,10 @@ def test_structured_answer_generic_quantity_sum_handles_unseen_units(tmp_path):
                 if add_claims:
                     store.add_claims(claims_for_record(rec))
 
-            ans = structured_answer(_Retriever(store), question, at=1_700_001_100, scope=scope)
-
-            assert ans is not None
-            assert ans.answer == expected
-            assert ans.verified is True
-            assert ans.note == f"smqe:multi_session_sum:{backend}"
-            proof = " ".join(c.snippet for c in ans.citations)
+            out = _assert_aggregate_fails_closed(store, question, at=1_700_001_100, scope=scope)
+            assert out["answer"] == expected
+            assert out["note"] == f"smqe:multi_session_sum:{backend}"
+            proof = _proof_of(out)
             for bad in forbidden:
                 assert bad not in proof
 
@@ -2231,17 +2145,11 @@ def test_structured_answer_duration_sum_ignores_non_distance_durations(tmp_path)
     for idx, text in enumerate(rows):
         store.upsert_record(_record(text, scope=scope, valid_at=1_700_000_500 + idx))
 
-    ans = structured_answer(
-        _Retriever(store),
-        "How many total hours did I spend driving to reach my three road trip destinations?",
-        at=1_700_000_600,
-        scope=scope,
-    )
-
-    assert ans is not None
-    assert ans.answer == "15 hours for getting to the three destinations (or 30 hours for the round trip)"
-    assert ans.verified is True
-    proof = " ".join(c.snippet for c in ans.citations)
+    out = _assert_aggregate_fails_closed(
+        store, "How many total hours did I spend driving to reach my three road trip destinations?",
+        at=1_700_000_600, scope=scope)
+    assert out["answer"] == "15 hours for getting to the three destinations (or 30 hours for the round trip)"
+    proof = _proof_of(out)
     assert "packing snacks" not in proof
     assert "museum visit" not in proof
 

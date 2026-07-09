@@ -657,7 +657,7 @@ def test_retriever_answer_runs_smqe_operator_before_generator(fresh_settings):
         _source_rec(
             scope,
             "studio-b",
-            "User: I visited the Kiln House pottery studio.",
+            "User: I visited the Kiln House pottery studio today.",
             datetime(2024, 5, 12, 12, 0).timestamp(),
         ),
     ]
@@ -674,8 +674,12 @@ def test_retriever_answer_runs_smqe_operator_before_generator(fresh_settings):
         for rec in recs
     ]
 
+    # P0 fail-closed (2026-07-09): a DERIVED count no longer verifies (eidetic/smqe/verify.py), so
+    # it can no longer demonstrate "SMQE preempts the generator". Use a relative_temporal query,
+    # which SMQE still answers verified -- the routing invariant (structured path runs before the
+    # generator) is what this test guards, and it holds for every op the adapter still answers.
     ans = r.answer(
-        "How many pottery studios did I visit this month?",
+        "When did I visit the Kiln House pottery studio?",
         at=at,
         scope=scope,
         precomputed=candidates,
@@ -683,8 +687,8 @@ def test_retriever_answer_runs_smqe_operator_before_generator(fresh_settings):
 
     assert ans.generated_by == "smqe"
     assert ans.verified is True
-    assert ans.answer == "2"
-    assert {c.memory_id for c in ans.citations} == {"studio-a", "studio-b"}
+    assert ans.answer == "2024-05-12"
+    assert any(c.memory_id == "studio-b" for c in ans.citations)
 
 
 def test_retriever_smqe_candidate_path_upserts_only_active_records(fresh_settings):
@@ -693,7 +697,7 @@ def test_retriever_smqe_candidate_path_upserts_only_active_records(fresh_setting
     live = _source_rec(
         scope,
         "live-studio",
-        "User: I visited the Clay North pottery studio.",
+        "User: I visited the Clay North pottery studio today.",
         datetime(2024, 5, 4, 12, 0).timestamp(),
     )
     stale = _source_rec(
@@ -720,8 +724,12 @@ def test_retriever_smqe_candidate_path_upserts_only_active_records(fresh_setting
         for rec in [stale, future, live]
     ]
 
+    # P0 fail-closed (2026-07-09): a DERIVED count abstains (eidetic/smqe/verify.py). This test
+    # guards the SMQE candidate path's active-record upsert (only the live record is written), not
+    # the count itself, so use a relative_temporal query that still verifies and resolves to the
+    # single active record (stale expired + future not-yet-valid are excluded from the window).
     ans = r.answer(
-        "How many pottery studios did I visit this month?",
+        "When did I visit the Clay North pottery studio?",
         at=at,
         scope=scope,
         precomputed=candidates,
@@ -729,7 +737,7 @@ def test_retriever_smqe_candidate_path_upserts_only_active_records(fresh_setting
 
     assert ans.generated_by == "smqe"
     assert ans.verified is True
-    assert ans.answer == "1"
+    assert ans.answer == "2024-05-04"
     assert {c.memory_id for c in ans.citations} == {"live-studio"}
     assert store.get_record("live-studio") is not None
     assert store.get_record("stale-studio") is None
@@ -1011,9 +1019,10 @@ def test_product_structured_recall_answers_clothing_pickup_return_count(fresh_se
         scope=scope,
     )
 
-    assert ans.answer == "3"
-    assert ans.verified is True
-    assert ans.note.startswith("smqe:")
+    # P0 fail-closed (2026-07-09): a DERIVED count no longer verifies (eidetic/smqe/verify.py) --
+    # a cross-atom count no single source states is exactly the leak class (5/6 verified-WRONG on
+    # holdout), so the structured path returns None (abstains) rather than ship "3".
+    assert ans is None
 
 
 def test_product_structured_recall_answers_gallery_day_interval(fresh_settings):
@@ -1109,9 +1118,10 @@ def test_product_structured_recall_answers_latest_entity_count(fresh_settings):
         scope=scope,
     )
 
-    assert ans.answer == "four"
-    assert ans.verified is True
-    assert ans.note.startswith("smqe:")
+    # P0 fail-closed (2026-07-09): a DERIVED count abstains (eidetic/smqe/verify.py). The engine's
+    # active-record filtering still supersedes "three" with the latest "four"; the count itself now
+    # fails closed rather than verify.
+    assert ans is None
 
 
 def test_product_structured_recall_answers_week_delta_from_named_object(fresh_settings):
@@ -1169,9 +1179,10 @@ def test_product_structured_recall_answers_duration_sum_filters_matching_trip_to
         scope=scope,
     )
 
-    assert ans.answer == "8 days"
-    assert ans.verified is True
-    assert ans.note.startswith("smqe:")
+    # P0 fail-closed (2026-07-09): a cross-session DURATION sum abstains (eidetic/smqe/verify.py).
+    # 5 days + 3 days across two trips (excluding the 7-day non-camping distractor) is a total no
+    # single source states -- the leak class -- so the structured path returns None.
+    assert ans is None
 
 
 def test_product_structured_recall_answers_consecutive_charity_event_month_delta(fresh_settings):
@@ -1291,13 +1302,10 @@ def test_product_structured_recall_answers_recent_acquired_items_with_decoy(fres
         scope=scope,
     )
 
-    assert ans.answer.startswith("3 plants:")
-    assert "peace lily" in ans.answer
-    assert "succulent" in ans.answer
-    assert "snake plant" in ans.answer
-    assert "fern" not in ans.answer
-    assert ans.verified is True
-    assert ans.note.startswith("smqe:")
+    # P0 fail-closed (2026-07-09): a DERIVED acquisition count abstains (eidetic/smqe/verify.py) --
+    # enumerating 3 plants across two sessions (excluding the "fern" decoy) is the leak class, so
+    # the structured path returns None rather than ship "3 plants".
+    assert ans is None
 
 
 def test_product_structured_recall_answers_latest_preapproval_amount(fresh_settings):
@@ -1535,10 +1543,11 @@ def test_product_structured_recall_answers_spending_sum_and_inspiration_preferen
         scope=scope,
     )
 
-    assert ans_bike.answer == "$185"
-    assert ans_bike.verified is True
-    bike_proof = " ".join(c.snippet for c in ans_bike.citations)
-    assert "$25" in bike_proof and "$40" in bike_proof and "$120" in bike_proof
+    # P0 fail-closed (2026-07-09): the money SUM abstains (eidetic/smqe/verify.py) -- $25+$40+$120
+    # is a cross-atom total no single source states, the leak class -- so the structured path
+    # returns None. The preference answer (a non-aggregate op) still verifies unchanged, which is
+    # what keeps this a useful "sum fails closed but preferences still work" regression pair.
+    assert ans_bike is None
     assert "Instagram" in ans_painting.answer
     assert "online tutorials" in ans_painting.answer
     assert "30-day painting challenge" in ans_painting.answer
@@ -1579,9 +1588,10 @@ def test_product_structured_recall_answers_drive_hour_sum_with_range_estimate(fr
         scope=scope,
     )
 
-    assert ans.answer == "15 hours for getting to the three destinations (or 30 hours for the round trip)"
-    assert ans.verified is True
-    assert ans.note.startswith("smqe:")
+    # P0 fail-closed (2026-07-09): a cross-session DRIVE-HOUR sum abstains (eidetic/smqe/verify.py).
+    # 4 + 5-6 + 6 hours across three trips is a derived total no single source states -- the leak
+    # class -- so the structured path returns None rather than ship the range estimate.
+    assert ans is None
 
 
 def test_product_structured_recall_answers_named_visit_month_delta(fresh_settings):

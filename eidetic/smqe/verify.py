@@ -21,6 +21,45 @@ _NUMERIC_ANSWER_RE = re.compile(
     r"\d|\b(?:zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|"
     r"thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|"
     r"fifty|sixty|seventy|eighty|ninety|hundred|thousand|million|no|none|zero)\b", re.I)
+# The aggregate CITATION floor extracts the answer's operative cardinal (leading number
+# token) to check it is actually STATED in the sole cited source. Spelled small numbers and
+# decimals both count; a leading '$'/unit is not part of the token.
+_ANSWER_CARDINAL_RE = re.compile(
+    r"\d+(?:\.\d+)?|\b(?:zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|"
+    r"thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|"
+    r"fifty|sixty|seventy|eighty|ninety|hundred|thousand|million)\b", re.I)
+# count / cross-session-sum ops: NLI proves each cited atom is verbatim-present, never that the
+# atom SET is the right one, so a value derived by counting/summing across atoms ships
+# "verified" while wrong. These two ops face the source-cardinality floor below.
+_AGGREGATE_OPS = {"count_aggregate", "multi_session_sum"}
+# A comparative DIFFERENCE ("how much MORE did X cost than Y", "how many more miles") is a
+# fixed TWO-anchor arithmetic, not a variable-N enumeration -- both operands are cited and the
+# subtraction is exact, so it is recompute-verifiable exactly like temporal_delta / latest_value
+# differences (which already verify). The planner sometimes tags it count_aggregate; the
+# cardinality floor must NOT abstain it. Keyed on the comparative frame only, so a plain count
+# ("how many weddings") never matches.
+_DIFFERENCE_QUERY_RE = re.compile(
+    r"\bhow\s+(?:much|many)\b[^?]*\b(?:more|less|fewer|greater|higher|lower|longer|shorter|"
+    r"farther|further)\b[^?]*\bthan\b|\bdifference\s+between\b", re.I)
+
+
+def _answer_cardinal(answer: str) -> str:
+    """The answer's operative number token (leading cardinal), lowercased. '' if none."""
+    m = _ANSWER_CARDINAL_RE.search(answer or "")
+    return m.group(0).lower() if m else ""
+
+
+def _atom_states_cardinal(atom: str, cardinal: str) -> bool:
+    """True when the answer's number appears verbatim (boundary-safe) in the cited atom -- the
+    source STATES the value rather than the executor DERIVING it. Digit tokens must not match
+    inside a longer number ('5' in '1226.34'); spelled tokens match on word boundaries."""
+    if not cardinal or not atom:
+        return False
+    if cardinal[0].isdigit():
+        return re.search(rf"(?<!\d)(?<!\d\.){re.escape(cardinal)}(?!\.?\d)", atom) is not None
+    return re.search(rf"\b{re.escape(cardinal)}\b", atom, re.I) is not None
+
+
 _OPTION_CHOICE_RE = re.compile(
     r"\b(?:would|prefer|rather|enjoy|choose|pick)\b[^.?!]*\bor\b", re.I)
 _LIKELY_INFERENCE_RE = re.compile(
@@ -545,6 +584,28 @@ def answer_from_result(retriever, query: str, result: StructuredAnswerResult,
     if (verify and result.op in {"count_aggregate", "multi_session_sum", "temporal_delta"}
             and not _NUMERIC_ANSWER_RE.search(result.answer or "")):
         return None
+    # Aggregate CITATION floor (P0 trust, 2026-07-09). A count or cross-session sum is
+    # verify-or-abstain ONLY when a SINGLE cited source STATES the value. NLI proves each atom
+    # is verbatim-present, not that the atom SET is the right one -- so a value DERIVED by
+    # counting/summing across multiple atoms (or scraped from an atom that never stated it)
+    # ships "verified" while wrong. Live LME-S leak (5/13): 1226.3-vs-70 (summed body-weight +
+    # feed-rate formulas), 4-vs-3 weddings (place names inside a generic suggestion), off-by-one
+    # counts of mentions. Every one is n_supports>=2; the one genuinely verifiable count
+    # (n_supports==1, its sole atom literally says "10 times") is preserved.
+    #
+    # We deliberately do NOT "recompute from cited atoms" here: recompute re-derives the SAME
+    # wrong number from the SAME wrong set (the error is set-selection, not arithmetic), so it
+    # would re-bless every leak. Source cardinality is the honest gate. Cross-session sums are
+    # multi-support by nature -> they abstain (a computed sum no single source states cannot be
+    # citation-verified; that is correct-or-silent, not a regression). temporal_delta is left
+    # untouched: its anchors are record.valid_at, not atom text, and it is 0-wrong on the panel.
+    if verify and result.op in _AGGREGATE_OPS and not _DIFFERENCE_QUERY_RE.search(query or ""):
+        cardinal = _answer_cardinal(result.answer)
+        sole_atom = (result.supports[0].proof_atom or result.supports[0].answer_atom or "") \
+            if len(result.supports) == 1 else ""
+        if not (len(result.supports) == 1 and cardinal
+                and _atom_states_cardinal(sole_atom, cardinal)):
+            return None
     # Preference FORM refusal: untagged preference_synth answers must be bounded noun
     # phrases (or protected polarity/title/number shapes). The ':suggestion_synth' tag
     # marks the one deliberate fragment carve-out (provenance-gated suggestion synthesis).

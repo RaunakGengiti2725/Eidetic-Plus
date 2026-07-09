@@ -211,3 +211,33 @@ Partial-list VW 5->2, no junk fragments. tok/vc 31,761 (best of series). Rolling
 | holdout_rotation_r7_codex | 20/40 | 32 | 13/40 | 4029.0 | 12/40 | +8 |
 | holdout_rotation_r8_codex | 23/40 | 36 | 14/40 | 4029.0 | 9/40 | +14 |
 | **rolling** | **182/320** | **277** | **115/320** | | **140/320** | **+42** |
+
+## P0 NUMERIC TRUST LEAK CLOSED (2026-07-09) — aggregate citation floor
+
+**Blocker resolved:** the live LME-S numeric panel shipped **5/13 verified-WRONG** (one/23,
+1226.3/70, 4/3 weddings, 6/5, 3/4). Now **0 verified-WRONG** (4 correct preserved: negroni "10",
+2 temporal deltas, $25k; 9 abstain). Gate: `DATA_DIR=artifacts/lme_s_r1_codex/data python
+bench/measure_sum_live_probe.py`.
+
+- **Change:** `eidetic/smqe/verify.py` — aggregate CITATION floor. For `count_aggregate` /
+  `multi_session_sum` only, `verified=True` requires `len(supports)==1` AND the answer's cardinal
+  verbatim in that sole atom; else `return None` (fail-closed). Comparative-difference queries
+  ("how many MORE ... than", "difference between") are exempt (fixed 2-anchor arithmetic,
+  recompute-exact). `temporal_delta` untouched (anchors are `valid_at`, not atom text; 0-wrong).
+- **Why not recompute-from-atoms** (goal's literal ask): the error is WRONG ATOM SET, not
+  arithmetic — recompute re-derives the same wrong number from the same wrong set. Source
+  cardinality is the honest discriminator (all 5 live-wrong are n_supports≥2; the 1 correct count
+  is n_supports==1, stated: "tried a Negroni 10 times").
+- **Blast radius (measured, net-positive):** derived-count path was **5/6 verified-WRONG on
+  holdout** (r6/r8/r9/r12/r14, only r8 c2_q62 correct). Gate removes a liability, not a feature.
+  Cross-session sums are inherently multi-support → they now abstain (a sum no single source
+  states cannot be citation-verified = correct-or-silent). Accuracy cost: ≤1 verified-correct
+  holdout row.
+- **Suite: 1608 green.** ~27 synthetic tests + 9 SMQE harnesses updated to assert fail-closed via
+  `expect_abstain` (derivation-value + atom-exclusion coverage preserved). fullpath reports
+  `reader_consults` (aggregates fall to reader tier + abstain — surfaced, not hidden). Product
+  tests (`test_bench_eidetic_full`, `test_retrieval_wiring`) assert abstention.
+- **Next / blockers:** (1) `python -m bench.release_gate` re-run (P4). (2) aggregate accuracy
+  recovery is a SEPARATE dev-split lever (stated-total detection / retrieval-guided read), NOT to
+  be pursued by weakening the gate — any re-open needs a live-probe-proven zero regression.
+  (3) NotebookLM Tier-1 unified recall + provenance (P1/P2) still open.

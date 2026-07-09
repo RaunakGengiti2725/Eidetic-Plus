@@ -768,11 +768,13 @@ def test_eidetic_full_uses_structured_recall_for_clothing_pickup_return_count(tm
 
     ar = sys.answer("ns", "How many clothing items do I still need to pick up or return at a shop?")
 
-    assert ar.answer == "3"
-    assert ar.extra["verified"] is True
-    assert ar.extra["policy"].startswith("smqe:")
-    assert set(ar.extra["entailed_memory_ids"])
-    assert client.reader_models == []
+    # P0 fail-closed (2026-07-09): a DERIVED count no longer verifies (eidetic/smqe/verify.py);
+    # the structured path abstains and the product stays silent rather than ship a possibly-wrong
+    # count -- this op class was 5/6 verified-WRONG on real holdout. The derivation still computes
+    # "3", but a cross-atom count no single source states cannot be citation-verified.
+    assert ar.abstained is True
+    assert ar.extra["verified"] is False
+    assert client.reader_models != []          # falls through to the reader tier, which declines
     get_settings.cache_clear()
 
 
@@ -802,10 +804,12 @@ def test_eidetic_full_structured_recall_is_not_gated_by_user_evidence_context(tm
 
     ar = sys.answer("ns", "How many clothing items do I still need to pick up or return at a shop?")
 
-    assert ar.answer == "3"
-    assert ar.extra["verified"] is True
-    assert ar.extra["policy"].startswith("smqe:")
-    assert client.reader_models == []
+    # P0 fail-closed (2026-07-09): a DERIVED count abstains (eidetic/smqe/verify.py). The point of
+    # THIS test -- that the structured path is not gated by user-evidence context -- is now moot for
+    # aggregates, which fail closed regardless; it survives as a fail-closed regression guard.
+    assert ar.abstained is True
+    assert ar.extra["verified"] is False
+    assert client.reader_models != []
     get_settings.cache_clear()
 
 
@@ -911,15 +915,12 @@ def test_eidetic_full_uses_structured_recall_for_model_kit_counts(tmp_path, monk
 
     ar = sys.answer("ns", "How many model kits have I either worked on or bought?", as_of=session_time)
 
-    assert ar.answer.startswith("5 model kits:")
-    assert "Orion Falcon glider kit" in ar.answer
-    assert "1/48 scale Harbor tug boat" in ar.answer
-    assert "1/16 scale Alpine tram vehicle" in ar.answer
-    assert "1/72 scale lunar rover" in ar.answer
-    assert "1/24 scale metro bus" in ar.answer
-    assert ar.extra["verified"] is True
-    assert ar.extra["policy"].startswith("smqe:")
-    assert client.reader_models == []
+    # P0 fail-closed (2026-07-09): a DERIVED count abstains (eidetic/smqe/verify.py) -- this
+    # cross-atom enumeration (5 kits across four sessions) is exactly the leak class (5/6
+    # verified-WRONG on holdout), so the product stays silent instead of shipping "5 model kits".
+    assert ar.abstained is True
+    assert ar.extra["verified"] is False
+    assert client.reader_models != []
     get_settings.cache_clear()
 
 
@@ -947,10 +948,12 @@ def test_eidetic_full_uses_structured_recall_for_updated_entity_count(tmp_path, 
 
     ar = sys.answer("ns", "How many blue loom studios have I tried in my city?", as_of=newer)
 
-    assert ar.answer == "four"
-    assert ar.extra["verified"] is True
-    assert ar.extra["policy"].startswith("smqe:")
-    assert client.reader_models == []
+    # P0 fail-closed (2026-07-09): a DERIVED count abstains (eidetic/smqe/verify.py). The
+    # supersession intent of this test (latest "four" wins over "three") is preserved by the
+    # engine's active-record filtering; the count itself now fails closed rather than verify.
+    assert ar.abstained is True
+    assert ar.extra["verified"] is False
+    assert client.reader_models != []
     get_settings.cache_clear()
 
 
@@ -1042,10 +1045,13 @@ def test_eidetic_full_uses_structured_recall_for_camping_trip_days(tmp_path, mon
         as_of=as_of,
     )
 
-    assert ar.answer == "8 days"
-    assert ar.extra["verified"] is True
-    assert ar.extra["policy"].startswith("smqe:")
-    assert client.reader_models == []
+    # P0 fail-closed (2026-07-09): a cross-session DURATION sum abstains (eidetic/smqe/verify.py).
+    # 5 days + 3 days across two trips is a derived total no single source states (and the Utah
+    # "7-day" trip is a distractor that must be excluded) -- exactly the leak class -- so the
+    # product stays silent rather than ship "8 days".
+    assert ar.abstained is True
+    assert ar.extra["verified"] is False
+    assert client.reader_models != []
     get_settings.cache_clear()
 
 
@@ -1219,14 +1225,12 @@ def test_eidetic_full_uses_structured_recall_for_recent_plant_acquisitions(tmp_p
         as_of=datetime(2023, 5, 31, 4, 51).timestamp(),
     )
 
-    assert ar.answer.startswith("3 plants:")
-    assert "peace lily" in ar.answer
-    assert "succulent" in ar.answer
-    assert "snake plant" in ar.answer
-    assert "fern" not in ar.answer
-    assert ar.extra["verified"] is True
-    assert ar.extra["policy"].startswith("smqe:")
-    assert client.reader_models == []
+    # P0 fail-closed (2026-07-09): a DERIVED acquisition count abstains (eidetic/smqe/verify.py).
+    # Enumerating 3 plants across two sessions (excluding the "fern" distractor) is the leak class
+    # (5/6 verified-WRONG on holdout), so the product stays silent rather than ship "3 plants".
+    assert ar.abstained is True
+    assert ar.extra["verified"] is False
+    assert client.reader_models != []
     get_settings.cache_clear()
 
 

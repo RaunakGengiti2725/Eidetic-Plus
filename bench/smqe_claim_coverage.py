@@ -70,14 +70,20 @@ def run_eval(*, seed: Optional[int] = None, cases: int = 24) -> dict:
                 )
             if ans is not None:
                 proof_tokens += sum(max(0, len(c.snippet or "") // 4) for c in ans.citations)
-            ok = (
-                ans is not None
-                and ans.verified
-                and backend == "claim"
-                and _answer_matches(ans.answer, case.expected)
-                and case_claims > 0
-                and _proof_excludes_terms(proof, case.forbidden_in_proof)
-            )
+            if getattr(case, "expect_abstain", False):
+                # P0 fail-closed (2026-07-09): a DERIVED count/sum no longer verifies via the
+                # claim backend (eidetic/smqe/verify.py) -- it abstains. Claims are still
+                # extracted (case_claims may be >0); only the verified answer is withheld.
+                ok = ans is None and case_claims > 0
+            else:
+                ok = (
+                    ans is not None
+                    and ans.verified
+                    and backend == "claim"
+                    and _answer_matches(ans.answer, case.expected)
+                    and case_claims > 0
+                    and _proof_excludes_terms(proof, case.forbidden_in_proof)
+                )
             if not ok:
                 failures.append({
                     "case_id": case.case_id,

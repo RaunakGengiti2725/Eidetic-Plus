@@ -373,14 +373,20 @@ def _run_once(case: TemporalWindowCase, *, backend: str) -> tuple[bool, dict, in
         actual_op = parts[1] if len(parts) >= 3 else ""
         actual_backend = parts[2] if len(parts) >= 3 else ""
         proof = " ".join(c.snippet for c in (ans.citations if ans else []))
-        ok = (
-            ans is not None
-            and ans.verified
-            and actual_op == case.expected_op
-            and actual_backend == backend
-            and _answer_matches(ans.answer, case.expected)
-            and _proof_excludes_terms(proof, case.forbidden_in_proof)
-        )
+        if case.expected_op in {"count_aggregate", "multi_session_sum"}:
+            # P0 fail-closed (2026-07-09): a DERIVED count/sum abstains rather than shipping a
+            # verified aggregate (eidetic/smqe/verify.py). The windowed derivation still runs;
+            # the verify-or-abstain surface returns None.
+            ok = ans is None
+        else:
+            ok = (
+                ans is not None
+                and ans.verified
+                and actual_op == case.expected_op
+                and actual_backend == backend
+                and _answer_matches(ans.answer, case.expected)
+                and _proof_excludes_terms(proof, case.forbidden_in_proof)
+            )
         proof_tokens = sum(max(0, len(c.snippet or "") // 4) for c in (ans.citations if ans else []))
         return ok, {
             "actual": ans.answer if ans else "",

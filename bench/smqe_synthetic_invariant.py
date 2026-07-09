@@ -44,6 +44,11 @@ class SyntheticCase:
     rows: list[tuple[str, float]]
     forbidden_in_proof: list[str] = field(default_factory=list)
     claim_row: Optional[int] = None
+    # P0 fail-closed (2026-07-09): a count/sum DERIVED by enumerating across atoms no longer
+    # verifies (eidetic/smqe/verify.py aggregate citation floor); it abstains. Such cases assert
+    # abstention -- the derivation may still compute the value, but the verify-or-abstain surface
+    # returns None rather than an uncorroborated "verified" aggregate.
+    expect_abstain: bool = False
 
 
 _NAMES = ["Ari", "Nila", "Mika", "Sana", "Theo", "Rowan", "Lina", "Owen", "Tessa", "Ira"]
@@ -234,6 +239,7 @@ def _count_case(rng: random.Random, idx: int) -> SyntheticCase:
         expected=str(n),
         rows=rows,
         forbidden_in_proof=[decoy, f"{n + 3} new"],
+        expect_abstain=True,
     )
 
 
@@ -258,6 +264,7 @@ def _itemized_count_case(rng: random.Random, idx: int) -> SyntheticCase:
             (f"User: I bought a {decoy_item} while checking {decoy_target}.", t + 2),
         ],
         forbidden_in_proof=["directory", decoy_item, decoy_target],
+        expect_abstain=True,
     )
 
 
@@ -282,6 +289,7 @@ def _acquired_item_count_case(rng: random.Random, idx: int) -> SyntheticCase:
             (f"User: My {decoy}, which I got last month, is unrelated to the {target} shelf.", t + 2),
         ],
         forbidden_in_proof=[decoy],
+        expect_abstain=True,
     )
 
 
@@ -653,6 +661,7 @@ def _sum_case(rng: random.Random, idx: int) -> SyntheticCase:
                 (f"User: I {verb} {amount(total + 3)} {prep} the {decoy}.", t + 20),
             ],
             forbidden_in_proof=[decoy, amount(total + 3)],
+            expect_abstain=True,
         )
     return SyntheticCase(
         case_id=f"sum-{idx}",
@@ -665,6 +674,7 @@ def _sum_case(rng: random.Random, idx: int) -> SyntheticCase:
             (f"User: I spent {total + 3} hours on the {decoy}.", t + 20),
         ],
         forbidden_in_proof=[decoy, f"{total + 3} hours"],
+        expect_abstain=True,
     )
 
 
@@ -687,6 +697,7 @@ def _travel_duration_case(rng: random.Random, idx: int) -> SyntheticCase:
             (f"User: The museum visit lasted {total + 2} hours.", t + 4),
         ],
         forbidden_in_proof=["packing maps", "museum visit"],
+        expect_abstain=True,
     )
 
 
@@ -838,12 +849,18 @@ def run_eval(*, seed: Optional[int] = None, cases: int = 24) -> dict:
             _add_case(store, scope, case)
             ans = structured_answer(retriever, case.question, at=1_800_000_000, verify=True, scope=scope)
             proof = " ".join(c.snippet for c in (ans.citations if ans else []))
-            ok = (
-                ans is not None
-                and ans.verified
-                and _answer_matches(ans.answer, case.expected)
-                and _proof_excludes_terms(proof, case.forbidden_in_proof)
-            )
+            if case.expect_abstain:
+                # Fail-closed contract: a DERIVED count/sum must abstain, never ship a verified
+                # aggregate. Passing means the verify-or-abstain surface returned None; a verified
+                # answer here would be exactly the leak the citation floor closes.
+                ok = ans is None
+            else:
+                ok = (
+                    ans is not None
+                    and ans.verified
+                    and _answer_matches(ans.answer, case.expected)
+                    and _proof_excludes_terms(proof, case.forbidden_in_proof)
+                )
             note = ans.note if ans else ""
             if note.startswith("smqe:"):
                 backend = (note.split(":") + ["", "", ""])[2]

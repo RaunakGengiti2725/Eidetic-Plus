@@ -167,6 +167,11 @@ def run_eval(*, seed: Optional[int] = None, cases: int = 24) -> dict:
     verified = 0
     structured = 0
     claims_extracted = 0
+    # P0 fail-closed (2026-07-09): DERIVED count/sum cases no longer answer in the structured
+    # adapter -- they fall through the tiers to the reader, which abstains. Count those consults
+    # explicitly rather than hide them, so the "adapter runs without reader calls" claim stays
+    # honestly scoped to the ops the adapter actually still answers.
+    reader_consults = 0
 
     from bench import reader as bench_reader
 
@@ -212,14 +217,22 @@ def run_eval(*, seed: Optional[int] = None, cases: int = 24) -> dict:
                 if proof_link_ok:
                     proof_link_checks += 1
                 proof = " ".join(str(c) for c in extra.get("entailed_memory_ids", []) or [])
-                ok = (
-                    extra.get("verified") is True
-                    and not answer.abstained
-                    and policy.startswith("smqe:")
-                    and proof_link_ok
-                    and _answer_matches(answer.answer, case.expected)
-                    and not client.reader_models
-                )
+                if getattr(case, "expect_abstain", False):
+                    # P0 fail-closed (2026-07-09): a DERIVED count/sum no longer verifies in the
+                    # structured adapter (eidetic/smqe/verify.py). It falls through the tiers and
+                    # the product ABSTAINS -- correct-or-silent. The structured path no longer
+                    # answers these, so the zero-reader-call invariant does not apply to them; a
+                    # reader-tier consult that itself abstains is the designed fallback.
+                    ok = extra.get("verified") is not True and bool(answer.abstained)
+                else:
+                    ok = (
+                        extra.get("verified") is True
+                        and not answer.abstained
+                        and policy.startswith("smqe:")
+                        and proof_link_ok
+                        and _answer_matches(answer.answer, case.expected)
+                        and not client.reader_models
+                    )
                 if not ok:
                     failures.append({
                         "case_id": case.case_id,
@@ -237,6 +250,7 @@ def run_eval(*, seed: Optional[int] = None, cases: int = 24) -> dict:
                         "raw_uris": len(extra.get("entailed_raw_uris", []) or []),
                         "proof": proof[:500],
                     })
+                reader_consults += len(client.reader_models)
                 client.reader_models.clear()
         finally:
             bench_reader.get_client = old_get_client
@@ -250,6 +264,7 @@ def run_eval(*, seed: Optional[int] = None, cases: int = 24) -> dict:
         "verified": verified,
         "structured_recall": structured,
         "reader_calls": 0 if not failures else sum(int(f.get("reader_calls", 0)) for f in failures),
+        "reader_consults": reader_consults,
         "proof_link_checks": proof_link_checks,
         "claim_backend_correct": backend_counts.get("claim", 0),
         "claims_extracted": claims_extracted,

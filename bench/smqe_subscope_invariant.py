@@ -60,12 +60,15 @@ def _run_case(case: ScopeCase, *, claims_present: bool) -> tuple[int, int, list[
             ans = structured_answer(retriever, case.question, at=1_900_000_000, verify=True, scope=scope)
             proof = " ".join(c.snippet for c in (ans.citations if ans else []))
             proof_tokens += sum(max(0, len(c.snippet or "") // 4) for c in (ans.citations if ans else []))
-            ok = (
-                ans is not None
-                and ans.verified
-                and _answer_ok(ans.answer, side.expected)
-                and _proof_excludes_terms(proof, side.forbidden_in_proof)
-            )
+            if case.expect_abstain:
+                ok = ans is None  # derived aggregate fails closed on both sub-scope sides
+            else:
+                ok = (
+                    ans is not None
+                    and ans.verified
+                    and _answer_ok(ans.answer, side.expected)
+                    and _proof_excludes_terms(proof, side.forbidden_in_proof)
+                )
             if ok:
                 correct += 1
                 continue

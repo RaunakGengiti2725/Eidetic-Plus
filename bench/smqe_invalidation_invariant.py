@@ -46,6 +46,9 @@ class InvalidationCase:
     after_expected: str
     before_forbidden_in_proof: list[str] = field(default_factory=list)
     after_forbidden_in_proof: list[str] = field(default_factory=list)
+    # P0 fail-closed (2026-07-09): a DERIVED count/sum abstains rather than shipping a verified
+    # aggregate (eidetic/smqe/verify.py). Such cases assert abstention at both supersession stages.
+    expect_abstain: bool = False
 
 
 _NAMES = ["Ari", "Nila", "Mika", "Sana", "Theo", "Rowan", "Lina", "Owen"]
@@ -154,6 +157,7 @@ def _count_case(rng: random.Random, idx: int) -> InvalidationCase:
         after_expected=str(new_n),
         before_forbidden_in_proof=new_labels,
         after_forbidden_in_proof=old_labels,
+        expect_abstain=True,
     )
 
 
@@ -308,6 +312,7 @@ def _sum_case(rng: random.Random, idx: int) -> InvalidationCase:
         after_expected=f"{new_total} hours",
         before_forbidden_in_proof=[f"{new_a} hours", f"{new_b} hours"],
         after_forbidden_in_proof=[f"{old_a} hours", f"{old_b} hours"],
+        expect_abstain=True,
     )
 
 
@@ -382,12 +387,15 @@ def _run_case(case: InvalidationCase, *, claims_present: bool) -> tuple[int, int
             ans = structured_answer(retriever, case.question, at=at, verify=True, scope=scope)
             proof = " ".join(c.snippet for c in (ans.citations if ans else []))
             proof_tokens += sum(max(0, len(c.snippet or "") // 4) for c in (ans.citations if ans else []))
-            ok = (
-                ans is not None
-                and ans.verified
-                and _answer_ok(ans.answer, expected)
-                and _proof_excludes_terms(proof, forbidden)
-            )
+            if case.expect_abstain:
+                ok = ans is None  # derived aggregate fails closed at both supersession stages
+            else:
+                ok = (
+                    ans is not None
+                    and ans.verified
+                    and _answer_ok(ans.answer, expected)
+                    and _proof_excludes_terms(proof, forbidden)
+                )
             if ok:
                 correct += 1
                 continue

@@ -34,6 +34,9 @@ class ParaphraseCase:
     expected: str
     rows: list[tuple[str, float]]
     forbidden_in_proof: list[str] = field(default_factory=list)
+    # P0 fail-closed (2026-07-09): a DERIVED count/sum abstains instead of shipping a verified
+    # aggregate (eidetic/smqe/verify.py). Such cases assert abstention under BOTH backends.
+    expect_abstain: bool = False
 
 
 _NAMES = ["Ari", "Nila", "Mika", "Sana", "Theo", "Rowan", "Lina", "Owen"]
@@ -107,6 +110,7 @@ def _count_case(rng: random.Random, idx: int) -> ParaphraseCase:
         expected=str(n),
         rows=rows,
         forbidden_in_proof=["directory", decoy, f"{n + 4} different"],
+        expect_abstain=True,
     )
 
 
@@ -252,6 +256,7 @@ def _sum_case(rng: random.Random, idx: int) -> ParaphraseCase:
             (f"User: I {action} {total + 5} hours for the {decoy}.", t + 2),
         ],
         forbidden_in_proof=[decoy, f"{total + 5} hours"],
+        expect_abstain=True,
     )
 
 
@@ -293,13 +298,16 @@ def _run_once(case: ParaphraseCase, *, backend: str) -> tuple[bool, dict, int]:
         note = ans.note if ans else ""
         actual_backend = (note.split(":") + ["", "", ""])[2] if note.startswith("smqe:") else ""
         proof = " ".join(c.snippet for c in (ans.citations if ans else []))
-        ok = (
-            ans is not None
-            and ans.verified
-            and actual_backend == backend
-            and _answer_matches(ans.answer, case.expected)
-            and _proof_excludes_terms(proof, case.forbidden_in_proof)
-        )
+        if case.expect_abstain:
+            ok = ans is None  # derived aggregate fails closed under both backends
+        else:
+            ok = (
+                ans is not None
+                and ans.verified
+                and actual_backend == backend
+                and _answer_matches(ans.answer, case.expected)
+                and _proof_excludes_terms(proof, case.forbidden_in_proof)
+            )
         proof_tokens = sum(max(0, len(c.snippet or "") // 4) for c in (ans.citations if ans else []))
         return ok, {
             "actual": ans.answer if ans else "",

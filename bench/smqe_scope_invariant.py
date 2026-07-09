@@ -39,6 +39,9 @@ class ScopeCase:
     question: str
     left: ScopeSide
     right: ScopeSide
+    # P0 fail-closed (2026-07-09): a DERIVED count/sum abstains instead of shipping a verified
+    # aggregate (eidetic/smqe/verify.py). Such cases assert abstention on both scope sides.
+    expect_abstain: bool = False
 
 
 _NAMES = ["Ari", "Nila", "Mika", "Sana", "Theo", "Rowan", "Lina", "Owen"]
@@ -104,6 +107,7 @@ def _count_case(rng: random.Random, idx: int) -> ScopeCase:
         question=f"How many {target} did I visit this month?",
         left=ScopeSide(str(left_n), left_rows, [str(right_n)]),
         right=ScopeSide(str(right_n), right_rows, [str(left_n)]),
+        expect_abstain=True,
     )
 
 
@@ -234,6 +238,7 @@ def _sum_case(rng: random.Random, idx: int) -> ScopeCase:
             f"{right_total} hours",
             [(f"User: I spent {right_a} hours on the {project}.", t + 2), (f"User: I spent {right_b} hours on the {project}.", t + 3)],
         ),
+        expect_abstain=True,
     )
 
 
@@ -283,12 +288,15 @@ def _run_case(case: ScopeCase, *, claims_present: bool) -> tuple[int, int, list[
             ans = structured_answer(retriever, case.question, at=1_900_000_000, verify=True, scope=scope)
             proof = " ".join(c.snippet for c in (ans.citations if ans else []))
             proof_tokens += sum(max(0, len(c.snippet or "") // 4) for c in (ans.citations if ans else []))
-            ok = (
-                ans is not None
-                and ans.verified
-                and _answer_ok(ans.answer, side.expected)
-                and _proof_excludes_terms(proof, side.forbidden_in_proof)
-            )
+            if case.expect_abstain:
+                ok = ans is None  # derived aggregate fails closed on both scope sides
+            else:
+                ok = (
+                    ans is not None
+                    and ans.verified
+                    and _answer_ok(ans.answer, side.expected)
+                    and _proof_excludes_terms(proof, side.forbidden_in_proof)
+                )
             if ok:
                 correct += 1
                 continue
