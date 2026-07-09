@@ -11,7 +11,7 @@ both Mem0 and Zep. Category integer mapping per the LoCoMo paper:
 from __future__ import annotations
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -29,7 +29,15 @@ def _parse_time(s: Optional[str]) -> Optional[float]:
         return None
     for fmt in ("%I:%M %p on %d %B, %Y", "%d %B, %Y", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d"):
         try:
-            return datetime.strptime(s.strip(), fmt).timestamp()
+            # UTC-AWARE on purpose (miss-forensics fleet 2026-07-09, temporal cluster,
+            # skeptic-confirmed): a NAIVE .timestamp() interprets the source wall-clock as
+            # the RUN MACHINE's local zone, while every render (_iso and friends) emits UTC
+            # -- so an evening session shifted a full calendar day between ingest and export
+            # and the reader answered with the wrong date. Treating the source wall-clock AS
+            # UTC keeps one convention end-to-end: parse -> store -> render reproduces the
+            # source's calendar day on any machine.
+            return datetime.strptime(s.strip(), fmt).replace(
+                tzinfo=timezone.utc).timestamp()
         except ValueError:
             continue
     return None

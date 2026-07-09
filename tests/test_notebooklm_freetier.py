@@ -26,14 +26,32 @@ def test_prelim_contains_rejects_empty_gold():
     assert prelim_contains("", "anything") is False
 
 
-def test_pack_respects_source_and_char_caps():
+def test_pack_is_lossless_within_source_cap():
+    """The miss-forensics fleet traced 16/58 judged misses to the old positional truncation
+    (`packed[:max_sources]` silently dropped every record past ~23x12KB): the reader answered
+    'no information' about facts sitting in the store. The contract is now LOSSLESS-OR-LOUD:
+    the per-source budget grows to fit the data, every record lands, never more than
+    max_sources sources."""
     sources = [{"display_name": f"s{i}", "text_content": "x" * 5_000} for i in range(30)]
     packed = pack_record_sources(_Bridge(sources), "ns-abcdef",
                                  max_sources=10, max_chars=12_000)
     assert len(packed) <= 10
-    # nothing dropped silently until the cap: all text present across packed sources
     total = sum(len(p["text_content"]) for p in packed)
-    assert total >= 5_000 * 18  # 2 records per 12k-char pack x 9 packs + final pack
+    # EVERY record's bytes are present (separators add chars, so >=)
+    assert total >= 5_000 * 30
+
+
+def test_pack_lossless_with_oversized_records_and_heavy_store():
+    """An LME-S-shaped store (long records, total >> max_sources x max_chars) must still pack
+    every byte: the budget grows past max_chars instead of dropping the tail."""
+    sources = [{"display_name": f"s{i}", "text_content": f"REC{i:02d}" + "y" * 20_000}
+               for i in range(50)]
+    packed = pack_record_sources(_Bridge(sources), "ns-heavy1",
+                                 max_sources=24, max_chars=12_000)
+    assert len(packed) <= 24
+    blob = " ".join(p["text_content"] for p in packed)
+    for i in range(50):
+        assert f"REC{i:02d}" in blob  # the OLD code dropped the tail records silently
 
 
 def test_find_notebook_id_strict_never_falls_back_to_first_id():

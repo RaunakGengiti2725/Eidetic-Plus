@@ -12,7 +12,7 @@ Expected category counts for longmemeval_s (spec Section 11), used by verify():
 from __future__ import annotations
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -36,7 +36,11 @@ def _parse_time(s: Optional[str]) -> Optional[float]:
         return None
     for fmt in ("%Y/%m/%d (%a) %H:%M", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d", "%Y/%m/%d"):
         try:
-            return datetime.strptime(s.strip(), fmt).timestamp()
+            # UTC-AWARE on purpose -- see bench/datasets/locomo.py:_parse_time. A naive
+            # .timestamp() parses the source wall-clock in the run machine's local zone
+            # while renders emit UTC, shifting evening sessions a full calendar day.
+            return datetime.strptime(s.strip(), fmt).replace(
+                tzinfo=timezone.utc).timestamp()
         except ValueError:
             continue
     return None

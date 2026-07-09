@@ -104,12 +104,28 @@ def pack_record_sources(bridge: NotebookLMBridge, namespace: str,
             singles.extend(format_source_chunks(rec, claims, chunk_chars=chunk_chars))
     else:
         singles = bridge.build_sources(namespace)
+    # LOSSLESS-OR-LOUD packing (miss-forensics fleet 2026-07-09, 16/58 misses, 3/3 skeptics
+    # CONFIRMED): the old positional flush + `packed[:max_sources]` silently dropped every
+    # record past ~23x12KB, so a capacity overflow masqueraded as a memory miss -- the reader
+    # answered "no information" about facts sitting in the store. Now the per-source budget
+    # GROWS to fit the data (ceil(total/max_sources), and never below the largest single
+    # record), so every record lands in exactly <= max_sources sources. NotebookLM's real
+    # per-source cap (~hundreds of KB) is far above any budget this produces; max_chars
+    # remains the floor so small namespaces keep the shipped packing. If the invariant can
+    # ever be violated, this RAISES -- an export must never silently lose memory.
+    total = sum(len(s["text_content"]) for s in singles)
+    max_single = max((len(s["text_content"]) for s in singles), default=0)
+    # Greedy first-fit wastes at most one record per bin, so the budget carries max_single
+    # slack: every flushed bin then holds > ceil(total/max_sources) useful chars, which
+    # PROVES bins <= max_sources. (ceil(total/max_sources) alone overflowed by one bin on
+    # fragmentation -- caught by the loud invariant below in tests.)
+    budget = max(max_chars, -(-total // max(1, max_sources)) + max_single, max_single)
     packed: list[dict] = []
     buf: list[str] = []
     size = 0
     for s in singles:
         t = s["text_content"]
-        if buf and (size + len(t) > max_chars or len(packed) >= max_sources - 1):
+        if buf and size + len(t) > budget:
             packed.append({"display_name": f"eidetic-records:{namespace[-6:]}:{len(packed)}",
                            "text_content": "\n\n=====\n\n".join(buf)})
             buf, size = [], 0
@@ -118,7 +134,17 @@ def pack_record_sources(bridge: NotebookLMBridge, namespace: str,
     if buf:
         packed.append({"display_name": f"eidetic-records:{namespace[-6:]}:{len(packed)}",
                        "text_content": "\n\n=====\n\n".join(buf)})
-    return packed[:max_sources]
+    if len(packed) > max_sources:
+        raise RuntimeError(
+            f"lossless packing invariant violated for {namespace!r}: {len(packed)} packed "
+            f"sources > max_sources={max_sources} (records={len(singles)}, total_chars="
+            f"{total}, budget={budget}) -- refusing to export a silently truncated memory")
+    packed_chars = sum(len(p["text_content"]) for p in packed)
+    if packed_chars < total:
+        raise RuntimeError(
+            f"lossless packing invariant violated for {namespace!r}: packed {packed_chars} "
+            f"chars < record total {total} -- a record was dropped")
+    return packed
 
 
 def ensure_notebook(backend: CliBackend, title: str) -> str:
