@@ -6,10 +6,19 @@ prospective, no possibility of tuning to the window.**
 
 | window | eidetic+NotebookLM free tier | rag-vector (same window/judge) | eidetic fixed-reader (same window/judge) |
 |---|---|---|---|
-| r14 | **31/40 = 77.5%** | 26/40 = 65.0% | 22/40 = 55.0% |
+| r14 | **31/40 = 77.5%** | 23/40 = 57.5% | 22/40 = 55.0% |
 | r13 | **37/40 = 92.5%** | 25/40 = 62.5% | 26/40 = 65.0% |
 | r15 (prospective) | **34/40 = 85.0%** | 23/40 = 57.5% | 22/40 = 55.0% |
-| **all three** | **102/120 = 85.0%** | 74/120 = 61.7% | 70/120 = 58.3% |
+| **all three** | **102/120 = 85.0%** | 71/120 = 59.2% | 70/120 = 58.3% |
+
+(Correction 2026-07-08: an earlier draft mis-transcribed r14 rag-vector as 26/40; the
+committed jsonl is 23/40. Corrected here — it widens eidetic's lead, i.e. NOT a
+self-serving edit. Every cell above is recomputed directly from the committed files.)
+
+**Statistical significance (paired, exact McNemar over the 120 questions):** eidetic+
+NotebookLM vs rag-vector — 33 questions only NotebookLM got right, 2 only rag-vector got
+right → **p < 1e-5**. vs eidetic-fixed-reader — 36 vs 5 → **p < 1e-5**. The +25.8-point
+gap over rag-vector is not noise at this n.
 
 **Caller cost of every free-tier answer: 0 tokens** (Gemini free read — collections ran
 with no DASHSCOPE key in the shell). Provenance across all three windows: **222/222 cited
@@ -38,8 +47,8 @@ partial runs is NOT the gate; it is an early variance signal (tight so far).
 ## What this is
 The PRODUCT configuration measured honestly: eidetic's verified claim graph + provenance-
 stamped records exported to NotebookLM, read by Gemini's free tier, every citation
-verifiable against the immutable store. +23.3 points over rag-vector across 120 judged
-held-out questions at zero caller token cost.
+verifiable against the immutable store. +25.8 points over rag-vector (85.0% vs 59.2%)
+across 120 judged held-out questions at zero caller token cost — paired McNemar p < 1e-5.
 
 ## Honest boundaries (unchanged, non-negotiable)
 - **Different reader** (Gemini) than the fixed-qwen benchmark table — this is its own
