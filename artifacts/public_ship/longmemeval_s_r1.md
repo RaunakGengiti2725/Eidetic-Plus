@@ -151,3 +151,46 @@ Two of six flips carried no advisory at all (pure reader variance, they cancel);
 
 Raw data: `artifacts/lme_s_r1_codex/notebooklm_rg_injected.jsonl` (28 rows, 27 ok);
 paired scores: `artifacts/lme_s_r1_codex/rgi_scored.json`.
+
+---
+
+## CORRECTION — live-store measurement: the scope-gate fix does NOT fix the real case (2026-07-09)
+
+Ran the deterministic `structured_recall` path against the **real built LME-S stores**
+(`DATA_DIR=artifacts/lme_s_r1_codex/data`, embeddings cached) for the 13 numeric-aggregation
+questions. This corrects an overstatement in commit `c64c10aee`.
+
+**The `_measure_type_sum` scope-gate (c64c10aee) does NOT resolve bc149d6b on real data.**
+The live store still returns **`1226.3 pounds`, verified=True** (gold 70) — unchanged by the
+fix. My synthetic regression encoded the WRONG failure mode: unrelated-subject weights
+(body/gym). The REAL over-count is *same-subject* — the 6 summed supports are all from
+feed-heavy memories, so the per-atom/per-group subject-gate keeps them all. The spurious
+`1226.3` comes from claim-level weight extraction (e.g. "cost per pound of layer feed"
+reasoning text) and/or missing temporal scope ("past two months", "new"), NOT from summing
+gym plates. The fix is a defensible general hardening but is verified ONLY on synthetic
+atoms and does not touch this live case. **A verified-WRONG numeric answer still ships here.**
+
+Live structured-path results on the 13 numeric questions (op | answer | gold):
+
+| sample | op | answer | gold | ok |
+|---|---|---|---|---|
+| 603deb26 | count_aggregate | 10 | 10 | ✓ |
+| gpt4_2f91af09 | multi_session_sum | one | 23 | ✗ (undercount/count-misroute) |
+| gpt4_8e165409 | temporal_delta | 14 days | 14 days | ✓ |
+| f0e564bc | multi_session_sum | "Apply the Dr" | $1,300 | ✗ (non-numeric garbage, verified?) |
+| 5c40ec5b | count_aggregate | twice | twice | ✓ |
+| gpt4_85da3956 | temporal_delta | (abstain) | 3 weeks ago | ✗ (miss) |
+| bc149d6b | multi_session_sum | 1226.3 pounds | 70 pounds | ✗ (**verified-WRONG, still ships**) |
+| gpt4_2f8be40d | count_aggregate | 4 weddings | three | ✗ (overcount) |
+| 06db6396 | count_aggregate | 6 | 5 | ✗ (overcount) |
+| a3838d2b | count_aggregate | 3 | 4 | ✗ (undercount) |
+| 3fe836c9 | latest_value | $25,000 | $25,000 | ✓ |
+| gpt4_74aed68e | temporal_delta | 29 days | 29 days | ✓ |
+| a4996e51 | count_aggregate | (abstain) | 50 | ✗ (miss) |
+
+**5/13 correct on the deterministic path.** The LME-S numeric-aggregation failure is broad
+(count over/undercount, sum misroute, non-numeric leak, temporal miss) and NOT closed by
+tonight's scope-gate. `_measure_type_sum` fix stands as narrow synthetic hardening only;
+bc149d6b + the count/sum family remain OPEN (#41/#42). No accuracy progress claimed; the
+honest lesson is that a suite-green synthetic fix must be validated on the live failure set
+before any framing — which this measurement now enforces. Raw: `measure_sum_live.json`.

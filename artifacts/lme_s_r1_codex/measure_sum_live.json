@@ -1,0 +1,119 @@
+[
+  {
+    "sample_id": "603deb26",
+    "op": "count_aggregate",
+    "answered": true,
+    "verified": true,
+    "answer": "10",
+    "gold": "10",
+    "question": "How many times have I tried making a Negroni at home since my friend Emma showed me how to make it?"
+  },
+  {
+    "sample_id": "gpt4_2f91af09",
+    "op": "multi_session_sum",
+    "answered": true,
+    "verified": true,
+    "answer": "one",
+    "gold": "23",
+    "question": "How many total pieces of writing have I completed since I started writing again three weeks ago, including short stories, poems, and pieces for the writing challenge?"
+  },
+  {
+    "sample_id": "gpt4_8e165409",
+    "op": "temporal_delta",
+    "answered": true,
+    "verified": true,
+    "answer": "14 days",
+    "gold": "14 days. 15 days (including the last day) is also acceptable.",
+    "question": "How many days passed between the day I repotted the previous spider plant and the day I gave my neighbor, Mrs. Johnson, a few cuttings from my spider plant?"
+  },
+  {
+    "sample_id": "f0e564bc",
+    "op": "multi_session_sum",
+    "answered": false,
+    "verified": false,
+    "answer": "Apply the Dr",
+    "gold": "$1,300",
+    "question": "What is the total amount I spent on the designer handbag and high-end skincare products?"
+  },
+  {
+    "sample_id": "5c40ec5b",
+    "op": "count_aggregate",
+    "answered": false,
+    "verified": false,
+    "answer": "twice",
+    "gold": "We've met up twice.",
+    "question": "How many times have I met up with Alex from Germany?"
+  },
+  {
+    "sample_id": "gpt4_85da3956",
+    "op": "temporal_delta",
+    "answered": false,
+    "verified": false,
+    "answer": "",
+    "gold": "3 weeks ago",
+    "question": "How many weeks ago did I attend the 'Summer Nights' festival at Universal Studios Hollywood?"
+  },
+  {
+    "sample_id": "bc149d6b",
+    "op": "multi_session_sum",
+    "answered": true,
+    "verified": true,
+    "answer": "1226.3 pounds",
+    "gold": "70 pounds",
+    "question": "What is the total weight of the new feed I purchased in the past two months?"
+  },
+  {
+    "sample_id": "gpt4_2f8be40d",
+    "op": "count_aggregate",
+    "answered": true,
+    "verified": true,
+    "answer": "4 weddings: California; Florida; Hawaii; Outer Banks in North Carolina",
+    "gold": "I attended three weddings. The couples were Rachel and Mike, Emily and Sarah, and Jen and Tom.",
+    "question": "How many weddings have I attended in this year?"
+  },
+  {
+    "sample_id": "06db6396",
+    "op": "count_aggregate",
+    "answered": true,
+    "verified": true,
+    "answer": "6",
+    "gold": "5",
+    "question": "How many projects have I completed since starting painting classes?"
+  },
+  {
+    "sample_id": "a3838d2b",
+    "op": "count_aggregate",
+    "answered": true,
+    "verified": true,
+    "answer": "3",
+    "gold": "4",
+    "question": "How many charity events did I participate in before the 'Run for the Cure' event?"
+  },
+  {
+    "sample_id": "3fe836c9",
+    "op": "latest_value",
+    "answered": true,
+    "verified": true,
+    "answer": "$25,000",
+    "gold": "$25,000",
+    "question": "How much more was the pre-approval amount than the final sale price of the house?"
+  },
+  {
+    "sample_id": "gpt4_74aed68e",
+    "op": "temporal_delta",
+    "answered": true,
+    "verified": true,
+    "answer": "29 days",
+    "gold": "29 days. 30 days (including the last day) is also acceptable.",
+    "question": "How many days passed between the day I replaced my spark plugs and the day I participated in the Turbocharged Tuesdays auto racking event?"
+  },
+  {
+    "sample_id": "a4996e51",
+    "op": "count_aggregate",
+    "answered": false,
+    "verified": false,
+    "answer": "",
+    "gold": "50",
+    "question": "How many hours do I work in a typical week during peak campaign seasons?"
+  }
+]
