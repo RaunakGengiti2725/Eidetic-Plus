@@ -16,6 +16,11 @@ def _query_answer_hypothesis(query: str, answer: str) -> str:
 
 _COMPUTED_OPS = {"temporal_delta", "count_aggregate", "multi_session_sum", "event_order",
                  "relative_temporal", "table_lookup"}
+# A numeric computed answer must carry a cardinal -- a digit or a spelled small number.
+_NUMERIC_ANSWER_RE = re.compile(
+    r"\d|\b(?:zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|"
+    r"thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|"
+    r"fifty|sixty|seventy|eighty|ninety|hundred|thousand|million|no|none|zero)\b", re.I)
 _OPTION_CHOICE_RE = re.compile(
     r"\b(?:would|prefer|rather|enjoy|choose|pick)\b[^.?!]*\bor\b", re.I)
 _LIKELY_INFERENCE_RE = re.compile(
@@ -531,6 +536,14 @@ def answer_from_result(retriever, query: str, result: StructuredAnswerResult,
         # own typed write-time claim (junk-filtered at extraction, per-item proof), so a
         # 3-char trick name ('sit') is not fragment soup; the per-support strict hypothesis
         # below still runs unchanged, so nothing ships without live entailment.
+        return None
+    # Numeric computed-op TYPE floor: a count / sum / elapsed-delta answer is a NUMBER by
+    # construction. Computed ops are exempt from the prose form floors (their form is derived),
+    # but that exemption let non-numeric garbage ("Apply the Dr" for a money sum) ship
+    # verified=True -- a verified-precision hole. Require a numeric token (digit or number word)
+    # for the three numeric ops only; event_order/table_lookup answers need not be numeric.
+    if (verify and result.op in {"count_aggregate", "multi_session_sum", "temporal_delta"}
+            and not _NUMERIC_ANSWER_RE.search(result.answer or "")):
         return None
     # Preference FORM refusal: untagged preference_synth answers must be bounded noun
     # phrases (or protected polarity/title/number shapes). The ':suggestion_synth' tag
