@@ -1,6 +1,6 @@
 {
   "pass": true,
-  "seed": 1247443719,
+  "seed": 652564355,
   "seed_mode": "random",
   "cases": 24,
   "checks": 96,
@@ -38,6 +38,6 @@
   "preference_supersession_correct": 12,
   "preference_supersession_record_correct": 6,
   "preference_supersession_claim_correct": 6,
-  "avg_proof_tokens": 20.25,
+  "avg_proof_tokens": 10.17,
   "failures": []
 }

@@ -26,7 +26,7 @@ Log fingerprint: `ae231e635c2e6926fe0a0c69fb7648031137982f0986f85a9187eefa4145cb
 | claim_scope:no_unsupported_sota | PASS | not a SOTA claim |
 | claim_scope:top_system_dataset_coverage | PASS | not a SOTA claim |
 | claim_scope:top_system_score_floor | PASS | not a SOTA claim |
-| claim_scope:limitations_for_limited_claim | PASS | 8 limitations |
+| claim_scope:limitations_for_limited_claim | PASS | 9 limitations |
 | manifest:split | PASS | test (expected test) |
 | manifest:runs | FAIL | 1 (required >= 10) |
 | manifest:not_render_only | FAIL | render_only=True |
@@ -52,8 +52,8 @@ Log fingerprint: `ae231e635c2e6926fe0a0c69fb7648031137982f0986f85a9187eefa4145cb
 | manifest:samples_file_recorded | PASS | artifacts/holdout_rotation_r8_codex/holdout40.samples.json |
 | holdout_audit:valid_json | PASS | valid |
 | holdout_audit:evidence | PASS | 1639 holdout needles, 0 findings |
-| ablation:valid_json | PASS | valid |
-| ablation:evidence | FAIL | pass:FAIL; region_delta_pp:-4.18<required:2.00; forgetting_accuracy_regression_pp:3.98>allowed:1.00; forgetting_cost_ratio:0.982<required:1.050 |
+| ablation:valid_json | FAIL | missing |
+| ablation:evidence | FAIL | pass:<missing>; system:<missing>:expected:eidetic-plus-full; split:<missing>:expected:dev; evidence_refs:0; ablation:metabolism_off_missing; ablation:regions_off_missing; ablation:forgetting_off_missing; ablation:affect_off_missing |
 | affect_salience:valid_json | PASS | valid |
 | affect_salience:evidence | PASS | 168/168 checks, boost ratio 0.489803 |
 | scratchpad:valid_json | PASS | valid |
@@ -68,11 +68,11 @@ Log fingerprint: `ae231e635c2e6926fe0a0c69fb7648031137982f0986f85a9187eefa4145cb
 | smqe_planner:valid_json | PASS | valid |
 | smqe_planner:evidence | PASS | 162/162 planner checks, p95 0.667917 ms |
 | smqe_synthetic:valid_json | PASS | valid |
-| smqe_synthetic:evidence | PASS | 46/46 cases, avg proof 30.72 |
+| smqe_synthetic:evidence | PASS | 46/46 cases, avg proof 23.87 |
 | smqe_claim_coverage:valid_json | PASS | valid |
 | smqe_claim_coverage:evidence | PASS | 46/46 claim-backed, rate 1.0 |
 | smqe_fullpath:valid_json | PASS | valid |
-| smqe_fullpath:evidence | PASS | 46/46 verified full-path, reader_calls 0, proof links 46, claim 46, avg context 36.54, p95 12.351729 ms |
+| smqe_fullpath:evidence | PASS | 37/46 verified full-path, reader_calls 0, proof links 37, claim 37, avg context 58.3, p95 8.13649 ms |
 | smqe_paraphrase:valid_json | PASS | valid |
 | smqe_paraphrase:evidence | PASS | 24/24 cases, record 24, claim 24 |
 | smqe_conflict:valid_json | PASS | valid |
@@ -723,8 +723,8 @@ Measured external systems: `-`
 
 ## Ablation Evidence
 
-System: `eidetic-plus-full`  Split: `dev`  n: `26`  Evidence refs: `5`
-Metabolism delta: `18.9853` pp  Regions delta: `-4.1758` pp  Affect delta: `9.5385` pp  Forgetting cost ratio: `0.9824`  Accuracy regression: `3.9787` pp
+System: ``  Split: ``  n: `0`  Evidence refs: `0`
+Metabolism delta: `None` pp  Regions delta: `None` pp  Affect delta: `None` pp  Forgetting cost ratio: `None`  Accuracy regression: `None` pp
 
 ## Abstention Calibration
 

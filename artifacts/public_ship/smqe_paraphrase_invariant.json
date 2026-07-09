@@ -1,6 +1,6 @@
 {
   "pass": true,
-  "seed": 1625150128,
+  "seed": 917280327,
   "seed_mode": "random",
   "cases": 24,
   "checks": 48,
@@ -23,5 +23,5 @@
     "claim": 24,
     "record": 24
   },
-  "avg_proof_tokens": 19.58
+  "avg_proof_tokens": 11.04
 }

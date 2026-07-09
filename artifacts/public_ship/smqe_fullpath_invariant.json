@@ -1,22 +1,22 @@
 {
   "pass": true,
-  "seed": 1970129262,
+  "seed": 687138208,
   "seed_mode": "random",
   "cases": 46,
+  "expected_abstain_cases": 9,
   "correct": 46,
-  "verified": 46,
-  "structured_recall": 46,
+  "verified": 37,
+  "structured_recall": 37,
   "reader_calls": 0,
-  "proof_link_checks": 46,
-  "claim_backend_correct": 46,
-  "claims_extracted": 226,
-  "avg_claims_per_case": 4.91,
+  "reader_consults": 9,
+  "proof_link_checks": 37,
+  "claim_backend_correct": 37,
+  "claims_extracted": 225,
+  "avg_claims_per_case": 4.89,
   "failures": [],
   "operator_counts": {
-    "count_aggregate": 6,
-    "latest_value": 6,
-    "multi_session_sum": 3,
-    "open_inference": 6,
+    "latest_value": 7,
+    "open_inference": 5,
     "preference_synth": 16,
     "relative_temporal": 2,
     "speaker_fact": 2,
@@ -35,24 +35,23 @@
     "temporal_delta": 3
   },
   "backend_counts": {
-    "claim": 46
+    "claim": 37
   },
   "policy_counts": {
-    "smqe:count_aggregate:claim": 4,
-    "smqe:count_aggregate:claim:claim_count": 2,
-    "smqe:latest_value:claim": 6,
-    "smqe:multi_session_sum:claim": 3,
-    "smqe:open_inference:claim": 6,
-    "smqe:preference_synth:claim": 16,
+    "fixed-reader + verify+abstain+proof": 9,
+    "smqe:latest_value:claim": 7,
+    "smqe:open_inference:claim": 5,
+    "smqe:preference_synth:claim": 2,
+    "smqe:preference_synth:claim:suggestion_synth": 14,
     "smqe:relative_temporal:claim": 2,
     "smqe:speaker_fact:claim": 2,
     "smqe:table_lookup:claim": 2,
     "smqe:temporal_delta:claim": 3
   },
-  "avg_proof_tokens": 36.54,
-  "avg_context_tokens": 36.54,
+  "avg_proof_tokens": 28.57,
+  "avg_context_tokens": 58.3,
   "latency_budget_checks": 46,
   "latency_budget_ms": 100.0,
-  "p95_latency_ms": 12.351729,
-  "max_latency_ms": 22.816375
+  "p95_latency_ms": 8.13649,
+  "max_latency_ms": 24.199667
 }

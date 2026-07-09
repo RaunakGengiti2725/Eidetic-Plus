@@ -42,3 +42,29 @@ failures are the genuine multi-run / multi-system / coverage requirements below.
 No number in this directory was edited to make a check pass. The r8 refresh flipped the
 r7 integrity failures to PASS on their merits (57.5% verified accuracy, full proof
 support); the structured-rate gap is the real remaining capability lever.
+
+## Update 2026-07-09 — P0 aggregate citation floor (gate re-run: FAIL 156 PASS / 471 FAIL)
+
+The live LME-S numeric panel had shipped **5/13 verified-WRONG** through the deterministic
+count/sum path (`bench/measure_sum_live_probe.py`; the 1226.3-vs-70 case among them). Fix
+shipped in `eidetic/smqe/verify.py`: a DERIVED count or cross-session sum no longer verifies —
+`verified=True` now requires a SINGLE cited source that STATES the value; everything else
+fails closed. Live panel now **0 verified-wrong** (4 verified-correct preserved, 9 abstain).
+
+Effect on this directory, all honest:
+
+- The 9 affected SMQE sidecars were regenerated under the new contract (fresh random seeds)
+  and are green. `smqe_fullpath` now reads **"37/46 verified full-path"** — the 9 missing are
+  the derived-aggregate cases that ABSTAIN BY DESIGN (`expected_abstain_cases: 9` in the
+  report). The gate's claim-backed/all-verified checks were re-scoped to answerable cases
+  (`cases - expected_abstain`), with the abstain count published in each report so the
+  denominator change is auditable. Requiring 100% claim-backing over ALL cases would require
+  re-opening the verified-wrong leak.
+- Headline moved 157/470 → **156/471**. The single flip is `ablation:valid_json` PASS→FAIL:
+  the earlier `ablation_report.json` was a transient on-disk file from the killed ablation
+  run (never committed — see the ablation row above); this re-run reports its absence
+  honestly instead of inheriting a stale PASS.
+- The structured-rate FAIL (r8 logs) is unchanged — frozen committed logs are not re-scored.
+  Note for future windows: fail-closed aggregates will slightly LOWER structured coverage on
+  fresh runs (counts/sums route to the reader now); that is the trust trade chosen, measured
+  before it lands in a scoreboard.
