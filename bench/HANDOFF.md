@@ -395,3 +395,18 @@ enumeration read-sets); provenance 96%; Hindsight row landed; judge v2 +
 iterative reading + enumeration mode + nickname family shipped offline-
 tested. Everything remaining is quota-gated (task list + this file, ranked)
 or explicitly next-session (edge floor build, dual-timestamp probe).
+
+## LOSSLESS PACK MEASURED (2026-07-10 early, commit 34faa4cc4) -- THE result
+
+Quota reset -> fresh -v2 notebooks (NLM_NOTEBOOK_SUFFIX) -> full LME-S
+re-collect -> pinned v1 judge -> paired per-row vs the truncated baseline:
+
+    truncated:  7/28 (25.0%)   ->   lossless: 22/28 (78.6%)
+    16 fixed / 1 lost, McNemar exact p = 0.0003
+
+The 16 gained = exactly the miss-forensics fleet's truncation-cluster
+members. knowledge-update 0/4 -> 4/4 (the "burying" story was wrong; records
+were DROPPED). Whole-export now ties retrieval-guided at 78.6% on this
+window. Single run/window: directional until reproduced; mechanism is a
+proven one-line bug. r15 run4 collecting at handoff; remaining queue:
+runs 5-9, provenance revalidation, iterative A/B, v2 re-judge.
