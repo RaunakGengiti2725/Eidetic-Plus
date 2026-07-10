@@ -16,10 +16,10 @@ git SHA in their launch logs and whose score-affecting flags are recorded in
 
 ## Claim 1 — verified answers, not vibes
 
-Across eight disjoint, never-touched LoCoMo holdout windows (n=320, both systems on
+Across nine disjoint, never-touched LoCoMo holdout windows (n=360, both systems on
 every window), every eidetic answer is verify-or-abstain: NLI-checked against
 immutable stored sources with citations, or an explicit abstention. **Verified
-answers: eidetic 277 vs Mem0 0.** Mem0 (and the RAG baselines) return unverified
+answers: eidetic 302 vs Mem0 0.** Mem0 (and the RAG baselines) return unverified
 text through the same reader.
 
 Evidence: `artifacts/holdout_rotation_r1..r8_codex/*__run0.jsonl` (`extra.verified`
@@ -47,7 +47,8 @@ carrying the VW-killer + event-date family):
 | r6 | 25/40 | 18/40 | +7 |
 | r7 | 20/40 | 12/40 | +8 |
 | r8 | 23/40 | 9/40 | +14 |
-| rolling | **182/320** | **140/320** | **+42** |
+| r16 | 25/40 | 23/40 | +2 |
+| rolling | **207/360** | **163/360** | **+44** |
 
 Windows swing ±5pp at n=40 — the rolling total is the evidence unit, not any single
 window. We publish the losing window (r2: −1) and the hard draw (r7, below our own

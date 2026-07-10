@@ -1,0 +1,171 @@
+{
+  "windows": [
+    {
+      "dir": "holdout_rotation_r1_codex",
+      "eidetic": {
+        "n": 40,
+        "correct": 23,
+        "verified": 34,
+        "structured": 11,
+        "qtok_median": 5344.5
+      },
+      "mem0": {
+        "n": 40,
+        "correct": 22,
+        "verified": 0,
+        "structured": 0,
+        "qtok_median": 383.0
+      }
+    },
+    {
+      "dir": "holdout_rotation_r2_codex",
+      "eidetic": {
+        "n": 40,
+        "correct": 17,
+        "verified": 33,
+        "structured": 17,
+        "qtok_median": 4900.5
+      },
+      "mem0": {
+        "n": 40,
+        "correct": 18,
+        "verified": 0,
+        "structured": 0,
+        "qtok_median": 398.5
+      }
+    },
+    {
+      "dir": "holdout_rotation_r3_codex",
+      "eidetic": {
+        "n": 40,
+        "correct": 27,
+        "verified": 38,
+        "structured": 15,
+        "qtok_median": 5016.5
+      },
+      "mem0": {
+        "n": 40,
+        "correct": 23,
+        "verified": 0,
+        "structured": 0,
+        "qtok_median": 387.5
+      }
+    },
+    {
+      "dir": "holdout_rotation_r4_codex",
+      "eidetic": {
+        "n": 40,
+        "correct": 23,
+        "verified": 33,
+        "structured": 16,
+        "qtok_median": 5138.5
+      },
+      "mem0": {
+        "n": 40,
+        "correct": 21,
+        "verified": 0,
+        "structured": 0,
+        "qtok_median": 384.0
+      }
+    },
+    {
+      "dir": "holdout_rotation_r5_codex",
+      "eidetic": {
+        "n": 40,
+        "correct": 24,
+        "verified": 35,
+        "structured": 12,
+        "qtok_median": 5438.0
+      },
+      "mem0": {
+        "n": 40,
+        "correct": 17,
+        "verified": 0,
+        "structured": 0,
+        "qtok_median": 380.5
+      }
+    },
+    {
+      "dir": "holdout_rotation_r6_codex",
+      "eidetic": {
+        "n": 40,
+        "correct": 25,
+        "verified": 36,
+        "structured": 17,
+        "qtok_median": 4898.5
+      },
+      "mem0": {
+        "n": 40,
+        "correct": 18,
+        "verified": 0,
+        "structured": 0,
+        "qtok_median": 382.5
+      }
+    },
+    {
+      "dir": "holdout_rotation_r7_codex",
+      "eidetic": {
+        "n": 40,
+        "correct": 20,
+        "verified": 32,
+        "structured": 13,
+        "qtok_median": 4029.0
+      },
+      "mem0": {
+        "n": 40,
+        "correct": 12,
+        "verified": 0,
+        "structured": 0,
+        "qtok_median": 395.5
+      }
+    },
+    {
+      "dir": "holdout_rotation_r8_codex",
+      "eidetic": {
+        "n": 40,
+        "correct": 23,
+        "verified": 36,
+        "structured": 14,
+        "qtok_median": 4029.0
+      },
+      "mem0": {
+        "n": 40,
+        "correct": 9,
+        "verified": 0,
+        "structured": 0,
+        "qtok_median": 0.0
+      }
+    },
+    {
+      "dir": "holdout_rotation_r16_codex",
+      "eidetic": {
+        "n": 40,
+        "correct": 25,
+        "verified": 25,
+        "structured": 10,
+        "qtok_median": 7987.0
+      },
+      "mem0": {
+        "n": 40,
+        "correct": 23,
+        "verified": 0,
+        "structured": 0,
+        "qtok_median": 371.0
+      }
+    }
+  ],
+  "totals": {
+    "eidetic": {
+      "n": 360,
+      "correct": 207,
+      "verified": 302,
+      "structured": 125
+    },
+    "mem0": {
+      "n": 360,
+      "correct": 163,
+      "verified": 0,
+      "structured": 0
+    }
+  }
+}
