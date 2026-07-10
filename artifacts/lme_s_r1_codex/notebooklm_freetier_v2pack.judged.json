@@ -1,0 +1,160 @@
+{
+  "judged": true,
+  "judge": "pinned bench judge (same as scoreboard rows)",
+  "n": 30,
+  "correct": 23,
+  "accuracy": 0.767,
+  "rows": [
+    {
+      "sample_id": "603deb26",
+      "correct": true,
+      "category": "knowledge-update"
+    },
+    {
+      "sample_id": "gpt4_2f91af09",
+      "correct": true,
+      "category": "multi-session"
+    },
+    {
+      "sample_id": "b759caee",
+      "correct": true,
+      "category": "single-session-assistant"
+    },
+    {
+      "sample_id": "afdc33df",
+      "correct": false,
+      "category": "single-session-preference"
+    },
+    {
+      "sample_id": "a82c026e",
+      "correct": true,
+      "category": "single-session-user"
+    },
+    {
+      "sample_id": "gpt4_483dd43c",
+      "correct": true,
+      "category": "temporal-reasoning"
+    },
+    {
+      "sample_id": "gpt4_8e165409",
+      "correct": true,
+      "category": "temporal-reasoning"
+    },
+    {
+      "sample_id": "f0e564bc",
+      "correct": false,
+      "category": "multi-session"
+    },
+    {
+      "sample_id": "5c40ec5b",
+      "correct": true,
+      "category": "knowledge-update"
+    },
+    {
+      "sample_id": "60d45044",
+      "correct": true,
+      "category": "single-session-user"
+    },
+    {
+      "sample_id": "gpt4_85da3956",
+      "correct": true,
+      "category": "temporal-reasoning"
+    },
+    {
+      "sample_id": "bc149d6b",
+      "correct": true,
+      "category": "multi-session"
+    },
+    {
+      "sample_id": "65240037",
+      "correct": true,
+      "category": "single-session-assistant"
+    },
+    {
+      "sample_id": "gpt4_93159ced_abs",
+      "correct": false,
+      "category": "temporal-reasoning"
+    },
+    {
+      "sample_id": "gpt4_2f8be40d",
+      "correct": false,
+      "category": "multi-session"
+    },
+    {
+      "sample_id": "06db6396",
+      "correct": true,
+      "category": "knowledge-update"
+    },
+    {
+      "sample_id": "36580ce8",
+      "correct": true,
+      "category": "single-session-user"
+    },
+    {
+      "sample_id": "gpt4_76048e76",
+      "correct": true,
+      "category": "temporal-reasoning"
+    },
+    {
+      "sample_id": "a1cc6108",
+      "correct": true,
+      "category": "multi-session"
+    },
+    {
+      "sample_id": "778164c6",
+      "correct": true,
+      "category": "single-session-assistant"
+    },
+    {
+      "sample_id": "89941a94",
+      "correct": false,
+      "category": "knowledge-update"
+    },
+    {
+      "sample_id": "a3838d2b",
+      "correct": true,
+      "category": "temporal-reasoning"
+    },
+    {
+      "sample_id": "3fe836c9",
+      "correct": true,
+      "category": "multi-session"
+    },
+    {
+      "sample_id": "57f827a0",
+      "correct": false,
+      "category": "single-session-preference"
+    },
+    {
+      "sample_id": "8a137a7f",
+      "correct": true,
+      "category": "single-session-user"
+    },
+    {
+      "sample_id": "gpt4_74aed68e",
+      "correct": false,
+      "category": "temporal-reasoning"
+    },
+    {
+      "sample_id": "a4996e51",
+      "correct": true,
+      "category": "multi-session"
+    },
+    {
+      "sample_id": "b01defab",
+      "correct": true,
+      "category": "knowledge-update"
+    },
+    {
+      "sample_id": "8cf51dda",
+      "correct": true,
+      "category": "single-session-assistant"
+    },
+    {
+      "sample_id": "gpt4_2655b836",
+      "correct": true,
+      "category": "temporal-reasoning"
+    }
+  ],
+  "label": "judge-scored accuracy of the NotebookLM free-read tier on this window. Different READER than the fixed-qwen table (off-meter Gemini), so present it as its own labeled row, never merged into the fixed-reader comparison."
+}
