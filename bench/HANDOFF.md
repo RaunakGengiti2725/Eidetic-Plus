@@ -498,3 +498,14 @@ Explicit-with-year + dated-verb gate = 1 tag on all of LME-S (correct one).
 The 455-claim surface is NO-YEAR dates -> stage 1b (year inference) is the
 real lever and needs its own precision design (wrong-year tags would poison
 event dating silently). Spec + probe unchanged as gates. Suite 1631.
+
+## STAGE 1B SHIPPED, GATE PASSED (2026-07-10, commit 146a44296)
+
+No-year 'on <Month> <day>' + dated verb -> inferred-year event_date at
+RELATIVE_DAY precision. Promotion gate executed in full: 38 tags extracted,
+ALL hand-verified; 94.7% first pass -> historical-year exclusion rule
+written (the one discovered class: 'married on September 7, 1876' inferring
+2022) -> re-extraction 36 tags, 0 leaks, 100% verified. Suite 1632.
+Measured effect on temporal QUESTIONS = next fresh window (r17+) or the
+date-anchored verify paths; tag consumers already exist. Stage 1c (other
+phrasings) only if the next window's temporal category demands it.
