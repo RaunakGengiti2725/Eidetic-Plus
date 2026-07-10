@@ -1455,14 +1455,24 @@ class Engine:
             and bool(getattr(self.settings, "consolidation_long_haystack_raw_only", False))
         )
         window_cap_per_record = 0
-        if aggregate_long_haystack_bounded and not raw_only_long_haystack and extracting_records:
-            # Every record gets at least one extraction window; raw memory is still fully indexed.
-            # This bounds auxiliary graph/event enrichment without making long-haystack sleep fail.
-            window_cap_per_record = max(1, call_budget // extracting_records)
-        remaining_budget = (
-            0 if raw_only_long_haystack
-            else (call_budget if aggregate_long_haystack_bounded else None)
-        )
+        if aggregate_long_haystack_bounded and extracting_records:
+            if raw_only_long_haystack:
+                # DRAIN mode (extraction-audit fleet 2026-07-09, 7 zero-edge namespaces, one
+                # proven cause): the old behavior zeroed the WHOLE batch's allowances when the
+                # raw-only flag met an oversized batch, so extract_edges never ran for any
+                # record and -- because pending_consolidation was cleared unconditionally --
+                # never ran on ANY later sleep either: the graph/event channel died silently
+                # for the namespace. Now each sleep processes a budget-bounded slice at one
+                # window per record (per-record minimum) and DEFERS the rest (they stay
+                # pending, below), so successive sleeps drain the backlog. Same per-sleep cost
+                # ceiling as the budget intends; starvation is no longer permanent.
+                window_cap_per_record = 1
+            else:
+                # Every record gets at least one extraction window; raw memory is still fully
+                # indexed. This bounds auxiliary graph/event enrichment without making
+                # long-haystack sleep fail.
+                window_cap_per_record = max(1, call_budget // extracting_records)
+        remaining_budget = call_budget if aggregate_long_haystack_bounded else None
         window_allowance: dict[str, int] = {}
         for rec in pending:
             n = window_plan.get(rec.memory_id, 0)
@@ -1575,6 +1585,20 @@ class Engine:
         from .smqe.claim_extraction import claims_for_record
         # Pass 1: add facts/events (SEQUENTIAL -> contradiction ordering preserved), prefs.
         for rec, triples, extracted_claims in extracted:
+            # BUDGET-DEFERRED record (drain mode above): it got zero extraction windows this
+            # sleep purely because the batch budget ran out -- NOT because of the per-record
+            # window threshold. Defer ALL derived work (claims/prefs/salience/typing) to the
+            # retry sleep: claim_ids are random, so doing half the work now would duplicate
+            # claims on retry. pending_consolidation stays True; the next sleep's drain slice
+            # picks it up. This is the fix for the silent, PERMANENT graph-channel starvation
+            # the extraction-audit fleet proved on 7 live namespaces.
+            if (window_plan.get(rec.memory_id, 0) > 0
+                    and window_allowance.get(rec.memory_id, 0) == 0
+                    and rec.memory_id not in record_raw_only_ids):
+                rec.metadata["consolidation_deferred"] = True
+                self.store.upsert_record(rec)
+                continue
+            rec.metadata.pop("consolidation_deferred", None)
             anchor_events = anchor_events_by_scope.setdefault(
                 rec.scope.key(),
                 list(self.store.events_in_scope(rec.scope.namespace, scope=rec.scope)),

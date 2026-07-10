@@ -2048,14 +2048,24 @@ def test_long_haystack_raw_only_submits_no_extraction_windows(fresh_settings):
 
     report = engine.consolidate_pending(scope=scope, score_importance=False)
 
+    # DRAIN contract (extraction-audit fleet 2026-07-09): the old raw-only mode submitted ZERO
+    # windows for the whole batch and cleared pending unconditionally -- the graph channel died
+    # PERMANENTLY for the namespace (proven on 7 live LME-S namespaces). Now each sleep spends
+    # up to the budget at one window per record and DEFERS the rest, which stay pending.
     assert report["long_haystack_bounded"] is True
     assert report["long_haystack_raw_only"] is True
-    assert report["extraction_windows_submitted"] == 0
-    assert report["extraction_raw_only_bounded"] == 5
-    assert report["extraction_partial_bounded"] == 0
+    assert report["extraction_windows_submitted"] == 3          # budget-bounded slice
+    assert report["extraction_raw_only_bounded"] == 2           # deferred, still pending
     assert report["extraction_timed_out"] == 0
     assert report["pending_processed"] == 5
-    assert client.calls == []
+    assert client.calls == [1, 1, 1]                            # one window each, never more
+
+    # the deferred records drain on the NEXT sleep -- starvation is no longer permanent
+    report2 = engine.consolidate_pending(scope=scope, score_importance=False)
+    assert report2["pending_processed"] == 2
+    assert len(client.calls) == 5
+    report3 = engine.consolidate_pending(scope=scope, score_importance=False)
+    assert report3["pending_processed"] == 0                    # fully drained, no re-work
 
 
 def test_near_budget_long_haystack_raw_only_prevents_saturation(fresh_settings):
@@ -2103,10 +2113,13 @@ def test_near_budget_long_haystack_raw_only_prevents_saturation(fresh_settings):
     assert report["extraction_call_budget"] == 10
     assert report["long_haystack_bounded"] is True
     assert report["long_haystack_raw_only"] is True
-    assert report["extraction_windows_submitted"] == 0
-    assert report["extraction_raw_only_bounded"] == 9
+    # drain contract: near-budget batches now extract within the declared budget ceiling
+    # (one window per record) instead of skipping everything -- the budget IS the spend
+    # contract; saturation protection = the per-record cap plus deferral, not zero work.
+    assert report["extraction_windows_submitted"] == 9
+    assert report["extraction_raw_only_bounded"] == 0
     assert report["extraction_timed_out"] == 0
-    assert client.calls == []
+    assert len(client.calls) == 9
 
 
 def test_single_giant_record_raw_only_does_not_starve_normal_records(fresh_settings):
