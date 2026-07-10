@@ -109,6 +109,41 @@ table, never merged:
 - Honest boundary unchanged: the free answer is Gemini-side and NOT gate-verified;
   provenance lets you CHECK every cited source against the immutable store.
 
+## Claim 3d — the export-truncation correction, measured (2026-07-10)
+
+A one-line packing bug (`packed[:max_sources]`) silently dropped store records past a
+fixed source budget, so the free reader answered "no information" about facts the store
+held. Found by a 69-agent per-miss forensics fleet (16/58 judged misses traced to it,
+3/3 adversarial skeptics confirmed mechanically), fixed lossless-or-loud, then measured
+paired on fresh notebooks, same window, same pinned judge:
+
+**LME-S whole-export: 25.0% → 78.6% (McNemar exact p = 0.0003; 16 fixed / 1 lost —
+the 16 are exactly the fleet's predicted cluster).** knowledge-update went 0/4 → 4/4.
+Single run, one window: directional until reproduced. Evidence:
+`artifacts/lme_s_r1_codex/notebooklm_freetier_v2pack.*`,
+`artifacts/forensics/miss_forensics_fleet_20260709.json`.
+
+## Claim 3e — same-version hardened-judge head-to-head (2026-07-10)
+
+Judge v2 (5 fleet-confirmed LoCoMo gold defects quarantined symmetrically + a
+deterministic gold-containment pre-check, replay-validated at zero false positives)
+applied to BOTH sides across the three disjoint judged holdout windows, 115 paired rows:
+
+**eidetic NBL product row 104/115 (90.4%) vs rag-vector 71/115 (61.7%) — discordant
+34:1, McNemar exact p = 2.1×10⁻⁹.** The hardening helped the comparator too (59.2 →
+61.7), confirming symmetry. v1 numbers remain the published baseline; v2 sidecars ship
+alongside (`*.judged_v2.json`). Single collection run per window for both systems;
+product-row variance bounded by the 7-run same-window band (84.2–86.8% under v2).
+
+## Claim 3f — first raw-accuracy parity window with vector RAG (2026-07-10)
+
+On r16 — a never-touched window whose fresh ingest carried the write-path fix stack —
+the neutral fixed-reader row TIED vector RAG on raw accuracy for the first time
+(25/40 = 25/40; the r9–r14 aggregate had eidetic 5.5pp behind), while keeping the
+provenance column eidetic-only (25 verified answers vs 0). One window, ±5pp swings:
+parity is directional until repeated. Honest non-effects on the same window: temporal
+2/8 (unmoved), structured coverage 10/40. Evidence: `artifacts/holdout_rotation_r16_codex/`.
+
 ## Claim 4 — forgetting never destroys, and provably so
 
 Snap-back fidelity over the full r8 benchmark corpus: **272/272 records byte-identical**
