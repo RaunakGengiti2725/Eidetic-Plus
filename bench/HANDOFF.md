@@ -378,3 +378,20 @@ MEASURED, NOT YET SHIPPED (next session order):
   V2 re-judge of both sides of every comparison = quota/key work, queued
   after the lossless-pack re-collect.
 Suite 1629 green.
+
+## SESSION CLOSE (2026-07-09, final SHA 9c633eea3)
+
+Late additions: declarative nickname extraction (3 measured-FP guards);
+leakage-audit EXEMPTION REGISTRY (bench/holdout_reference_exemptions.json --
+pair-exact, reason+evidence required, every use reported; repo audit PASS
+with 0 findings / 15 documented exemptions after today's forensic code
+necessarily referenced holdout ids). Suite 1630 green.
+
+Day totals: 30 commits; 183 fleet/review agents; suite 1608->1630; live
+numeric panel 0 verified-wrong end to end; 7 mechanical bug classes fixed
+(aggregate floor + 22 bypasses, export truncation, tz day-shift,
+consolidation starvation, decimal truncation, judge miscalibration handling,
+enumeration read-sets); provenance 96%; Hindsight row landed; judge v2 +
+iterative reading + enumeration mode + nickname family shipped offline-
+tested. Everything remaining is quota-gated (task list + this file, ranked)
+or explicitly next-session (edge floor build, dual-timestamp probe).
