@@ -13,7 +13,11 @@ from eidetic.engine import Engine
 from eidetic.integrations.notebooklm import CliBackend, NotebookLMBridge
 
 LIMIT = int(sys.argv[1]) if len(sys.argv) > 1 else 3
-OUT = "artifacts/lme_s_r1_codex/provenance_citation_map_live.json"
+# Timestamped output: a probe run must NEVER overwrite committed evidence (an all-error
+# quota-wall run clobbered the committed 96% result once; restored from git).
+import time as _time
+OUT = ("artifacts/lme_s_r1_codex/"
+       f"provenance_citation_map_live_{_time.strftime('%Y%m%d_%H%M')}.json")
 
 # sample_id -> notebook id from the live notebook list
 raw = subprocess.run([".venv/bin/nlm", "notebook", "list"], capture_output=True, text=True).stdout
