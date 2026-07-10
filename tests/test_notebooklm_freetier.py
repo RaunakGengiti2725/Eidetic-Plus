@@ -111,3 +111,67 @@ def test_pack_preserves_record_text_verbatim():
     assert len(packed) == 1
     assert "EIDETIC VERIFIED MEMORY" in packed[0]["text_content"]
     assert "body text" in packed[0]["text_content"]
+
+
+def test_judge_v2_gold_containment_flips_superset_answers_only():
+    """Judge v2 pre-check: the fleet's confirmed false-negative shape (superset/paraphrase
+    list answers) short-circuits to correct; the two measured false-positive shapes --
+    insufficiency answers that merely mention the gold's tokens, and temporal golds token-
+    contained by an answer asserting a DIFFERENT date -- must NEVER short-circuit."""
+    from bench.notebooklm_freetier_report import _gold_containment_correct
+
+    # the c7_q41 shape: every gold item present, extras don't penalize
+    assert _gold_containment_correct(
+        "candles, music, essential oils",
+        "They use **candles and essential oils** to set the mood, plus a Music section "
+        "with calming playlists.") is True
+    # missing item -> no shortcut
+    assert _gold_containment_correct(
+        "candles, music, essential oils", "They use candles and soft music.") is False
+    # insufficiency answer mentioning the tokens (gpt4_85da3956 shape) -> no shortcut
+    assert _gold_containment_correct(
+        "the summer festival",
+        "I could not find any mention of the summer festival in the sources.") is False
+    # temporal gold (c6_q29 shape): date tokens contained but the asserted date differs
+    assert _gold_containment_correct(
+        "July 11, 2022",
+        "He left on July 12, 2022, after buying tickets on July 11 that week in 2022.") is False
+
+
+def test_judge_v2_quarantines_defects_and_shortcircuits_before_llm(tmp_path):
+    """Quarantined dataset-defect rows leave the denominator (reported, never counted);
+    containment-correct rows never reach the LLM; the rest do."""
+    import json
+    from bench.notebooklm_freetier_report import judge_rows_v2
+
+    p = tmp_path / "col.jsonl"
+    rows = [
+        # quarantined defect row -- must not reach the judge or the denominator
+        {"sample_id": "c9_q137", "question": "q", "gold": "at an early age",
+         "nb_answer": "whatever", "category": "single-hop"},
+        # superset answer -- deterministic shortcut, no LLM call
+        {"sample_id": "s_list", "question": "q", "gold": "apples, pears",
+         "nb_answer": "You bought apples, pears, and a melon.", "category": "multi-hop"},
+        # needs the LLM
+        {"sample_id": "s_llm", "question": "q", "gold": "blue",
+         "nb_answer": "It was azure.", "category": "single-hop"},
+    ]
+    p.write_text("\n".join(json.dumps(r) for r in rows))
+
+    class _FakeJudge:
+        def __init__(self):
+            self.calls = []
+
+        def judge_locomo(self, q, gold, answer):
+            self.calls.append((q, gold, answer))
+            return True
+
+    judge = _FakeJudge()
+    out = judge_rows_v2(p, judge=judge)
+    assert out["judge_version"] == "v2"
+    assert out["quarantined_gold_defects"] == ["c9_q137"]
+    assert out["n"] == 2 and out["correct"] == 2
+    assert out["shortcircuit_correct"] == 1
+    assert [c[1] for c in judge.calls] == ["blue"]          # ONLY the non-shortcut row
+    side = json.loads((tmp_path / "col.judged_v2.json").read_text())
+    assert side["judge_version"] == "v2"                    # own sidecar, v1 untouched
