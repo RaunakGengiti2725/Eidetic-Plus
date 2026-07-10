@@ -435,3 +435,16 @@ it touches valid_at semantics (supersession, as_of), so it needs full design
 care, not a late-night patch. Probe: bench/dual_timestamp_probe.py.
 Also patched: provenance probe writes timestamped outputs (never overwrites
 committed evidence).
+
+## DUAL-TIMESTAMP SPEC SHARPENED (2026-07-10, follow-up probe)
+
+Of the 455 mis-stamped dated claims on LME-S, only 15 (3.3%) carry the
+event-date family's filters.event_date tag -- the existing precision-first
+patterns barely touch the surface, BUT the tag's downstream consumers
+(date-anchored verification, event-identity) already exist. The build
+therefore has two separable stages: (1) widen event_date TAGGING coverage
+(filters-only, additive, no valid_at semantics risk -- but requires its own
+precision gates; a date mentioned in an atom is not always the claim's event
+date, so blanket tagging is the known whack-a-mole trap); (2) the
+valid_at/observed_at bi-temporal decision. Regression gates:
+bench/dual_timestamp_probe.py + the tag-coverage count above.
