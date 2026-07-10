@@ -1,0 +1,33 @@
+{
+  "window": "artifacts/holdout_rotation_r13_codex",
+  "claims_with_explicit_date": 3,
+  "claims_stamped_differently": 3,
+  "claim_mismatch_rate": 1.0,
+  "records_with_events_and_dated_claims": 3,
+  "events_carrying_stated_day": 0,
+  "event_backdate_rate": 0.0,
+  "examples": [
+    {
+      "namespace": "mo-g5-r0",
+      "channel": "claim",
+      "stated": "2022-07-20",
+      "stamped": "2022-07-10",
+      "atom": "I plan to return on July 20, I\u2019ll definitely bring you some kind of souvenir!"
+    },
+    {
+      "namespace": "mo-g5-r0",
+      "channel": "claim",
+      "stated": "2022-07-20",
+      "stamped": "2022-07-10",
+      "atom": "I plan to return on July 20, I\u2019ll definitely bring you some kind of souvenir!"
+    },
+    {
+      "namespace": "mo-g5-r0",
+      "channel": "claim",
+      "stated": "2022-07-20",
+      "stamped": "2022-07-10",
+      "atom": "James: I plan to return on July 20, I\u2019ll definitely bring you some kind of souvenir!"
+    }
+  ],
+  "method": "explicit in-atom date phrases only (month-day[-year] or ISO), resolved against the source record's session anchor; compared by UTC calendar day to claim.valid_at and to EventRecord.start on the same record. Relative phrases excluded -- this measures the EXACT class the fleet flagged and the skeptics split on."
+}

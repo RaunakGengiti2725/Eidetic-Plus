@@ -1,0 +1,96 @@
+{
+  "window": "artifacts/lme_s_r1_codex",
+  "claims_with_explicit_date": 455,
+  "claims_stamped_differently": 455,
+  "claim_mismatch_rate": 1.0,
+  "records_with_events_and_dated_claims": 28,
+  "events_carrying_stated_day": 4,
+  "event_backdate_rate": 0.143,
+  "examples": [
+    {
+      "namespace": "al-g0-r0",
+      "channel": "claim",
+      "stated": "2023-10-29",
+      "stamped": "2023-09-06",
+      "atom": "By the way, I recently attended an event at Thrill Kingdom called \"Character Bash\" on October 29th, where we m"
+    },
+    {
+      "namespace": "al-g0-r0",
+      "channel": "claim",
+      "stated": "2023-10-29",
+      "stamped": "2023-09-06",
+      "atom": "By the way, I recently attended an event at Thrill Kingdom called \"Character Bash\" on October 29th, where we m"
+    },
+    {
+      "namespace": "al-g0-r0",
+      "channel": "claim",
+      "stated": "2022-11-28",
+      "stamped": "2023-10-22",
+      "atom": "user: Read the github latest api docs here: https://docs.github.com/en/rest?apiVersion=2022-11-28 and find the"
+    },
+    {
+      "namespace": "al-g0-r0",
+      "channel": "claim",
+      "stated": "2023-03-12",
+      "stamped": "2023-10-29",
+      "atom": "user: The nature reserve I'm planning to visit is the same one I went to on March 12th, so you can use that in"
+    },
+    {
+      "namespace": "al-g0-r0",
+      "channel": "claim",
+      "stated": "2023-03-12",
+      "stamped": "2023-10-29",
+      "atom": "By the way, I went on a bird watching trip there a couple of weeks ago, on Saturday, March 12th, and spotted a"
+    },
+    {
+      "namespace": "al-g0-r0",
+      "channel": "claim",
+      "stated": "2023-03-12",
+      "stamped": "2023-10-29",
+      "atom": "But I'm thrilled to hear about your previous trip on March 12th!"
+    },
+    {
+      "namespace": "al-g0-r0",
+      "channel": "claim",
+      "stated": "2023-03-12",
+      "stamped": "2023-10-29",
+      "atom": "assistant: Since you visited the same nature reserve on March 12th and spotted American Goldfinches, I can mak"
+    },
+    {
+      "namespace": "al-g0-r0",
+      "channel": "claim",
+      "stated": "2023-03-12",
+      "stamped": "2023-10-29",
+      "atom": "Given that you saw American Goldfinches on March 12th, it's likely that you're in a region with a similar clim"
+    },
+    {
+      "namespace": "al-g0-r0",
+      "channel": "claim",
+      "stated": "2023-03-15",
+      "stamped": "2023-10-29",
+      "atom": "I managed to get a good shot of a Ruby-throated Hummingbird at my feeder on March 15th."
+    },
+    {
+      "namespace": "al-g0-r0",
+      "channel": "claim",
+      "stated": "2023-03-15",
+      "stamped": "2023-10-29",
+      "atom": "I managed to get a good shot of a Ruby-throated Hummingbird at my feeder on March 15th."
+    },
+    {
+      "namespace": "al-g1-r0",
+      "channel": "claim",
+      "stated": "2023-02-10",
+      "stamped": "2023-05-26",
+      "atom": "I've been wanting to experiment with wider apertures, which is why I recently bought a Canon 24-70mm f/2.8 len"
+    },
+    {
+      "namespace": "al-g1-r0",
+      "channel": "claim",
+      "stated": "2023-04-20",
+      "stamped": "2023-05-29",
+      "atom": "user: I'm actually coming from the Tribeca Film Festival, where I watched 4 documentaries during the online co"
+    }
+  ],
+  "method": "explicit in-atom date phrases only (month-day[-year] or ISO), resolved against the source record's session anchor; compared by UTC calendar day to claim.valid_at and to EventRecord.start on the same record. Relative phrases excluded -- this measures the EXACT class the fleet flagged and the skeptics split on."
+}
