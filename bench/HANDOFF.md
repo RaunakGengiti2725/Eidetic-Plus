@@ -468,3 +468,12 @@ Hardening symmetric (rag improved too: 59.2 -> 61.7). "Product beats RAG on
 >=2 windows with judged significance" now holds under BOTH judge versions.
 Remaining live queue unchanged (runs 8-10, provenance, iterative A/B, LME-S
 lossless reproduce). Rag shim files committed alongside sidecars.
+
+## R16 SLICE (2026-07-10, commit fc4f5cc6d) -- first parity-with-RAG window
+
+eidetic-full 25/40 (62.5%) == rag-vector 25/40 -- first raw-accuracy TIE with
+vector RAG on a never-touched window (r9-r14 aggregate had us 5.5pp behind);
+verified 25 vs 0. Fresh ingest carried the full write-path stack. Honest
+non-effects: temporal still 2/8 (tz fix undetected on this window);
+structured rows 10/40 (below the 13-14 band). Single window, directional.
+r16 consumed (score-once). mem0 phase-B optional, same --out.
