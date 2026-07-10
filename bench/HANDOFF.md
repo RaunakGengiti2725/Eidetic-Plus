@@ -330,3 +330,35 @@ NOT model work: 19/58 = judge/gold miscalibration (incl. 2-3 LoCoMo label
 defects). Remaining small clusters: enumeration completeness-mode (4), reader
 verification loop (3), rg blind spots (2, iterative_recall covers).
 Suite 1621 green. Hindsight r15 at 26/40 (19 correct, 0 errors) at handoff.
+
+## FLEET 2 + DRAIN FIX (2026-07-09 late night, commits 96ef18114..5cde58e79)
+
+86-agent fleet: extraction audit x60 namespaces + judge re-adjudication x19.
+Evidence: artifacts/forensics/extraction_judge_fleet_20260709.json.
+
+SHIPPED:
+- Enumeration completeness mode (96ef18114): count/list questions widen the
+  retrieval-guided read set (2x dense + graph hop, cap 3x) -- confident-wrong
+  set answers can't self-trigger reactive widening. Duration shapes excluded.
+- Consolidation DRAIN mode + deferral (5cde58e79): the 7 zero-edge namespaces
+  shared one proven scheduler bug (raw-only + oversized batch -> all
+  allowances zeroed -> pending cleared -> graph channel PERMANENTLY dead).
+  Now budget-bounded slice per sleep, starved records stay pending, 3-sleep
+  retry proof. Damaged committed stores need re-sleep under full profile.
+
+MEASURED, NOT YET SHIPPED (next session order):
+1. Judge hardening (0/19 disputed rows were the model's fault: 8 judge
+   false-negatives + 8 gold defects incl. 5 quarantinable LoCoMo IDs +
+   3 ambiguous). Deterministic gold-containment pre-check spec is in the
+   fleet output (full nb_answer, post-quarantine, item-level for lists).
+   MUST ship as a NEW judge version + tagged quarantine bucket; re-judge for
+   comparability; never silently rescore. Published numbers understate ALL
+   systems on LoCoMo.
+2. Numeric quantity typer (41/60): decimal-safe tokenization BEFORE sentence
+   split in claim_extraction + typed {value,unit,subject} claims -- feeds the
+   abstaining aggregate class with verifiable stated-value claims.
+3. Deterministic edge floor (39/60): pattern-based kinship/possession/
+   employment/alias edges always-on; claim->edge auto-emit so channels can't
+   diverge.
+4. Relative-date dual-timestamp (53/60 but skeptic-SPLIT -- one falsification
+   on event-level backdating): re-scope with a tighter probe before building.
