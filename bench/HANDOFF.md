@@ -491,3 +491,10 @@ error class repeats.
 ## MEM0 RE-RUN (2026-07-10, fairness check): 23/40 CONFIRMED twice; timeouts
 reproducible (6-7 internal add() failures per attempt on long conversations).
 First attempt archived. r16 final: 25(v25) = 25(v0) > 23(v0).
+
+## STAGE-1 WIDENING SHIPPED, VERDICT NEAR-NULL (2026-07-10, commit above)
+
+Explicit-with-year + dated-verb gate = 1 tag on all of LME-S (correct one).
+The 455-claim surface is NO-YEAR dates -> stage 1b (year inference) is the
+real lever and needs its own precision design (wrong-year tags would poison
+event dating silently). Spec + probe unchanged as gates. Suite 1631.
