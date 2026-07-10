@@ -1,0 +1,241 @@
+hindsight h2h r15 started=2026-07-09T06:03:59.160040Z
+
+╭──────────────── ✓ Daemon Started (eidetic-bench-r15 @ :9551) ────────────────╮
+│                                                                              │
+│  2026-07-08 23:04:25,096 - INFO - root - Tenant extension started            │
+│  INFO:     Application startup complete.                                     │
+│  INFO:     Uvicorn running on http://127.0.0.1:9551 (Press CTRL+C to quit)   │
+│  2026-07-08 23:04:25,099 - INFO - hindsight_api.worker.poller - Worker       │
+│  mac.lan starting polling loop (max_slots=10,                                │
+│  reservations=[consolidation=2], shared_pool=8)                              │
+│                                                                              │
+│  ✓ Daemon responding, verifying stability...                                 │
+│  ✓ Daemon started successfully!                                              │
+│                                                                              │
+│  Logs: /Users/raunakgengiti/.hindsight/profiles/eidetic-bench-r15.log        │
+│  Database:                                                                   │
+│  /Users/raunakgengiti/.pg0/instances/hindsight-embed-eidetic-bench-r15       │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯hindsight h2h r15 relaunch started=2026-07-09T19:21:11Z sha=ec74705916c143b35d52d4911cfd01f83519f498
+╭──────────────── Starting Daemon (eidetic-bench-r15 @ :9551) ─────────────────╮
+│                                                                              │
+│  ⏳ Waiting for daemon... (163s elapsed)                                     │
+│  2026-07-09 12:24:10,956 - INFO - hindsight_api.worker.poller -              │
+│  [WORKER_STATS] worker=mac.lan slots=1/10 | reserved:                        │
+│  [consolidation=1/2(avail=1)] | shared=0/8(avail=8) | global: pending=0      │
+│  (queried=1/1 schemas: default) | others: none | pool: size=18 limits=5-100  │
+│  idle=17 in_use=1 free_holders=99 pending_acquires=0 | proc: rss_mb=646 |    │
+│  my_active: consolidation:hindsight-locomo-g1-r0(1)                          │
+│  2026-07-09 12:24:10,956 - INFO - hindsight_api.worker.poller -              │
+│  [WORKER_TASK] op=b2187cd2-7a8b-47ce-8912-6e9922540ce8 type=consolidation    │
+│  op_type=consolidation bank=hindsight-locomo-g1-r0 age=121s                  │
+│  stage=task.consolidation stage_age=121s                                     │
+│  ⏳ Waiting for daemon... (178s elapsed)                                     │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯╭─────────── ✗ Daemon Failed (Timeout) (eidetic-bench-r15 @ :9551) ────────────╮
+│                                                                              │
+│  ⏳ Waiting for daemon... (163s elapsed)                                     │
+│  2026-07-09 12:24:10,956 - INFO - hindsight_api.worker.poller -              │
+│  [WORKER_STATS] worker=mac.lan slots=1/10 | reserved:                        │
+│  [consolidation=1/2(avail=1)] | shared=0/8(avail=8) | global: pending=0      │
+│  (queried=1/1 schemas: default) | others: none | pool: size=18 limits=5-100  │
+│  idle=17 in_use=1 free_holders=99 pending_acquires=0 | proc: rss_mb=646 |    │
+│  my_active: consolidation:hindsight-locomo-g1-r0(1)                          │
+│  2026-07-09 12:24:10,956 - INFO - hindsight_api.worker.poller -              │
+│  [WORKER_TASK] op=b2187cd2-7a8b-47ce-8912-6e9922540ce8 type=consolidation    │
+│  op_type=consolidation bank=hindsight-locomo-g1-r0 age=121s                  │
+│  stage=task.consolidation stage_age=121s                                     │
+│  ⏳ Waiting for daemon... (178s elapsed)                                     │
+│                                                                              │
+│  ✗ Daemon failed to start (timeout)                                          │
+│                                                                              │
+│  See full log:                                                               │
+│  /Users/raunakgengiti/.hindsight/profiles/eidetic-bench-r15.log              │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+╭──────────────── Starting Daemon (eidetic-bench-r15 @ :9551) ─────────────────╮
+│                                                                              │
+│  ⏳ Waiting for daemon... (172s elapsed)                                     │
+│  2026-07-09 12:27:42,507 - INFO - hindsight_api.worker.poller -              │
+│  [WORKER_STATS] worker=mac.lan slots=1/10 | reserved:                        │
+│  [consolidation=1/2(avail=1)] | shared=0/8(avail=8) | global: pending=0      │
+│  (queried=1/1 schemas: default) | others: none | pool: size=8 limits=5-100   │
+│  idle=7 in_use=1 free_holders=99 pending_acquires=0 | proc: rss_mb=646 |     │
+│  my_active: consolidation:hindsight-locomo-g1-r0(1)                          │
+│  2026-07-09 12:27:42,508 - INFO - hindsight_api.worker.poller -              │
+│  [WORKER_TASK] [STUCK?] op=b2187cd2-7a8b-47ce-8912-6e9922540ce8              │
+│  type=consolidation op_type=consolidation bank=hindsight-locomo-g1-r0        │
+│  age=333s stage=task.consolidation stage_age=333s                            │
+│  ⏳ Waiting for daemon... (178s elapsed)                                     │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯╭─────────── ✗ Daemon Failed (Timeout) (eidetic-bench-r15 @ :9551) ────────────╮
+│                                                                              │
+│  ⏳ Waiting for daemon... (172s elapsed)                                     │
+│  2026-07-09 12:27:42,507 - INFO - hindsight_api.worker.poller -              │
+│  [WORKER_STATS] worker=mac.lan slots=1/10 | reserved:                        │
+│  [consolidation=1/2(avail=1)] | shared=0/8(avail=8) | global: pending=0      │
+│  (queried=1/1 schemas: default) | others: none | pool: size=8 limits=5-100   │
+│  idle=7 in_use=1 free_holders=99 pending_acquires=0 | proc: rss_mb=646 |     │
+│  my_active: consolidation:hindsight-locomo-g1-r0(1)                          │
+│  2026-07-09 12:27:42,508 - INFO - hindsight_api.worker.poller -              │
+│  [WORKER_TASK] [STUCK?] op=b2187cd2-7a8b-47ce-8912-6e9922540ce8              │
+│  type=consolidation op_type=consolidation bank=hindsight-locomo-g1-r0        │
+│  age=333s stage=task.consolidation stage_age=333s                            │
+│  ⏳ Waiting for daemon... (178s elapsed)                                     │
+│                                                                              │
+│  ✗ Daemon failed to start (timeout)                                          │
+│                                                                              │
+│  See full log:                                                               │
+│  /Users/raunakgengiti/.hindsight/profiles/eidetic-bench-r15.log              │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+╭──────────────── Starting Daemon (eidetic-bench-r15 @ :9551) ─────────────────╮
+│                                                                              │
+│  ⏳ Waiting for daemon... (163s elapsed)                                     │
+│  2026-07-09 12:31:13,945 - INFO - hindsight_api.worker.poller -              │
+│  [WORKER_STATS] worker=mac.lan slots=1/10 | reserved:                        │
+│  [consolidation=1/2(avail=1)] | shared=0/8(avail=8) | global: pending=0      │
+│  (queried=1/1 schemas: default) | others: none | pool: size=2 limits=5-100   │
+│  idle=1 in_use=1 free_holders=99 pending_acquires=0 | proc: rss_mb=646 |     │
+│  my_active: consolidation:hindsight-locomo-g1-r0(1)                          │
+│  2026-07-09 12:31:13,946 - INFO - hindsight_api.worker.poller -              │
+│  [WORKER_TASK] [STUCK?] op=b2187cd2-7a8b-47ce-8912-6e9922540ce8              │
+│  type=consolidation op_type=consolidation bank=hindsight-locomo-g1-r0        │
+│  age=544s stage=task.consolidation stage_age=544s                            │
+│  ⏳ Waiting for daemon... (178s elapsed)                                     │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯╭─────────── ✗ Daemon Failed (Timeout) (eidetic-bench-r15 @ :9551) ────────────╮
+│                                                                              │
+│  ⏳ Waiting for daemon... (163s elapsed)                                     │
+│  2026-07-09 12:31:13,945 - INFO - hindsight_api.worker.poller -              │
+│  [WORKER_STATS] worker=mac.lan slots=1/10 | reserved:                        │
+│  [consolidation=1/2(avail=1)] | shared=0/8(avail=8) | global: pending=0      │
+│  (queried=1/1 schemas: default) | others: none | pool: size=2 limits=5-100   │
+│  idle=1 in_use=1 free_holders=99 pending_acquires=0 | proc: rss_mb=646 |     │
+│  my_active: consolidation:hindsight-locomo-g1-r0(1)                          │
+│  2026-07-09 12:31:13,946 - INFO - hindsight_api.worker.poller -              │
+│  [WORKER_TASK] [STUCK?] op=b2187cd2-7a8b-47ce-8912-6e9922540ce8              │
+│  type=consolidation op_type=consolidation bank=hindsight-locomo-g1-r0        │
+│  age=544s stage=task.consolidation stage_age=544s                            │
+│  ⏳ Waiting for daemon... (178s elapsed)                                     │
+│                                                                              │
+│  ✗ Daemon failed to start (timeout)                                          │
+│                                                                              │
+│  See full log:                                                               │
+│  /Users/raunakgengiti/.hindsight/profiles/eidetic-bench-r15.log              │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+╭──────────────── Starting Daemon (eidetic-bench-r15 @ :9551) ─────────────────╮
+│                                                                              │
+│  ⏳ Waiting for daemon... (166s elapsed)                                     │
+│  2026-07-09 12:35:15,749 - INFO - hindsight_api.worker.poller -              │
+│  [WORKER_STATS] worker=mac.lan slots=1/10 | reserved:                        │
+│  [consolidation=1/2(avail=1)] | shared=0/8(avail=8) | global: pending=0      │
+│  (queried=1/1 schemas: default) | others: none | pool: size=2 limits=5-100   │
+│  idle=1 in_use=1 free_holders=99 pending_acquires=0 | proc: rss_mb=646 |     │
+│  my_active: consolidation:hindsight-locomo-g1-r0(1)                          │
+│  2026-07-09 12:35:15,750 - INFO - hindsight_api.worker.poller -              │
+│  [WORKER_TASK] [STUCK?] op=b2187cd2-7a8b-47ce-8912-6e9922540ce8              │
+│  type=consolidation op_type=consolidation bank=hindsight-locomo-g1-r0        │
+│  age=786s stage=task.consolidation stage_age=786s                            │
+│  ⏳ Waiting for daemon... (179s elapsed)                                     │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯╭─────────── ✗ Daemon Failed (Timeout) (eidetic-bench-r15 @ :9551) ────────────╮
+│                                                                              │
+│  ⏳ Waiting for daemon... (166s elapsed)                                     │
+│  2026-07-09 12:35:15,749 - INFO - hindsight_api.worker.poller -              │
+│  [WORKER_STATS] worker=mac.lan slots=1/10 | reserved:                        │
+│  [consolidation=1/2(avail=1)] | shared=0/8(avail=8) | global: pending=0      │
+│  (queried=1/1 schemas: default) | others: none | pool: size=2 limits=5-100   │
+│  idle=1 in_use=1 free_holders=99 pending_acquires=0 | proc: rss_mb=646 |     │
+│  my_active: consolidation:hindsight-locomo-g1-r0(1)                          │
+│  2026-07-09 12:35:15,750 - INFO - hindsight_api.worker.poller -              │
+│  [WORKER_TASK] [STUCK?] op=b2187cd2-7a8b-47ce-8912-6e9922540ce8              │
+│  type=consolidation op_type=consolidation bank=hindsight-locomo-g1-r0        │
+│  age=786s stage=task.consolidation stage_age=786s                            │
+│  ⏳ Waiting for daemon... (179s elapsed)                                     │
+│                                                                              │
+│  ✗ Daemon failed to start (timeout)                                          │
+│                                                                              │
+│  See full log:                                                               │
+│  /Users/raunakgengiti/.hindsight/profiles/eidetic-bench-r15.log              │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+╭──────────────── Starting Daemon (eidetic-bench-r15 @ :9551) ─────────────────╮
+│                                                                              │
+│  ⏳ Waiting for daemon... (167s elapsed)                                     │
+│  2026-07-09 12:39:17,332 - INFO - hindsight_api.worker.poller -              │
+│  [WORKER_STATS] worker=mac.lan slots=1/10 | reserved:                        │
+│  [consolidation=1/2(avail=1)] | shared=0/8(avail=8) | global: pending=0      │
+│  (queried=1/1 schemas: default) | others: none | pool: size=2 limits=5-100   │
+│  idle=1 in_use=1 free_holders=99 pending_acquires=0 | proc: rss_mb=646 |     │
+│  my_active: consolidation:hindsight-locomo-g1-r0(1)                          │
+│  2026-07-09 12:39:17,334 - INFO - hindsight_api.worker.poller -              │
+│  [WORKER_TASK] [STUCK?] op=b2187cd2-7a8b-47ce-8912-6e9922540ce8              │
+│  type=consolidation op_type=consolidation bank=hindsight-locomo-g1-r0        │
+│  age=1028s stage=task.consolidation stage_age=1027s                          │
+│  ⏳ Waiting for daemon... (179s elapsed)                                     │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯╭─────────── ✗ Daemon Failed (Timeout) (eidetic-bench-r15 @ :9551) ────────────╮
+│                                                                              │
+│  ⏳ Waiting for daemon... (167s elapsed)                                     │
+│  2026-07-09 12:39:17,332 - INFO - hindsight_api.worker.poller -              │
+│  [WORKER_STATS] worker=mac.lan slots=1/10 | reserved:                        │
+│  [consolidation=1/2(avail=1)] | shared=0/8(avail=8) | global: pending=0      │
+│  (queried=1/1 schemas: default) | others: none | pool: size=2 limits=5-100   │
+│  idle=1 in_use=1 free_holders=99 pending_acquires=0 | proc: rss_mb=646 |     │
+│  my_active: consolidation:hindsight-locomo-g1-r0(1)                          │
+│  2026-07-09 12:39:17,334 - INFO - hindsight_api.worker.poller -              │
+│  [WORKER_TASK] [STUCK?] op=b2187cd2-7a8b-47ce-8912-6e9922540ce8              │
+│  type=consolidation op_type=consolidation bank=hindsight-locomo-g1-r0        │
+│  age=1028s stage=task.consolidation stage_age=1027s                          │
+│  ⏳ Waiting for daemon... (179s elapsed)                                     │
+│                                                                              │
+│  ✗ Daemon failed to start (timeout)                                          │
+│                                                                              │
+│  See full log:                                                               │
+│  /Users/raunakgengiti/.hindsight/profiles/eidetic-bench-r15.log              │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+Judge: {'judge_model': 'qwen3-max', 'judge_backend': 'dashscope'}
+Loaded 40 samples (locomo, split=test); categories: {'multi-hop': 8, 'open-domain': 2, 'single-hop': 21, 'temporal': 9}
+  !! hindsight FAILED (continuing): RuntimeError: Hindsight daemon failed to start after 5 attempts (cold pg0 start race). Last error: Failed to start daemon for profile 'eidetic-bench-r15'
+
+Systems that failed (scoreboard still renders for the rest):
+  - hindsight: RuntimeError: Hindsight daemon failed to start after 5 attempts (cold pg0 start race). Last error: Failed to start daemon for profile 'eidetic-bench-r15'
+
+Scoreboard -> /Users/raunakgengiti/Eidetic-Plus/artifacts/holdout_rotation_r15_codex/scoreboard.md
+Curves     -> {'ok': True, 'recall_png': '/Users/raunakgengiti/Eidetic-Plus/artifacts/holdout_rotation_r15_codex/recall_vs_age.png', 'latency_png': '/Users/raunakgengiti/Eidetic-Plus/artifacts/holdout_rotation_r15_codex/latency_vs_age.png', 'slopes': {'eidetic-plus-full': {'recall_slope_per_year': -0.19137692194644962, 'latency_slope_ms_per_year': 18560.060817246624}, 'mem0': {'recall_slope_per_year': 0.2658012804811813, 'latency_slope_ms_per_year': 2286.80260616685}, 'rag-vector': {'recall_slope_per_year': -0.47312627925650025, 'latency_slope_ms_per_year': 8599.421508040841}}}
+Manifest   -> /Users/raunakgengiti/Eidetic-Plus/artifacts/holdout_rotation_r15_codex/run_manifest.json
+Reproduce (full, >=10 runs): bash bench/reproduce.sh
+hindsight h2h r15 relaunch2 (fresh profile r15b) started=2026-07-09T19:41:16Z sha=8987c0071ce1a730cbf05898977be43cd27a9e4d
+
+╭─────────────── ✓ Daemon Started (eidetic-bench-r15b @ :9440) ────────────────╮
+│                                                                              │
+│  2026-07-09 12:42:02,339 - INFO - root - Tenant extension started            │
+│  INFO:     Application startup complete.                                     │
+│  INFO:     Uvicorn running on http://127.0.0.1:9440 (Press CTRL+C to quit)   │
+│  2026-07-09 12:42:02,345 - INFO - hindsight_api.worker.poller - Worker       │
+│  mac.lan starting polling loop (max_slots=10,                                │
+│  reservations=[consolidation=2], shared_pool=8)                              │
+│                                                                              │
+│  ✓ Daemon responding, verifying stability...                                 │
+│  ✓ Daemon started successfully!                                              │
+│                                                                              │
+│  Logs: /Users/raunakgengiti/.hindsight/profiles/eidetic-bench-r15b.log       │
+│  Database:                                                                   │
+│  /Users/raunakgengiti/.pg0/instances/hindsight-embed-eidetic-bench-r15b      │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯Judge: {'judge_model': 'qwen3-max', 'judge_backend': 'dashscope'}
+Loaded 40 samples (locomo, split=test); categories: {'multi-hop': 8, 'open-domain': 2, 'single-hop': 21, 'temporal': 9}
+Running hindsight: 40 samples x 1 run(s)...
+
+Scoreboard -> /Users/raunakgengiti/Eidetic-Plus/artifacts/holdout_rotation_r15_codex/scoreboard.md
+Curves     -> {'ok': True, 'recall_png': '/Users/raunakgengiti/Eidetic-Plus/artifacts/holdout_rotation_r15_codex/recall_vs_age.png', 'latency_png': '/Users/raunakgengiti/Eidetic-Plus/artifacts/holdout_rotation_r15_codex/latency_vs_age.png', 'slopes': {'eidetic-plus-full': {'recall_slope_per_year': -0.19137692194644962, 'latency_slope_ms_per_year': 18560.060817246624}, 'hindsight': {'recall_slope_per_year': -0.5577136279272763, 'latency_slope_ms_per_year': 4162.077957664339}, 'mem0': {'recall_slope_per_year': 0.2658012804811813, 'latency_slope_ms_per_year': 2286.80260616685}, 'rag-vector': {'recall_slope_per_year': -0.47312627925650025, 'latency_slope_ms_per_year': 8599.421508040841}}}
+Manifest   -> /Users/raunakgengiti/Eidetic-Plus/artifacts/holdout_rotation_r15_codex/run_manifest.json
+Reproduce (full, >=10 runs): bash bench/reproduce.sh
