@@ -1,0 +1,9 @@
+{
+  "judged": true,
+  "judge": "pinned bench judge (same as scoreboard rows)",
+  "n": 0,
+  "correct": 0,
+  "accuracy": null,
+  "rows": [],
+  "label": "judge-scored accuracy of the NotebookLM free-read tier on this window. Different READER than the fixed-qwen table (off-meter Gemini), so present it as its own labeled row, never merged into the fixed-reader comparison."
+}

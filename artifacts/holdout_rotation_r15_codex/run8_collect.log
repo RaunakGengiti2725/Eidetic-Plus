@@ -1,0 +1,42 @@
+[1] c2_q5 contains_gold=True confirmed=0/0 22.6s
+[2] c2_q75 contains_gold=True confirmed=4/4 15.7s
+[3] c2_q2 contains_gold=True confirmed=4/4 14.4s
+[4] c2_q45 contains_gold=False confirmed=14/14 15.3s
+[5] c2_q151 contains_gold=True confirmed=3/3 14.3s
+[6] c5_q79 contains_gold=True confirmed=4/4 20.6s
+[7] c5_q83 contains_gold=True confirmed=7/7 13.5s
+[8] c5_q8 contains_gold=False confirmed=0/0 15.2s
+[ERR] c5_q2: Command '['/Users/raunakgengiti/Eidetic-Plus/.venv/bin/nlm', 'notebook', 'query', 'a829f199-c332-490d-92a4-3a5c40ded514', 'What kind of indoor activities has Andrew pursued with his girlfriend?', '--json']' returned non-zero exit status 1.
+[ERR] c7_q167: Command '['/Users/raunakgengiti/Eidetic-Plus/.venv/bin/nlm', 'notebook', 'query', '5db06d34-d667-43a8-a1a7-3bda396ad311', 'What was the new plant Jolene got used as a reminder for on 30 August, 2023?', '--json']' returned non-zero exit status 1.
+[ERR] c7_q39: Command '['/Users/raunakgengiti/Eidetic-Plus/.venv/bin/nlm', 'notebook', 'query', '5db06d34-d667-43a8-a1a7-3bda396ad311', 'What time management techniques do Deborah and Jolene use?', '--json']' returned non-zero exit status 1.
+[ERR] c7_q112: Command '['/Users/raunakgengiti/Eidetic-Plus/.venv/bin/nlm', 'notebook', 'query', '5db06d34-d667-43a8-a1a7-3bda396ad311', 'What gave Deborah peace in the garden she visited?', '--json']' returned non-zero exit status 1.
+[ERR] c7_q116: Command '['/Users/raunakgengiti/Eidetic-Plus/.venv/bin/nlm', 'notebook', 'query', '5db06d34-d667-43a8-a1a7-3bda396ad311', 'According to Jolene, what does exercise help her to feel?', '--json']' returned non-zero exit status 1.
+[ERR] c3_q37: Command '['/Users/raunakgengiti/Eidetic-Plus/.venv/bin/nlm', 'notebook', 'query', 'dc9fccf8-3ed8-46a0-8394-e6b023bcff45', 'When did Nate win an international tournament?', '--json']' returned non-zero exit status 1.
+[ERR] c3_q115: Command '['/Users/raunakgengiti/Eidetic-Plus/.venv/bin/nlm', 'notebook', 'query', 'dc9fccf8-3ed8-46a0-8394-e6b023bcff45', 'What kind of films does Joanna enjoy?', '--json']' returned non-zero exit status 1.
+[ERR] c3_q31: Command '['/Users/raunakgengiti/Eidetic-Plus/.venv/bin/nlm', 'notebook', 'query', 'dc9fccf8-3ed8-46a0-8394-e6b023bcff45', 'When did Nate win his fourth video game tournament?', '--json']' returned non-zero exit status 1.
+[ERR] c3_q34: Command '['/Users/raunakgengiti/Eidetic-Plus/.venv/bin/nlm', 'notebook', 'query', 'dc9fccf8-3ed8-46a0-8394-e6b023bcff45', 'What book recommendations has Joanna given to Nate?', '--json']' returned non-zero exit status 1.
+[ERR] c4_q52: Command '['/Users/raunakgengiti/Eidetic-Plus/.venv/bin/nlm', 'notebook', 'query', '6a7e0d08-c16b-4be9-b804-a64db16da585', 'What does John do to supplement his basketball training?', '--json']' returned non-zero exit status 1.
+[ERR] c4_q174: Command '['/Users/raunakgengiti/Eidetic-Plus/.venv/bin/nlm', 'notebook', 'query', '6a7e0d08-c16b-4be9-b804-a64db16da585', 'What charity event did John organize recently in 2024?', '--json']' returned non-zero exit status 1.
+[ERR] c4_q63: Command '['/Users/raunakgengiti/Eidetic-Plus/.venv/bin/nlm', 'notebook', 'query', '6a7e0d08-c16b-4be9-b804-a64db16da585', 'When did John organize a basketball camp for kids?', '--json']' returned non-zero exit status 1.
+[ERR] c4_q39: Command '['/Users/raunakgengiti/Eidetic-Plus/.venv/bin/nlm', 'notebook', 'query', '6a7e0d08-c16b-4be9-b804-a64db16da585', 'What year did Tim go to the Smoky Mountains?', '--json']' returned non-zero exit status 1.
+[ERR] c0_q116: Command '['/Users/raunakgengiti/Eidetic-Plus/.venv/bin/nlm', 'notebook', 'query', 'e3fab3da-dc97-4fd7-89ed-fa0c0951528f', "What inspired Caroline's painting for the art show?", '--json']' returned non-zero exit status 1.
+[ERR] c0_q73: Command '['/Users/raunakgengiti/Eidetic-Plus/.venv/bin/nlm', 'notebook', 'query', 'e3fab3da-dc97-4fd7-89ed-fa0c0951528f', 'When did Melanie get hurt?', '--json']' returned non-zero exit status 1.
+[ERR] c0_q23: Command '['/Users/raunakgengiti/Eidetic-Plus/.venv/bin/nlm', 'notebook', 'query', 'e3fab3da-dc97-4fd7-89ed-fa0c0951528f', 'What books has Melanie read?', '--json']' returned non-zero exit status 1.
+[ERR] c0_q92: Command '['/Users/raunakgengiti/Eidetic-Plus/.venv/bin/nlm', 'notebook', 'query', 'e3fab3da-dc97-4fd7-89ed-fa0c0951528f', "What country is Caroline's grandma from?", '--json']' returned non-zero exit status 1.
+[ERR] c0_q41: Command '['/Users/raunakgengiti/Eidetic-Plus/.venv/bin/nlm', 'notebook', 'query', 'e3fab3da-dc97-4fd7-89ed-fa0c0951528f', 'When did Caroline join a new activist group?', '--json']' returned non-zero exit status 1.
+[ERR] c6_q25: Command '['/Users/raunakgengiti/Eidetic-Plus/.venv/bin/nlm', 'notebook', 'query', 'f6eecad8-c435-4d90-bbf3-8fdedc33b8a7', 'Are John and James fans of the same football team?', '--json']' returned non-zero exit status 1.
+[ERR] c6_q139: Command '['/Users/raunakgengiti/Eidetic-Plus/.venv/bin/nlm', 'notebook', 'query', 'f6eecad8-c435-4d90-bbf3-8fdedc33b8a7', "What sparked James' passion for gaming when he was a kid?", '--json']' returned non-zero exit status 1.
+[ERR] c6_q126: Command '['/Users/raunakgengiti/Eidetic-Plus/.venv/bin/nlm', 'notebook', 'query', 'f6eecad8-c435-4d90-bbf3-8fdedc33b8a7', 'What is the name of the board game John tried in September 2022?', '--json']' returned non-zero exit status 1.
+[ERR] c6_q29: Command '['/Users/raunakgengiti/Eidetic-Plus/.venv/bin/nlm', 'notebook', 'query', 'f6eecad8-c435-4d90-bbf3-8fdedc33b8a7', 'When did James depart for his trip to Canada?', '--json']' returned non-zero exit status 1.
+[ERR] c6_q107: Command '['/Users/raunakgengiti/Eidetic-Plus/.venv/bin/nlm', 'notebook', 'query', 'f6eecad8-c435-4d90-bbf3-8fdedc33b8a7', 'What made John leave his IT job?', '--json']' returned non-zero exit status 1.
+[ERR] c6_q70: Command '['/Users/raunakgengiti/Eidetic-Plus/.venv/bin/nlm', 'notebook', 'query', 'f6eecad8-c435-4d90-bbf3-8fdedc33b8a7', 'What has John mostly found with the metal detector so far?', '--json']' returned non-zero exit status 1.
+[ERR] c6_q76: Command '['/Users/raunakgengiti/Eidetic-Plus/.venv/bin/nlm', 'notebook', 'query', 'f6eecad8-c435-4d90-bbf3-8fdedc33b8a7', 'How does James communicate with his gaming team?', '--json']' returned non-zero exit status 1.
+[ERR] c9_q112: Command '['/Users/raunakgengiti/Eidetic-Plus/.venv/bin/nlm', 'notebook', 'query', '71302416-0479-4ec8-bb38-b23f26efee13', 'How does Dave feel about the reactions of people when they see the finished restoration project?', '--json']' returned non-zero exit status 1.
+[ERR] c9_q137: Command '['/Users/raunakgengiti/Eidetic-Plus/.venv/bin/nlm', 'notebook', 'query', '71302416-0479-4ec8-bb38-b23f26efee13', 'When did Calvin first get interested in cars?', '--json']' returned non-zero exit status 1.
+[ERR] c9_q64: Command '['/Users/raunakgengiti/Eidetic-Plus/.venv/bin/nlm', 'notebook', 'query', '71302416-0479-4ec8-bb38-b23f26efee13', 'What activities has Dave participated in with his friends?', '--json']' returned non-zero exit status 1.
+[ERR] c8_q33: Command '['/Users/raunakgengiti/Eidetic-Plus/.venv/bin/nlm', 'notebook', 'query', 'b096f8c3-5bd0-41b3-9b90-9a08c1950f96', 'What is the recurring dream that Sam keeps having?', '--json']' returned non-zero exit status 1.
+[ERR] c8_q86: Command '['/Users/raunakgengiti/Eidetic-Plus/.venv/bin/nlm', 'notebook', 'query', 'b096f8c3-5bd0-41b3-9b90-9a08c1950f96', 'What advice did Evan give Sam about finding a passion?', '--json']' returned non-zero exit status 1.
+[ERR] c1_q2: Command '['/Users/raunakgengiti/Eidetic-Plus/.venv/bin/nlm', 'notebook', 'query', '17c2096b-3107-46ac-b26f-2ffa5e9d3725', 'How do Jon and Gina both like to destress?', '--json']' returned non-zero exit status 1.
+[ERR] c1_q52: Command '['/Users/raunakgengiti/Eidetic-Plus/.venv/bin/nlm', 'notebook', 'query', '17c2096b-3107-46ac-b26f-2ffa5e9d3725', 'What did Jon say about creating a special experience for customers?', '--json']' returned non-zero exit status 1.
+
+done ok=8 err=32 -> artifacts/holdout_rotation_r15_codex/notebooklm_freetier_run8.jsonl
