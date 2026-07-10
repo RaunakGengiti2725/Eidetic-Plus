@@ -1,0 +1,249 @@
+{
+  "judged": true,
+  "judge_version": "v2",
+  "judge": "pinned qwen3-max + deterministic gold-containment pre-check + gold-defect quarantine (fleet-verified 2026-07-09)",
+  "n": 39,
+  "correct": 37,
+  "accuracy": 0.949,
+  "shortcircuit_correct": 23,
+  "quarantined_gold_defects": [
+    "c4_q86"
+  ],
+  "rows": [
+    {
+      "sample_id": "c8_q48",
+      "correct": true,
+      "category": "multi-hop",
+      "via": "gold-containment"
+    },
+    {
+      "sample_id": "c8_q95",
+      "correct": true,
+      "category": "single-hop",
+      "via": "gold-containment"
+    },
+    {
+      "sample_id": "c8_q134",
+      "correct": true,
+      "category": "single-hop",
+      "via": "gold-containment"
+    },
+    {
+      "sample_id": "c0_q128",
+      "correct": true,
+      "category": "single-hop",
+      "via": "gold-containment"
+    },
+    {
+      "sample_id": "c0_q11",
+      "correct": true,
+      "category": "multi-hop",
+      "via": "gold-containment"
+    },
+    {
+      "sample_id": "c0_q19",
+      "correct": true,
+      "category": "multi-hop",
+      "via": "gold-containment"
+    },
+    {
+      "sample_id": "c0_q60",
+      "correct": true,
+      "category": "multi-hop",
+      "via": "gold-containment"
+    },
+    {
+      "sample_id": "c9_q37",
+      "correct": true,
+      "category": "open-domain",
+      "via": "gold-containment"
+    },
+    {
+      "sample_id": "c5_q71",
+      "correct": true,
+      "category": "single-hop",
+      "via": "gold-containment"
+    },
+    {
+      "sample_id": "c5_q106",
+      "correct": true,
+      "category": "single-hop",
+      "via": "gold-containment"
+    },
+    {
+      "sample_id": "c5_q22",
+      "correct": true,
+      "category": "temporal",
+      "via": "gold-containment"
+    },
+    {
+      "sample_id": "c5_q115",
+      "correct": true,
+      "category": "single-hop",
+      "via": "gold-containment"
+    },
+    {
+      "sample_id": "c5_q50",
+      "correct": true,
+      "category": "multi-hop",
+      "via": "gold-containment"
+    },
+    {
+      "sample_id": "c3_q134",
+      "correct": true,
+      "category": "single-hop",
+      "via": "gold-containment"
+    },
+    {
+      "sample_id": "c3_q71",
+      "correct": true,
+      "category": "multi-hop",
+      "via": "gold-containment"
+    },
+    {
+      "sample_id": "c3_q142",
+      "correct": true,
+      "category": "single-hop",
+      "via": "gold-containment"
+    },
+    {
+      "sample_id": "c6_q135",
+      "correct": true,
+      "category": "single-hop",
+      "via": "gold-containment"
+    },
+    {
+      "sample_id": "c2_q121",
+      "correct": true,
+      "category": "single-hop",
+      "via": "gold-containment"
+    },
+    {
+      "sample_id": "c2_q132",
+      "correct": true,
+      "category": "single-hop",
+      "via": "gold-containment"
+    },
+    {
+      "sample_id": "c2_q110",
+      "correct": true,
+      "category": "single-hop",
+      "via": "gold-containment"
+    },
+    {
+      "sample_id": "c7_q41",
+      "correct": true,
+      "category": "multi-hop",
+      "via": "gold-containment"
+    },
+    {
+      "sample_id": "c1_q64",
+      "correct": true,
+      "category": "single-hop",
+      "via": "gold-containment"
+    },
+    {
+      "sample_id": "c4_q125",
+      "correct": true,
+      "category": "single-hop",
+      "via": "gold-containment"
+    },
+    {
+      "sample_id": "c8_q136",
+      "correct": true,
+      "category": "single-hop",
+      "via": "llm-judge"
+    },
+    {
+      "sample_id": "c0_q49",
+      "correct": false,
+      "category": "temporal",
+      "via": "llm-judge"
+    },
+    {
+      "sample_id": "c0_q68",
+      "correct": true,
+      "category": "temporal",
+      "via": "llm-judge"
+    },
+    {
+      "sample_id": "c0_q144",
+      "correct": true,
+      "category": "single-hop",
+      "via": "llm-judge"
+    },
+    {
+      "sample_id": "c0_q29",
+      "correct": true,
+      "category": "temporal",
+      "via": "llm-judge"
+    },
+    {
+      "sample_id": "c9_q44",
+      "correct": true,
+      "category": "temporal",
+      "via": "llm-judge"
+    },
+    {
+      "sample_id": "c5_q57",
+      "correct": true,
+      "category": "temporal",
+      "via": "llm-judge"
+    },
+    {
+      "sample_id": "c3_q104",
+      "correct": true,
+      "category": "single-hop",
+      "via": "llm-judge"
+    },
+    {
+      "sample_id": "c6_q81",
+      "correct": true,
+      "category": "single-hop",
+      "via": "llm-judge"
+    },
+    {
+      "sample_id": "c6_q134",
+      "correct": true,
+      "category": "single-hop",
+      "via": "llm-judge"
+    },
+    {
+      "sample_id": "c6_q12",
+      "correct": true,
+      "category": "open-domain",
+      "via": "llm-judge"
+    },
+    {
+      "sample_id": "c2_q24",
+      "correct": true,
+      "category": "temporal",
+      "via": "llm-judge"
+    },
+    {
+      "sample_id": "c2_q150",
+      "correct": true,
+      "category": "single-hop",
+      "via": "llm-judge"
+    },
+    {
+      "sample_id": "c7_q10",
+      "correct": true,
+      "category": "temporal",
+      "via": "llm-judge"
+    },
+    {
+      "sample_id": "c4_q37",
+      "correct": true,
+      "category": "temporal",
+      "via": "llm-judge"
+    },
+    {
+      "sample_id": "c9_q3",
+      "correct": false,
+      "category": "multi-hop",
+      "via": "llm-judge"
+    }
+  ],
+  "label": "judge v2 accuracy: NOT comparable to v1-judged rows -- re-judge both sides of any comparison with the same version. Quarantined rows are confirmed dataset defects, reported, never counted for any system."
+}

@@ -1,0 +1,181 @@
+{
+  "judged": true,
+  "judge_version": "v2",
+  "judge": "pinned qwen3-max + deterministic gold-containment pre-check + gold-defect quarantine (fleet-verified 2026-07-09)",
+  "n": 28,
+  "correct": 7,
+  "accuracy": 0.25,
+  "shortcircuit_correct": 3,
+  "quarantined_gold_defects": [],
+  "rows": [
+    {
+      "sample_id": "bc149d6b",
+      "correct": true,
+      "category": "multi-session",
+      "via": "gold-containment"
+    },
+    {
+      "sample_id": "gpt4_76048e76",
+      "correct": true,
+      "category": "temporal-reasoning",
+      "via": "gold-containment"
+    },
+    {
+      "sample_id": "8a137a7f",
+      "correct": true,
+      "category": "single-session-user",
+      "via": "gold-containment"
+    },
+    {
+      "sample_id": "603deb26",
+      "correct": false,
+      "category": "knowledge-update",
+      "via": "llm-judge"
+    },
+    {
+      "sample_id": "gpt4_2f91af09",
+      "correct": false,
+      "category": "multi-session",
+      "via": "llm-judge"
+    },
+    {
+      "sample_id": "b759caee",
+      "correct": false,
+      "category": "single-session-assistant",
+      "via": "llm-judge"
+    },
+    {
+      "sample_id": "afdc33df",
+      "correct": false,
+      "category": "single-session-preference",
+      "via": "llm-judge"
+    },
+    {
+      "sample_id": "a82c026e",
+      "correct": false,
+      "category": "single-session-user",
+      "via": "llm-judge"
+    },
+    {
+      "sample_id": "gpt4_8e165409",
+      "correct": false,
+      "category": "temporal-reasoning",
+      "via": "llm-judge"
+    },
+    {
+      "sample_id": "f0e564bc",
+      "correct": false,
+      "category": "multi-session",
+      "via": "llm-judge"
+    },
+    {
+      "sample_id": "5c40ec5b",
+      "correct": false,
+      "category": "knowledge-update",
+      "via": "llm-judge"
+    },
+    {
+      "sample_id": "60d45044",
+      "correct": false,
+      "category": "single-session-user",
+      "via": "llm-judge"
+    },
+    {
+      "sample_id": "gpt4_85da3956",
+      "correct": false,
+      "category": "temporal-reasoning",
+      "via": "llm-judge"
+    },
+    {
+      "sample_id": "65240037",
+      "correct": true,
+      "category": "single-session-assistant",
+      "via": "llm-judge"
+    },
+    {
+      "sample_id": "gpt4_93159ced_abs",
+      "correct": false,
+      "category": "temporal-reasoning",
+      "via": "llm-judge"
+    },
+    {
+      "sample_id": "gpt4_2f8be40d",
+      "correct": true,
+      "category": "multi-session",
+      "via": "llm-judge"
+    },
+    {
+      "sample_id": "06db6396",
+      "correct": false,
+      "category": "knowledge-update",
+      "via": "llm-judge"
+    },
+    {
+      "sample_id": "36580ce8",
+      "correct": false,
+      "category": "single-session-user",
+      "via": "llm-judge"
+    },
+    {
+      "sample_id": "a1cc6108",
+      "correct": true,
+      "category": "multi-session",
+      "via": "llm-judge"
+    },
+    {
+      "sample_id": "778164c6",
+      "correct": false,
+      "category": "single-session-assistant",
+      "via": "llm-judge"
+    },
+    {
+      "sample_id": "a3838d2b",
+      "correct": false,
+      "category": "temporal-reasoning",
+      "via": "llm-judge"
+    },
+    {
+      "sample_id": "3fe836c9",
+      "correct": false,
+      "category": "multi-session",
+      "via": "llm-judge"
+    },
+    {
+      "sample_id": "57f827a0",
+      "correct": false,
+      "category": "single-session-preference",
+      "via": "llm-judge"
+    },
+    {
+      "sample_id": "gpt4_74aed68e",
+      "correct": false,
+      "category": "temporal-reasoning",
+      "via": "llm-judge"
+    },
+    {
+      "sample_id": "a4996e51",
+      "correct": false,
+      "category": "multi-session",
+      "via": "llm-judge"
+    },
+    {
+      "sample_id": "b01defab",
+      "correct": false,
+      "category": "knowledge-update",
+      "via": "llm-judge"
+    },
+    {
+      "sample_id": "8cf51dda",
+      "correct": false,
+      "category": "single-session-assistant",
+      "via": "llm-judge"
+    },
+    {
+      "sample_id": "gpt4_2655b836",
+      "correct": true,
+      "category": "temporal-reasoning",
+      "via": "llm-judge"
+    }
+  ],
+  "label": "judge v2 accuracy: NOT comparable to v1-judged rows -- re-judge both sides of any comparison with the same version. Quarantined rows are confirmed dataset defects, reported, never counted for any system."
+}
