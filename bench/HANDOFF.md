@@ -487,3 +487,7 @@ vector RAG stands as the window's finding. Slice sealed; r16 consumed.
 Session totals now 54 commits. Remaining: NLM quota queue (task 3) +
 temporal build (spec'd, 455-claim surface) + mem0-error forensics if the
 error class repeats.
+
+## MEM0 RE-RUN (2026-07-10, fairness check): 23/40 CONFIRMED twice; timeouts
+reproducible (6-7 internal add() failures per attempt on long conversations).
+First attempt archived. r16 final: 25(v25) = 25(v0) > 23(v0).
