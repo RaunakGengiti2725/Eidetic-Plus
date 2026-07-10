@@ -410,3 +410,15 @@ were DROPPED). Whole-export now ties retrieval-guided at 78.6% on this
 window. Single run/window: directional until reproduced; mechanism is a
 proven one-line bug. r15 run4 collecting at handoff; remaining queue:
 runs 5-9, provenance revalidation, iterative A/B, v2 re-judge.
+
+## OVERNIGHT CHAIN CLOSE (2026-07-10 early, commit ec907ac1b)
+
+Quota spent in priority order, then the wall:
+- LOSSLESS PACK MEASURED: LME-S whole-export 25.0 -> 78.6 (p=0.0003) -- see
+  entry above; the day's headline.
+- NBL gate: 7/10 FULL runs (85.0/82.5/82.5/80.0/80.0/84.6/80.0, mean 82.1);
+  run8 quota-cut at 8/8, run9 empty. Three runs from the PASS check.
+- Provenance revalidation + iterative A/B: deferred to reset (probe hit the
+  wall; NOTE the probe overwrote the committed 96% evidence json -- restored
+  from git; patch it to a fresh output path before next run).
+Fresh-notebook env: NLM_NOTEBOOK_SUFFIX. All quota work resumes via task list.
