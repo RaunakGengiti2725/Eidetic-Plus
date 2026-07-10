@@ -566,3 +566,16 @@ the date came from the winning atom's own expression), THEN the floor
 fail-closes ONLY untagged mention-selection. Protocol: replay this probe for
 zero regression on the 43 VC atom-derived subset before ship. This is the
 single biggest verified-precision lever left (57 rows).
+
+## VERIFY-SIDE DATE FLOOR: ATTEMPTED, REPLAY-REFUTED, REVERTED (330f78ca4)
+
+Tried the verification-side recompute for the 57%-VW relative_temporal
+class; replayed on burned windows BEFORE ship: kills 3/29 replayed VW (the
+26 others have atoms that genuinely state their dates -- wrong-EVENT
+selection is invisible to any (atom, answer) check), and the suite exposed
+deterministic executor derivations ('last week' + valid_at -> month) that a
+verify-time checker cannot reproduce without re-deriving executor logic.
+Reverted cleanly. The constraint is now MEASURED: selection-side only --
+either extend the :event_date consumer's tie discipline over the legacy
+loop's shapes, or tag deterministic derivations for a note-keyed floor.
+Evidence: artifacts/forensics/relative_temporal_floor_replay_20260710.jsonl.
