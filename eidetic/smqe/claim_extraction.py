@@ -163,10 +163,14 @@ def _is_junk_claim_subject(subject: str) -> bool:
 
 def _object_for(atom: str) -> str:
     text = re.sub(r"^\s*(?:user|assistant|system|human|ai)\s*:\s*", "", atom, flags=re.I)
+    # A '.' ends the capture ONLY when it is not a decimal point (i.e. not followed by a
+    # digit). The old class [^.;!?]+ cut '$11.99' to '$11' and '7.5 miles' to '7' -- corrupted
+    # quantity values that then string-match-verified as plausible wrong answers (extraction-
+    # audit fleet 2026-07-09: 13/107 quantity claims in one namespace ended mid-decimal).
     m = re.search(
         r"\b(?:is|was|are|were|am|prefer|prefers|preferred|like|likes|liked|love|loves|"
         r"enjoy|enjoys|enjoyed|visited|bought|attended|at|in|to|from)\s+"
-        r"(?:really\s+|also\s+|just\s+|going\s+)?([^.;!?]+)", text, re.I)
+        r"(?:really\s+|also\s+|just\s+|going\s+)?((?:[^.;!?]|\.(?=\d))+)", text, re.I)
     if m:
         return re.sub(r"\s+", " ", m.group(1)).strip()[:180]
     return text[:180]
