@@ -457,3 +457,14 @@ tightens to 84.2-86.8, LME-S truncated stays 25.0 (honest), lossless 76.7.
 v1 stays the published baseline; NO v2 head-to-head until rag-vector rows
 are re-judged under v2 (queued -- needs a small adapter: judge_rows_v2
 expects nb_answer, rag rows carry 'predicted').
+
+## V2 HEAD-TO-HEAD (2026-07-10, commit 8814af0de) -- the comparative headline
+
+Same hardened judge both sides, symmetric quarantine, 115 paired rows,
+3 disjoint holdout windows:
+  eidetic product 104/115 (90.4%)  vs  rag-vector 71/115 (61.7%)
+  discordant 34:1, McNemar exact p = 2.1e-9
+Hardening symmetric (rag improved too: 59.2 -> 61.7). "Product beats RAG on
+>=2 windows with judged significance" now holds under BOTH judge versions.
+Remaining live queue unchanged (runs 8-10, provenance, iterative A/B, LME-S
+lossless reproduce). Rag shim files committed alongside sidecars.
