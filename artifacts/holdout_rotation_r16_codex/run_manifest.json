@@ -1,5 +1,5 @@
 {
-  "systems": "eidetic-full,rag-vector",
+  "systems": "mem0",
   "dataset": "locomo",
   "split": "test",
   "subset": 10,
