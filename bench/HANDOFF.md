@@ -422,3 +422,16 @@ Quota spent in priority order, then the wall:
   wall; NOTE the probe overwrote the committed 96% evidence json -- restored
   from git; patch it to a fresh output path before next run).
 Fresh-notebook env: NLM_NOTEBOOK_SUFFIX. All quota work resumes via task list.
+
+## DUAL-TIMESTAMP VERDICT (2026-07-10, commit 1d785ade3)
+
+Probe settles the fleet-2 skeptic split with exact numbers: claims with an
+explicit stated date are session-stamped 460/460 (100%) across r13/r15/LME-S;
+the event channel backdates only 14.3% (LME-S) / 0% (LoCoMo samples).
+455 mis-stamped dated claims on ONE LME-S window = the temporal starvation
+surface. NEXT SESSION: the dual-timestamp build (claim event_time vs
+observed_at) with bench/dual_timestamp_probe.py as spec + regression gate --
+it touches valid_at semantics (supersession, as_of), so it needs full design
+care, not a late-night patch. Probe: bench/dual_timestamp_probe.py.
+Also patched: provenance probe writes timestamped outputs (never overwrites
+committed evidence).
