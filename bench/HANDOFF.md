@@ -509,3 +509,15 @@ written (the one discovered class: 'married on September 7, 1876' inferring
 Measured effect on temporal QUESTIONS = next fresh window (r17+) or the
 date-anchored verify paths; tag consumers already exist. Stage 1c (other
 phrasings) only if the next window's temporal category demands it.
+
+## TEMPORAL PIPELINE CLOSED END-TO-END (2026-07-10, commit d95ef165f)
+
+The chain the probes demanded, each link measured:
+  455/455 claims session-stamped (probe) -> stage 1 explicit near-null ->
+  stage 1b inference promotion-gated 36/36 -> E2E probe showed consumers
+  never read widened tags -> root cause: _DATE_RE matches no no-year dates
+  -> inference moved INTO _segment_event_date (one grammar, one gate) ->
+  family emits full-schema claims -> 'When did I attend the Zumba event?'
+  now answers '2023-03-17' VERIFIED (was floor-refused garbage).
+LME-S tag surface 15 -> 75; 10/10 sampled inferred rows hand-verified.
+Suite 1632. Benchmark temporal-category effect = r17's fresh ingest.
