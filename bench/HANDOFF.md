@@ -530,3 +530,19 @@ Two consecutive fresh windows dead even (49/80 = 49/80) after six windows at
 4/9 vs rag 2/9 (upper band, NOT a claimed lift at n=9). Next forensic: which
 17 rows answered structured, and did event_date claims serve any temporal
 row -- the attribution check before r18.
+
+## R17 FORENSIC: legacy relative_temporal ships verified-wrong dates (next lever)
+
+The structured series-high (17/40) decomposes: relative_temporal 7 (3 right,
+4 VERIFIED-WRONG well-formed dates), latest_value 6, open_inference 4. The 4
+VW rows (c7_q31 2023-09-01 vs 'summer 2022'; c7_q35 July 2023 vs 24 Feb
+2023; c2_q38 2022-12-21 vs Jul 2 2023; c4_q55 2018-07-16 vs May 2023) all
+carry note smqe:relative_temporal:claim -- the LEGACY candidate loop, NOT
+the new :event_date consumer (which went 2/2 on its rows). This is the
+pre-existing wrong-date class (largest VW family in the 2026-07-07 probe),
+now more exposed as more rows route structured. NEXT SESSION, blocker-grade:
+the legacy loop needs anchoring discipline (candidate date must tie to the
+queried event instance, else fail closed to the reader) -- same
+measure-first protocol as the aggregate floor: probe on burned windows,
+tune on dev, verify zero VC regression. Do NOT weaken the event_date path;
+it is the replacement, not the problem.
