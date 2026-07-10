@@ -362,3 +362,19 @@ MEASURED, NOT YET SHIPPED (next session order):
    diverge.
 4. Relative-date dual-timestamp (53/60 but skeptic-SPLIT -- one falsification
    on event-level backdating): re-scope with a tighter probe before building.
+
+## DECIMAL FIX + JUDGE V2 (2026-07-09 night, commits 68a8f6603 + dccfd5c11)
+
+- Quantity-claim decimal truncation FIXED: _object_for stopped at any '.', so
+  '$11.99'->'$11', '7.5 miles'->'7' (corrupted-but-plausible values that
+  string-match-verify as wrong answers). '.' now ends capture only when not a
+  decimal point; all three fleet quotes extract intact; sentence boundaries
+  test-pinned.
+- Judge v2 shipped (--judge-v2, own .judged_v2.json, v1 untouched): 5-row
+  gold-defect quarantine + deterministic item-level containment pre-check.
+  Replay against all six committed judged runs: flips exactly 4 rows, all
+  fleet-confirmed judge false-negatives, 0 false positives (two FP shapes
+  found by replay and guarded: insufficiency answers, temporal golds).
+  V2 re-judge of both sides of every comparison = quota/key work, queued
+  after the lossless-pack re-collect.
+Suite 1629 green.
