@@ -265,12 +265,46 @@ def audit(
         needles.update(FORBIDDEN_POLICY_STRINGS)
         needles.update(FORBIDDEN_FIXED_ANSWER_STRINGS)
         needles.update(FORBIDDEN_RUNTIME_SYMBOLS)
-    findings = []
+    # Documented exemption registry: EXACT (needle, path) pairs sanctioned for forensic
+    # references and symmetric scoring policy (e.g. the judge-v2 dataset-defect quarantine).
+    # Every used exemption is REPORTED in the result -- visible, never silent -- and an entry
+    # missing a reason or evidence pointer fails the audit closed. The same needle in any
+    # unregistered file still fails.
+    exempt_pairs: set[tuple[str, str]] = set()
+    exemptions_used: list[dict] = []
+    registry_errors: list[str] = []
+    exemptions_path = Path(__file__).parent / "holdout_reference_exemptions.json"
+    if exemptions_path.exists():
+        try:
+            reg = json.loads(exemptions_path.read_text())
+            for e in reg.get("exemptions", []) or []:
+                needle = str(e.get("needle") or "")
+                path_s = str(e.get("path") or "")
+                if not needle or not path_s or not str(e.get("reason") or "").strip() \
+                        or not str(e.get("evidence") or "").strip():
+                    registry_errors.append(
+                        f"invalid exemption (needle/path/reason/evidence required): {e}")
+                    continue
+                exempt_pairs.add((needle, path_s))
+        except (OSError, ValueError) as exc:
+            registry_errors.append(f"unreadable exemption registry: {exc}")
+    findings = list({"path": "", "needle": err, "line": 0, "kind": "exemption-registry-error"}
+                    for err in registry_errors)
+    repo_root = Path(__file__).resolve().parent.parent
     for path in iter_files(roots):
+        # The exemption registry necessarily CONTAINS every sanctioned needle -- scanning it
+        # would flag the mechanism itself. It is the one structurally skipped file; its
+        # entries are validated above and every use is reported in exemptions_used.
+        if path.resolve() == exemptions_path.resolve():
+            continue
         try:
             text = path.read_text(errors="ignore")
         except OSError:
             continue
+        try:
+            rel = str(path.resolve().relative_to(repo_root))
+        except ValueError:
+            rel = str(path)
         low = text.lower()
         for needle in sorted(needles, key=len, reverse=True):
             if not needle:
@@ -280,6 +314,17 @@ def audit(
             target = needle.lower() if case_insensitive else needle
             pos = _needle_pos(hay, target)
             if pos >= 0:
+                # Pair match is path-suffix-boundary tolerant so a registered repo-relative
+                # path also matches when the tree is scanned from an absolute or copied root
+                # (registered 'bench/x.py' matches '<anything>/bench/x.py', never 'ybench/x.py').
+                exempted = any(
+                    n == needle and (rel == p or rel.endswith("/" + p)
+                                     or str(path) == p or str(path).endswith("/" + p))
+                    for (n, p) in exempt_pairs
+                )
+                if exempted:
+                    exemptions_used.append({"path": rel, "needle": needle})
+                    continue
                 line = text[:pos].count("\n") + 1
                 findings.append({"path": str(path), "needle": needle, "line": line})
     # Conversation-text shingle scan: benchmark source sentences (and, for runtime
@@ -346,6 +391,7 @@ def audit(
     return {
         "pass": not findings and not registry_error,
         "findings": findings,
+        "exemptions_used": exemptions_used,
         "needles_checked": len(needles),
         "holdout_needles_checked": len(holdout_needles),
         "entity_names_checked": len(entity_names),

@@ -1152,6 +1152,39 @@ def _naming_claims_from_atom(rec: MemoryRecord, atom: str) -> list[ClaimRecord]:
         claim.filters = {"naming": "title", "named_head": head_words[-1]}
         out.append(claim)
 
+    # Declarative nickname assignment: 'Everyone calls my brother Kip "Turbo"', 'we
+    # nicknamed Diane "Dee"'. The vocative extractor only sees dialogue address; this is the
+    # STATED form (extraction-audit fleet: alias/nickname edges among the recurring gaps).
+    # Quoted nick required -- unquoted trailing capitals are usually surnames, not aliases.
+    for m in re.finditer(
+        # '(?<!to )calls' etc.: 'I need to call Kip "..."' is quoted SPEECH after an
+        # infinitive, not a nickname assignment.
+        r"(?<!\bto\s)\b(?:calls?|nicknamed?|dubbed)\s+"
+        r"(?:my\s+[a-z][\w'-]*\s+|the\s+|our\s+)?"
+        r"(?P<person>[A-Z][\w'-]+(?:\s+[A-Z][\w'-]+)?)\s+"
+        r"[\"“](?P<nick>[^\"“”]{2,40})[\"”]",
+        body,
+    ):
+        person = m.group("person").strip()
+        nick = m.group("nick").strip(" .,:;!?")
+        if not nick or person.lower() in _VOCATIVE_NOT_A_NAME:
+            continue
+        # A real nickname is a short capitalized NAME, not a quoted message or time word:
+        # reject lowercase quotes ('call Grandma "tonight"') and multi-word quotes built on
+        # function words ('about the invoice').
+        nick_words = nick.split()
+        if (not nick[:1].isupper() or len(nick_words) > 2 or any(
+                w.lower() in {"about", "the", "a", "an", "for", "with", "that", "this"}
+                for w in nick_words)):
+            continue
+        claim = _claim_from_atom(rec, text, "state", predicate="nickname", value=nick)
+        if claim is None:
+            continue
+        claim.subject = _speaker_for_atom(rec, atom) or claim.subject
+        claim.object = nick
+        claim.filters = {"naming": "nickname", "target": person.split()[0].lower()}
+        out.append(claim)
+
     for m in re.finditer(
         r"\b(?:the|a|an)\s+(?P<name>[A-Z][\w'-]+(?:\s+[A-Z][\w'-]+){0,3})\b", body,
     ):

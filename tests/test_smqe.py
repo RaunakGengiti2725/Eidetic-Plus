@@ -3632,6 +3632,42 @@ def test_holdout_audit_finds_banned_strings(tmp_path):
     assert result["findings"][0]["needle"] == "secret_case_001"
 
 
+def test_holdout_audit_exemption_registry_is_pair_exact_and_reported(tmp_path):
+    """The exemption registry sanctions EXACT (needle, path) pairs -- forensic references
+    and symmetric scoring policy (judge-v2 quarantine) with a reason + evidence pointer.
+    Every used exemption is REPORTED; the SAME needle in any unregistered file still fails;
+    the registry file itself is the one structurally skipped path."""
+    from bench.audit_no_holdout_leakage import audit
+
+    holdout = tmp_path / "holdout"
+    holdout.mkdir()
+    # a REAL registered pair: the quarantine id inside the registered report tool path
+    (holdout / "leaked_sample_ids.json").write_text('["c9_q137"]')
+    (holdout / "longmemeval_test_holdout.json").write_text("[]")
+    (holdout / "locomo_test_holdout.json").write_text("[]")
+    (holdout / "manifest.json").write_text("{}")
+    import shutil
+    from pathlib import Path as _P
+    repo = _P(__file__).resolve().parent.parent
+    root = tmp_path / "bench"
+    root.mkdir()
+    shutil.copy(repo / "bench" / "notebooklm_freetier_report.py",
+                root / "notebooklm_freetier_report.py")
+    # same needle in an UNREGISTERED file -> still a finding
+    (root / "rogue.py").write_text('SAMPLE = "c9_q137"\n')
+
+    result = audit(holdout, [root], include_legacy_policy=False)
+
+    # rogue.py fails; the registered pair does not, and its use is visible
+    assert result["pass"] is False
+    finding_paths = {f["path"] for f in result["findings"]}
+    assert any(p.endswith("rogue.py") for p in finding_paths)
+    assert not any(p.endswith("notebooklm_freetier_report.py") for p in finding_paths)
+    assert any(e["needle"] == "c9_q137"
+               and e["path"].endswith("notebooklm_freetier_report.py")
+               for e in result["exemptions_used"])
+
+
 def test_holdout_audit_digit_ending_id_does_not_match_longer_distinct_id(tmp_path):
     from bench.audit_no_holdout_leakage import audit
 

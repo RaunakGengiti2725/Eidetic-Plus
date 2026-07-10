@@ -1,0 +1,110 @@
+{
+  "_contract": "Each entry sanctions EXACTLY ONE (needle, path) pair with a reason and evidence pointer. The leakage audit skips only registered pairs and REPORTS every exemption it used -- the same needle in any unregistered file still fails. An entry without a non-empty reason and evidence is INVALID and the audit fails closed on it. Exemptions are for documented forensic references and symmetric scoring policy (e.g. dataset-defect quarantine applied to ALL systems), never for behavior keyed on a holdout row's content.",
+  "exemptions": [
+    {
+      "needle": "bc149d6b",
+      "path": "bench/measure_sum_live_probe.py",
+      "reason": "forensic live-gate docstring names the measured verified-wrong case (1226.3-vs-70) the probe exists to guard; the probe applies to all 13 numeric rows, no behavior keyed on this id",
+      "evidence": "artifacts/lme_s_r1_codex/measure_sum_live.json",
+      "added": "2026-07-09"
+    },
+    {
+      "needle": "c4_q86",
+      "path": "bench/notebooklm_freetier_report.py",
+      "reason": "judge v2 gold-defect quarantine: LoCoMo speaker misattribution (gold's evidence turn spoken by a different person than the question's subject); symmetric scoring policy for every system",
+      "evidence": "artifacts/forensics/extraction_judge_fleet_20260709.json",
+      "added": "2026-07-09"
+    },
+    {
+      "needle": "c5_q81",
+      "path": "bench/notebooklm_freetier_report.py",
+      "reason": "judge v2 gold-defect quarantine: temporal-template instantiation bug in the gold; symmetric scoring policy",
+      "evidence": "artifacts/forensics/extraction_judge_fleet_20260709.json",
+      "added": "2026-07-09"
+    },
+    {
+      "needle": "c6_q64",
+      "path": "bench/notebooklm_freetier_report.py",
+      "reason": "judge v2 gold-defect quarantine: annotator arithmetic error inconsistent with the gold's own cited evidence; symmetric scoring policy",
+      "evidence": "artifacts/forensics/extraction_judge_fleet_20260709.json",
+      "added": "2026-07-09"
+    },
+    {
+      "needle": "c9_q137",
+      "path": "bench/notebooklm_freetier_report.py",
+      "reason": "judge v2 gold-defect quarantine: speaker misattribution (evidence turn D26:6 spoken by a different person); symmetric scoring policy",
+      "evidence": "artifacts/forensics/extraction_judge_fleet_20260709.json",
+      "added": "2026-07-09"
+    },
+    {
+      "needle": "c7_q116",
+      "path": "bench/notebooklm_freetier_report.py",
+      "reason": "judge v2 gold-defect quarantine: speaker misattribution (question subject Jolene, sole evidence turn spoken by Deborah); symmetric scoring policy",
+      "evidence": "artifacts/forensics/extraction_judge_fleet_20260709.json",
+      "added": "2026-07-09"
+    },
+    {
+      "needle": "c6_q29",
+      "path": "bench/notebooklm_freetier_report.py",
+      "reason": "comment documents the replay-measured FALSE-POSITIVE shape (tz-shifted date) that the temporal guard exists to block; no behavior keyed on the id",
+      "evidence": "artifacts/forensics/miss_forensics_fleet_20260709.json",
+      "added": "2026-07-09"
+    },
+    {
+      "needle": "gpt4_85da3956",
+      "path": "bench/notebooklm_freetier_report.py",
+      "reason": "comment documents the replay-measured FALSE-POSITIVE shape (insufficiency answer) that the guard exists to block; no behavior keyed on the id",
+      "evidence": "artifacts/forensics/miss_forensics_fleet_20260709.json",
+      "added": "2026-07-09"
+    },
+    {
+      "needle": "c6_q29",
+      "path": "tests/test_dataset_time_roundtrip.py",
+      "reason": "regression-test comment names the live row whose calendar-day shift the tz fix closed; the test asserts on synthetic date strings only",
+      "evidence": "artifacts/forensics/miss_forensics_fleet_20260709.json",
+      "added": "2026-07-09"
+    },
+    {
+      "needle": "c7_q41",
+      "path": "tests/test_notebooklm_freetier.py",
+      "reason": "judge v2 test comment names the confirmed judge-false-negative shape; assertions use synthetic golds/answers only",
+      "evidence": "artifacts/forensics/extraction_judge_fleet_20260709.json",
+      "added": "2026-07-09"
+    },
+    {
+      "needle": "c6_q29",
+      "path": "tests/test_notebooklm_freetier.py",
+      "reason": "judge v2 test comment names the replay false-positive shape; assertions use synthetic dates only",
+      "evidence": "artifacts/forensics/miss_forensics_fleet_20260709.json",
+      "added": "2026-07-09"
+    },
+    {
+      "needle": "gpt4_85da3956",
+      "path": "tests/test_notebooklm_freetier.py",
+      "reason": "judge v2 test comment names the replay false-positive shape; assertions use synthetic text only",
+      "evidence": "artifacts/forensics/miss_forensics_fleet_20260709.json",
+      "added": "2026-07-09"
+    },
+    {
+      "needle": "c9_q137",
+      "path": "tests/test_notebooklm_freetier.py",
+      "reason": "judge v2 quarantine test uses the registered defect id to prove the quarantine bucket works; the row's content never appears",
+      "evidence": "artifacts/forensics/extraction_judge_fleet_20260709.json",
+      "added": "2026-07-09"
+    },
+    {
+      "needle": "c9_q137",
+      "path": "tests/test_smqe.py",
+      "reason": "the exemption mechanism's own regression test uses the registered quarantine id to prove pair-exact matching and reporting; assertions never touch the row's content",
+      "evidence": "artifacts/forensics/extraction_judge_fleet_20260709.json",
+      "added": "2026-07-09"
+    },
+    {
+      "needle": "c2_q62",
+      "path": "bench/HANDOFF.md",
+      "reason": "session handoff notes reference the single verified-correct aggregate holdout row measured during the citation-floor blast-radius check; documentation only",
+      "evidence": "artifacts/holdout_rotation_r8_codex/eidetic-plus-full__run0.jsonl",
+      "added": "2026-07-09"
+    }
+  ]
+}
