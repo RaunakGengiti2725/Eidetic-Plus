@@ -521,3 +521,12 @@ The chain the probes demanded, each link measured:
   now answers '2023-03-17' VERIFIED (was floor-refused garbage).
 LME-S tag surface 15 -> 75; 10/10 sampled inferred rows hand-verified.
 Suite 1632. Benchmark temporal-category effect = r17's fresh ingest.
+
+## R17 (2026-07-10, commit 0f95decbe) -- PARITY REPEATED
+
+eidetic 24/40 (verified 28, structured 17/40 SERIES-HIGH) = rag-vector 24/40.
+Two consecutive fresh windows dead even (49/80 = 49/80) after six windows at
+-5.5pp: the parity claim graduates from directional to repeated. Temporal
+4/9 vs rag 2/9 (upper band, NOT a claimed lift at n=9). Next forensic: which
+17 rows answered structured, and did event_date claims serve any temporal
+row -- the attribution check before r18.
