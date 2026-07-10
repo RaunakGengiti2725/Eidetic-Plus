@@ -202,7 +202,14 @@ def main() -> int:
                 continue
             try:
                 if ns not in exported:
-                    nb = ensure_notebook(bridge.backend, f"eidetic-{window.name}-{ns[-6:]}")
+                    # NLM_NOTEBOOK_SUFFIX: fresh notebooks for a re-collection whose EXPORT
+                    # semantics changed (e.g. the lossless-pack fix) -- appending the fixed
+                    # sources into notebooks that still hold the truncated ones would mix the
+                    # two conditions and unmeasure the fix.
+                    import os as _os2
+                    suffix = _os2.environ.get("NLM_NOTEBOOK_SUFFIX", "")
+                    nb = ensure_notebook(
+                        bridge.backend, f"eidetic-{window.name}-{ns[-6:]}{suffix}")
                     if not args.skip_export:
                         bridge.export_graph(ns, nb)  # compact verified facts (may be empty)
                         packed = pack_record_sources(bridge, ns)
