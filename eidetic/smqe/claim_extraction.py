@@ -692,6 +692,33 @@ def _segment_event_date(rec: MemoryRecord, seg: str) -> Optional[tuple[str, int,
             mon = _MONTH_NUM.get(my.group(1).lower())
             if mon:
                 return f"{int(my.group(2)):04d}-{mon:02d}-01", ei.PRECISION_WINDOW, raw
+    # Stage 1b (docs/design/dual_timestamp.md, promotion-gated 36/36 hand-verified):
+    # month-day WITHOUT a year -- the phrasing that dominates the measured 455-claim
+    # mis-stamp surface ('I attended ... on March 17th'). record_ops._DATE_RE does not
+    # match no-year dates at all, so this branch runs on the resolver's fall-through with
+    # its own grammar. Year inferred by the SAME rule the week-of branch ships (session
+    # year, minus one when the date would land after the session), at
+    # PRECISION_RELATIVE_DAY -- never EXPLICIT, so consumers rank the inference below
+    # stated years. HISTORY GUARD (the promotion gate's one discovered mis-tag class):
+    # any 4-digit year following the phrase ('married on September 7, 1876') means the
+    # date is explicit-and-old, never a modern inference.
+    ndm = re.search(
+        rf"\bon\s+({_MONTH_NAMES_RE})\s+(\d{{1,2}})(?:st|nd|rd|th)?\b(?!\s*,?\s*\d{{4}})",
+        seg, re.I)
+    if ndm:
+        mon = _MONTH_NUM.get(ndm.group(1).lower())
+        dom = int(ndm.group(2))
+        try:
+            ref_d = datetime.fromtimestamp(float(getattr(rec, "valid_at", None))).date()
+        except (OSError, OverflowError, ValueError, TypeError):
+            ref_d = None
+        if mon and ref_d is not None:
+            year = ref_d.year if (mon, dom) <= (ref_d.month, ref_d.day) else ref_d.year - 1
+            try:
+                return (date(year, mon, dom).isoformat(),
+                        ei.PRECISION_RELATIVE_DAY, ndm.group(0))
+            except ValueError:
+                pass
     try:
         ref = datetime.fromtimestamp(float(getattr(rec, "valid_at", None))).date()
     except (OSError, OverflowError, ValueError, TypeError):
@@ -1305,41 +1332,14 @@ def _widen_event_date_tags(rec: MemoryRecord, claims: list[ClaimRecord]) -> int:
         atom = c.proof_atom or ""
         if not atom or not verb_re.search(atom):
             continue
+        # The resolver now handles BOTH explicit-with-year (PRECISION_EXPLICIT) and
+        # no-year month-day with inferred year (PRECISION_RELATIVE_DAY, stage 1b -- the
+        # inference and its history guard live INSIDE _segment_event_date so the event-date
+        # FAMILY and this pass share one grammar and one gate).
         dated = _segment_event_date(rec, atom)
-        iso = None
-        precision = None
-        if dated and dated[1] == ei.PRECISION_EXPLICIT:
-            iso, precision = dated[0], ei.PRECISION_EXPLICIT
-        else:
-            # STAGE 1b -- no-year month-day dates ('I visited ... on July 11'), the class
-            # that dominates the 455-claim mis-stamp surface. Year inference uses the SAME
-            # rule this module already ships for 'first/last week of MONTH' (past-tense
-            # dated verb + stated month/day: session year, minus one when the date would
-            # land after the session). INFERRED year -> PRECISION_RELATIVE_DAY, never
-            # EXPLICIT, so date-anchored consumers can weigh it; the known residual risk
-            # (multi-year-old recall inferring one year late) is bounded by the promotion
-            # gate's hand-verified sample.
-            # Exclusion rule (promotion-gate finding, 2/38): the lookahead must exclude ANY
-            # trailing 4-digit year, not just 20xx -- 'married on September 7, 1876' and
-            # 'passed away on January 15, 1890' fell through and inferred the SESSION year.
-            # Historical years are explicit dates the EXPLICIT branch deliberately ignores
-            # (pre-2000); they must not become inferred modern dates.
-            nm = re.search(
-                rf"\bon\s+({_MONTH_NAMES_RE})\s+(\d{{1,2}})(?:st|nd|rd|th)?\b(?!\s*,?\s*\d{{4}})",
-                atom, re.I)
-            if nm and session_day:
-                mon = _MONTH_NUM.get(nm.group(1).lower())
-                dom = int(nm.group(2))
-                ref = date(*[int(x) for x in session_day.split("-")])
-                if mon:
-                    year = ref.year if (mon, dom) <= (ref.month, ref.day) else ref.year - 1
-                    try:
-                        iso = date(year, mon, dom).isoformat()
-                        precision = ei.PRECISION_RELATIVE_DAY
-                    except ValueError:
-                        iso = None
-        if not iso:
+        if not dated or dated[1] not in (ei.PRECISION_EXPLICIT, ei.PRECISION_RELATIVE_DAY):
             continue
+        iso, precision = dated[0], dated[1]
         if session_day and iso == session_day:
             continue
         c.filters = {**c.filters, "event_date": iso,
