@@ -477,3 +477,13 @@ verified 25 vs 0. Fresh ingest carried the full write-path stack. Honest
 non-effects: temporal still 2/8 (tz fix undetected on this window);
 structured rows 10/40 (below the 13-14 band). Single window, directional.
 r16 consumed (score-once). mem0 phase-B optional, same --out.
+
+## R16 SLICE COMPLETE (2026-07-10, commit ddb4a59d8)
+
+eidetic 25/40 (verified 25) = rag-vector 25/40 (verified 0) > mem0 23/40
+(7 infra errors; 23/33 answered -- honest dual reading). Ninth consecutive
+mem0 window win, narrowest margin (+2, muddied by errors). PARITY with
+vector RAG stands as the window's finding. Slice sealed; r16 consumed.
+Session totals now 54 commits. Remaining: NLM quota queue (task 3) +
+temporal build (spec'd, 455-claim surface) + mem0-error forensics if the
+error class repeats.
