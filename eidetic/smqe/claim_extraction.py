@@ -1272,6 +1272,52 @@ def heuristic_claims_from_text(rec: MemoryRecord) -> list[ClaimRecord]:
     return claims
 
 
+def _widen_event_date_tags(rec: MemoryRecord, claims: list[ClaimRecord]) -> int:
+    """Stage 1 of docs/design/dual_timestamp.md: tag `filters.event_date` on claims whose
+    proof_atom EXPLICITLY states a full calendar date next to a validated dated-event verb.
+    Measured need: 455/455 dated claims on the LME-S window carry session time instead of
+    the stated event day, and the precision-first event-date family covers only 15 (3.3%).
+
+    Precision gates, all from the reviewed spec (each one closes a measured false-tag class):
+      - resolver REUSED (`_segment_event_date`), never rewritten;
+      - PRECISION_EXPLICIT only -- full month-day-YEAR or ISO; month-year windows and every
+        relative form are stage-1b at best;
+      - a dated-event verb (the event-identity family's validated lemma surfaces) must be in
+        the same atom, or the date is likely someone ELSE's ('we talked about the July 11,
+        2023 concert' has no dated verb -> no tag);
+      - never overwrite an existing event_date (byte-identical output for the 15);
+      - skip dates equal to the session day (a 'today' restatement adds noise, not signal).
+    Widened tags carry `event_date_widened: "1"` so they are auditable and revertible apart
+    from the original family's output. Returns the number of tags added."""
+    from . import event_identity as ei
+
+    verb_re = re.compile(
+        r"\b(?:" + "|".join(sorted(ei.DATED_EVENT_VERB_LEMMAS, key=len, reverse=True)) + r")\b",
+        re.I)
+    try:
+        session_day = datetime.fromtimestamp(float(rec.valid_at)).date().isoformat()
+    except (OSError, OverflowError, ValueError, TypeError):
+        session_day = None
+    added = 0
+    for c in claims:
+        if c.filters.get("event_date"):
+            continue
+        atom = c.proof_atom or ""
+        if not atom or not verb_re.search(atom):
+            continue
+        dated = _segment_event_date(rec, atom)
+        if not dated or dated[1] != ei.PRECISION_EXPLICIT:
+            continue
+        iso = dated[0]
+        if session_day and iso == session_day:
+            continue
+        c.filters = {**c.filters, "event_date": iso,
+                     "date_precision": ei.PRECISION_EXPLICIT,
+                     "event_date_widened": "1"}
+        added += 1
+    return added
+
+
 def deterministic_claim_id(claim: ClaimRecord) -> str:
     """Content-derived claim id (wave 0.1): re-extraction of the same record mints the
     SAME id, so INSERT OR REPLACE dedupes re-ingests natively instead of forking rows.
@@ -1317,6 +1363,9 @@ def claims_for_record(
         seen.add(key)
         deduped.append(claim)
     _tag_event_identity(rec, deduped)
+    # Stage-1 dual-timestamp widening AFTER the precision-first family (never overwrites
+    # its tags) and BEFORE deterministic ids (event_date is an id discriminant).
+    _widen_event_date_tags(rec, deduped)
     # Deterministic ids AFTER identity tagging (event_date is a discriminant). In-batch
     # id collisions are exact duplicates under the identity key: keep the first.
     out: list[ClaimRecord] = []

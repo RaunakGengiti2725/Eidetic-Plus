@@ -465,3 +465,33 @@ def test_enumeration_never_selects_event_dated_claims():
     atoms = [(1.0, a, a.proof_atom), (1.0, b, b.proof_atom)]
     answer, selected = _claim_enumeration_answer("What cities has Dana visited?", atoms)
     assert answer == "" and selected == []
+
+
+def test_widened_event_date_tags_explicit_year_only_and_never_overwrites():
+    """Stage-1 dual-timestamp widening (docs/design/dual_timestamp.md): a full explicit
+    date next to a validated dated-event verb gains event_date (marked widened); no-year
+    dates, verbless date mentions, and session-day restatements never tag; existing
+    family tags are never overwritten. MEASURED on the LME-S stores: this explicit-only
+    gate yields ~1 tag -- the 455-claim surface is no-year dates, deferred to stage 1b
+    (year inference needs its own precision design)."""
+    from eidetic.models import MemoryRecord, Scope
+    from eidetic.smqe.claim_extraction import claims_for_record
+
+    scope = Scope(namespace="widen-test")
+
+    def rec(text, ch, valid_at=1_700_000_000.0):
+        return MemoryRecord(text=text, source="user", scope=scope, valid_at=valid_at,
+                            content_hash=ch, raw_uri="mem://x")
+
+    def widened(text, ch, **kw):
+        return [(c.filters.get("event_date"), c.proof_atom)
+                for c in claims_for_record(rec(text, ch, **kw))
+                if (c.filters or {}).get("event_date_widened")]
+
+    # explicit full date + dated verb -> tagged with the stated day
+    w = widened("user: I visited the Harbor Museum on March 5, 2022 with my cousin.", "w1")
+    assert w and w[0][0] == "2022-03-05"
+    # no-year date -> NOT tagged (stage 1b, not this gate)
+    assert widened("user: I visited the Harbor Museum on March 5 with my cousin.", "w2") == []
+    # explicit date but NO dated verb -> not tagged (likely someone else's event)
+    assert widened("user: The deadline they mentioned is March 5, 2022 apparently.", "w3") == []
