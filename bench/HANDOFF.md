@@ -546,3 +546,23 @@ queried event instance, else fail closed to the reader) -- same
 measure-first protocol as the aggregate floor: probe on burned windows,
 tune on dev, verify zero VC regression. Do NOT weaken the event_date path;
 it is the replacement, not the problem.
+
+## RELATIVE_TEMPORAL CLASS PROBE (2026-07-10, measure-first step DONE)
+
+Across ALL ten burned windows: legacy note 'claim' = 100 rows / 43 correct /
+57 VERIFIED-WRONG (57%); :event_instance 8/9 VW; :event_date 3/6;
+new-consumer rows 2/2 on r17. Taxonomy in exemplars (committed above):
+week-window golds, wrong-instance, wrong-year, junk-gold (c8_q140).
+
+DESIGN BOUNDARY FOUND (why no floor shipped tonight): the legacy note covers
+TWO proof classes -- (a) ATOM-DERIVED dates (the answering atom's own
+relative expression resolved against valid_at: 'yesterday I picked up...' ->
+deterministic recompute, legitimately verified; the synthetic suite's green
+relative cases are this shape) and (b) MENTION-SELECTED dates (candidate
+loop picks which dated mention answers -- no proof; the 57 VW live here).
+A verify.py floor keyed on the note would kill (a) with (b). REQUIRED FIRST:
+record_ops tags the two shapes distinctly (e.g. :atom_derived suffix where
+the date came from the winning atom's own expression), THEN the floor
+fail-closes ONLY untagged mention-selection. Protocol: replay this probe for
+zero regression on the 43 VC atom-derived subset before ship. This is the
+single biggest verified-precision lever left (57 rows).
