@@ -1,0 +1,73 @@
+r17 temporal-measurement launch started=2026-07-10T13:16:48Z sha=78cf822ac726b25b5a540166d08d60a6a53d4935 note='first ingest w/ no-year date inference in the event-date resolver (d95ef165f)'
+degraded[extract-edges]: a model call failed and was downgraded (best-effort): DashScope governor concurrency slot unavailable after 30.000s
+degraded[extract-edges]: a model call failed and was downgraded (best-effort): DashScope governor concurrency slot unavailable after 30.000s
+degraded[extract-edges]: a model call failed and was downgraded (best-effort): DashScope governor concurrency slot unavailable after 30.000s
+degraded[extract-edges]: a model call failed and was downgraded (best-effort): DashScope governor concurrency slot unavailable after 30.000s
+degraded[extract-edges]: a model call failed and was downgraded (best-effort): DashScope governor concurrency slot unavailable after 30.000s
+degraded[extract-edges]: a model call failed and was downgraded (best-effort): DashScope governor concurrency slot unavailable after 30.000s
+degraded[extract-edges]: a model call failed and was downgraded (best-effort): DashScope governor concurrency slot unavailable after 30.000s
+degraded[extract-edges]: a model call failed and was downgraded (best-effort): DashScope governor concurrency slot unavailable after 30.000s
+degraded[extract-edges]: a model call failed and was downgraded (best-effort): DashScope governor concurrency slot unavailable after 30.000s
+degraded[extract-edges]: a model call failed and was downgraded (best-effort): DashScope governor concurrency slot unavailable after 30.000s
+degraded[extract-edges]: a model call failed and was downgraded (best-effort): DashScope governor concurrency slot unavailable after 30.000s
+degraded[extract-edges]: a model call failed and was downgraded (best-effort): DashScope governor concurrency slot unavailable after 30.000s
+degraded[extract-edges]: a model call failed and was downgraded (best-effort): DashScope governor concurrency slot unavailable after 30.000s
+degraded[extract-edges]: a model call failed and was downgraded (best-effort): DashScope governor concurrency slot unavailable after 30.000s
+degraded[extract-edges]: a model call failed and was downgraded (best-effort): DashScope governor concurrency slot unavailable after 30.000s
+degraded[extract-edges]: a model call failed and was downgraded (best-effort): DashScope governor concurrency slot unavailable after 30.000s
+degraded[extract-edges]: a model call failed and was downgraded (best-effort): DashScope governor concurrency slot unavailable after 30.000s
+degraded[extract-edges]: a model call failed and was downgraded (best-effort): DashScope governor concurrency slot unavailable after 30.000s
+degraded[extract-edges]: a model call failed and was downgraded (best-effort): DashScope governor concurrency slot unavailable after 30.000s
+degraded[extract-edges]: a model call failed and was downgraded (best-effort): DashScope governor concurrency slot unavailable after 30.000s
+degraded[extract-edges]: a model call failed and was downgraded (best-effort): DashScope governor concurrency slot unavailable after 30.000s
+degraded[extract-edges]: a model call failed and was downgraded (best-effort): DashScope governor concurrency slot unavailable after 30.000s
+degraded[extract-edges]: a model call failed and was downgraded (best-effort): DashScope governor concurrency slot unavailable after 30.000s
+degraded[extract-edges]: a model call failed and was downgraded (best-effort): DashScope governor concurrency slot unavailable after 30.000s
+degraded[extract-edges]: a model call failed and was downgraded (best-effort): DashScope governor concurrency slot unavailable after 30.000s
+degraded[extract-edges]: a model call failed and was downgraded (best-effort): DashScope governor concurrency slot unavailable after 30.000s
+degraded[extract-edges]: a model call failed and was downgraded (best-effort): DashScope governor concurrency slot unavailable after 30.000s
+degraded[extract-edges]: a model call failed and was downgraded (best-effort): DashScope governor concurrency slot unavailable after 30.000s
+degraded[extract-edges]: a model call failed and was downgraded (best-effort): DashScope governor concurrency slot unavailable after 30.000s
+degraded[extract-edges]: a model call failed and was downgraded (best-effort): DashScope governor concurrency slot unavailable after 30.000s
+degraded[extract-edges]: a model call failed and was downgraded (best-effort): DashScope governor concurrency slot unavailable after 30.000s
+degraded[extract-edges]: a model call failed and was downgraded (best-effort): DashScope governor concurrency slot unavailable after 30.000s
+degraded[extract-edges]: a model call failed and was downgraded (best-effort): DashScope governor concurrency slot unavailable after 30.000s
+degraded[extract-edges]: a model call failed and was downgraded (best-effort): DashScope governor concurrency slot unavailable after 30.000s
+degraded[extract-edges]: a model call failed and was downgraded (best-effort): DashScope governor concurrency slot unavailable after 30.000s
+degraded[extract-edges]: a model call failed and was downgraded (best-effort): DashScope governor concurrency slot unavailable after 30.000s
+degraded[extract-edges]: a model call failed and was downgraded (best-effort): DashScope governor concurrency slot unavailable after 30.000s
+degraded[extract-edges]: a model call failed and was downgraded (best-effort): DashScope governor concurrency slot unavailable after 30.000s
+degraded[extract-edges]: a model call failed and was downgraded (best-effort): DashScope governor concurrency slot unavailable after 30.000s
+degraded[extract-edges]: a model call failed and was downgraded (best-effort): DashScope governor concurrency slot unavailable after 30.000s
+degraded[extract-edges]: a model call failed and was downgraded (best-effort): DashScope governor concurrency slot unavailable after 30.000s
+degraded[extract-edges]: a model call failed and was downgraded (best-effort): DashScope governor concurrency slot unavailable after 30.000s
+degraded[extract-edges]: a model call failed and was downgraded (best-effort): DashScope governor concurrency slot unavailable after 30.000s
+degraded[extract-edges]: a model call failed and was downgraded (best-effort): DashScope governor concurrency slot unavailable after 30.000s
+degraded[extract-edges]: a model call failed and was downgraded (best-effort): DashScope governor concurrency slot unavailable after 30.000s
+degraded[extract-edges]: a model call failed and was downgraded (best-effort): DashScope governor concurrency slot unavailable after 30.000s
+degraded[extract-edges]: a model call failed and was downgraded (best-effort): DashScope governor concurrency slot unavailable after 30.000s
+degraded[extract-edges]: a model call failed and was downgraded (best-effort): DashScope governor concurrency slot unavailable after 30.000s
+degraded[extract-edges]: a model call failed and was downgraded (best-effort): DashScope governor concurrency slot unavailable after 30.000s
+degraded[extract-edges]: a model call failed and was downgraded (best-effort): DashScope governor concurrency slot unavailable after 30.000s
+degraded[extract-edges]: a model call failed and was downgraded (best-effort): DashScope governor concurrency slot unavailable after 30.000s
+degraded[extract-edges]: a model call failed and was downgraded (best-effort): DashScope governor concurrency slot unavailable after 30.000s
+degraded[extract-edges]: a model call failed and was downgraded (best-effort): DashScope governor concurrency slot unavailable after 30.000s
+degraded[extract-edges]: a model call failed and was downgraded (best-effort): DashScope governor concurrency slot unavailable after 30.000s
+degraded[extract-edges]: a model call failed and was downgraded (best-effort): DashScope governor concurrency slot unavailable after 30.000s
+degraded[extract-edges]: a model call failed and was downgraded (best-effort): DashScope governor concurrency slot unavailable after 30.000s
+degraded[extract-edges]: a model call failed and was downgraded (best-effort): DashScope governor concurrency slot unavailable after 30.000s
+degraded[extract-edges]: a model call failed and was downgraded (best-effort): DashScope governor concurrency slot unavailable after 30.000s
+degraded[extract-edges]: a model call failed and was downgraded (best-effort): DashScope governor concurrency slot unavailable after 30.000s
+degraded[extract-edges]: a model call failed and was downgraded (best-effort): DashScope governor concurrency slot unavailable after 30.000s
+degraded[extract-edges]: a model call failed and was downgraded (best-effort): DashScope governor concurrency slot unavailable after 30.000s
+degraded[extract-edges]: a model call failed and was downgraded (best-effort): DashScope governor concurrency slot unavailable after 30.000s
+degraded[extract-edges]: a model call failed and was downgraded (best-effort): DashScope governor concurrency slot unavailable after 30.000s
+Judge: {'judge_model': 'qwen3-max', 'judge_backend': 'dashscope'}
+Loaded 40 samples (locomo, split=test); categories: {'multi-hop': 7, 'open-domain': 2, 'single-hop': 22, 'temporal': 9}
+Running eidetic-plus-full: 40 samples x 1 run(s)...
+Running rag-vector: 40 samples x 1 run(s)...
+
+Scoreboard -> /Users/raunakgengiti/Eidetic-Plus/artifacts/holdout_rotation_r17_codex/scoreboard.md
+Curves     -> {'ok': True, 'recall_png': '/Users/raunakgengiti/Eidetic-Plus/artifacts/holdout_rotation_r17_codex/recall_vs_age.png', 'latency_png': '/Users/raunakgengiti/Eidetic-Plus/artifacts/holdout_rotation_r17_codex/latency_vs_age.png', 'slopes': {'eidetic-plus-full': {'recall_slope_per_year': -2.7650192557926143, 'latency_slope_ms_per_year': 39047.0007933303}, 'rag-vector': {'recall_slope_per_year': -1.377536571680852, 'latency_slope_ms_per_year': 2992.2312583573457}}}
+Manifest   -> /Users/raunakgengiti/Eidetic-Plus/artifacts/holdout_rotation_r17_codex/run_manifest.json
+Reproduce (full, >=10 runs): bash bench/reproduce.sh

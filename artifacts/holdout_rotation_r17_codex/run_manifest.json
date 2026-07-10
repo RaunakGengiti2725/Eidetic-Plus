@@ -1,0 +1,366 @@
+{
+  "systems": "eidetic-full,rag-vector",
+  "dataset": "locomo",
+  "split": "test",
+  "subset": 10,
+  "sample_offset": 0,
+  "sample_strategy": "contiguous",
+  "samples_file": "/Users/raunakgengiti/Eidetic-Plus/artifacts/holdout_rotation_r17_codex/holdout40.samples.json",
+  "holdout_profile": "holdout",
+  "runs": 1,
+  "run_offset": 0,
+  "variant": "longmemeval_s",
+  "render_only": false,
+  "judge": {
+    "judge_model": "qwen3-max",
+    "judge_backend": "dashscope"
+  },
+  "sample_count": 40,
+  "category_counts": {
+    "multi-hop": 7,
+    "open-domain": 2,
+    "single-hop": 22,
+    "temporal": 9
+  },
+  "sample_rows": [
+    {
+      "dataset": "locomo",
+      "sample_id": "c8_q141",
+      "category": "single-hop"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c7_q12",
+      "category": "temporal"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c2_q102",
+      "category": "single-hop"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c6_q125",
+      "category": "single-hop"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c2_q18",
+      "category": "multi-hop"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c3_q189",
+      "category": "single-hop"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c4_q55",
+      "category": "temporal"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c0_q132",
+      "category": "single-hop"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c8_q135",
+      "category": "single-hop"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c6_q30",
+      "category": "open-domain"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c3_q63",
+      "category": "multi-hop"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c2_q38",
+      "category": "temporal"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c0_q147",
+      "category": "single-hop"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c4_q79",
+      "category": "single-hop"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c4_q177",
+      "category": "single-hop"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c7_q13",
+      "category": "multi-hop"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c7_q31",
+      "category": "temporal"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c2_q137",
+      "category": "single-hop"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c3_q99",
+      "category": "single-hop"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c3_q19",
+      "category": "multi-hop"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c4_q160",
+      "category": "single-hop"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c6_q58",
+      "category": "temporal"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c9_q139",
+      "category": "single-hop"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c2_q98",
+      "category": "single-hop"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c0_q46",
+      "category": "open-domain"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c1_q11",
+      "category": "temporal"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c7_q79",
+      "category": "multi-hop"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c8_q115",
+      "category": "single-hop"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c2_q92",
+      "category": "single-hop"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c9_q130",
+      "category": "single-hop"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c6_q31",
+      "category": "temporal"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c7_q82",
+      "category": "multi-hop"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c4_q75",
+      "category": "single-hop"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c7_q189",
+      "category": "single-hop"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c7_q35",
+      "category": "temporal"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c9_q151",
+      "category": "single-hop"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c7_q77",
+      "category": "multi-hop"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c4_q141",
+      "category": "single-hop"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c3_q116",
+      "category": "single-hop"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c5_q58",
+      "category": "temporal"
+    }
+  ],
+  "system_failures": [],
+  "metabolism_mode": false,
+  "env": {
+    "ABSTENTION_THRESHOLD": "",
+    "ABSTENTION_V2": "",
+    "ABSTENTION_V2_TAU": "",
+    "ACTIVE_FACT_CONTEXT": "",
+    "ACTIVE_RETRIEVAL": "",
+    "ADAPTIVE_EF": "",
+    "ADAPTIVE_K": "",
+    "ADAPTIVE_K_MIN": "",
+    "AFFECT_SALIENCE": "",
+    "AGGREGATION_AUDIT": "",
+    "ANN_TOPK": "100",
+    "ASSISTANT_EVIDENCE_CONTEXT": "",
+    "BATCH_NLI": "",
+    "BENCH_BASELINE_LLM": "qwen-plus",
+    "BENCH_COACTIVATION": "",
+    "BENCH_FULL_CONSOLIDATION": "",
+    "CACHE_VERSIONING": "",
+    "CLAIM_EXTRACTION": "",
+    "COACTIVATION_CHANNEL": "",
+    "COMPRESSION_RATIO": "",
+    "CONFLICT_RESOLVER": "",
+    "CONFORMAL_ALPHA": "",
+    "CONFORMAL_DEPTH": "",
+    "CONFORMAL_QHAT": "",
+    "CONSOLIDATION_EXTRACT_CALL_BUDGET": "",
+    "CONSOLIDATION_EXTRACT_DEADLINE_SEC": "",
+    "CONSOLIDATION_LONG_HAYSTACK_RAW_ONLY": "",
+    "CONSOLIDATION_RAW_ONLY_WINDOW_THRESHOLD": "",
+    "CONSOLIDATION_TIMEOUT_POLICY": "",
+    "CONTEXT_COMPRESS": "",
+    "CONTEXT_TOKEN_BUDGET": "",
+    "COVE": "",
+    "CRYSTAL_SPAN_CHARS": "",
+    "CRYSTAL_SPAN_DEMOTION": "",
+    "DASHSCOPE_MAX_CONCURRENCY": "",
+    "DASHSCOPE_REQUEST_TIMEOUT_SEC": "",
+    "DASHSCOPE_RPM": "",
+    "DASHSCOPE_SLOT_TIMEOUT_SEC": "",
+    "DATA_DIR": "./data",
+    "DEFER_REEMBED": "",
+    "DREAM_AB": "",
+    "DREAM_INFER_CONFIDENCE": "",
+    "DREAM_PRUNE_PERCENTILE": "",
+    "DREAM_REPAIR": "",
+    "DREAM_REPAIR_APPLY": "",
+    "DREAM_USE_LLM_NLI": "",
+    "EIDETIC_ENABLE_DATASET_SOURCE_SCANS": "",
+    "EMBED_BATCH_PARALLELISM": "",
+    "EVENT_ALIAS_EXPANSION": "",
+    "EVENT_CHAIN_CONTEXT": "",
+    "EVENT_RANKING": "",
+    "EXTRACT_CHUNKING": "",
+    "EXTRACT_CHUNK_CHARS": "",
+    "EXTRACT_CHUNK_OVERLAP": "",
+    "EXTRACT_COMBINED": "",
+    "EXTRACT_LIGHT": "",
+    "EXTRACT_RESULT_CACHE": "",
+    "FALSE_PREMISE": "",
+    "FAST_VERIFY": "",
+    "FINAL_TOPK": "10",
+    "FLOW_ACTIVATION": "",
+    "FLOW_HYBRID_CHANNEL": "",
+    "FLOW_WARMUP": "",
+    "FULL_SLEEP": "",
+    "FUSION_LEARNER": "",
+    "FUSION_LEARNER_METHOD": "",
+    "FUSION_METHOD": "",
+    "GIST_CHANNEL": "",
+    "GRAPH_BRIDGE_CONTEXT": "",
+    "GRAPH_VOCAB_SEEDING": "",
+    "HIPPO2_SEEDING": "",
+    "HNSW_EF_CONSTRUCTION": "",
+    "HNSW_EF_SEARCH": "",
+    "HNSW_EF_SEARCH_HARD": "",
+    "HNSW_M": "",
+    "HOST_AUTO_SLEEP": "",
+    "HOST_AUTO_SLEEP_MIN_INTERVAL_SEC": "",
+    "HOST_AUTO_SLEEP_SCORE_IMPORTANCE": "",
+    "INGEST_GRANULARITY": "",
+    "JUDGE_BASE_URL": "",
+    "JUDGE_MODEL": "",
+    "LIST_AUDIT": "",
+    "MARKOV_PREFETCH": "",
+    "MEMORY_MANAGER": "",
+    "MEMORY_TYPING": "",
+    "METABOLISM_MODE": "",
+    "MMR_ENABLED": "",
+    "MMR_LAMBDA": "",
+    "PARALLEL_CHANNELS": "",
+    "PERSISTENT_BM25": "",
+    "PREF_SENTENCE_SCAN": "",
+    "QUANT_REFINE": "",
+    "RAW_SPAN_AUDIT": "",
+    "RAW_SPAN_AUDIT_TOPK": "",
+    "RAW_SPAN_MIN_CHARS": "",
+    "RAW_SPAN_PER_RECORD": "",
+    "READER_BLOCK_CHARS": "",
+    "READER_COT": "",
+    "READER_GATED_INFERENCE": "",
+    "READER_JSON_RESILIENT": "",
+    "READER_LIST_TWOPASS": "",
+    "READER_MODE": "",
+    "READER_MODEL": "qwen-plus",
+    "READER_RECENCY_NUDGE": "",
+    "READER_ROUTER": "",
+    "READER_TEMPORAL_SCAFFOLD": "",
+    "READER_TIER_A": "",
+    "REFLEX_RECALL": "",
+    "RERANK_DEPTH": "",
+    "RERANK_ENABLED": "",
+    "RERANK_FAIL_OPEN": "",
+    "RERANK_SKIP_MARGIN": "",
+    "ROCCHIO": "",
+    "RRF_K": "60",
+    "RRF_W_BM25": "",
+    "RRF_W_COACT": "",
+    "RRF_W_DENSE": "",
+    "RRF_W_EVENT": "",
+    "RRF_W_GIST": "",
+    "RRF_W_GRAPH": "",
+    "RRF_W_RECENCY": "",
+    "RRF_W_STRUCT": "",
+    "SALIENCE_PRUNE_THRESHOLD": "",
+    "SCRATCHPAD": "",
+    "SEMANTIC_CACHE": "",
+    "SEMANTIC_CACHE_ADAPTIVE": "",
+    "SPAN_NLI": "",
+    "STRICT_BASELINE_HEALTH": "",
+    "STRUCT_CHANNEL": "",
+    "TEMPORAL_EVIDENCE_AUDIT": "",
+    "TEMPORAL_RERANK": "",
+    "USER_EVIDENCE_CONTEXT": "",
+    "VECTOR_QUANT": "",
+    "VERIFY_CITATION_CAP": "",
+    "VIVID_FRACTION": ""
+  }
+}
