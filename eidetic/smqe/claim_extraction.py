@@ -1306,13 +1306,44 @@ def _widen_event_date_tags(rec: MemoryRecord, claims: list[ClaimRecord]) -> int:
         if not atom or not verb_re.search(atom):
             continue
         dated = _segment_event_date(rec, atom)
-        if not dated or dated[1] != ei.PRECISION_EXPLICIT:
+        iso = None
+        precision = None
+        if dated and dated[1] == ei.PRECISION_EXPLICIT:
+            iso, precision = dated[0], ei.PRECISION_EXPLICIT
+        else:
+            # STAGE 1b -- no-year month-day dates ('I visited ... on July 11'), the class
+            # that dominates the 455-claim mis-stamp surface. Year inference uses the SAME
+            # rule this module already ships for 'first/last week of MONTH' (past-tense
+            # dated verb + stated month/day: session year, minus one when the date would
+            # land after the session). INFERRED year -> PRECISION_RELATIVE_DAY, never
+            # EXPLICIT, so date-anchored consumers can weigh it; the known residual risk
+            # (multi-year-old recall inferring one year late) is bounded by the promotion
+            # gate's hand-verified sample.
+            # Exclusion rule (promotion-gate finding, 2/38): the lookahead must exclude ANY
+            # trailing 4-digit year, not just 20xx -- 'married on September 7, 1876' and
+            # 'passed away on January 15, 1890' fell through and inferred the SESSION year.
+            # Historical years are explicit dates the EXPLICIT branch deliberately ignores
+            # (pre-2000); they must not become inferred modern dates.
+            nm = re.search(
+                rf"\bon\s+({_MONTH_NAMES_RE})\s+(\d{{1,2}})(?:st|nd|rd|th)?\b(?!\s*,?\s*\d{{4}})",
+                atom, re.I)
+            if nm and session_day:
+                mon = _MONTH_NUM.get(nm.group(1).lower())
+                dom = int(nm.group(2))
+                ref = date(*[int(x) for x in session_day.split("-")])
+                if mon:
+                    year = ref.year if (mon, dom) <= (ref.month, ref.day) else ref.year - 1
+                    try:
+                        iso = date(year, mon, dom).isoformat()
+                        precision = ei.PRECISION_RELATIVE_DAY
+                    except ValueError:
+                        iso = None
+        if not iso:
             continue
-        iso = dated[0]
         if session_day and iso == session_day:
             continue
         c.filters = {**c.filters, "event_date": iso,
-                     "date_precision": ei.PRECISION_EXPLICIT,
+                     "date_precision": precision,
                      "event_date_widened": "1"}
         added += 1
     return added

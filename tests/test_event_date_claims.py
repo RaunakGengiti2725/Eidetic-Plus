@@ -491,7 +491,40 @@ def test_widened_event_date_tags_explicit_year_only_and_never_overwrites():
     # explicit full date + dated verb -> tagged with the stated day
     w = widened("user: I visited the Harbor Museum on March 5, 2022 with my cousin.", "w1")
     assert w and w[0][0] == "2022-03-05"
-    # no-year date -> NOT tagged (stage 1b, not this gate)
-    assert widened("user: I visited the Harbor Museum on March 5 with my cousin.", "w2") == []
+    # no-year date WITH a dated verb -> stage 1b infers the year (see the 1b test below)
+    w2 = widened("user: I visited the Harbor Museum on March 5 with my cousin.", "w2")
+    assert w2 and w2[0][0].endswith("-03-05")
     # explicit date but NO dated verb -> not tagged (likely someone else's event)
     assert widened("user: The deadline they mentioned is March 5, 2022 apparently.", "w3") == []
+
+
+def test_widened_no_year_dates_infer_year_with_boundary_and_history_guards():
+    """Stage 1b (promotion-gated at 36/36 hand-verified on LME-S): 'on <Month> <day>' with a
+    dated verb infers the year by the module's own week-of rule (session year, minus one when
+    the date would land after the session), at PRECISION_RELATIVE_DAY -- never EXPLICIT.
+    The gate's one discovered mis-tag class is pinned: a trailing HISTORICAL year
+    ('married on September 7, 1876') must never become an inferred modern date."""
+    from eidetic.models import MemoryRecord, Scope
+    from eidetic.smqe import event_identity as ei
+    from eidetic.smqe.claim_extraction import claims_for_record
+    from datetime import datetime, timezone
+
+    scope = Scope(namespace="widen-1b")
+    sess = datetime(2023, 5, 29, 12, 0, tzinfo=timezone.utc).timestamp()
+
+    def widened(text, ch):
+        rec = MemoryRecord(text=text, source="user", scope=scope, valid_at=sess,
+                           content_hash=ch, raw_uri="mem://x")
+        return [(c.filters["event_date"], c.filters["date_precision"])
+                for c in claims_for_record(rec)
+                if (c.filters or {}).get("event_date_widened")]
+
+    # same-year inference: March 17 before May 29 -> 2023, RELATIVE_DAY precision
+    w = widened("user: I attended a Zumba event on March 17th, it was so much fun!", "y1")
+    assert ("2023-03-17", ei.PRECISION_RELATIVE_DAY) in w
+    # year-boundary: October 29 is AFTER May 29 -> last year
+    w = widened("user: I attended the Character Bash event on October 29th, great fun.", "y2")
+    assert ("2022-10-29", ei.PRECISION_RELATIVE_DAY) in w
+    # THE promotion-gate class: historical trailing year must never infer a modern date
+    w = widened("user: They were married on September 7, 1876, in Washington County.", "y3")
+    assert all(not d.startswith(("2022", "2023")) for d, _p in w), w
