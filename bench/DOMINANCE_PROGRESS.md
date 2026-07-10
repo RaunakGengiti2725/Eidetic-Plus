@@ -2123,3 +2123,58 @@ residual verified-wrong class caps it at parity), and it is an ensemble that abs
 rag-vector's retrieval, not proof of superior memory. Cost note: eidetic still spends
 MORE tokens (rich context + the fallback's 2nd reader call) -- the token-cost lever
 (lean reader context) and the NotebookLM free-read mode are the separate cost story.
+
+## SLICES 16-17 + THE FORENSICS ARC (2026-07-09/10, commits 99b428ec8..9753edaee, 77 commits)
+
+The arc that changed the accuracy story, every number from committed artifacts:
+
+**Trust first (P0):** live LME-S numeric panel 5/13 verified-WRONG -> 0 (aggregate
+citation floor + 22 adversarially-found bypasses closed same-day; layer-2 query-shaped
+floors; reader-path numeric floor). Panel held 4/0/9 through every subsequent change.
+
+**The bug of the program (fleet-found, paired-measured):** pack_record_sources silently
+dropped store records past ~23x12KB ([:max_sources]). LME-S whole-export 7/28 (25.0%)
+-> 22/28 (78.6%), McNemar exact p=0.0003; knowledge-update 0/4 -> 4/4; the 16 recovered
+rows = exactly the 69-agent fleet's predicted cluster. One line of code was worth 53.6
+points.
+
+**Judge honesty:** judge v2 (5 confirmed LoCoMo gold defects quarantined symmetrically +
+deterministic containment pre-check, replay-validated 0 false positives). FIRST
+same-version head-to-head: product row 104/115 (90.4%) vs rag-vector 71/115 (61.7%),
+discordant 34:1, p=2.1e-9. Hardening helped the comparator too (59.2 -> 61.7).
+
+**SLICE 16 (r16, fresh ingest with the full fix stack):** eidetic 25/40 (verified 25) =
+rag-vector 25/40 (verified 0) > mem0 23/40 (double-confirmed; reproducible internal
+write timeouts). FIRST raw-accuracy parity window with vector RAG. Temporal 2/8
+(tz fix undetected); structured 10/40.
+
+**SLICE 17 (r17, first ingest with no-year date inference):** eidetic 24/40 (verified
+28, structured 17/40 SERIES-HIGH) = rag-vector 24/40. PARITY REPEATED: r16+r17 combined
+49/80 = 49/80 dead even, after r9-r14 averaged -5.5pp. Temporal 4/9 vs rag 2/9 (upper
+band, not claimed as lift at n=9). Forensic: the structured high decomposes to
+relative_temporal 7 (3 right, 4 verified-wrong via the LEGACY candidate loop -- the
+:event_date consumer went 2/2).
+
+**The temporal pipeline, closed end-to-end:** 460/460 dated claims were session-stamped
+(probe); inference promotion-gated 36/36 hand-verified (one discovered class -- historical
+years -- killed with a written exclusion rule); root-caused one level deeper (_DATE_RE
+matches no no-year dates); inference moved INTO _segment_event_date; 'When did I attend
+the Zumba event?' now answers 2023-03-17 VERIFIED. Tag surface 15 -> 75.
+
+**The refutation that counts as progress:** verify-side date-proof floor for the 57%-VW
+legacy relative_temporal class ATTEMPTED, REPLAYED BEFORE SHIP (kills 3/29, misses 26 --
+wrong-EVENT selection is invisible to any (atom, answer) check), REVERTED with evidence.
+The fix is selection-side only; constraint measured, not guessed.
+
+**Rolling mem0 series extends to n=360:** 207 vs 163 (+44), verified 302 vs 0, nine
+windows, eight wins, the loss published.
+
+**NBL 10-run gate:** 7/10 full runs (85.0/82.5/82.5/80.0/80.0/84.6/80.0), every run
+>=22.5pp over the same-window comparator; runs 8-10 + the CI verdict armed on a detached
+OS runner for the 23:25 quota reset. Hindsight comparator landed: 29/40 (72.5%).
+
+**Provenance:** citation_map [n] -> content_hash 25/26 rows (96%) live, was 0/28.
+
+Still true, still stated: Chronos's 95.6% (unreproduced, agentic reader, no code) sits
+above the product row's 90.4%. The gap is 5.2 points, every one of them mapped to an
+armed measurement or a written constraint. No SOTA wording until the ledger carries it.
