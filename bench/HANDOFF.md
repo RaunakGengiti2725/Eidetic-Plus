@@ -448,3 +448,12 @@ precision gates; a date mentioned in an atom is not always the claim's event
 date, so blanket tagging is the known whack-a-mole trap); (2) the
 valid_at/observed_at bi-temporal decision. Regression gates:
 bench/dual_timestamp_probe.py + the tag-coverage count above.
+
+## JUDGE-V2 RE-JUDGE (2026-07-10, commit 4b8a9bb19)
+
+All 11 committed collections under v2 (DashScope was never quota-walled --
+only NLM): LoCoMo product row 90.4% (94.9/89.5/86.8), r15 7-run band
+tightens to 84.2-86.8, LME-S truncated stays 25.0 (honest), lossless 76.7.
+v1 stays the published baseline; NO v2 head-to-head until rag-vector rows
+are re-judged under v2 (queued -- needs a small adapter: judge_rows_v2
+expects nb_answer, rag rows carry 'predicted').
