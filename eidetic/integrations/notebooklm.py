@@ -55,6 +55,18 @@ def _iso(ts: Optional[float]) -> str:
 import re as _re
 
 _EIDETIC_REF_RE = _re.compile(r"eidetic:([0-9a-zA-Z_\-]{4,32})")
+# Enumeration/aggregation intent: a count or exhaustive-list question needs a COMPLETE
+# candidate set, not a relevance top-k (miss-forensics fleet: confident-wrong set answers
+# can never self-trigger reactive widening). Deliberately narrow -- plain wh-lookups and
+# polarity questions must never trip it.
+_ENUMERATION_QUERY_RE = _re.compile(
+    # "how many <set-noun>" enumerates a SET; "how many days/hours/... " is a duration/delta
+    # lookup and must keep the focused top-k (a temporal question widened 2-3x buries the two
+    # anchor records the delta needs).
+    r"\bhow\s+many\s+(?!(?:seconds?|minutes?|hours?|days?|weeks?|months?|years?|times?)\b)"
+    r"|\blist\s+(?:all|every)\b|\bwhat\s+(?:all|kinds?\s+of|types?\s+of)\b|"
+    r"\b(?:all|every)\s+the\b|\bname\s+(?:all|every)\b|\bwhich\s+\w+s\b[^?]*\b(?:visit|try|"
+    r"tried|attend|go|gone|been|bought|read|watch)", _re.I)
 
 
 def find_notebook_id(raw_json: str, title: Optional[str] = None, *,
@@ -618,12 +630,38 @@ class NotebookLMBridge:
         if r is None or not hasattr(r, "retrieve"):
             return self.build_sources(namespace, limit=top_k)
         scope = Scope(namespace=namespace)
-        cands = r.retrieve(question, at=None, scope=scope)[:max(1, top_k)]
+        # ENUMERATION COMPLETENESS MODE (miss-forensics fleet 2026-07-09): a count/list
+        # question answered from a relevance top-k is answered from an INCOMPLETE candidate
+        # set -- and a confident-wrong set answer can never trigger reactive widening
+        # (iterative_recall fires on declared insufficiency, not on confident errors), so the
+        # set must be complete on round 1. For enumeration-shaped questions the read set is
+        # proactively widened: double the dense cut plus one claim-graph hop from the dense
+        # candidates' entities. Bounded (3x top_k) so a focused read stays focused.
+        enumeration = bool(_ENUMERATION_QUERY_RE.search(question or ""))
+        cut = max(1, top_k * 2 if enumeration else top_k)
+        cands = r.retrieve(question, at=None, scope=scope)[:cut]
+        recs = [c.record for c in cands if getattr(c, "record", None) is not None]
+        if enumeration and recs:
+            seen = {rec.memory_id for rec in recs}
+            seeds = {str(e).lower() for rec in recs
+                     for e in (getattr(rec, "entities", None) or [])}
+            if seeds:
+                try:
+                    by_id = {rec.memory_id: rec
+                             for rec in self.engine.store.all_records(scope)}
+                    for edge in self.engine.store.all_edges(scope, include_inferred=False):
+                        if len(recs) >= top_k * 3:
+                            break
+                        if (str(edge.src or "").lower() in seeds
+                                or str(edge.dst or "").lower() in seeds):
+                            rec = by_id.get(edge.source_memory_id or "")
+                            if rec is not None and rec.memory_id not in seen:
+                                seen.add(rec.memory_id)
+                                recs.append(rec)
+                except Exception:
+                    pass  # widening is best-effort; the dense set still exports
         out = []
-        for c in cands:
-            rec = getattr(c, "record", None)
-            if rec is None:
-                continue
+        for rec in recs:
             try:
                 claims = self.engine.store.claims_by_source(rec.memory_id)
             except Exception:

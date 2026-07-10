@@ -613,6 +613,47 @@ def test_iterative_recall_stops_honestly_when_nothing_new_reachable():
     assert "no information" in out["answer"].lower()   # the honest answer survives
 
 
+def test_enumeration_query_widens_read_set_with_graph_hop():
+    """Completeness mode: a count/list question must not read from a relevance top-k --
+    a confident-wrong set answer can never self-trigger reactive widening, so the candidate
+    set is proactively widened (2x dense + one claim-graph hop, capped at 3x top_k)."""
+    hikes = [_rec(f"I went on the {name} hike this spring.", mid=f"mem_hike{i:012d}", ch=f"h{i}")
+             for i, name in enumerate(["Cedar Ridge", "Maple Loop", "Pond Path", "Quarry Rim"])]
+    for rec in hikes:
+        rec.entities = ["hiking"]
+    decoy = _rec("The bakery order arrived on Tuesday.", mid="mem_decoy0000000001", ch="hd")
+    edges = [Edge(src="hiking", relation="did", dst=f"hike-{i}", fact="hike",
+                  source_memory_id=rec.memory_id, valid_at=1.0)
+             for i, rec in enumerate(hikes)]
+    eng = _FakeEngine(_IterativeStore(hikes + [decoy], edges=edges))
+    # dense retrieval only surfaces TWO of the four hikes
+    eng.retriever = _IterativeRetriever({"how many hikes": hikes[:2]})
+
+    bridge = NotebookLMBridge(eng, _RecordingBackend())
+    sources = bridge.retrieval_guided_sources("nb-test", "How many hikes did I go on?", top_k=2)
+    blob = " ".join(s["text_content"] for s in sources)
+    for name in ["Cedar Ridge", "Maple Loop", "Pond Path", "Quarry Rim"]:
+        assert name in blob                      # graph hop completed the candidate set
+    assert "bakery" not in blob                  # unrelated record stays out
+    assert len(sources) <= 2 * 3                 # bounded: never more than 3x top_k
+
+
+def test_non_enumeration_query_keeps_focused_top_k():
+    """A plain lookup must NOT widen -- the focused-set premise is the accuracy win."""
+    recs = [_rec(f"fact number {i} about the garden.", mid=f"mem_g{i:015d}", ch=f"g{i}")
+            for i in range(5)]
+    for rec in recs:
+        rec.entities = ["garden"]
+    edges = [Edge(src="garden", relation="about", dst=f"f{i}", fact="f",
+                  source_memory_id=rec.memory_id, valid_at=1.0) for i, rec in enumerate(recs)]
+    eng = _FakeEngine(_IterativeStore(recs, edges=edges))
+    eng.retriever = _IterativeRetriever({"where is": recs[:2]})
+
+    bridge = NotebookLMBridge(eng, _RecordingBackend())
+    sources = bridge.retrieval_guided_sources("nb-test", "Where is the garden bench?", top_k=2)
+    assert len(sources) == 2                     # exactly the dense top-k, no widening
+
+
 def test_router_no_fallthrough_low_conf_verified_with_gate():
     """Advisor blocking-fix #1: answered+verified+immutable_proof but confidence<tau AND
     require_gate_verification=True must NOT fall through -- it escalates to Tier 3."""
