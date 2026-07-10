@@ -36,6 +36,15 @@ Probe (`conflict_inhibition_probe.json`, offline, cached embeddings):
    one when the update is buried (0/4). Focused retrieval leads with the current record —
    the shipped retrieval-guided path already solves the slice (4/4).
 
+   **CORRECTION (2026-07-10, measured, commit `34faa4cc4`):** the "burying" mechanism was
+   largely wrong. The miss-forensics fleet proved `pack_record_sources` silently DROPPED
+   records past ~23x12KB (`packed[:max_sources]`), and the paired re-collect with the
+   lossless pack moved this exact slice from **0/4 to 4/4** (whole window: 25.0% → 78.6%,
+   McNemar p=0.0003). The updates were never exported at all. The conclusion below stands
+   on its other legs (ranking fine, closed-edge machinery exists); the whole-export-vs-
+   retrieval-guided gap on this slice is now CLOSED by the export fix, further weakening
+   the case for new inhibitory edge types.
+
 ## Verdict
 
 - The product path (retrieval-guided, now `notebooklm_recall` / `recall_routed` tier 2)
