@@ -23,6 +23,8 @@ class RecordStore:
         self.db_path = Path(db_path)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._local = threading.local()
+        self._connections: set[sqlite3.Connection] = set()
+        self._connections_lock = threading.Lock()
         self._init_schema()
 
     # SQLite connections are not shareable across threads; keep one per thread.
@@ -33,7 +35,32 @@ class RecordStore:
             c.row_factory = sqlite3.Row
             c.execute("PRAGMA journal_mode=WAL")
             self._local.conn = c
+            with self._connections_lock:
+                self._connections.add(c)
         return c
+
+    def close(self) -> None:
+        with self._connections_lock:
+            connections = list(self._connections)
+            self._connections.clear()
+        for connection in connections:
+            try:
+                connection.close()
+            except sqlite3.Error:
+                pass
+        self._local.conn = None
+
+    def __enter__(self) -> "RecordStore":
+        return self
+
+    def __exit__(self, exc_type, exc, traceback) -> None:
+        self.close()
+
+    def __del__(self) -> None:
+        try:
+            self.close()
+        except Exception:
+            pass
 
     def _init_schema(self) -> None:
         c = self._conn()

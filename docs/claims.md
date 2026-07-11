@@ -12,10 +12,11 @@ given to every system (`bench/reader.py:answer_with_fixed_reader`, pinned `qwen-
 pinned `qwen3-max`), eidetic is competitive with full-context RAG, vector RAG, and Mem0 on
 LongMemEval at a fraction of the token cost. **Honest scope (do not overstate):** on LoCoMo raw
 accuracy the opposite holds — across 6 disjoint windows (r9–r14, n=240) full-context and vector
-RAG *beat* eidetic (58.8% vs 53.3%); see [PUBLIC_CLAIMS.md](PUBLIC_CLAIMS.md) limitations. eidetic's
-edge is the verified/provenance column (at ~56% verified-precision), not raw accuracy leadership.
-The shared reader is the whole point: it makes this a memory comparison, not a reader comparison.
-The Tier-A reader fixes are applied to every system equally.
+RAG *beat* eidetic (58.8% vs 53.3%); see [PUBLIC_CLAIMS.md](PUBLIC_CLAIMS.md) limitations. Eidetic's
+edge is the governed provenance column, not raw accuracy leadership. Historical verification labels
+do not mean correctness: the r1–r10 mechanical replay reports 129/341 verified-but-judge-wrong rows.
+The fixed-reader draft row isolates retrieval quality; the fixed-reader governed row passes the same
+draft through the canonical Engine proof boundary. Product-reader and NotebookLM rows remain separate.
 
 **Claim B -- attribution.** The long-horizon gain is mechanistically earned, shown by ablation:
 turn the metabolism *memory* components off (consolidation/dreaming, the gist/co-activation/struct
@@ -60,8 +61,9 @@ can build only the sidecar. `bench.release_gate` fails closed if that evidence i
   `tests/test_no_delete_on_forget.py`, `tests/test_write_once.py`.
 - **Age-independence.** Recall ranking carries no absolute-age term; re-prove with
   `engine.prove_age_independence` after enabling any channel.
-- **Fairness.** Every system answers through the one shared reader; the comparison isolates memory
-  quality, not answerer strength (verified in `bench/adapters/*` -- all call `answer_with_fixed_reader`).
+- **Fairness.** Neutral and governed comparison rows use the one shared fixed reader; the latter adds
+  only Eidetic's canonical verify-or-abstain policy. Product-reader and NotebookLM rows are labeled
+  separately and are never merged into the fixed-reader accuracy comparison.
 
 ## On the test gate
 

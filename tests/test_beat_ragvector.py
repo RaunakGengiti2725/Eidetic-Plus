@@ -118,93 +118,12 @@ def _settings_with(**overrides):
 
 
 
-# --------------------------------------------------------------------------- #
-# Lever 2 -- abstention -> reader when dense coverage exists
-# --------------------------------------------------------------------------- #
-def _decide_abstention(*, declined, verified, coverage, settings):
-    """Mirror of the eidetic_adapter abstention decision (non-v2 branch) with the
-    coverage-backed override layered on -- the exact logic added at
-    bench/adapters/eidetic_adapter.py. Kept as a pure function so the policy is unit-testable
-    without standing up the whole adapter/reader/client stack."""
-    from bench.adapters.eidetic_adapter import _coverage_backed_abstain
+def test_unverified_benchmark_escape_hatches_are_removed():
+    import bench.adapters.eidetic_adapter as adapter
 
-    return _coverage_backed_abstain(
-        declined=declined, verified=verified, coverage=coverage, settings=settings)
-
-
-def test_l2_coverage_backed_answers_when_nli_flaps(tmp_path):
-    """Strong dense coverage + non-declined reader text + NLI did NOT entail -> the legacy
-    gate would abstain (coverage below abstention_threshold path OR unverified); the
-    coverage-backed override ships the answer. Flag ON."""
-    s = _settings_with(
-        abstention_v2_enabled=False,
-        abstention_reader_coverage_enabled=True,
-        reader_coverage_floor=0.45,
-        abstention_threshold=0.9,  # legacy would abstain: coverage 0.72 < 0.9 and unverified
-    )
-    abstained = _decide_abstention(
-        declined=False, verified=False, coverage=0.72, settings=s)
-    assert abstained is False
-
-
-def test_l2_coverage_backed_respects_decline(tmp_path):
-    """The reader itself said 'I don't have that' -> declined is absolute, still abstains
-    even with strong coverage. Flag ON."""
-    s = _settings_with(
-        abstention_v2_enabled=False,
-        abstention_reader_coverage_enabled=True,
-        reader_coverage_floor=0.45,
-        abstention_threshold=0.9,
-    )
-    abstained = _decide_abstention(
-        declined=True, verified=False, coverage=0.99, settings=s)
-    assert abstained is True
-
-
-def test_l2_coverage_backed_below_floor_still_abstains(tmp_path):
-    """Coverage below the floor -> override does NOT fire; legacy abstention stands."""
-    s = _settings_with(
-        abstention_v2_enabled=False,
-        abstention_reader_coverage_enabled=True,
-        reader_coverage_floor=0.45,
-        abstention_threshold=0.9,
-    )
-    abstained = _decide_abstention(
-        declined=False, verified=False, coverage=0.30, settings=s)
-    assert abstained is True
-
-
-def test_l2_flag_off_byte_identical(tmp_path):
-    """Flag OFF -> the coverage-backed override is a no-op; the decision equals the legacy
-    non-v2 gate exactly (declined or (not verified and coverage < threshold))."""
-    s = _settings_with(
-        abstention_v2_enabled=False,
-        abstention_reader_coverage_enabled=False,
-        reader_coverage_floor=0.45,
-        abstention_threshold=0.4,
-    )
-    # coverage above threshold, unverified -> legacy answers.
-    assert _decide_abstention(declined=False, verified=False, coverage=0.72, settings=s) is False
-    # coverage below threshold, unverified -> legacy abstains.
-    assert _decide_abstention(declined=False, verified=False, coverage=0.30, settings=s) is True
-
-
-def test_l2_coverage_backed_row_is_never_labeled_verified():
-    """CRITICAL honesty invariant (review finding #1): a row shipped BECAUSE of the coverage
-    override did NOT pass the proof gate, so it must be labeled verified=False even if raw
-    citations happened to entail. This mirrors the exact expression the adapter writes into
-    extra['verified'] -- `bool(verified and not abstained and not coverage_backed)` -- so a
-    regression that drops the `not coverage_backed` guard fails here, not silently on holdout."""
-    def _extra_verified(*, verified, abstained, coverage_backed):
-        return bool(verified and not abstained and not coverage_backed)
-
-    # citations entailed (verified=True) but the base gate wanted to abstain; the override
-    # ships the row -> it MUST be reported unverified.
-    assert _extra_verified(verified=True, abstained=False, coverage_backed=True) is False
-    # a normal verified answer (no override) stays verified.
-    assert _extra_verified(verified=True, abstained=False, coverage_backed=False) is True
-    # an abstention is never verified.
-    assert _extra_verified(verified=True, abstained=True, coverage_backed=False) is False
+    assert not hasattr(adapter, "_coverage_backed_abstain")
+    assert not hasattr(adapter, "_dense_topk_fallback")
+    assert not hasattr(adapter, "_dense_topk_blocks")
 
 
 # --------------------------------------------------------------------------- #
@@ -253,27 +172,3 @@ def test_l3_budget_blocks_is_priority_truncation(tmp_path):
     out = _budget_blocks(blocks, 100)  # char_budget = 400: HEAD alone overflows it
     joined = " ".join(out)
     assert "HEAD-" in joined and "TAIL-" not in joined
-
-
-# --------------------------------------------------------------------------- #
-# Lever 4 -- dense top-k ensemble fallback (absorbs rag-vector's retrieval)
-# --------------------------------------------------------------------------- #
-def test_l4_dense_topk_blocks_are_clean_cosine_slice():
-    """The ensemble context is the k highest dense-cosine candidates' raw text -- the same
-    clean slice rag-vector feeds -- with no structured/audit channels."""
-    from bench.adapters.eidetic_adapter import _dense_topk_blocks
-
-    class _Rec:
-        def __init__(self, text): self.text = text; self.summary = ""
-    class _Cand:
-        def __init__(self, text, score): self.record = _Rec(text); self.dense_score = score
-    cands = [_Cand("low relevance passage", 0.10),
-             _Cand("TOP relevance passage", 0.90),
-             _Cand("mid relevance passage", 0.50)]
-    blocks = _dense_topk_blocks(cands, 2)
-    assert blocks == ["TOP relevance passage", "mid relevance passage"]  # top-2 by cosine
-
-
-def test_l4_dense_topk_blocks_empty_when_no_candidates():
-    from bench.adapters.eidetic_adapter import _dense_topk_blocks
-    assert _dense_topk_blocks([], 10) == []

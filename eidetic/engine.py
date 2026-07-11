@@ -15,7 +15,7 @@ import threading
 import time
 from collections import OrderedDict, deque
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional
 
 import numpy as np
 
@@ -30,7 +30,7 @@ from .ingestion import IngestInput, from_bytes, from_file, from_text
 from .memory_types import classify_record
 from .brain import BrainEventLog, build_evidence_packets
 from .models import (Answer, BrainEvent, BrainEventType, EvidencePacket, MemoryRecord,
-                     Modality, NLILabel, RecallTrace, Scope, now)
+                     Modality, NLILabel, RecallTrace, RetrievalCandidate, Scope, now)
 from .activation import ActivationField
 from .reflex import MemoryPacket
 from .reflex_activation import build_memory_packet
@@ -805,43 +805,51 @@ class Engine:
     def structured_recall(self, query: str, *, scope: Optional[Scope] = None,
                           as_of: Optional[float] = None, verify: bool = True) -> dict:
         """Run the typed SMQE path directly and expose its plan/support/proof trace."""
+        if not verify:
+            raise ValueError("Engine.structured_recall requires verification")
         from .smqe import structured_recall
+        selected_scope = scope or Scope()
         out = structured_recall(
             self.retriever,
             query,
             at=as_of,
             verify=verify,
-            scope=scope or Scope(),
+            scope=selected_scope,
         )
-        out.pop("_answer_model", None)
-        citations = out.get("citations") if isinstance(out.get("citations"), list) else []
-        proof_link_checks = 0
-        for cit in citations:
-            if not isinstance(cit, dict):
-                continue
-            content_hash = str(cit.get("content_hash", "") or "").strip().lower()
-            raw_uri = str(cit.get("raw_uri", "") or "").strip().lower()
-            if (
-                re.fullmatch(r"[0-9a-f]{64}", content_hash)
-                and raw_uri == f"cas://{content_hash}"
-                and self.substrate.verify(content_hash)
-            ):
-                proof_link_checks += 1
-        out["proof_link_checks"] = proof_link_checks
-        out["immutable_proof"] = bool(
-            out.get("answered")
-            and out.get("verified")
-            and citations
-            and proof_link_checks == len(citations)
-        )
-        if out.get("answered") and out.get("verified") and not out["immutable_proof"]:
-            out.update({
-                "answered": False,
-                "abstained": True,
-                "verified": False,
-                "confidence": 0.0,
-                "failure_reason": "missing_immutable_proof",
-            })
+        answer_model = out.pop("_answer_model", None)
+        if answer_model is not None:
+            governed = self._govern_answer(query, answer_model, selected_scope, as_of)
+            if governed.status.value == "VERIFIED":
+                out["answer"] = governed.answer
+                out["citations"] = [citation.model_dump(mode="json")
+                                    for citation in governed.citations]
+                out["verified"] = True
+                out["answered"] = True
+                out["abstained"] = False
+                proof = self.prove(governed, check_refs=True)
+                out["proof_link_checks"] = len(governed.citations)
+                out["immutable_proof"] = bool(proof.get("refs_verified"))
+            else:
+                out.update({
+                    "answered": False,
+                    "abstained": True,
+                    "verified": False,
+                    "confidence": 0.0,
+                    "citations": [],
+                    "proof_link_checks": 0,
+                    "immutable_proof": False,
+                    "failure_reason": "missing_immutable_proof",
+                })
+        else:
+            out["proof_link_checks"] = 0
+            out["immutable_proof"] = False
+        if out.get("answered") and out.get("verified"):
+            out["status"] = "VERIFIED"
+            out["draft"] = ""
+        else:
+            out["status"] = "ABSTAINED"
+            out["draft"] = out.get("answer", "")
+            out["answer"] = ""
         return out
 
     def preference_profile(self, *, scope: Optional[Scope] = None,
@@ -942,9 +950,106 @@ class Engine:
                 "repair": "rebuild_index_from_store" if debt else None}
 
     # ---- wake: read path --------------------------------------------------
+    def _govern_answer(self, query: str, answer: Answer, scope: Scope,
+                       at: Optional[float] = None) -> Answer:
+        proof_at = now() if at is None else at
+        entailed = [citation for citation in answer.citations
+                    if citation.nli_label == NLILabel.ENTAILMENT]
+        contradicted = any(citation.nli_label == NLILabel.CONTRADICTION
+                           for citation in answer.citations)
+        references_resolve = bool(entailed)
+        for citation in entailed:
+            record = self.store.get_record(citation.memory_id)
+            normalized_snippet = re.sub(r"\s+", " ", citation.snippet or "").strip().lower()
+            normalized_record = re.sub(
+                r"\s+", " ", (record.text or record.summary or "") if record else ""
+            ).strip().lower()
+            if (record is None
+                    or record.scope.key() != scope.key()
+                    or record.content_hash != citation.content_hash
+                    or record.raw_uri != citation.raw_uri
+                    or record.valid_at != citation.valid_at
+                    or not record.is_active_at(proof_at)
+                    or not normalized_snippet
+                    or normalized_snippet[:300] not in normalized_record):
+                references_resolve = False
+                break
+            try:
+                raw = self.substrate.get(citation.content_hash)
+                if sha256_hex(raw) != citation.content_hash:
+                    references_resolve = False
+                    break
+                if record.modality == Modality.TEXT:
+                    normalized_raw = re.sub(
+                        r"\s+", " ", raw.decode("utf-8")
+                    ).strip().lower()
+                    if normalized_snippet[:300] not in normalized_raw:
+                        references_resolve = False
+                        break
+            except Exception:
+                references_resolve = False
+                break
+        if answer.verified and entailed and references_resolve and not contradicted:
+            return answer.model_copy(update={"citations": entailed})
+        if contradicted:
+            reason = "active memory contradicts the answer"
+        elif answer.verified and not references_resolve:
+            reason = "immutable proof resolution failed"
+        else:
+            reason = (answer.note or "no source entails the answer").removeprefix("unverified: ")
+        return Answer.abstain(
+            query,
+            note=reason,
+            generated_by=answer.generated_by,
+            retrieved_count=answer.retrieved_count,
+        )
+
+    def prove_external_draft(self, query: str, draft: str, evidence_memory_ids: list[str], *,
+                             scope: Optional[Scope] = None,
+                             as_of: Optional[float] = None,
+                             generated_by: str = "external-reader") -> Answer:
+        scope = scope or Scope()
+        at = now() if as_of is None else as_of
+        candidates: list[RetrievalCandidate] = []
+        for memory_id in dict.fromkeys(evidence_memory_ids or []):
+            record = self.store.get_record(memory_id)
+            if (record is None
+                    or record.scope.key() != scope.key()
+                    or not record.is_active_at(at)):
+                continue
+            candidates.append(RetrievalCandidate(
+                record=record,
+                dense_score=1.0,
+                fused_score=1.0,
+                rerank_score=1.0,
+            ))
+        if not draft.strip() or not candidates:
+            return Answer.abstain(
+                query,
+                note="external reader returned no provable draft or exact-scope evidence",
+                generated_by=generated_by,
+                retrieved_count=len(candidates),
+            )
+        answer = self.retriever.answer(
+            query,
+            at=at,
+            verify=True,
+            scope=scope,
+            precomputed=candidates,
+            reader_model=generated_by,
+            reader=lambda _query, _blocks: draft,
+            allow_structured=False,
+            require_all_claims=True,
+            allow_grounding_rescue=False,
+        )
+        return self._govern_answer(query, answer, scope, at)
+
     def ask(self, query: str, *, at: Optional[float] = None, verify: bool = True,
             scope: Optional[Scope] = None, as_of: Optional[float] = None,
-            use_cache: bool = True, reader_model: Optional[str] = None) -> Answer:
+            use_cache: bool = True, reader_model: Optional[str] = None,
+            reader: Optional[Callable[[str, list[str]], str]] = None) -> Answer:
+        if not verify:
+            raise ValueError("Engine.ask requires verification; use recall diagnostics for evidence-only access")
         scope = scope or Scope()
         read_at = as_of if as_of is not None else at
         sk = scope.key()
@@ -957,12 +1062,12 @@ class Engine:
                 note = f"abstained: false-premise ({fp['category']})"
                 self._brain(BrainEventType.ANSWER_ABSTAINED, namespace=scope.namespace,
                             note=note, reason=fp["category"])
-                return Answer(question=query, answer=fp["message"], verified=False,
-                              confidence=0.0, retrieved_count=0, note=note)
+                return Answer.abstain(question=query, answer=fp["message"],
+                                      retrieved_count=0, note=note)
         # Prospective memory: learn P(next query-signature | current) for predictive prefetch.
         if self.settings.markov_prefetch_enabled:
             self._observe_query(query)
-        use_cache = use_cache and self.settings.semantic_cache_enabled
+        use_cache = use_cache and reader is None and self.settings.semantic_cache_enabled
         # Cache bypass when observing. RECALL_TRACE always bypasses: a cache hit carries no fresh
         # trace, and trace inspection wants the real retrieval. BRAIN_EVENTS bypasses ONLY when
         # versioning is off -- a non-versioned hit could be a stale truth with no fresh event. With
@@ -984,7 +1089,7 @@ class Engine:
             hit = self.cache.get(sk, query, None, version=cache_ver)   # exact-hash (no embedding)
             if hit is not None:
                 self._brain(BrainEventType.CACHE_HIT, namespace=scope.namespace, mode="exact")
-                return hit
+                return self._govern_answer(query, hit, scope, read_at)
 
         # SMQE answers narrow extractive/compositional memory questions from typed claims first and
         # raw records second. It is the general structured recall path; retrieval remains the fallback.
@@ -1014,7 +1119,7 @@ class Engine:
             hit = self.cache.get(sk, query, qvec, version=cache_ver)   # cosine >= threshold
             if hit is not None:
                 self._brain(BrainEventType.CACHE_HIT, namespace=scope.namespace, mode="semantic")
-                return hit
+                return self._govern_answer(query, hit, scope, read_at)
 
         # Track 9 Flow: begin the turn (one decay + optional query prime) ONLY now that this is a
         # real recall -- a cache hit returned above without mutating the field. Done once here, so
@@ -1056,21 +1161,24 @@ class Engine:
         # (inert when the activation channels are off; None when flow is off -> byte-identical).
         flow_act = self._flow_snapshot(scope.namespace) if self.settings.flow_activation_enabled else None
         precomputed = None
+        reader_kwargs = {"reader": reader} if reader is not None else {}
         if structured_answered is not None:
             ans = structured_answered
         elif reflex_candidates is not None:
             ans = self.retriever.answer(query, at=read_at, verify=verify, scope=scope, qvec=qvec,
                                         precomputed=reflex_candidates, reader_model=reader_model,
-                                        activation=flow_act)
+                                        activation=flow_act, **reader_kwargs)
         elif self.settings.feedback_enabled or flow_act:
             precomputed = self.retriever.retrieve(query, at=read_at, scope=scope, qvec=qvec,
                                                   activation=flow_act)
             ans = self.retriever.answer(query, at=read_at, verify=verify, scope=scope, qvec=qvec,
                                         precomputed=precomputed, reader_model=reader_model,
-                                        activation=flow_act)
+                                        activation=flow_act, **reader_kwargs)
         else:
             ans = self.retriever.answer(query, at=read_at, verify=verify, scope=scope, qvec=qvec,
-                                        reader_model=reader_model)
+                                        reader_model=reader_model, **reader_kwargs)
+
+        ans = self._govern_answer(query, ans, scope, read_at)
 
         # Reconsolidation as a write path (retrieval is no longer read-only).
         # PHASE 1 (NO lock): the confirmed-citation re-embed is the only model call here; it must
@@ -1950,8 +2058,16 @@ class Engine:
         """Compute recall@k and p95 retrieval latency vs memory AGE on the CURRENT store.
 
         Partial-cue probe (pattern completion): query with a prefix of each memory and
-        check it returns among the top-k against the rest as distractors. Ranking uses
-        content similarity only, so both curves come out flat regardless of age."""
+        check it returns among the top-k against the rest as distractors. TWO channels
+        are probed so the claim covers what actually ships (WP5 closed the gap where
+        only the raw index was proven while the ranker fused a recency channel):
+          - index: the pure content index (index.search), the original claim;
+          - full_path: retriever.retrieve() -- the SHIPPED hybrid fusion (dense + BM25 +
+            graph, recency off by default). Rerank is skipped for cost: qwen3-rerank
+            scores only (query, text) pairs and receives no timestamp, so it cannot
+            reintroduce age; the fusion ordering is where age could enter, and it is
+            probed directly.
+        `flat` requires BOTH recall curves flat and index latency flat."""
         scope = scope or Scope()
         recs = [r for r in self.store.all_records(scope) if (r.text or "").strip()]
         if len(recs) < 5:
@@ -1961,7 +2077,7 @@ class Engine:
         active = self.store.active_ids_at(scope=scope)
         recs = [r for r in recs if r.memory_id in active][:max_n]
         now_t = now()
-        ages, hits, lat_ms = [], [], []
+        ages, hits, lat_ms, full_hits = [], [], [], []
         for r in recs:
             cue = r.text[: max(24, int(len(r.text) * 0.6))]  # partial cue
             qvec = self.client.embed_text(cue)  # real
@@ -1970,13 +2086,17 @@ class Engine:
             dt = (time.perf_counter() - t0) * 1000.0
             res = [(mid, s) for mid, s in res if mid in active][:k]
             hits.append(1 if any(mid == r.memory_id for mid, _ in res) else 0)
+            full = self.retriever.retrieve(cue, scope=scope, qvec=qvec, skip_rerank=True)
+            full_hits.append(1 if any(c.record.memory_id == r.memory_id
+                                      for c in full[:k]) else 0)
             lat_ms.append(dt)
             ages.append((now_t - r.valid_at) / 86400.0)
 
         ages_a, hits_a, lat_a = np.array(ages), np.array(hits), np.array(lat_ms)
+        full_a = np.array(full_hits)
         nbins = min(8, max(2, len(recs) // 4))
         edges = np.linspace(ages_a.min(), ages_a.max() + 1e-9, nbins + 1)
-        centers, recall_bin, p95_bin = [], [], []
+        centers, recall_bin, p95_bin, full_bin = [], [], [], []
         for b in range(nbins):
             mask = (ages_a >= edges[b]) & (ages_a < edges[b + 1])
             if mask.sum() == 0:
@@ -1984,8 +2104,10 @@ class Engine:
             centers.append(float((edges[b] + edges[b + 1]) / 2 / 365.25))
             recall_bin.append(float(hits_a[mask].mean()))
             p95_bin.append(float(np.percentile(lat_a[mask], 95)))
+            full_bin.append(float(full_a[mask].mean()))
         rec_slope = float(np.polyfit(centers, recall_bin, 1)[0]) if len(centers) > 1 else 0.0
         lat_slope = float(np.polyfit(centers, p95_bin, 1)[0]) if len(centers) > 1 else 0.0
+        full_slope = float(np.polyfit(centers, full_bin, 1)[0]) if len(centers) > 1 else 0.0
         return {
             "ok": True, "n": len(recs), "k": k,
             "overall_recall": float(hits_a.mean()),
@@ -1993,7 +2115,12 @@ class Engine:
             "recall_slope_per_year": rec_slope,
             "latency_slope_ms_per_year": lat_slope,
             "age_centers_years": centers, "recall_per_bin": recall_bin, "p95_ms_per_bin": p95_bin,
-            "flat": abs(rec_slope) < 0.05 and abs(lat_slope) < 1.0,
+            "full_path_overall_recall": float(full_a.mean()),
+            "full_path_recall_slope_per_year": full_slope,
+            "full_path_recall_per_bin": full_bin,
+            "full_path_rerank_skipped": True,
+            "flat": (abs(rec_slope) < 0.05 and abs(lat_slope) < 1.0
+                     and abs(full_slope) < 0.05),
         }
 
     # ---- introspection ----------------------------------------------------

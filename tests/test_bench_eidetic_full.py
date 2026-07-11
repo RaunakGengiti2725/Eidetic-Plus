@@ -340,9 +340,19 @@ def test_eidetic_full_abstains_on_unsupported_financial_status_inference(tmp_pat
         {"role": "Farid", "content": "My family and I also went on a lakeside camping holiday last year."},
     ])
     sys.consolidate("ns")
+    original_retrieve = e.retriever.retrieve
+    retrieve_calls = []
 
+    def counted_retrieve(*args, **kwargs):
+        retrieve_calls.append((args, kwargs))
+        return original_retrieve(*args, **kwargs)
+
+    monkeypatch.setattr(e.retriever, "retrieve", counted_retrieve)
     ar = sys.answer("ns", "What might Farid's financial status be?")
 
+    assert len(retrieve_calls) == 1
+    assert ar.context_tokens > 0
+    assert ar.extra["candidate_memory_ids"]
     assert ar.abstained is True
     assert ar.answer == EideticFullSystem._ABSTAIN_TEXT
     assert ar.extra["verified"] is False
@@ -782,7 +792,8 @@ def test_eidetic_full_uses_structured_recall_for_clothing_pickup_return_count(tm
         "How many clothing items do I still need to pick up or return at a shop?",
         scope=Scope(namespace="ns"))
     assert trace["answered"] is False and trace["verified"] is False
-    assert trace["answer"] == "3"
+    assert trace["answer"] == ""
+    assert trace["draft"] == "3"
     assert trace["note"].startswith("smqe:count_aggregate")
     get_settings.cache_clear()
 
@@ -824,7 +835,8 @@ def test_eidetic_full_structured_recall_is_not_gated_by_user_evidence_context(tm
     trace = e.structured_recall(
         "How many clothing items do I still need to pick up or return at a shop?",
         scope=Scope(namespace="ns"))
-    assert trace["answer"] == "3"
+    assert trace["answer"] == ""
+    assert trace["draft"] == "3"
     assert trace["note"].startswith("smqe:count_aggregate")
     get_settings.cache_clear()
 
@@ -1462,6 +1474,9 @@ def test_eidetic_adapter_logs_region_hint_telemetry(tmp_path, monkeypatch):
 
     ar = sys.answer("ns", "What ginger tea preference did I mention?")
 
+    assert ar.extra["output_type"] == "UNTRUSTED_DRAFT"
+    assert ar.extra["status"] == "DRAFT"
+    assert ar.extra["verified"] is False
     assert ar.extra["region_hint_count"] == 1
     assert ar.extra["region_ids"] == ["tea-region"]
     assert ar.extra["region_member_ids"] == [rec.memory_id]

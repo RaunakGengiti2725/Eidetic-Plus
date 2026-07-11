@@ -64,5 +64,9 @@ def test_engine_respects_semantic_cache_flag(fresh_settings):
     client = FakeClient()
     engine = Engine(settings=settings, client=client)
     engine.retriever = FakeRetriever()
-    engine.ask("cached?", scope=Scope(namespace="cache-test"))
+    answer = engine.ask("cached?", scope=Scope(namespace="cache-test"))
+    assert answer.status.value == "ABSTAINED"
+    assert answer.verified is False
+    assert answer.citations == []
+    assert answer.answer != "ok"
     assert client.embed_calls == 0

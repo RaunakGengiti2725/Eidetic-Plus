@@ -17,7 +17,7 @@ from eidetic.integrations.notebooklm import (
     NotebookLMError,
     format_source,
 )
-from eidetic.models import ClaimRecord, Edge, MemoryRecord, Scope
+from eidetic.models import Answer, Citation, ClaimRecord, Edge, MemoryRecord, NLILabel, Scope
 
 _SCOPE = Scope(namespace="nb-test")
 
@@ -376,9 +376,14 @@ class _RouterEngine:
     def __init__(self, records, structured, reflex_cids):
         self.store = _RouterStore(records)
         self.graph = _RouterGraph()
+        self._records = {record.memory_id: record for record in records}
         self._structured = structured
         self._reflex_cids = reflex_cids
         self.recall_calls = []
+        self.client = type("_Usage", (), {
+            "usage_snapshot": lambda self: {"nli_calls": 0},
+            "usage_delta": lambda self, before, after: {"nli_calls": 0},
+        })()
 
     def structured_recall(self, query, *, scope=None, as_of=None):
         return dict(self._structured)
@@ -397,9 +402,36 @@ class _RouterEngine:
                         "raw_uri": "cas://" + "f" * 64, "valid_at": 42.0}],
         )
 
+    def prove_external_draft(self, query, draft, evidence_memory_ids, *, scope=None,
+                             as_of=None, generated_by="external-reader"):
+        record = self._records[evidence_memory_ids[0]]
+        return Answer(
+            question=query,
+            answer=draft,
+            verified=True,
+            citations=[Citation(
+                memory_id=record.memory_id,
+                content_hash=record.content_hash,
+                raw_uri=record.raw_uri,
+                source=record.source,
+                valid_at=record.valid_at,
+                snippet=record.text,
+                nli_label=NLILabel.ENTAILMENT,
+                nli_score=1.0,
+            )],
+            generated_by=generated_by,
+        )
+
+    def prove(self, answer, *, with_paths=False, check_refs=False):
+        return {"refs_verified": True, "evidence": [citation.model_dump()
+                                                     for citation in answer.citations]}
+
 
 def _prov_answer_backend(token):
     class _B:
+        def batch_create_sources(self, notebook_id, sources):
+            return {"created": len(sources)}
+
         def query(self, notebook_id, question):
             return {"answer": f"free gemini answer citing eidetic:{token}.",
                     "backend": "nlm free tier"}
@@ -430,9 +462,10 @@ def test_router_tier2_free_read_when_abstained_no_gate():
     bridge = NotebookLMBridge(eng, _prov_answer_backend("mem_t2000000000001"))
     out = bridge.routed_answer("nb-test", "Where?", "nbk_1", require_gate_verification=False)
     assert out["tier"] == 2
-    assert out["caller_llm_tokens"] == 0
-    assert out["gate_verified"] is False
-    assert out["provenance_verb"] == "provenance-mapped"
+    assert out["caller_llm_tokens"] is None
+    assert out["notebooklm_user_llm_tokens"] == 0
+    assert out["gate_verified"] is True
+    assert out["provenance_verb"] == "gate-verified"
     # reflex cross-check populated and intersecting the resolved provenance
     assert rec.memory_id in out["reflex_cross_check"]["candidate_ids"]
     assert rec.memory_id in out["reflex_cross_check"]["intersection"]

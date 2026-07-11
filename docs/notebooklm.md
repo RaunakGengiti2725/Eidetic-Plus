@@ -1,9 +1,10 @@
-# NotebookLM bridge — free reads + provenance
+# NotebookLM bridge — untrusted draft reader + canonical proof
 
 `eidetic/integrations/notebooklm.py` connects eidetic's verified memory to Google
-NotebookLM. Two modes, one idea: **eidetic supplies the trustworthy, provenance-tagged
-sources; NotebookLM (Gemini) does the reading — on its free tier, that read costs zero
-of *your* metered LLM tokens.**
+NotebookLM. Eidetic supplies provenance-tagged sources and NotebookLM/Gemini may draft
+an answer on its free tier. A draft is never a public factual answer: the product path
+submits it and the exact exported evidence IDs to the same canonical Eidetic proof gate
+used by Python, HTTP, MCP, and fixed-reader evaluation.
 
 ## Why this is the token-efficient path
 
@@ -15,9 +16,11 @@ keeps the part no one else has: every source carries a provenance header (conten
 hash + validity window + verified claims), and the answer's `eidetic:<id>` references
 map back to immutable records.
 
-Net: **free reads + provenance** — a genuinely cheap, trustworthy memory agent.
+Net: the Gemini generation can cost **0 tokens on your metered model**, while canonical
+verification may still use the configured proof model. Both figures are reported
+separately; zero caller-generation tokens is not zero global compute or zero proof cost.
 
-## The two modes
+## The three surfaces
 
 **1. Export (`export_namespace`)** — push a namespace's active memories into a notebook
 as sources, each stamped with its eidetic provenance header:
@@ -31,21 +34,32 @@ python -m eidetic.integrations.notebooklm export \
     --namespace raunak-main --notebook-id <NOTEBOOK_ID> --backend cli
 ```
 
-**2. Reader mode (`NotebookLMBridge.answer`)** — the 0-token recall path:
+**2. Research draft (`NotebookLMBridge.answer`)** — direct Gemini output, explicitly
+untrusted. It returns `output_type="UNTRUSTED_DRAFT"`, `status="DRAFT"`,
+`verified=false`, provenance mapping, and deterministic lexical diagnostics. MCP
+`notebooklm_answer` removes the normal `answer` key and exposes the text only as `draft`.
+
+**3. Governed recall (`NotebookLMBridge.governed_recall`)** — the product path:
 
 ```python
 from eidetic.integrations.notebooklm import NotebookLMBridge, CliBackend
 bridge = NotebookLMBridge(engine, CliBackend())
-out = bridge.answer("raunak-main", "Where did Priya move?", notebook_id)
-# -> {"answer": ..., "provenance": [{content_sha256, valid_at, memory_id}...],
-#     "cited_sources": {"cited": N, "confirmed_in_eidetic": M},
-#     "grounding": {...deterministic quote-faithfulness + coverage...},
-#     "user_llm_tokens": 0, "caveat": "..."}
+out = bridge.governed_recall(
+    "raunak-main", "Where did Priya move?", notebook_id, top_k=6
+)
+# -> {"status": "VERIFIED" | "ABSTAINED", "answer": ..., "citations": [...],
+#     "proof": {"refs_verified": ...},
+#     "reader": {"raw_output_type": "UNTRUSTED_DRAFT",
+#                "draft_sha256": ..., "evidence_memory_ids": [...],
+#                "user_llm_tokens": 0, "proof_model_usage": ...}}
 ```
+
+On proof failure the response is `ABSTAINED`, citation-free, and does not expose the
+discarded draft text. `notebooklm_recall` and the NotebookLM router tier use this method.
 
 ### Deterministic grounding check (free, no model calls)
 
-Every `answer()` runs three checks the caller can trust without spending a token:
+Every direct draft `answer()` runs three deterministic diagnostics without spending a proof-model token:
 
 1. **Citation existence** (`cited_sources`) — each `eidetic:<id>` token Gemini cited must
    resolve to a real immutable record; `confirmed_in_eidetic` counts the ones that do. A
@@ -92,10 +106,9 @@ stores or transmits your credentials anywhere except the backend you choose.
 - **`user_llm_tokens: 0` means zero on *your* metered model** — Google still spends
   compute; it is free *to you* on the personal tier, not free globally, and subject to
   Google's quotas and Terms of Service.
-- **A NotebookLM answer is Gemini-side and is NOT run through eidetic's verify-or-abstain
-  proof gate.** It is a free, provenance-mapped answer, not a gate-verified one. For a
-  cited, abstain-when-unsure answer, call `engine.recall()` — that path is what the
-  benchmark measures.
+- **A direct NotebookLM draft is Gemini-side and is not proof.** Use
+  `governed_recall` / MCP `notebooklm_recall` for a factual result. That path returns only
+  `VERIFIED` with immutable citations or `ABSTAINED`, and reports proof-model usage.
 - **This is a product-cost win, not a benchmark-table row.** The rotating-holdout
   benchmark compares every system through one fixed qwen reader so it measures *memory*,
   not *answerer*. NotebookLM is a different (Gemini) reader whose tokens are off that
@@ -166,28 +179,28 @@ graph (few facts over short records) can invert below 1 — read the number from
 |---|---|---|---|---|
 | 0 | reflex pre-filter (no model call) | 0 | n/a | always (candidate cross-check only) |
 | 1 | `structured_recall` (typed, verify-or-abstain) | ~6–85 (design-supplied) | **gate-verified** | answered+verified+immutable_proof and `confidence ≥ struct_tau` |
-| 2 | free NotebookLM read | **0** | no (provenance-mapped) | *not* struct-ok **and** `require_gate_verification=False` |
+| 2 | NotebookLM draft + canonical proof | Gemini generation: **0** on caller meter; proof usage reported | **gate-verified or abstained** | *not* struct-ok and a notebook is available |
 | 3 | metered verified reader (`recall(prove=True)`) | ~4034 (design-supplied) | **gate-verified** | *not* struct-ok **and** `require_gate_verification=True` |
 
-Because `structured_recall` is itself verify-or-abstain, the metered reader (Tier 3) is
-reserved for `(require_gate_verification AND not struct-ok)` — a
-verified-but-low-confidence answer under `require_gate_verification` **escalates** to
-Tier 3 rather than falling through. Tier 2's return is labeled
-`provenance_verb="provenance-mapped"`, `gate_verified=False`; Tiers 1/3 are
-`"gate-verified"`, `gate_verified=True`. Every return carries the four honesty strings.
+Because `structured_recall` is itself verify-or-abstain, the native metered reader
+(Tier 3) remains available when `require_gate_verification=True`. Otherwise Tier 2 uses
+NotebookLM only as a drafting strategy and then runs `Engine.prove_external_draft` over
+the exact exported evidence set. Tier 2 therefore returns `provenance_verb="gate-verified"`
+when proof passes and `"abstained"` otherwise; it never returns provenance-mapped-only
+text as a normal answer.
 
-**Token math (formula only — no blended figure).** `blended = P_struct·c_struct +
-P_nb·0 + P_metered·4034`, with `P_struct + P_nb + P_metered = 1`. The structured tier's
+**Token math (formula only — no blended figure).** The old `P_nb·0` formula counted
+only Gemini generation and omitted canonical proof. The governed formula must include
+both meters: `blended = P_struct·c_struct + P_nb·c_nb_proof + P_metered·4034`, with
+`P_struct + P_nb + P_metered = 1`; Gemini-side generation remains 0 on the caller's
+meter while `c_nb_proof` is read from `reader.proof_model_usage`. The structured tier's
 cost is now **measured** from the committed 6-window holdout logs (r9–r14, the
 smqe-answered rows Tier 1 takes): `c_struct` median **20.5**, worst-case **146**, n=78 —
 see `bench/notebooklm_cost.py`. The metered cost (`4034`) is the measured 6-window median.
 The `P_*` hit-rate weights remain **unmeasured on an arbitrary query stream**, so we ship
-per-tier costs and the formula, never a specific blended number. Consequence, stated
-precisely: under free-read routing (`require_gate_verification=False`) every query costs
-either a measured-band structured answer (≤146 observed) or a 0-caller-token free read —
-both below mem0's measured median 381 and rag-vector's 1892. Accuracy on the free-read
-tier is unmeasured. `struct_tau` is a calibration parameter validated on a dev split — not
-a proven constant.
+per-tier costs and the formula, never a specific blended number. No governed-cost
+advantage is claimed until `c_nb_proof` is measured on a fresh held-out run. `struct_tau`
+is a calibration parameter validated on a dev split — not a proven constant.
 
 ## Live free-tier collection harness (`bench/notebooklm_freetier_run.py`)
 
@@ -225,8 +238,7 @@ Every graph source, router return, and sync note carries these four labels:
   verified claim graph is **often a more compact** source than raw turns — measured per
   call and surfaced in `stats`; it can invert below 1 on sparse graphs (see the compression
   example above), so read the number, don't assume "always smaller."
-- **Must NOT imply:** free *globally* (Google spends compute); that a NotebookLM answer
-  is eidetic-verify-or-abstain (it is Gemini-side, provenance-mapped, **not**
-  gate-verified); that this is a **row in the fixed-qwen-reader benchmark table**
+- **Must NOT imply:** free *globally* (Google spends compute); that a direct NotebookLM
+  draft is proof; that governed proof costs zero; that this is a **row in the fixed-qwen-reader benchmark table**
   (different, off-meter reader); any **"best / strongest / SOTA"** claim — that would
   need the ≥10-run reproduce gate + named-comparator evidence, which is not built here.

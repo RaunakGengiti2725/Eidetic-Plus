@@ -16,7 +16,7 @@ import uuid
 from enum import Enum
 from typing import Any, Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 def now() -> float:
@@ -41,6 +41,14 @@ class NLILabel(str, Enum):
     ENTAILMENT = "entailment"
     NEUTRAL = "neutral"
     CONTRADICTION = "contradiction"
+
+
+class AnswerStatus(str, Enum):
+    VERIFIED = "VERIFIED"
+    ABSTAINED = "ABSTAINED"
+
+
+ABSTENTION_TEXT = "I don't have enough verified evidence in memory to answer that confidently."
 
 
 # --------------------------------------------------------------------------
@@ -234,6 +242,7 @@ class Citation(BaseModel):
 class Answer(BaseModel):
     question: str
     answer: str
+    status: AnswerStatus = AnswerStatus.ABSTAINED
     verified: bool = False
     confidence: float = 0.0
     citations: list[Citation] = Field(default_factory=list)
@@ -241,6 +250,38 @@ class Answer(BaseModel):
     generated_by: str = ""
     retrieved_count: int = 0
     note: str = ""
+
+    @model_validator(mode="before")
+    @classmethod
+    def _status_compatibility(cls, value):
+        if not isinstance(value, dict):
+            return value
+        data = dict(value)
+        status = data.get("status")
+        verified = data.get("verified")
+        if status is None:
+            data["status"] = AnswerStatus.VERIFIED if verified else AnswerStatus.ABSTAINED
+        elif verified is None:
+            data["verified"] = status == AnswerStatus.VERIFIED or status == AnswerStatus.VERIFIED.value
+        elif bool(verified) != (status == AnswerStatus.VERIFIED or status == AnswerStatus.VERIFIED.value):
+            raise ValueError("answer status and verified flag disagree")
+        return data
+
+    @classmethod
+    def abstain(cls, question: str, *, note: str, answer: str = ABSTENTION_TEXT,
+                generated_by: str = "", retrieved_count: int = 0) -> "Answer":
+        return cls(
+            question=question,
+            answer=answer,
+            status=AnswerStatus.ABSTAINED,
+            verified=False,
+            confidence=0.0,
+            citations=[],
+            unverified_claims=[],
+            generated_by=generated_by,
+            retrieved_count=retrieved_count,
+            note=note if note.startswith("abstained") else f"abstained: {note}",
+        )
 
 
 ClaimType = Literal["quantity", "state", "event", "interval", "table", "preference", "problem", "witness"]

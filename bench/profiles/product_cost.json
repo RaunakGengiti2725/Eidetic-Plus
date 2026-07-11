@@ -3,11 +3,7 @@
   "ADAPTIVE_CONTEXT": "1",
   "EXTRACT_COMBINED": "1",
   "EXTRACT_RESULT_CACHE": "1",
-  "_beat_ragvector_comment": "Beat-rag-vector accuracy levers (code defaults 0; stacked ON here only). Lever 1 STRUCTURED_ATTRIBUTE_GATE was REMOVED: existing wh-type verify floors already catch temporal slot mismatches, and a lexical attribute gate cannot distinguish a correct paraphrase ('bought a Tesla' answers 'what car') from a wrong-slot steal ('transgender woman' answers 'what events') -- both have zero query-term overlap -- so it over-deferred correct rows and blew cost. ABSTENTION_READER_COVERAGE(+FLOOR): ship the unverified-but-HONEST reader text (verified=False, reported truthfully) when dense coverage>=floor instead of abstaining (abstention scores 0 like wrong). RAW_DENSE_FLOOR(+N): promote the top-N raw dense passages ABOVE the low-value audit/pref channels (by ordering, never cropping a higher-priority structured block) so context is a superset of rag-vector's top-k. Each is independently A/B-measurable on a FRESH holdout window.",
-  "ABSTENTION_READER_COVERAGE": "1",
-  "READER_COVERAGE_FLOOR": "0.45",
+  "_beat_ragvector_comment": "Proof-safe context ordering only. RAW_DENSE_FLOOR(+N) promotes the top-N raw dense passages above low-value audit/preference channels without cropping higher-priority structured evidence. Unverified coverage and dense-reader fallback delivery are forbidden by the canonical VERIFIED-or-ABSTAINED contract.",
   "RAW_DENSE_FLOOR": "1",
-  "RAW_DENSE_FLOOR_N": "10",
-  "DENSE_TOPK_FALLBACK": "1",
-  "DENSE_TOPK_FALLBACK_K": "10"
+  "RAW_DENSE_FLOOR_N": "10"
 }

@@ -10,6 +10,112 @@ from eidetic.abstention import (channel_agreement, combine_confidence, pick_tau,
                                 proof_completeness)
 
 
+def test_answer_status_contract_and_abstention_factory():
+    from eidetic.models import Answer, AnswerStatus
+
+    verified = Answer(question="q", answer="a", verified=True)
+    assert verified.status == AnswerStatus.VERIFIED
+    abstained = Answer.abstain("q", note="no proof")
+    assert abstained.status == AnswerStatus.ABSTAINED
+    assert abstained.verified is False
+    assert abstained.confidence == 0.0
+    assert abstained.citations == []
+    with pytest.raises(ValueError, match="disagree"):
+        Answer(question="q", answer="a", status=AnswerStatus.VERIFIED, verified=False)
+
+
+def test_engine_rejects_answer_verification_bypass(engine):
+    with pytest.raises(ValueError, match="requires verification"):
+        engine.ask("q", verify=False)
+
+
+def test_empty_memory_is_explicit_abstention(engine):
+    answer = engine.ask("what is my launch code?")
+    assert answer.status.value == "ABSTAINED"
+    assert answer.verified is False
+    assert answer.citations == []
+    assert answer.note.startswith("abstained")
+
+
+def test_engine_rejects_dangling_citation_span(engine):
+    from eidetic.models import Answer, Citation, MemoryRecord, NLILabel, Scope
+
+    scope = Scope(namespace="dangling-proof")
+    raw_text = "User: The launch code is BLUE-17."
+    indexed_text = "User: The launch code is RED-99."
+    content_hash, raw_uri = engine.substrate.put(raw_text.encode("utf-8"))
+    record = MemoryRecord(
+        memory_id="dangling-proof-memory",
+        text=indexed_text,
+        source="user",
+        scope=scope,
+        valid_at=1.0,
+        content_hash=content_hash,
+        raw_uri=raw_uri,
+    )
+    engine.store.upsert_record(record)
+    answer = Answer(
+        question="What is the launch code?",
+        answer="RED-99",
+        verified=True,
+        citations=[Citation(
+            memory_id=record.memory_id,
+            content_hash=record.content_hash,
+            raw_uri=record.raw_uri,
+            source=record.source,
+            valid_at=record.valid_at,
+            snippet="User: The launch code is RED-99.",
+            nli_label=NLILabel.ENTAILMENT,
+            nli_score=1.0,
+        )],
+    )
+
+    governed = engine._govern_answer(answer.question, answer, scope)
+
+    assert governed.status.value == "ABSTAINED"
+    assert governed.citations == []
+    assert "immutable proof" in governed.note
+
+
+def test_engine_rejects_citation_inactive_at_query_time(engine):
+    from eidetic.models import Answer, Citation, MemoryRecord, NLILabel, Scope
+
+    scope = Scope(namespace="inactive-proof")
+    text = "User: My office is in Berlin."
+    content_hash, raw_uri = engine.substrate.put(text.encode("utf-8"))
+    record = MemoryRecord(
+        memory_id="inactive-proof-memory",
+        text=text,
+        source="user",
+        scope=scope,
+        valid_at=1.0,
+        invalid_at=2.0,
+        content_hash=content_hash,
+        raw_uri=raw_uri,
+    )
+    engine.store.upsert_record(record)
+    answer = Answer(
+        question="Where is my office?",
+        answer="Berlin",
+        verified=True,
+        citations=[Citation(
+            memory_id=record.memory_id,
+            content_hash=record.content_hash,
+            raw_uri=record.raw_uri,
+            source=record.source,
+            valid_at=record.valid_at,
+            snippet=text,
+            nli_label=NLILabel.ENTAILMENT,
+            nli_score=1.0,
+        )],
+    )
+
+    governed = engine._govern_answer(answer.question, answer, scope, at=3.0)
+
+    assert governed.status.value == "ABSTAINED"
+    assert governed.citations == []
+
+
 def test_channel_agreement_counts_independent_channels():
     top = types.SimpleNamespace(dense_score=0.8, bm25_score=0.5, graph_score=0.0)
     assert channel_agreement(top) == pytest.approx(2 / 3)

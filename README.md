@@ -23,6 +23,17 @@ is proven, not asserted: see [docs/claims.md](docs/claims.md) for the claims we 
 refuse to make, and the attribution-under-ablation program in
 [`scripts/proof_slice.sh`](scripts/proof_slice.sh).
 
+## Release answer contract
+
+Every public factual answer now has one explicit status:
+
+- **`VERIFIED`** — every claim passed the canonical proof path; citations resolve in the exact scope and query-time validity window to immutable raw bytes, and cited spans resolve to the indexed source. Non-text claims are rechecked against the raw image/document/audio/video rather than trusted from an ingest-time description.
+- **`ABSTAINED`** — proof failed, evidence conflicted, a cited record was inactive/out of scope, or any sentence/list item lacked support. Abstentions carry no citations and never return the discarded draft as an answer.
+
+`Engine.ask`, HTTP `/api/ask`, MCP `recall`, the fixed-reader benchmark adapter, and governed NotebookLM recall use this same boundary. Legacy `verify=false` transport inputs are accepted for compatibility but cannot bypass verification. Direct NotebookLM/Gemini output remains available only as an explicitly typed `UNTRUSTED_DRAFT`; `NotebookLMBridge.governed_recall` submits that draft to the same proof gate.
+
+The deterministic Phase A replay at `artifacts/replay_phase_a_r1_r10/` is bound to ten frozen source-log hashes and the exact `bench/replay.py` implementation hash. Across 400 burned rows it converted 12 historical unverified deliveries to abstentions, left 0 unverified deliveries, and preserved all 212 verified-correct rows. This is a mechanical policy replay with zero provider/NLI/generation calls, **not** a rerun of retrieval or a claim that historical `verified` labels imply correctness; 129/341 historically verified rows were still judged wrong and remain published as the next quality frontier.
+
 ---
 
 ## Universal memory plugin (MCP)
@@ -33,7 +44,7 @@ get lossless, verified, age-independent memory with zero per-host integration. T
 server (`eidetic/mcp_server.py`, built on **FastMCP**) is simply an additional transport
 over the exact `eidetic/engine.py` that FastAPI already uses -- no logic is duplicated.
 
-Seven MCP tools are exposed:
+Core MCP tools include:
 
 | Tool | What it does |
 |------|--------------|
@@ -102,7 +113,7 @@ Or point Claude Code straight at the repo without the marketplace step:
 claude --plugin-dir /Users/raunakgengiti/Eidetic-Plus
 ```
 
-**(c)** Eidetic-Plus now appears in `/plugin` and mounts all seven tools above, ready
+**(c)** Eidetic-Plus now appears in `/plugin` and mounts the full tool surface, ready
 to use from any session.
 
 ---
@@ -213,8 +224,8 @@ against the raw pixels (Component 6 extended to images). See
 [Deepened vision](#deepened-vision).
 
 **Two transports, one engine.** Beyond the FastAPI HTTP API, `eidetic/mcp_server.py`
-(FastMCP, stdio + streamable-http) exposes the same `eidetic/engine.py` as seven MCP
-tools so any MCP host can mount Eidetic-Plus as its memory backend. It is an additional
+(FastMCP, stdio + streamable-http) exposes the same `eidetic/engine.py` through the full MCP
+tool surface so any MCP host can mount Eidetic-Plus as its memory backend. It is an additional
 transport -- **no cognitive component is duplicated**. See
 [Universal memory plugin (MCP)](#universal-memory-plugin-mcp).
 
@@ -502,13 +513,7 @@ every new entry point (the guard reads dev only; HaluMem routes through `split_o
 
 ### The claim, stated honestly
 
-Eidetic-Plus is **built to lead every LongMemEval + LoCoMo category at lower token cost
-and lower p95 latency than Mem0 and Graphiti** -- and this is **provable via this harness
-with one command** (`bash bench/reproduce.sh`). On top of that, it has **two categorical
-wins neither Mem0 nor Graphiti has**: **flat recall-vs-age** (see
-[The signature proof](#the-signature-proof)) and **verified recall with a citable,
-immutable source** (see [Scoping](#scoping-no-cross-tool-bleed) and the provenance arrow
-in [Architecture](#architecture-seven-components)).
+Eidetic-Plus is evaluated as a **governed, provenance-first memory system**, not claimed as universal accuracy leader. The committed rolling windows show wins against Mem0 under the repository's fixed-reader regime, while stronger full/vector RAG baselines can lead raw accuracy on small corpora. The categorical product properties are independently checkable: **flat recall-vs-age** (see [The signature proof](#the-signature-proof)) and **verified-or-abstained recall with citations resolving to immutable sources** (see [Scoping](#scoping-no-cross-tool-bleed) and the provenance arrow in [Architecture](#architecture-seven-components)). Reproduction still requires the documented datasets, model access, and comparator infrastructure; missing dependencies fail loud.
 
 The scoreboard ships **empty**: a **populated** scoreboard requires actually running the
 harness with a **funded DashScope key** plus the **baselines installed** (Mem0, Graphiti)

@@ -8,11 +8,13 @@ WHAT THIS IS (and is not), stated up front so nobody over-claims it:
   is that every exported source carries eidetic's provenance header (content hash,
   validity window, source label, and any NLI-entailed claims) -- no other memory tool
   feeds a *verified* substrate into NotebookLM.
-- This is NOT a token-cost win for our benchmark. NotebookLM runs on Google's Gemini;
-  its tokens are on Google's meter, not eliminated. Answers it returns are Gemini-side
-  and are NOT verified by eidetic's proof gate -- for a trustworthy, cited answer, use
-  eidetic's own `recall`. `query()` here is a convenience pass-through, clearly labeled.
-- It touches NOTHING in the engine/benchmark. Default-off, import-only, no global state.
+- This is NOT a token-cost win for the fixed-reader benchmark. NotebookLM runs on Google's
+  Gemini; its generation is off the caller's meter, not eliminated. Direct `query()` / `answer()`
+  output is an explicitly typed UNTRUSTED_DRAFT. `governed_recall()` submits that draft and the
+  exact exported evidence IDs to the canonical Eidetic proof gate and returns only VERIFIED or
+  ABSTAINED; proof-model usage is reported separately.
+- It is default-off and has no global state. Governed recall uses the public Engine external-draft
+  proof seam; direct draft/query surfaces remain isolated research diagnostics.
 
 AUTH (you supply credentials; nothing is hardcoded):
 - Enterprise API: a GCP bearer token (env NOTEBOOKLM_ACCESS_TOKEN, e.g.
@@ -27,6 +29,7 @@ zero network access.
 from __future__ import annotations
 
 import datetime as _dt
+import hashlib
 import json
 import os
 import shutil
@@ -691,8 +694,14 @@ class NotebookLMBridge:
                     "note": f"no records to export for namespace {namespace!r}"}
         self.backend.batch_create_sources(notebook_id, sources)
         r = self.answer(namespace, question, notebook_id)
+        evidence_memory_ids = []
+        for source in sources:
+            match = _re.search(r"(?m)^memory_id:\s*(\S+)\s*$", source.get("text_content", ""))
+            if match:
+                evidence_memory_ids.append(match.group(1))
         r["retrieval_guided"] = {
             "exported": len(sources), "top_k": top_k, "inject_computed": inject_computed,
+            "evidence_memory_ids": list(dict.fromkeys(evidence_memory_ids)),
             # APPEND semantics, stated plainly: batch_create_sources adds to whatever the
             # notebook already holds -- repeated calls against ONE notebook accumulate sources
             # and dilute the focused top_k premise. Use a per-question (or per-session-batch)
@@ -739,7 +748,8 @@ class NotebookLMBridge:
         retr = getattr(self.engine, "retriever", None)
         # Seed the dedupe set with round 1's exported records (same deterministic retrieval),
         # or a widening round re-exports them -- duplicate sources + a wasted free query.
-        exported_ids: set[str] = set()
+        exported_ids: set[str] = set(
+            (r.get("retrieval_guided") or {}).get("evidence_memory_ids") or [])
         if retr is not None and hasattr(retr, "retrieve"):
             for c in retr.retrieve(question, at=None, scope=scope)[:max(1, top_k)]:
                 rec = getattr(c, "record", None)
@@ -818,6 +828,7 @@ class NotebookLMBridge:
                 break
             r = r2
         r["iterative"] = {"rounds": rounds, "max_rounds": max_rounds,
+                          "evidence_memory_ids": sorted(exported_ids),
                           "note": ("free-tier agentic read: reader-declared insufficiency "
                                    "triggers decomposition + one graph hop; every round is "
                                    "Gemini-side and NOT gate-verified")}
@@ -1240,7 +1251,11 @@ class NotebookLMBridge:
             cited_mids = [p["memory_id"] for p in provenance]
             qwen_check = self.qwen_memory_check(namespace, question, answer_text, cited_mids)
         return {
+            "output_type": "UNTRUSTED_DRAFT",
+            "status": "DRAFT",
+            "draft": answer_text,
             "answer": answer_text,
+            "verified": False,
             "provenance": provenance,
             "citation_map": citation_map,
             "cited_sources": {
@@ -1266,6 +1281,59 @@ class NotebookLMBridge:
                        "read); answer is Gemini-side and NOT eidetic-verify-or-abstain. "
                        "Provenance + cited_sources below let you CHECK which sources are real "
                        "eidetic memories, even though the reasoning is not gate-verified."),
+        }
+
+    def governed_recall(self, namespace: str, question: str, notebook_id: str, *,
+                        top_k: int = 6, iterative: bool = False,
+                        max_rounds: int = 2, as_of: Optional[float] = None) -> dict:
+        raw = (self.iterative_recall(namespace, question, notebook_id, top_k=top_k,
+                                     max_rounds=max_rounds)
+               if iterative else
+               self.retrieval_guided_answer(namespace, question, notebook_id, top_k=top_k))
+        draft = str(raw.get("draft") or raw.get("answer") or "")
+        evidence_memory_ids = []
+        for block in (raw.get("retrieval_guided") or {}, raw.get("iterative") or {}):
+            evidence_memory_ids.extend(block.get("evidence_memory_ids") or [])
+        evidence_memory_ids.extend(
+            item.get("memory_id") for item in (raw.get("provenance") or [])
+            if isinstance(item, dict) and item.get("memory_id"))
+        evidence_memory_ids.extend(
+            item.get("memory_id") for item in (raw.get("citation_map") or [])
+            if isinstance(item, dict) and item.get("resolved") and item.get("memory_id"))
+        evidence_memory_ids = list(dict.fromkeys(evidence_memory_ids))
+        usage_snapshot = getattr(self.engine.client, "usage_snapshot", None)
+        usage_before = usage_snapshot() if callable(usage_snapshot) else None
+        answer = self.engine.prove_external_draft(
+            question,
+            draft,
+            evidence_memory_ids,
+            scope=Scope(namespace=namespace),
+            as_of=as_of,
+            generated_by="notebooklm",
+        )
+        proof = self.engine.prove(answer, check_refs=True)
+        usage_delta = getattr(self.engine.client, "usage_delta", None)
+        proof_model_usage = (usage_delta(usage_before, usage_snapshot())
+                             if usage_before is not None and callable(usage_delta)
+                             else None)
+        return {
+            **answer.model_dump(mode="json"),
+            "abstained": answer.status.value == "ABSTAINED",
+            "proof": proof,
+            "reader": {
+                "type": "notebooklm",
+                "raw_output_type": "UNTRUSTED_DRAFT",
+                "backend": raw.get("backend", "notebooklm"),
+                "draft_sha256": hashlib.sha256(draft.encode("utf-8")).hexdigest(),
+                "draft_chars": len(draft),
+                "evidence_memory_ids": evidence_memory_ids,
+                "citation_map": raw.get("citation_map") or [],
+                "grounding": raw.get("grounding") or {},
+                "retrieval_guided": raw.get("retrieval_guided") or {},
+                "iterative": raw.get("iterative") or {},
+                "user_llm_tokens": raw.get("user_llm_tokens"),
+                "proof_model_usage": proof_model_usage,
+            },
         }
 
     # ---- graph-native serializer wiring -------------------------------------
@@ -1416,18 +1484,24 @@ class NotebookLMBridge:
                 "reflex_cross_check": {"candidate_ids": reflex_ids, "intersection": []},
                 "honesty": _honesty(),
             }
-        r = self.answer(namespace, question, notebook_id)
-        resolved_ids = [p["memory_id"] for p in r.get("provenance", [])]
+        r = self.governed_recall(namespace, question, notebook_id)
+        citations = r.get("citations") or []
+        resolved_ids = [citation.get("memory_id") for citation in citations
+                        if isinstance(citation, dict) and citation.get("memory_id")]
+        gate_verified = r.get("status") == "VERIFIED"
         return {
             "tier": 2,
+            "status": r.get("status", "ABSTAINED"),
             "answer": r.get("answer", ""),
-            "provenance": r.get("provenance", []),
-            "citation_map": r.get("citation_map", []),
-            "cited_sources": r.get("cited_sources", {}),
-            "grounding": r.get("grounding", {}),
-            "caller_llm_tokens": 0,
-            "gate_verified": False,
-            "provenance_verb": "provenance-mapped",
+            "abstained": bool(r.get("abstained")),
+            "verified": bool(r.get("verified")),
+            "citations": citations,
+            "proof": r.get("proof") or {},
+            "reader": r.get("reader") or {},
+            "caller_llm_tokens": None,
+            "notebooklm_user_llm_tokens": (r.get("reader") or {}).get("user_llm_tokens"),
+            "gate_verified": gate_verified,
+            "provenance_verb": "gate-verified" if gate_verified else "abstained",
             "reflex_cross_check": {
                 "candidate_ids": reflex_ids,
                 "intersection": [i for i in resolved_ids if i in reflex_ids],

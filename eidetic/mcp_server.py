@@ -280,7 +280,7 @@ def recall(query: str, namespace: Optional[str] = None, agent_id: Optional[str] 
     try:
         query = _text_arg(query, "query", max_chars=_MAX_QUERY_CHARS)
         limit = _bounded_int(limit, default=10, minimum=1, maximum=_MAX_CITATION_LIMIT)
-        ans = engine().ask(query, verify=verify, as_of=as_of,
+        ans = engine().ask(query, verify=True, as_of=as_of,
                            scope=_scope(namespace, agent_id, project_id))
         out = ans.model_dump()
         if isinstance(out.get("citations"), list):
@@ -346,29 +346,29 @@ def structured_recall(query: str, namespace: Optional[str] = None, agent_id: Opt
         query,
         scope=_scope(namespace, agent_id, project_id),
         as_of=as_of,
-        verify=verify,
+        verify=True,
     )
 
 
 @_threaded_tool
 def notebooklm_answer(question: str, notebook_id: str,
                       namespace: Optional[str] = None) -> dict:
-    """FREE recall through NotebookLM/Gemini: answers over the namespace's previously
-    EXPORTED sources at 0 tokens on the caller's metered model (Google's free tier does
-    the read; requires `nlm login` on this machine -- works WITHOUT a DASHSCOPE key).
-    Returns the clean answer + provenance (content-hash-mapped records) + cited_sources
-    (how many of Gemini's eidetic:<id> citations resolve to REAL immutable records) +
-    grounding (deterministic quote-faithfulness vs the exported bytes -- catches
-    fabricated/altered quotes; lexical, NOT NLI). HONEST BOUNDARY: the answer is
-    Gemini-side and NOT eidetic-verify-or-abstain -- use `recall` for a gate-verified
-    cited answer. Export first via `python -m eidetic.integrations.notebooklm
-    export-graph` (one-time per namespace)."""
+    """UNTRUSTED NotebookLM/Gemini research draft over previously exported sources.
+    Gemini generation costs 0 tokens on the caller's metered model. Returns the text only as
+    `draft`, with `output_type=UNTRUSTED_DRAFT`, provenance mapping, and deterministic lexical
+    grounding diagnostics. It is never a verified factual answer. Use `notebooklm_recall` for
+    canonical VERIFIED-or-ABSTAINED output. Requires `nlm login`."""
     from eidetic.integrations.notebooklm import CliBackend, NotebookLMBridge, NotebookLMError
     question = _text_arg(question, "question", max_chars=_MAX_QUERY_CHARS)
     notebook_id = _text_arg(notebook_id, "notebook_id", max_chars=128)
     ns = namespace or _scope(namespace, None, None).namespace
     try:
-        return NotebookLMBridge(engine(), CliBackend()).answer(ns, question, notebook_id)
+        out = NotebookLMBridge(engine(), CliBackend()).answer(ns, question, notebook_id)
+        out["draft"] = out.pop("answer", out.get("draft", ""))
+        out["output_type"] = "UNTRUSTED_DRAFT"
+        out["status"] = "DRAFT"
+        out["verified"] = False
+        return out
     except NotebookLMError as e:
         raise RuntimeError(
             f"NotebookLM read failed (no answer fabricated): {e}. Install/login the free "
@@ -379,16 +379,12 @@ def notebooklm_answer(question: str, notebook_id: str,
 @_threaded_tool
 def notebooklm_recall(question: str, notebook_id: str, namespace: Optional[str] = None,
                       top_k: int = 6, iterative: bool = False) -> dict:
-    """RETRIEVAL-GUIDED free recall (the strongest measured accuracy path): eidetic's own
-    retriever picks the top_k records relevant to THIS question, exports ONLY those into the
-    notebook, then NotebookLM/Gemini reads the focused set at 0 tokens on the caller's metered
-    model. Returns answer + provenance + citation_map ([n] references resolved by quote content
-    to memory_id + content hash) + grounding. iterative=True adds AGENTIC reading: when the
-    reader says the focused set lacks the fact, it proposes sub-questions, eidetic re-retrieves,
-    the set widens (plus one claim-graph hop), and the question is re-asked -- still 0 metered
-    tokens, one extra free query per round. HONEST BOUNDARY: Gemini-side, NOT
-    eidetic-verify-or-abstain -- use `recall` for a gate-verified answer. Requires `nlm login`
-    and an existing notebook_id."""
+    """Governed retrieval-guided NotebookLM recall. Eidetic selects and exports the exact
+    evidence set; Gemini produces an untrusted draft at 0 caller-generation tokens; the draft
+    then passes through `Engine.prove_external_draft`. Returns only VERIFIED with immutable
+    citations/proof or citation-free ABSTAINED. Proof-model usage is reported separately.
+    `iterative=True` may widen the exported set before the same canonical proof step. Requires
+    `nlm login` and an existing notebook_id."""
     from eidetic.integrations.notebooklm import CliBackend, NotebookLMBridge, NotebookLMError
     question = _text_arg(question, "question", max_chars=_MAX_QUERY_CHARS)
     notebook_id = _text_arg(notebook_id, "notebook_id", max_chars=128)
@@ -396,9 +392,13 @@ def notebooklm_recall(question: str, notebook_id: str, namespace: Optional[str] 
     ns = namespace or _scope(namespace, None, None).namespace
     try:
         bridge = NotebookLMBridge(engine(), CliBackend())
-        if iterative:
-            return bridge.iterative_recall(ns, question, notebook_id, top_k=top_k)
-        return bridge.retrieval_guided_answer(ns, question, notebook_id, top_k=top_k)
+        return bridge.governed_recall(
+            ns,
+            question,
+            notebook_id,
+            top_k=top_k,
+            iterative=iterative,
+        )
     except NotebookLMError as e:
         raise RuntimeError(
             f"NotebookLM retrieval-guided read failed (no answer fabricated): {e}. "
@@ -447,7 +447,7 @@ def truth_ledger(query: str, namespace: Optional[str] = None, agent_id: Optional
     query = _text_arg(query, "query", max_chars=_MAX_QUERY_CHARS)
     scope = _scope(namespace, agent_id, project_id)
     try:
-        ans = engine().ask(query, verify=verify, as_of=as_of, scope=scope)
+        ans = engine().ask(query, verify=True, as_of=as_of, scope=scope)
         return engine().truth_ledger(ans, scope=scope)
     except ModelCallError as e:
         raise RuntimeError(

@@ -70,6 +70,8 @@ class FeedbackBuffer:
         self.db_path = Path(db_path)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._local = threading.local()
+        self._connections: set[sqlite3.Connection] = set()
+        self._connections_lock = threading.Lock()
         self._init_schema()
 
     def _conn(self) -> sqlite3.Connection:
@@ -79,7 +81,26 @@ class FeedbackBuffer:
             c.row_factory = sqlite3.Row
             c.execute("PRAGMA journal_mode=WAL")
             self._local.conn = c
+            with self._connections_lock:
+                self._connections.add(c)
         return c
+
+    def close(self) -> None:
+        with self._connections_lock:
+            connections = list(self._connections)
+            self._connections.clear()
+        for connection in connections:
+            try:
+                connection.close()
+            except sqlite3.Error:
+                pass
+        self._local.conn = None
+
+    def __del__(self) -> None:
+        try:
+            self.close()
+        except Exception:
+            pass
 
     def _init_schema(self) -> None:
         c = self._conn()

@@ -45,9 +45,12 @@ def sample_to_namespace(window: Path, sqlite_path: str) -> dict:
     sample's own namespace). Same technique the offline verified-precision probe used."""
     mid2ns: dict[str, str] = {}
     con = sqlite3.connect(sqlite_path)
-    for mid, ns in con.execute("select memory_id, namespace from memories"):
-        mid2ns[mid] = ns
-        mid2ns[mid[:16]] = ns
+    try:
+        for mid, ns in con.execute("select memory_id, namespace from memories"):
+            mid2ns[mid] = ns
+            mid2ns[mid[:16]] = ns
+    finally:
+        con.close()
     out: dict[str, str] = {}
     for row in _rows(window / SYS_FILE):
         ex = row.get("extra") or {}

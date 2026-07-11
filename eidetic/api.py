@@ -190,7 +190,7 @@ async def ask(body: AskIn):
         # thread-local (concurrency safety), so a second dispatch can land on another worker
         # and silently see a foreign/None trace, dropping the recall paths from the proof.
         # Same rule the truth_ledger route already follows.
-        ans = _guard(engine().ask, body.query, verify=body.verify, as_of=body.as_of,
+        ans = _guard(engine().ask, body.query, verify=True, as_of=body.as_of,
                      scope=body.to_scope())
         out = ans.model_dump()
         if body.prove:
@@ -242,7 +242,7 @@ async def structured_recall(body: StructuredRecallIn):
             body.query,
             scope=body.to_scope(),
             as_of=body.as_of,
-            verify=body.verify,
+            verify=True,
         )
     )
 
@@ -262,7 +262,7 @@ async def truth_ledger(query: str, namespace: str = "default", agent_id: Optiona
         # ONE threadpool thread: truth_ledger(with_paths) reads the retriever's THREAD-LOCAL
         # last_trace, so ask + truth_ledger must run on the same thread or the recall-paths splice
         # silently sees a foreign/None trace and drops the paths.
-        ans = _guard(engine().ask, query, verify=verify, as_of=as_of, scope=scope)
+        ans = _guard(engine().ask, query, verify=True, as_of=as_of, scope=scope)
         return engine().truth_ledger(ans, scope=scope)
 
     return await run_in_threadpool(_answer_and_prove)

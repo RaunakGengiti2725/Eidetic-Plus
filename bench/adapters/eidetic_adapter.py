@@ -5,13 +5,11 @@ graph/facts are built by consolidate_pending() between ingest and query, off the
 from __future__ import annotations
 
 import os
-import re
 import time
 from typing import Optional
 
 from eidetic.engine import Engine
-from eidetic.models import NLILabel, Scope, now
-from eidetic.smqe import structured_answer
+from eidetic.models import ABSTENTION_TEXT, AnswerStatus, NLILabel, Scope, now
 
 from ..reader import answer_with_fixed_reader
 from .base import AnswerResult, MemorySystem, WriteResult, approx_tokens
@@ -19,60 +17,6 @@ from .base import AnswerResult, MemorySystem, WriteResult, approx_tokens
 
 def _truthy(name: str) -> bool:
     return os.environ.get(name, "0").strip().lower() in ("1", "true", "yes")
-
-
-_DECLINE_RE = re.compile(
-    r"\b(?:do not|don't) have (?:that|enough|the)|cannot answer|insufficient evidence|not have that in memory",
-    re.I,
-)
-
-
-def _coverage_backed_abstain(*, declined: bool, verified: bool, coverage: float,
-                             settings) -> bool:
-    """Lever 2 coverage-backed override, modeled over the LEGACY (non-v2) base gate.
-
-    The override STEP (lines below) is identical to the one wired inline into answer()'s
-    abstention decision, which applies it to whichever base gate ran (v2 OR legacy) -- the
-    shipped profile runs v2, so the live override sits OUTSIDE the v2/legacy branch. This pure
-    function pins the override contract against the legacy base so it is unit-testable without
-    the reader/client/NLI stack: abstain when declined OR (unverified AND coverage below
-    threshold); then, when the flag is on AND the reader did NOT decline AND dense coverage >=
-    reader_coverage_floor, ship the (unverified, HONEST) reader text instead of abstaining.
-    `declined` stays absolute. verified=False is reported truthfully, so the verified-precision
-    scoreboard column is untouched.
-    """
-    abstained = declined or ((not verified) and coverage < settings.abstention_threshold)
-    if getattr(settings, "abstention_reader_coverage_enabled", False):
-        coverage_backed = (not declined) and coverage >= getattr(
-            settings, "reader_coverage_floor", 0.45)
-        if coverage_backed:
-            abstained = False
-    return abstained
-
-
-def _dense_topk_blocks(cands, k: int) -> list[str]:
-    """The clean top-k dense slice rag-vector feeds the reader: the k highest dense-cosine
-    candidates' raw text, no structured/audit/temporal channels. Built from eidetic's OWN
-    dense candidates (same cosine ranking), so the ensemble absorbs the top-k baseline without
-    a second retrieval system."""
-    ranked = sorted(cands, key=lambda c: -float(getattr(c, "dense_score", 0.0) or 0.0))
-    blocks: list[str] = []
-    for c in ranked[: max(1, int(k))]:
-        rec = getattr(c, "record", None)
-        text = (getattr(rec, "text", None) or getattr(rec, "summary", None) or "").strip()
-        if text:
-            blocks.append(text)
-    return blocks
-
-
-def _dense_topk_fallback(question: str, cands, k: int):
-    """Run the fixed reader over the clean top-k dense slice. Returns (text, declined) or
-    (None, True) when there is no dense context. Same fixed reader every baseline uses."""
-    blocks = _dense_topk_blocks(cands, k)
-    if not blocks:
-        return None, True
-    text = answer_with_fixed_reader(question, blocks)
-    return text, bool(_DECLINE_RE.search(text or ""))
 
 
 def _is_entailment(citation) -> bool:
@@ -255,7 +199,9 @@ class EideticSystem(MemorySystem):
         return AnswerResult(
             answer=text, context_tokens=ctx_tokens,
             search_ms=search_ms, e2e_ms=e2e_ms, abstained=False,
-            extra={"citations": len(cands), "coverage": coverage,
+            extra={"output_type": "UNTRUSTED_DRAFT", "status": "DRAFT",
+                   "verified": False, "policy": "retrieval-diagnostic-fixed-reader",
+                   "citations": len(cands), "coverage": coverage,
                    "candidate_memory_ids": [c.record.memory_id for c in cands],
                    **_region_context_extra(self.engine.retriever, question)},
         )
@@ -286,124 +232,68 @@ class EideticFullSystem(EideticSystem):
 
     name = "eidetic-plus-full"
 
-    _ABSTAIN_TEXT = "I don't have enough verified evidence in memory to answer that confidently."
+    _ABSTAIN_TEXT = ABSTENTION_TEXT
+
+    def after_answer(self, namespace: str, question: str, result: AnswerResult, *,
+                     correct: Optional[bool] = None,
+                     as_of: Optional[float] = None) -> dict:
+        return {}
 
     def answer(self, namespace: str, question: str,
                as_of: Optional[float] = None) -> AnswerResult:
         scope = Scope(namespace=namespace)
         r = self.engine.retriever
-        s = self.engine.settings
         t0 = time.perf_counter()
-        active_records = self.engine.store.active_records_at(as_of if as_of is not None else now(), scope)
-        smqe_ans = structured_answer(r, question, active_records, as_of, verify=True, scope=scope)
-        if smqe_ans is not None and not (
-                getattr(s, "dense_topk_fallback_enabled", False) and not smqe_ans.verified):
-            search_ms = (time.perf_counter() - t0) * 1000.0
-            policy = smqe_ans.note or "smqe"
-            return AnswerResult(
-                answer=smqe_ans.answer,
-                context_tokens=sum(approx_tokens(c.snippet) for c in smqe_ans.citations),
-                search_ms=search_ms, e2e_ms=search_ms, abstained=False,
-                extra={"verified": bool(smqe_ans.verified), "coverage": 1.0,
-                       "confidence": smqe_ans.confidence, "abstention_signals": {
-                           "entail": 1.0 if smqe_ans.verified else 0.0,
-                           "coverage": 1.0,
-                           "agreement": 1.0,
-                           "proof": 1.0 if smqe_ans.verified else 0.0,
-                       },
-                       "citations": len(smqe_ans.citations),
-                       "candidate_memory_ids": [c.memory_id for c in smqe_ans.citations],
-                       "entailed_memory_ids": _entailed_memory_ids(smqe_ans.citations),
-                       "entailed_content_hashes": _entailed_content_hashes(smqe_ans.citations),
-                       "entailed_raw_uris": _entailed_raw_uris(smqe_ans.citations),
-                       "proof_surface_tokens": sum(approx_tokens(c.snippet) for c in smqe_ans.citations),
-                       "policy": policy,
-                       "region_hint_count": 0,
-                       "region_ids": [],
-                       "region_member_ids": [],
-                       **_smqe_extra(policy)},
-            )
-        cands = r.retrieve(question, at=as_of, scope=scope)
-        search_ms = (time.perf_counter() - t0) * 1000.0
-        blocks = r.assemble_context(question, cands, at=as_of, scope=scope)
-        # NEUTRALITY: generate through the SAME fixed reader (model + prompt) as every baseline, so
-        # the scoreboard measures memory, not answerer. The product policy -- NLI verification +
-        # abstention + proof -- is then layered on THAT answer (the honesty differentiator), not on
-        # a stronger private reader. (engine.ask()'s own reader/cascade is a separate latency/quality
-        # feature, deliberately kept OUT of the neutral accuracy comparison.)
-        _q_snap = getattr(r.client, "usage_snapshot", None)
-        _q_before = _q_snap() if callable(_q_snap) else None
-        text = answer_with_fixed_reader(question, blocks)
-        declined = bool(_DECLINE_RE.search(text or ""))
-        citations, entailed = r._verify_candidates(cands, text, True, query=question, at=as_of)
-        # Verification-policy rescue (advice/likelihood restatement + quoted-span anchors) is
-        # part of the verify+abstain honesty layer, applied to the SAME fixed-reader text -
-        # not a stronger reader. Without it here, verified flags flap with reader phrasing.
-        if not declined:
-            citations, entailed, _rescued = r.rescue_grounding(
-                question, text, cands, citations, entailed, verify=True, scope=scope, at=as_of)
-        verified = entailed > 0 and not declined
-        coverage = max((c.dense_score for c in cands), default=0.0)
-        conf = None
-        sig = None
-        coverage_backed = False
-        if s.abstention_v2_enabled:
-            conf, _sig = r._abstention_confidence(cands, citations)
-            sig = _sig
-            base_abstain = declined or conf < s.abstention_v2_tau
-        else:
-            base_abstain = declined or ((not verified) and coverage < s.abstention_threshold)
-        # Lever 2: coverage-backed override (flag-gated). Applied to WHICHEVER base gate ran
-        # (v2 or legacy) -- the shipped profile runs v2, so the override must live outside the
-        # branch or it is inert. Converts a high-coverage abstention into an answered-but-
-        # unverified row; can only turn an abstention into an answer, never changes an already-
-        # answered row. verified stays False here (reported honestly), so the verified-precision
-        # scoreboard column is untouched -- the honesty differentiator is preserved.
-        abstained = base_abstain
-        if (getattr(s, "abstention_reader_coverage_enabled", False)
-                and base_abstain and not declined
-                and coverage >= getattr(s, "reader_coverage_floor", 0.45)):
-            abstained = False
-            coverage_backed = True
-        # DENSE_TOPK_FALLBACK ensemble: when the primary answer is NOT verified (the rich context
-        # underperforms a clean top-k slice on easy rows -- the measured reader-wrong loss to
-        # rag-vector), answer instead over ONLY the top-k dense passages that rag-vector feeds.
-        # Preferred over both the unverified rich-reader answer AND an abstention -- it absorbs the
-        # baseline's retrieval while eidetic's VERIFIED answers (which never reach here) keep the
-        # provenance edge. Reported verified=False (it did not pass the proof gate).
-        dense_fallback = False
-        if (getattr(s, "dense_topk_fallback_enabled", False) and not verified):
-            fb_text, fb_declined = _dense_topk_fallback(
-                question, cands, getattr(s, "dense_topk_fallback_k", 10))
-            if fb_text is not None and not fb_declined:
-                text = fb_text
-                abstained = False
-                dense_fallback = True
+        ans = self.engine.ask(
+            question,
+            at=as_of,
+            scope=scope,
+            verify=True,
+            use_cache=False,
+            reader_model="bench-fixed-reader",
+            reader=answer_with_fixed_reader,
+        )
         e2e_ms = (time.perf_counter() - t0) * 1000.0
-        _policy = "fixed-reader + verify+abstain+proof"
-        if coverage_backed:
-            _policy = "fixed-reader + coverage-backed (unverified)"
-        if dense_fallback:
-            _policy = "fixed-reader + dense-topk-ensemble (unverified)"
+        note = ans.note or ""
+        abstained = ans.status == AnswerStatus.ABSTAINED
+        structured_recall = ans.generated_by == "smqe" or note.startswith("smqe:")
+        if structured_recall:
+            search_ms = e2e_ms
+            context_tokens = sum(approx_tokens(c.snippet) for c in ans.citations)
+            candidate_memory_ids = [c.memory_id for c in ans.citations]
+            region_extra = {"region_hint_count": 0, "region_ids": [], "region_member_ids": []}
+        else:
+            telemetry = r.last_answer_telemetry
+            if (telemetry.get("query") != question
+                    or telemetry.get("scope_key") != scope.key()):
+                telemetry = {}
+            search_ms = float(telemetry.get("search_ms", 0.0) or 0.0)
+            blocks = telemetry.get("blocks") or []
+            context_tokens = sum(approx_tokens(block) for block in blocks)
+            candidate_memory_ids = list(telemetry.get("candidate_memory_ids") or [])
+            region_extra = _region_context_extra(r, question)
         return AnswerResult(
-            answer=(self._ABSTAIN_TEXT if abstained else text),
-            context_tokens=sum(approx_tokens(b) for b in blocks),
-            search_ms=search_ms, e2e_ms=e2e_ms, abstained=abstained,
-            extra={"verified": bool(verified and not abstained and not coverage_backed
-                                     and not dense_fallback),
-                   "coverage": coverage,
-                   "confidence": conf, "abstention_signals": sig,
-                   "citations": len(citations),
-                   "candidate_memory_ids": [c.record.memory_id for c in cands],
-                   "entailed_memory_ids": _entailed_memory_ids(citations),
-                   "entailed_content_hashes": _entailed_content_hashes(citations),
-                   "entailed_raw_uris": _entailed_raw_uris(citations),
-                   "proof_surface_tokens": _proof_surface_tokens(citations),
-                   "policy": _policy,
-                   **({"model_usage": r.client.usage_delta(_q_before, _q_snap())}
-                      if _q_before is not None and callable(getattr(r.client, "usage_delta", None))
-                      else {}),
-                   **_region_context_extra(r, question)},
+            answer=ans.answer,
+            context_tokens=context_tokens,
+            search_ms=search_ms,
+            e2e_ms=e2e_ms,
+            abstained=abstained,
+            extra={
+                "status": ans.status.value,
+                "verified": ans.status == AnswerStatus.VERIFIED,
+                "confidence": ans.confidence,
+                "citations": len(ans.citations),
+                "candidate_memory_ids": candidate_memory_ids,
+                "entailed_memory_ids": _entailed_memory_ids(ans.citations),
+                "entailed_content_hashes": _entailed_content_hashes(ans.citations),
+                "entailed_raw_uris": _entailed_raw_uris(ans.citations),
+                "proof_surface_tokens": _proof_surface_tokens(ans.citations),
+                "note": note,
+                "policy": note if structured_recall else "fixed-reader + verify+abstain+proof",
+                "orchestration": "engine.ask:fixed-reader+canonical-proof",
+                **region_extra,
+                **_smqe_extra(note),
+            },
         )
 
 
@@ -436,7 +326,7 @@ class EideticProductSystem(EideticSystem):
         ans = self.engine.ask(question, at=as_of, scope=scope, verify=True)
         e2e_ms = (time.perf_counter() - t0) * 1000.0
         note = ans.note or ""
-        abstained = note.startswith("abstained")
+        abstained = ans.status == AnswerStatus.ABSTAINED
         structured_recall = ans.generated_by == "smqe" or note.startswith("smqe:")
         if structured_recall:
             cands = []
@@ -448,20 +338,20 @@ class EideticProductSystem(EideticSystem):
             )
             candidate_memory_ids = [c.memory_id for c in ans.citations]
         else:
-            # Report cost (tokens/query) and search latency on the SAME block basis as every other
-            # row, so the columns are comparable: engine.ask() does not expose its internal reader
-            # blocks. This representative retrieve is skipped for SMQE structured answers because
-            # the deployed product path really did not assemble reader context for them.
-            t_s = time.perf_counter()
-            cands = r.retrieve(question, at=as_of, scope=scope)
-            search_ms = (time.perf_counter() - t_s) * 1000.0
-            blocks = r.assemble_context(question, cands, at=as_of, scope=scope)
-            ctx_tokens = sum(approx_tokens(b) for b in blocks)
-            candidate_memory_ids = [c.record.memory_id for c in cands]
+            telemetry = r.last_answer_telemetry
+            if (telemetry.get("query") != question
+                    or telemetry.get("scope_key") != scope.key()):
+                telemetry = {}
+            cands = []
+            search_ms = float(telemetry.get("search_ms", 0.0) or 0.0)
+            blocks = telemetry.get("blocks") or []
+            ctx_tokens = sum(approx_tokens(block) for block in blocks)
+            candidate_memory_ids = list(telemetry.get("candidate_memory_ids") or [])
         return AnswerResult(
             answer=ans.answer, context_tokens=ctx_tokens,
             search_ms=search_ms, e2e_ms=e2e_ms, abstained=abstained,
-            extra={"verified": bool(ans.verified and not abstained),
+            extra={"status": ans.status.value,
+                   "verified": ans.status == AnswerStatus.VERIFIED,
                    "confidence": ans.confidence, "citations": len(ans.citations),
                    "candidate_memory_ids": candidate_memory_ids,
                    "entailed_memory_ids": _entailed_memory_ids(ans.citations),
