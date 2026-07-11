@@ -105,6 +105,55 @@
       "reason": "session handoff notes reference the single verified-correct aggregate holdout row measured during the citation-floor blast-radius check; documentation only",
       "evidence": "artifacts/holdout_rotation_r8_codex/eidetic-plus-full__run0.jsonl",
       "added": "2026-07-09"
+    },
+    {
+      "needle": "c7_q31",
+      "path": "bench/HANDOFF.md",
+      "reason": "r17 forensic taxonomy names the four relative_temporal verified-wrong rows that motivated the selection-side ambiguity guard; documentation only, no behavior keyed on the id",
+      "evidence": "artifacts/holdout_rotation_r17_codex/eidetic-plus-full__run0.jsonl",
+      "added": "2026-07-10"
+    },
+    {
+      "needle": "c7_q35",
+      "path": "bench/HANDOFF.md",
+      "reason": "r17 forensic taxonomy names the four relative_temporal verified-wrong rows that motivated the selection-side ambiguity guard; documentation only, no behavior keyed on the id",
+      "evidence": "artifacts/holdout_rotation_r17_codex/eidetic-plus-full__run0.jsonl",
+      "added": "2026-07-10"
+    },
+    {
+      "needle": "c2_q38",
+      "path": "bench/HANDOFF.md",
+      "reason": "r17 forensic taxonomy names the four relative_temporal verified-wrong rows that motivated the selection-side ambiguity guard; documentation only, no behavior keyed on the id",
+      "evidence": "artifacts/holdout_rotation_r17_codex/eidetic-plus-full__run0.jsonl",
+      "added": "2026-07-10"
+    },
+    {
+      "needle": "c4_q55",
+      "path": "bench/HANDOFF.md",
+      "reason": "r17 forensic taxonomy names the four relative_temporal verified-wrong rows that motivated the selection-side ambiguity guard; documentation only, no behavior keyed on the id",
+      "evidence": "artifacts/holdout_rotation_r17_codex/eidetic-plus-full__run0.jsonl",
+      "added": "2026-07-10"
+    },
+    {
+      "needle": "c8_q140",
+      "path": "bench/HANDOFF.md",
+      "reason": "relative_temporal class probe names the one junk-gold row in its taxonomy of the verified-wrong class; documentation only, no behavior keyed on the id",
+      "evidence": "artifacts/forensics/relative_temporal_floor_replay_20260710.jsonl",
+      "added": "2026-07-10"
+    },
+    {
+      "needle": "c1_q38",
+      "path": "bench/HANDOFF.md",
+      "reason": "selection-replay handoff itemizes the one pre-diff drift row behind the derivation boundary's zero-regression attribution; documentation only, no behavior keyed on the id",
+      "evidence": "artifacts/forensics/selection_replay_baseline_20260711.json",
+      "added": "2026-07-11"
+    },
+    {
+      "needle": "c9_q17",
+      "path": "bench/HANDOFF.md",
+      "reason": "selection-replay handoff itemizes the one deliberate fail-closed tie loss of the derivation boundary; documentation only, no behavior keyed on the id",
+      "evidence": "artifacts/forensics/selection_replay_20260711.json",
+      "added": "2026-07-11"
     }
   ]
 }

@@ -336,16 +336,6 @@ class Settings:
     abstention_w_agreement: float = field(default_factory=lambda: float(_get("ABSTENTION_W_AGREEMENT", "0.2")))
     abstention_w_proof: float = field(default_factory=lambda: float(_get("ABSTENTION_W_PROOF", "0.2")))
     # --- Beat-rag-vector levers (default OFF in code; product_cost.json stacks them ON) ---
-    # Lever 2 ABSTENTION_READER_COVERAGE (default off): abstention scores 0 on any gold-bearing
-    # row, so answering-when-coverage-exists strictly helps accuracy. When the reader did NOT
-    # decline AND dense coverage >= reader_coverage_floor, ship the (unverified, HONEST) reader
-    # text instead of abstaining. verified=False is reported truthfully -- the verified-precision
-    # scoreboard column stays clean; we simply stop discarding recoverable answers. `declined`
-    # stays absolute (if the reader said 'I don't have that', respect it).
-    abstention_reader_coverage_enabled: bool = field(
-        default_factory=lambda: _get_bool("ABSTENTION_READER_COVERAGE", "0"))
-    reader_coverage_floor: float = field(
-        default_factory=lambda: float(_get("READER_COVERAGE_FLOOR", "0.45")))
     # Lever 3 RAW_DENSE_FLOOR (default off): reserve char budget for the top-N raw dense
     # passages BEFORE verbose audit/temporal channels fill it, so eidetic's reader context is a
     # SUPERSET of rag-vector's top-k and can never retrieve strictly worse. Reorders/protects
@@ -353,17 +343,6 @@ class Settings:
     raw_dense_floor_enabled: bool = field(
         default_factory=lambda: _get_bool("RAW_DENSE_FLOOR", "0"))
     raw_dense_floor_n: int = field(default_factory=lambda: _get_int("RAW_DENSE_FLOOR_N", 10))
-    # DENSE_TOPK_FALLBACK (default off): the top-k dense ENSEMBLE. When eidetic's primary answer
-    # is NOT verified (an unverified reader row or an unverified structured answer), run a second
-    # fixed-reader pass over ONLY the top-k dense passages -- exactly the clean cosine slice
-    # rag-vector feeds -- and prefer that answer. Honest framing: this ABSORBS rag-vector's
-    # retrieval as a fallback, so eidetic-ensemble >= rag-vector on the rows it wins while KEEPING
-    # eidetic's verified answers (which fire first, with provenance). The fallback answer is
-    # labeled verified=False (it did not pass the proof gate). It is NOT a claim that eidetic's
-    # memory is more accurate -- it is an ensemble that contains the baseline.
-    dense_topk_fallback_enabled: bool = field(
-        default_factory=lambda: _get_bool("DENSE_TOPK_FALLBACK", "0"))
-    dense_topk_fallback_k: int = field(default_factory=lambda: _get_int("DENSE_TOPK_FALLBACK_K", 10))
     # Cross-encoder rerank (qwen3-rerank): on/off + candidate depth (~50 -> final_topk).
     rerank_enabled: bool = field(default_factory=lambda: _get_bool("RERANK_ENABLED", "1"))
     rerank_fail_open: bool = field(default_factory=lambda: _get_bool("RERANK_FAIL_OPEN", "0"))
@@ -372,7 +351,11 @@ class Settings:
     rrf_w_dense: float = field(default_factory=lambda: float(_get("RRF_W_DENSE", "1.0")))
     rrf_w_bm25: float = field(default_factory=lambda: float(_get("RRF_W_BM25", "0.6")))
     rrf_w_graph: float = field(default_factory=lambda: float(_get("RRF_W_GRAPH", "0.8")))
-    rrf_w_recency: float = field(default_factory=lambda: float(_get("RRF_W_RECENCY", "0.3")))
+    # Recency fusion weight DEFAULTS TO ZERO: the age-independence claim covers the SHIPPED
+    # ranker, so recency must not rank memories on the product path (WP5; the channel had
+    # quietly contradicted the flat recall-vs-age story). Ablations may opt in via env;
+    # any reported run doing so must say so in its manifest.
+    rrf_w_recency: float = field(default_factory=lambda: float(_get("RRF_W_RECENCY", "0.0")))
     # Difficulty cascade escalation confidence (0 = route by keywords only; product feature).
     cascade_confidence: float = field(default_factory=lambda: float(_get("CASCADE_CONFIDENCE", "0.0")))
     # LLMLingua-2-style EXTRACTIVE compression ratio for raw chunks only (1.0 = off; never facts).
@@ -464,11 +447,9 @@ class Settings:
     cove_enabled: bool = field(default_factory=lambda: _get_bool("COVE", "0"))
     cove_questions: int = field(default_factory=lambda: int(_get("COVE_QUESTIONS", "3")))
     debate_enabled: bool = field(default_factory=lambda: _get_bool("DEBATE", "0"))
-    # Span-level NLI: verify EACH sentence/claim of a multi-sentence answer against the cited
-    # sources, not just the whole answer as one hypothesis. A single unentailed claim demotes the
-    # answer to unverified -> abstain/strip, so a partly-grounded answer can't ride one good
-    # sentence. Multiplies NLI on multi-sentence answers, hence gated (default OFF). Fires in
-    # answer() -> the engine.ask product path only.
+    # Public reader answers always verify every sentence, bullet, and semicolon-delimited claim.
+    # SPAN_NLI retains the same strict check for internal callers that explicitly disable the
+    # public require_all_claims contract. One unsupported claim demotes the entire answer.
     span_nli_enabled: bool = field(default_factory=lambda: _get_bool("SPAN_NLI", "0"))
     span_nli_min_chars: int = field(default_factory=lambda: int(_get("SPAN_NLI_MIN_CHARS", "12")))
 

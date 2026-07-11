@@ -838,6 +838,39 @@ def _relative_date_from_atom(rec: object, atom: str, query: str = "") -> str:
     return ""
 
 
+def _answer_period_key(answer: str) -> Optional[tuple[int, Optional[int], Optional[int]]]:
+    """Coarse (year, month, day) key of a temporal answer string for conflict detection.
+    Unparseable answers return None (never treated as conflicting)."""
+    text = answer or ""
+    m = re.search(r"\b((?:19|20)\d{2})-(\d{2})-(\d{2})\b", text)
+    if m:
+        return (int(m.group(1)), int(m.group(2)), int(m.group(3)))
+    m = re.search(
+        r"\b(january|february|march|april|may|june|july|august|september|october|"
+        r"november|december)\s+((?:19|20)\d{2})\b", text, re.I)
+    if m:
+        return (int(m.group(2)), list(calendar.month_name).index(m.group(1).capitalize()), None)
+    m = re.search(r"\b((?:19|20)\d{2})\b", text)
+    if m:
+        return (int(m.group(1)), None, None)
+    return None
+
+
+def _periods_conflict(a: tuple[int, Optional[int], Optional[int]],
+                      b: tuple[int, Optional[int], Optional[int]]) -> bool:
+    """Two answer periods conflict when a component BOTH specify disagrees materially:
+    different years, different months, or full dates more than 7 days apart (a weekend-range
+    answer and its anchor day must not count as rival events). A bare year is compatible with
+    any date inside it -- unspecified components never conflict."""
+    if a[0] != b[0]:
+        return True
+    if a[1] is not None and b[1] is not None and a[1] != b[1]:
+        return True
+    if a[2] is not None and b[2] is not None and a[1] == b[1]:
+        return abs(a[2] - b[2]) > 7
+    return False
+
+
 def _event_date(rec: object, atom: str) -> Optional[date]:
     explicit = _DATE_RE.search(atom)
     if explicit:
@@ -5595,7 +5628,13 @@ def _execute_atoms(plan: ExecutionPlan, query: str,
             # concert as verified.
             past_question = bool(re.search(r"\b(?:was|were|did|happened)\b", query or "", re.I)) \
                 and not re.search(r"\b(?:will|going\s+to|next|upcoming)\b", query or "", re.I)
-            candidates: list[tuple[int, int, float, object, str, str]] = []
+            # Candidate rows carry a STATED flag (index 6): True when the answer text was read
+            # from an explicit date statement in the atom itself (bare year 'in 2010', or an
+            # explicit value extraction), False when it was DERIVED by resolving deictic or
+            # relative phrasing ('today', 'last weekend', '3 weeks ago') against the session
+            # timestamp. Stated evidence names the event's own date; derived evidence names
+            # the date of A mention -- the distinction feeds the ambiguity guard below.
+            candidates: list[tuple[int, int, float, object, str, str, str]] = []
             for score, item, atom in atoms:
                 if past_question and _is_future_polarity_atom(atom):
                     continue
@@ -5604,6 +5643,12 @@ def _execute_atoms(plan: ExecutionPlan, query: str,
                 target_hits = _target_hit_count(expanded, target_terms)
                 if threshold and target_hits < threshold:
                     continue
+                # stated granularity: '' (deictic resolution), 'year' (explicit bare-year
+                # statement -- the one shape where a statement may REASSIGN a tie, measured
+                # on burned windows), 'phrase' (week/month phrases from the specific-value
+                # extractor -- evidence for the ambiguity guard, never for reassignment:
+                # a week-window phrase reassigning an exact deictic day shipped wrong).
+                stated = ""
                 answer = _relative_date_from_atom(item, atom, query)
                 if not answer:
                     # Explicit BARE year stated with the event ('she gave it to me in 2010'):
@@ -5613,8 +5658,10 @@ def _execute_atoms(plan: ExecutionPlan, query: str,
                                        _strip_role(atom))
                     if m_year:
                         answer = m_year.group(1)
+                        stated = "year"
                 if not answer:
                     answer = _answer_value_specific(query, atom, item)
+                    stated = "phrase" if answer else ""
                 if not answer or not re.search(r"\b(?:20\d{2}|week|month|year|today|yesterday|tomorrow|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)", answer, re.I):
                     continue
                 answer_months = {int(m) for m in re.findall(r"\b20\d{2}-(\d{2})-\d{2}\b", answer)}
@@ -5622,7 +5669,8 @@ def _execute_atoms(plan: ExecutionPlan, query: str,
                 if query_months and (not answer_months or not (query_months & answer_months)):
                     continue
                 if answer:
-                    candidates.append((target_hits, _entity_hit_count(entity_terms, match_text), score, item, atom, answer))
+                    candidates.append((target_hits, _entity_hit_count(entity_terms, match_text),
+                                       score, item, atom, answer, stated))
             if candidates and past_question:
                 # FUTURE-POLARITY CONTRADICTION: an event some target-matching atom still calls
                 # upcoming at its statement date cannot have happened on or before that date
@@ -5703,8 +5751,119 @@ def _execute_atoms(plan: ExecutionPlan, query: str,
                     if lemma_rows:
                         candidates = lemma_rows + [r for r in candidates
                                                    if r not in lemma_rows]
-                _target_hits, _entity_hits, score, item, atom, answer = candidates[0]
-                return _result(answer, plan, backend, [sup(item, atom, score)])
+                top = candidates[0]
+                # STATED-EVIDENCE AMBIGUITY GUARD (burned-window replay r1-r10: the largest
+                # residual verified-wrong family was wrong-mention selection). When a rival
+                # candidate ties the winner on every evidence gate (target hits, entity hits,
+                # and -- when the question names an action family -- lemma status) yet an
+                # explicitly STATED date names a MATERIALLY different period than the top
+                # answer ('back in 2019' vs a 2023 session deictic mention), the atom's own
+                # statement is direct evidence of the event's date while the deictic
+                # resolution only dates A mention -- the unique stated period wins. Two
+                # stated periods that conflict are a genuine evidence contradiction: abstain.
+                # All-deictic ties are deliberately UNTOUCHED: repeatable events legitimately
+                # recur ('picked up the badge' in March, again in April) and the sanctioned
+                # knowledge-update convention answers with the latest instance -- the time
+                # invariant suite locks that behavior. Wrong-instance selection among purely
+                # deictic mentions therefore remains a documented residual, not a silent one.
+                # Ordinal-first questions keep their earliest-date semantics (that reorder is
+                # itself the disambiguator), so the guard does not run there.
+                ordinal_first = bool(re.search(r"\b(?:first|originally|initially)\b",
+                                               query or "", re.I))
+                stated_resolution = False
+                if not ordinal_first:
+                    def _lemma_status(row) -> bool:
+                        if not action_family:
+                            return True
+                        return bool({t for t in re.findall(r"[a-z][\w'-]{2,}",
+                                                           (row[4] or "").lower())}
+                                    & action_family)
+                    top_period = _answer_period_key(top[5])
+                    if top_period is not None:
+                        rivals = [row for row in candidates[1:]
+                                  if row[0] == top[0] and row[1] == top[1]
+                                  and _lemma_status(row) == _lemma_status(top)]
+                        conflicted = [row for row in rivals
+                                      for p in [_answer_period_key(row[5])]
+                                      if p is not None and _periods_conflict(top_period, p)]
+                        stated_rows = [row for row in [top] + conflicted if row[6]]
+                        if conflicted and stated_rows:
+                            stated_periods = {_answer_period_key(row[5])
+                                              for row in stated_rows}
+                            year_rows = [row for row in stated_rows if row[6] == "year"]
+                            if len(stated_periods) == 1 and year_rows:
+                                # A unique explicit bare-year STATEMENT resolves the tie
+                                # (the 'visited in 2020' shape). Week/month phrases never
+                                # reassign -- a week-window phrase overriding an exact
+                                # deictic day shipped verified-wrong on the 2026-07-11
+                                # selection replay; those ties fall to the derivation tag.
+                                top = year_rows[0]
+                                stated_resolution = True
+                            elif len(stated_periods) > 1:
+                                return None
+                # DERIVATION TAG (the HANDOFF design boundary, now enforced): the note tells
+                # the verifier whether this date is ATOM-DERIVED (the winning atom's own
+                # expression dates the event and no surviving candidate names a materially
+                # different period -- or a deterministic rule resolved the contest) or
+                # MENTION-SELECTED (a conflicting dated mention survived every gate and the
+                # winner won on score/hit ordering alone -- an unproven selection, the
+                # measured 57%-VW class). Deterministic resolutions that keep the tag:
+                #   - ordinal-first questions (earliest-date semantics are the question's own),
+                #   - a unique explicitly STATED period (statement > mention),
+                #   - identical recurring statements (knowledge-update convention: the same
+                #     sentence re-asserted later is a refresh, and latest-instance answers;
+                #     the time-invariant suite locks that shape),
+                #   - the question's action lemma present in the winner and absent from every
+                #     conflicting rival (the release-beats-launch-party instance selector),
+                #   - a CALENDAR-ANCHORED winner (month name / day-of-month / year named in
+                #     the atom) over purely session-deictic rivals ('on the 17th' outranks a
+                #     'last week' mention as evidence of WHICH date, not merely which atom).
+                derivation = ":atom_derived"
+                top_period = _answer_period_key(top[5])
+                # DOMINANCE SCOPE (measured on the 12-window selection replay): a rival
+                # contests the selection only when it matches the queried event AT LEAST as
+                # well as the winner on both evidence gates (target hits, entity hits) --
+                # such a rival lost on SCORE alone, and score embeds recency, the untrusted
+                # channel. A strictly weaker partial-overlap atom naming another date is not
+                # a rival reading of THIS event; treating it as one converted 16 verified-
+                # correct rows to abstention for zero gain.
+                others = [row for row in candidates
+                          if row is not top and row[0] >= top[0] and row[1] >= top[1]]
+                if top_period is None:
+                    if others:
+                        derivation = ":mention_selected"
+                else:
+                    conflicting = [row for row in others
+                                   for p in [_answer_period_key(row[5])]
+                                   if p is not None and _periods_conflict(top_period, p)]
+                    if conflicting:
+                        def _norm_atom(text: str) -> str:
+                            return " ".join(_strip_role(text or "").lower().split())
+                        def _has_lemma(row) -> bool:
+                            return bool(action_family
+                                        and {t for t in re.findall(r"[a-z][\w'-]{2,}",
+                                                                   (row[4] or "").lower())}
+                                        & action_family)
+                        same_statement = all(_norm_atom(row[4]) == _norm_atom(top[4])
+                                             for row in conflicting)
+                        stated_conflicts = [row for row in conflicting if row[6]]
+                        lemma_resolved = (_has_lemma(top)
+                                          and not any(_has_lemma(row)
+                                                      for row in conflicting))
+                        # NOTE the deliberately ABSENT shields: a week/month PHRASE top and
+                        # a calendar-anchored top do NOT protect a hit-tied contest -- both
+                        # shipped a wrong week window over an exact deictic day on the
+                        # 2026-07-11 selection replay. Only an explicit bare-year statement
+                        # outranks a deictic rival as evidence of the event's own date.
+                        if ordinal_first or stated_resolution or same_statement \
+                                or lemma_resolved \
+                                or (top[6] == "year" and not stated_conflicts):
+                            pass
+                        else:
+                            derivation = ":mention_selected"
+                _target_hits, _entity_hits, score, item, atom, answer, _stated = top
+                return _result(answer, plan, backend, [sup(item, atom, score)],
+                               note_suffix=derivation)
         else:
             if re.search(r"\bconsecutive\s+days?\b", query, re.I) and plan.as_of is not None:
                 topic_terms = _consecutive_topic_terms(query)

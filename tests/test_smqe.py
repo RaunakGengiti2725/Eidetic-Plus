@@ -5,7 +5,7 @@ import random
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from eidetic.models import ClaimRecord, MemoryRecord, NLILabel, Scope, StructuredAnswerResult, StructuredSupport
+from eidetic.models import ClaimRecord, MemoryRecord, Modality, NLILabel, Scope, StructuredAnswerResult, StructuredSupport
 from eidetic.smqe import structured_answer
 from eidetic.smqe.engine import structured_answer as engine_structured_answer
 from eidetic.smqe.engine import structured_recall as engine_structured_recall
@@ -551,7 +551,7 @@ def test_structured_answer_record_backend_handles_relative_dates(tmp_path):
     ans = structured_answer(_Retriever(store), "When did I pick up the ceramic kit?", at=rec.valid_at + 10, scope=scope)
 
     assert ans is not None
-    assert ans.note == "smqe:relative_temporal:record"
+    assert ans.note == "smqe:relative_temporal:record:atom_derived"
     assert ans.answer == "2024-01-01"
 
 
@@ -1065,7 +1065,7 @@ def test_structured_answer_handles_randomized_unseen_record_questions(tmp_path):
         assert ans is not None
         assert ans.answer == f"2024-03-{9 + idx:02d}"
         assert ans.verified is True
-        assert ans.note == "smqe:relative_temporal:record"
+        assert ans.note == "smqe:relative_temporal:record:atom_derived"
 
     store = RecordStore(tmp_path / "count.sqlite")
     scope = Scope(namespace="random-count")
@@ -3338,6 +3338,51 @@ def test_smqe_verification_requires_support_records_to_exist(tmp_path):
     assert ans is None
 
 
+def test_structured_image_support_requires_pixel_verification(tmp_path):
+    store = RecordStore(tmp_path / "structured-image-proof.sqlite")
+    scope = Scope(namespace="structured-image-proof")
+    record = MemoryRecord(
+        text="The chart shows revenue increasing every quarter.",
+        source="image",
+        modality=Modality.IMAGE,
+        scope=scope,
+        valid_at=1_700_000_000.0,
+        content_hash="image-hash",
+        raw_uri="cas://image-hash",
+    )
+    store.upsert_record(record)
+    result = StructuredAnswerResult(
+        answer="Revenue increased every quarter.",
+        op="latest_value",
+        backend="record",
+        supports=[StructuredSupport(
+            memory_id=record.memory_id,
+            proof_atom="The chart shows revenue increasing every quarter.",
+        )],
+        note="smqe:latest_value:record",
+    )
+
+    class _PixelReject(_Retriever):
+        def __init__(self, source_store):
+            super().__init__(source_store)
+            self.calls = 0
+
+        def verify_citation(self, rec, atom):
+            self.calls += 1
+            return NLILabel.NEUTRAL, 0.0
+
+    retriever = _PixelReject(store)
+    answer = answer_from_result(
+        retriever,
+        "What trend does the chart show?",
+        result,
+        verify=True,
+    )
+
+    assert answer is None
+    assert retriever.calls == 1
+
+
 class _StrictRetriever(_Retriever):
     """Claim-backend strict-hypothesis retriever: exposes .verify so answer_from_result takes
     the query-aware path; entailment is substring-only, like the base test retriever."""
@@ -3531,7 +3576,7 @@ def test_structured_answer_normalizes_source_relative_date_phrases(tmp_path):
             ans = structured_answer(_Retriever(store), question, at=1_900_000_000, scope=scope)
 
             assert ans is not None
-            assert ans.note == f"smqe:relative_temporal:{backend}"
+            assert ans.note == f"smqe:relative_temporal:{backend}:atom_derived"
             assert ans.verified is True
             assert ans.answer == expected
 

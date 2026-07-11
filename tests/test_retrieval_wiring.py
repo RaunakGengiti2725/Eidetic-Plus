@@ -8,12 +8,13 @@ from __future__ import annotations
 
 from dataclasses import replace
 from datetime import datetime
+from pathlib import Path
 
 import pytest
 
 from eidetic.events import parse_query
 from eidetic.graph import KnowledgeGraph
-from eidetic.models import Citation, MemoryRecord, NLILabel, RetrievalCandidate, Scope
+from eidetic.models import Citation, MemoryRecord, Modality, NLILabel, RetrievalCandidate, Scope
 from eidetic.retrieval import Retriever, _aggregation_matches
 from eidetic.smqe import structured_answer
 from eidetic.store import RecordStore
@@ -134,7 +135,7 @@ def test_cove_failed_check_demotes_to_unverified(fresh_settings):
     # The stale ENTAILMENT citations MUST be demoted to NEUTRAL: otherwise engine.ask()
     # reconsolidation reinforces the very memories the factored check rejected, and the proof
     # surface ships a verified=False answer carrying ENTAILMENT citations.
-    assert ans.citations
+    assert ans.citations == []
     assert all(c.nli_label == NLILabel.NEUTRAL and c.nli_score == 0.0 for c in ans.citations)
 
 
@@ -231,14 +232,177 @@ def test_span_nli_keeps_verified_when_all_claims_grounded(fresh_settings):
     # The per-claim loop MUST have run (positive test fails if SPAN became a no-op): 1 whole-answer
     # verify + 2 per-claim verifies ("Mel reads books." / "Mel pilots jets.").
     assert r._verify_state["calls"] == 3
+    assert len(ans.citations) == 3
 
 
-def test_span_nli_off_keeps_whole_answer_verdict(fresh_settings):
+def test_public_reader_requires_claim_proof_when_span_flag_is_off(fresh_settings):
     s = replace(fresh_settings, span_nli_enabled=False, cove_enabled=False, cascade_enabled=False,
                 abstention_v2_enabled=False, abstention_threshold=0.0)
-    r, cands = _span_retriever(s, claim_entailed_for=lambda t: False)  # would fail if it ran
+    r, cands = _span_retriever(s, claim_entailed_for=lambda t: False)
     ans = r.answer("what does Mel do", verify=True, precomputed=cands)
-    assert ans.verified is True                  # span check never ran -> whole-answer verdict
+    assert ans.verified is False
+    assert ans.status.value == "ABSTAINED"
+    assert ans.citations == []
+    assert r._verify_state["calls"] == 2
+
+
+def test_public_reader_verifies_each_bullet_item(fresh_settings):
+    s = replace(fresh_settings, span_nli_enabled=False, cove_enabled=False, cascade_enabled=False,
+                abstention_v2_enabled=False, abstention_threshold=0.0)
+    r, candidates = _span_retriever(s, claim_entailed_for=lambda text: "reads" in text)
+    r.client.generate_answer = lambda q, b, model=None: "- Mel reads books\n- Mel pilots jets"
+
+    answer = r.answer("What does Mel do?", verify=True, precomputed=candidates)
+
+    assert answer.status.value == "ABSTAINED"
+    assert answer.citations == []
+    assert r._verify_state["calls"] == 3
+
+
+def test_image_caption_cannot_bypass_missing_pixel_verification(fresh_settings):
+    client = _CoveClient()
+    r = _retriever(fresh_settings, client)
+    record = MemoryRecord(
+        memory_id="image-1",
+        content_hash="missing-image-hash",
+        text="The chart shows revenue increasing every quarter.",
+        modality=Modality.IMAGE,
+        scope=Scope(),
+        valid_at=1.0,
+    )
+
+    label, confidence = r.verify_citation(
+        record, "The chart shows revenue increasing every quarter.")
+
+    assert label == NLILabel.NEUTRAL
+    assert confidence == 0.0
+
+
+def test_image_claim_uses_raw_pixels_for_verification(fresh_settings):
+    class _Pixels:
+        def get(self, content_hash):
+            return b"real-image-bytes"
+
+    class _VisualClient(_CoveClient):
+        def __init__(self):
+            super().__init__()
+            self.visual_claims = []
+
+        def verify_visual(self, path, claim):
+            assert Path(path).read_bytes() == b"real-image-bytes"
+            self.visual_claims.append(claim)
+            return NLILabel.ENTAILMENT.value, 0.97
+
+    client = _VisualClient()
+    r = Retriever(_FakeStore(), _FakeIndex(),
+                  KnowledgeGraph(RecordStore(fresh_settings.sqlite_path)),
+                  _Pixels(), client, fresh_settings)
+    record = MemoryRecord(
+        memory_id="image-2",
+        content_hash="image-hash",
+        text="A generated caption that must not be the arbiter.",
+        modality=Modality.IMAGE,
+        scope=Scope(),
+        valid_at=1.0,
+    )
+
+    label, confidence = r.verify_citation(record, "The chart declines each quarter.")
+
+    assert label == NLILabel.ENTAILMENT
+    assert confidence == 0.97
+    assert client.visual_claims == ["The chart declines each quarter."]
+
+
+def test_pdf_claim_is_reverified_from_immutable_raw_document(fresh_settings):
+    class _DocumentBytes:
+        def get(self, content_hash):
+            return b"raw-pdf-bytes"
+
+    class _DocumentClient(_CoveClient):
+        def __init__(self):
+            super().__init__()
+            self.reads = 0
+
+        def read_document(self, path):
+            assert Path(path).read_bytes() == b"raw-pdf-bytes"
+            self.reads += 1
+            return "The renewal date in the signed contract is June 3."
+
+        def nli(self, premise, hypothesis):
+            if "June 3" in premise and "June 3" in hypothesis:
+                return NLILabel.ENTAILMENT.value, 0.98
+            return NLILabel.NEUTRAL.value, 0.0
+
+    client = _DocumentClient()
+    r = Retriever(_FakeStore(), _FakeIndex(),
+                  KnowledgeGraph(RecordStore(fresh_settings.sqlite_path)),
+                  _DocumentBytes(), client, fresh_settings)
+    record = MemoryRecord(
+        memory_id="pdf-1",
+        content_hash="pdf-hash",
+        raw_uri="cas://pdf-hash",
+        source="contract.pdf",
+        text="The generated ingest transcript incorrectly says July 9.",
+        modality=Modality.PDF,
+        scope=Scope(),
+        valid_at=1.0,
+    )
+
+    label, confidence = r.verify_citation(record, "The renewal date is June 3.")
+
+    assert label == NLILabel.ENTAILMENT
+    assert confidence == 0.98
+    assert client.reads == 1
+
+
+def test_binary_description_cannot_become_verified_proof(fresh_settings):
+    r = _retriever(fresh_settings, _CoveClient())
+    record = MemoryRecord(
+        memory_id="binary-1",
+        content_hash="binary-hash",
+        raw_uri="cas://binary-hash",
+        source="archive.bin",
+        text="A generated description says the launch code is BLUE-17.",
+        modality=Modality.BINARY,
+        scope=Scope(),
+        valid_at=1.0,
+    )
+
+    label, confidence = r.verify_citation(record, "The launch code is BLUE-17.")
+
+    assert label == NLILabel.NEUTRAL
+    assert confidence == 0.0
+
+
+def test_reader_abstains_when_active_evidence_both_entails_and_contradicts(fresh_settings):
+    s = replace(fresh_settings, cove_enabled=False, cascade_enabled=False,
+                abstention_v2_enabled=False, abstention_threshold=0.0)
+    client = _CoveClient()
+    client.generate_answer = lambda q, b, model=None: "Mel lives in Paris."
+    r = _retriever(s, client)
+    records = [
+        MemoryRecord(memory_id="m1", content_hash="h1", text="Mel lives in Paris",
+                     scope=Scope(), valid_at=1.0),
+        MemoryRecord(memory_id="m2", content_hash="h2", text="Mel lives in Rome",
+                     scope=Scope(), valid_at=2.0),
+    ]
+    candidates = [RetrievalCandidate(record=record, dense_score=0.9, fused_score=1.0,
+                                     rerank_score=0.9) for record in records]
+    citations = [
+        Citation(memory_id="m1", content_hash="h1", raw_uri="", source="u", valid_at=1.0,
+                 nli_label=NLILabel.ENTAILMENT, nli_score=0.95),
+        Citation(memory_id="m2", content_hash="h2", raw_uri="", source="u", valid_at=2.0,
+                 nli_label=NLILabel.CONTRADICTION, nli_score=0.95),
+    ]
+    r._verify_candidates = lambda *args, **kwargs: (citations, 1)
+    r._try_conflict_resolver = lambda *args, **kwargs: None
+    r.assemble_context = lambda *args, **kwargs: ["Mel lives in Paris", "Mel lives in Rome"]
+
+    answer = r.answer("Where does Mel live?", verify=True, precomputed=candidates)
+
+    assert answer.status.value == "ABSTAINED"
+    assert answer.citations == []
+    assert "contradicts" in answer.note
 
 
 def test_cove_demotion_into_abstention_overwrites_note(fresh_settings):

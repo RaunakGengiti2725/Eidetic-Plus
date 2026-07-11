@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import re
 
-from eidetic.models import Answer, Citation, NLILabel, StructuredAnswerResult
+from eidetic.models import Answer, Citation, Modality, NLILabel, StructuredAnswerResult
 
 
 def _query_answer_hypothesis(query: str, answer: str) -> str:
@@ -469,6 +469,35 @@ def _pref_premise_position_ok(answer: str, premise: str) -> bool:
     return not found
 
 
+_CATEGORY_OBJECT_RE = re.compile(
+    r"\b(?:genre|kind|type|style|sort)s?\s+of\s+([a-z][a-z0-9'-]*(?:\s+[a-z][a-z0-9'-]*)?)",
+    re.I)
+
+
+def _category_object_anchored(query: str, answer: str,
+                              supports: list[StructuredSupport]) -> bool:
+    """A category-shaped preference question ('favorite GENRE OF MOVIES') is answerable only
+    from evidence about that object class. A preference cue alone does not anchor it: 'amazing
+    chocolate raspberry tart ... one of my favorites' cue-matched a movie-genre question and
+    shipped verified-wrong on the burned window. Require the object noun (prefix-tolerant) in
+    the answer or in at least one support atom; questions without the 'of <object>' shape are
+    untouched."""
+    m = _CATEGORY_OBJECT_RE.search(query or "")
+    if not m:
+        return True
+    obj_terms = {t for t in re.findall(r"[a-z0-9][a-z0-9'-]{2,}", m.group(1).lower())
+                 if t not in _QUERY_TIE_STOP}
+    if not obj_terms:
+        return True
+    hay = " ".join([answer or ""] + [s.proof_atom or s.answer_atom or "" for s in supports])
+    hay_terms = {t for t in re.findall(r"[a-z0-9][a-z0-9'-]{2,}", hay.lower())}
+    for o in obj_terms:
+        for h in hay_terms:
+            if o == h or (min(len(o), len(h)) >= 4 and (o.startswith(h) or h.startswith(o))):
+                return True
+    return False
+
+
 def reader_answer_form_credible(query: str, answer: str) -> bool:
     """Universal deterministic form floors for READER-path answers. The photographic reader
     quotes sources verbatim, so a conversational fragment ('I'm reading', 'Check,', 'Yeah,
@@ -547,11 +576,21 @@ def _clean_fact_form_credible(query: str, result: StructuredAnswerResult) -> boo
     every producer path. Computed ops (bare dates/counts are legitimate), polarity answers
     (their own floors), and suggestion_synth (provenance-gated carve-out) are exempt.
 
-    Deliberately NARROW -- only two high-precision shapes, validated to reject no correct answer
+    Deliberately NARROW -- high-precision shapes only, validated to reject no correct answer
     on the regression set. It never rejects wrong-but-clean values (a plausible wrong date
     passes -- form cannot know it is wrong), and never a legitimate list whose items share a
     common noun, nor a parallel timeline whose entries repeat a verb phrase -- those are real
-    answers, not garble."""
+    answers, not garble.
+
+    Shapes 3-5 (burned-window replay r1-r10 forensics, zero correct rows lost on projection):
+      3. a dangling separator tail (',' ';' ':') -- an extractor sliced mid-list ('last
+         month, garden, painting,' shipped-verified shape while answering nothing whole);
+      4. degenerate conjunction repetition ('involved and involved with organizations') --
+         assembly noise the reader floor already rejects, ported to the structured path;
+      5. an answer whose every token is conversational junk or a question echo ('Yeah,
+         Priya', 'Hey Ravi') -- the raw zero-information floor passes these because the
+         junk head ('yeah', 'hey') counts as a novel token; stripping junk first mirrors
+         the reader floor's echo test."""
     answer = (result.answer or "").strip()
     if not answer:
         return True
@@ -577,38 +616,125 @@ def _clean_fact_form_credible(query: str, result: StructuredAnswerResult) -> boo
         if len(segs) >= 2 and any(re.match(r"[A-Z][a-zA-Z]+\s*:\s+\S", s) for s in segs):
             return False
 
+    # (3) A dangling separator tail is a slice artifact, never a complete fact: no real
+    # extracted value ends with ',' ';' or ':'.
+    if re.search(r"[,;:]\s*$", answer):
+        return False
+
+    # (4) Degenerate conjunction repetition is assembly noise ('involved and involved with
+    # organizations'): the same token on both sides of a conjunction never occurs in a
+    # meaningful extracted value. Same rule as the reader form floor.
+    if re.search(r"\b(\w+)\s+and\s+\1\b", answer.lower()):
+        return False
+
+    # (5) Junk-stripped question echo: drop conversational junk singletons, then require the
+    # remainder to add information over the question. 'Yeah, Priya' / 'Hey Ravi' pass the raw
+    # zero-information floor because the junk head is a novel token; they answer nothing.
+    # Mirrors the reader floor's junk-stripped echo test. Answers with NO content tokens at
+    # all (clock times, bare numbers) stay unevaluable-fail-open exactly like the raw floor.
+    raw_tokens = re.findall(r"[a-z0-9][a-z0-9'-]{2,}", answer.lower())
+    if raw_tokens:
+        kept = [t for t in raw_tokens if t not in _ANSWER_JUNK_SINGLETONS]
+        if len(kept) != len(raw_tokens):
+            # All-junk answers reject outright ('Check'); _answer_adds_information treats an
+            # empty token set as unevaluable-fail-open, which is wrong here -- the answer HAD
+            # content tokens and every one was junk.
+            if not kept:
+                return False
+            if not _answer_adds_information(query, " ".join(kept)):
+                return False
+
     return True
+
+
+def structured_answer_form_floor(query: str, result: StructuredAnswerResult) -> str | None:
+    """The PURE deterministic form floors for structured answers: every check here is a
+    function of (query, answer, op, note) alone -- no supports, no store, no model calls.
+    Returns the name of the floor that rejects, or None when the answer is form-credible.
+
+    Single source of truth: `answer_from_result` enforces these at runtime, and the
+    burned-window guard projection (bench/replay.py) replays them mechanically over frozen
+    rows to measure wrong-converted vs correct-lost before any live window is spent.
+    Support-dependent floors (aggregate citation, amount-aggregation statement, category
+    object anchoring, premise position) live in `answer_from_result` -- they need atoms."""
+    answer = result.answer or ""
+    note = result.note or ""
+    # MENTION-SELECTED temporal floor (note-keyed, per the HANDOFF design boundary): the
+    # legacy relative_temporal candidate loop tags every shipped date as atom_derived
+    # (the winning atom's own expression dates the event, or a deterministic rule resolved
+    # the contest) or mention_selected (a conflicting dated mention survived every gate and
+    # score/hit ordering alone picked the winner). A selected mention is not proof of WHICH
+    # occurrence the question asks about -- the measured 57%-VW class fails closed here.
+    # Untagged legacy notes (pre-tagging rows, other consumers) are untouched.
+    if result.op == "relative_temporal" and note.endswith(":mention_selected"):
+        return "temporal_selection"
+    # Non-credible enumeration from a non-computed op: fragment soup NLI-anchors against a
+    # long premise and ships verified. ':suggestion_synth' is the deliberate provenance-gated
+    # fragment carve-out; ':claim_list_enum' items carry their own typed write-time claims.
+    if (_ENUMERATED_ANSWER_RE.match(answer)
+            and result.op not in _COMPUTED_OPS
+            and ":suggestion_synth" not in note
+            and ":claim_list_enum" not in note
+            and not _enumeration_items_credible(answer)):
+        return "enumeration_form"
+    # Numeric computed-op TYPE floor: a count / sum / elapsed-delta answer is a NUMBER by
+    # construction; non-numeric garbage ('Apply the Dr' for a money sum) shipped verified.
+    if (result.op in {"count_aggregate", "multi_session_sum", "temporal_delta"}
+            and not _NUMERIC_ANSWER_RE.search(answer)):
+        return "numeric_type"
+    # COUNT-shaped query answered by a non-count op with a bare numeric answer is a mis-route:
+    # the number is a scraped measurement ('8' from '8 miles'), not a count of anything.
+    if (result.op not in _AGGREGATE_OPS | _TEMPORAL_NUMERIC_OPS
+            and not _DIFFERENCE_QUERY_RE.search(query or "")
+            and _answer_cardinal(answer)
+            and _COUNT_QUERY_RE.search(query or "")
+            and re.match(r"^\s*\$?\d[\d,]*(?:\.\d+)?\s*(?:[a-z%]+\s*){0,2}[.!]?\s*$",
+                         answer, re.I)):
+        return "count_misroute"
+    # Preference FORM floor: untagged preference_synth answers must be bounded noun phrases
+    # (or protected polarity/title/number shapes).
+    if (result.op == "preference_synth" and ":suggestion_synth" not in note
+            and not preference_answer_form_credible(query, answer)):
+        return "preference_form"
+    # Option-choice FORM floor: 'A or B?' is answered by naming an option.
+    if (result.op not in _COMPUTED_OPS
+            and not _option_choice_answer_names_option(query, answer)):
+        return "option_choice"
+    # WHY-question FORM floor: a reason has clause shape, never comma-list shape.
+    if (result.op not in _COMPUTED_OPS
+            and re.match(r"\s*why\b", query or "", re.I)
+            and _ENUMERATED_ANSWER_RE.match(answer)
+            and not re.search(r"\b(?:because|since)\b", answer, re.I)):
+        return "why_enumeration"
+    # When-question type agreement: a when-answer must carry a temporal token.
+    if _main_wh(query) == "when" and not _TEMPORAL_TOKEN_RE.search(answer):
+        return "when_type"
+    # Zero-information floor: an answer whose every content token already appears in the
+    # question restates it instead of answering.
+    if (result.op not in _COMPUTED_OPS
+            and not _OPTION_SPLIT_RE.search(query or "")
+            and not re.match(r"\s*(?:yes|no)\b", answer, re.I)
+            and not _answer_adds_information(query, answer)):
+        return "zero_information"
+    # Clean-fact floor: a verified structured answer is a self-contained fact, not a raw
+    # dialogue turn shard.
+    if (result.op not in _COMPUTED_OPS
+            and ":suggestion_synth" not in note
+            and not re.match(r"\s*(?:yes|no)\b", answer, re.I)
+            and not _clean_fact_form_credible(query, result)):
+        return "clean_fact"
+    return None
 
 
 def answer_from_result(retriever, query: str, result: StructuredAnswerResult,
                        *, verify: bool = True) -> Answer | None:
     if result is None or not result.answer or not result.supports:
         return None
-    # Answer-FORM refusal: a non-credible enumeration from a non-computed op is malformed
-    # regardless of entailment - live NLI was observed entailing fragment soup against a long
-    # premise, shipping it verified. Deterministic refusal here covers EVERY producer path
-    # (the dispatch decline only guards the first helper chain).
-    if (verify
-            and _ENUMERATED_ANSWER_RE.match(result.answer or "")
-            and result.op not in _COMPUTED_OPS
-            and ":suggestion_synth" not in (result.note or "")
-            and ":claim_list_enum" not in (result.note or "")
-            and not _enumeration_items_credible(result.answer)):
-        # ':suggestion_synth' keeps the same carve-out as the anchor rule: suggestion output
-        # is context fragments by design and provenance-gated upstream (every OTHER
-        # preference_synth answer now faces this floor). ':claim_list_enum'
-        # compositions share it for the FORM floor only -- every item there is backed by its
-        # own typed write-time claim (junk-filtered at extraction, per-item proof), so a
-        # 3-char trick name ('sit') is not fragment soup; the per-support strict hypothesis
-        # below still runs unchanged, so nothing ships without live entailment.
-        return None
-    # Numeric computed-op TYPE floor: a count / sum / elapsed-delta answer is a NUMBER by
-    # construction. Computed ops are exempt from the prose form floors (their form is derived),
-    # but that exemption let non-numeric garbage ("Apply the Dr" for a money sum) ship
-    # verified=True -- a verified-precision hole. Require a numeric token (digit or number word)
-    # for the three numeric ops only; event_order/table_lookup answers need not be numeric.
-    if (verify and result.op in {"count_aggregate", "multi_session_sum", "temporal_delta"}
-            and not _NUMERIC_ANSWER_RE.search(result.answer or "")):
+    # PURE form floors (enumeration, numeric type, count mis-route, preference form, option
+    # choice, why/when type agreement, zero information, clean fact): deterministic refusal
+    # covers EVERY producer path regardless of entailment -- live NLI was observed entailing
+    # fragment soup against a long premise, shipping it verified.
+    if verify and structured_answer_form_floor(query, result) is not None:
         return None
     # Aggregate CITATION floor (P0 trust, 2026-07-09). A count or cross-session sum is
     # verify-or-abstain ONLY when a SINGLE cited source STATES the value. NLI proves each atom
@@ -634,84 +760,32 @@ def answer_from_result(retriever, query: str, result: StructuredAnswerResult,
         if not (len(result.supports) == 1 and cardinal
                 and _atom_states_cardinal(sole_atom, cardinal)):
             return None
-    # LAYER 2 -- derivation-keyed floors for OP-MISTAGGED aggregations (adversarial review,
+    # LAYER 2 -- derivation-keyed floor for OP-MISTAGGED aggregations (adversarial review,
     # 2026-07-09): the planner routes some aggregation questions to non-aggregate ops whose
     # executors still derive multi-atom arithmetic, bypassing layer 1. Measured: 'What was the
     # average cost of the dinners I hosted?' plans latest_value and shipped a derived mean
-    # ('$60' from atoms stating only $80 and $40) verified=True; money-worded count questions
-    # ('How many hotels ... cost more than $200?') also plan latest_value and shipped a scraped
-    # numeral as a count. Two query-shaped floors close the class:
+    # ('$60' from atoms stating only $80 and $40) verified=True. The sibling COUNT mis-route
+    # floor is pure and lives in structured_answer_form_floor above.
+    # AMOUNT-aggregation-shaped query (total/sum/average/...): the numeric answer must be
+    # STATED in at least one cited atom -- a derived mean/total no source states abstains.
+    # Looser than layer 1 (any atom, not sole) because lookups legitimately carry context
+    # atoms alongside the value atom.
     if verify and result.op not in _AGGREGATE_OPS | _TEMPORAL_NUMERIC_OPS \
             and not _DIFFERENCE_QUERY_RE.search(query or ""):
         cardinal = _answer_cardinal(result.answer)
-        if cardinal:
-            # (a) COUNT-shaped query answered by a non-count op with a bare numeric answer is a
-            # mis-route: the number is a scraped measurement ('8' from '8 miles'), not a count
-            # of anything. No citation check can save it (the source really states 8 -- of the
-            # wrong thing). Fail closed. Non-numeric answers (names, dates) pass -- 'how many'
-            # questions legitimately answered by enumerating NAMES are list answers, not counts.
-            if _COUNT_QUERY_RE.search(query or "") and re.match(
-                    r"^\s*\$?\d[\d,]*(?:\.\d+)?\s*(?:[a-z%]+\s*){0,2}[.!]?\s*$",
-                    result.answer or "", re.I):
-                return None
-            # (b) AMOUNT-aggregation-shaped query (total/sum/average/...): the numeric answer
-            # must be STATED in at least one cited atom -- a derived mean/total no source
-            # states abstains. Looser than layer 1 (any atom, not sole) because lookups
-            # legitimately carry context atoms alongside the value atom.
-            if _AMOUNT_AGG_QUERY_RE.search(query or "") and not any(
-                    _atom_states_cardinal(s.proof_atom or s.answer_atom or "", cardinal)
-                    for s in result.supports):
-                return None
-    # Preference FORM refusal: untagged preference_synth answers must be bounded noun
-    # phrases (or protected polarity/title/number shapes). The ':suggestion_synth' tag
-    # marks the one deliberate fragment carve-out (provenance-gated suggestion synthesis).
+        if (cardinal and _AMOUNT_AGG_QUERY_RE.search(query or "") and not any(
+                _atom_states_cardinal(s.proof_atom or s.answer_atom or "", cardinal)
+                for s in result.supports)):
+            return None
+    # Preference floors that need SUPPORTS stay here. The pure preference form floor already
+    # ran above; the ':suggestion_synth' tag keeps its provenance-gated fragment carve-out.
     pref_floor = bool(verify and result.op == "preference_synth"
                       and ":suggestion_synth" not in (result.note or ""))
-    if pref_floor and not preference_answer_form_credible(query, result.answer):
-        return None
-    # Option-choice FORM refusal: 'A or B?' is answered by naming an option. Applies across
-    # ops (preference_synth included -- its fragment carve-out is for suggestion synthesis,
-    # not for dodging the question's own option set); computed ops are exempt because their
-    # answers are derived values (counts, deltas) whose form the operator already fixes.
-    if (verify and result.op not in _COMPUTED_OPS
-            and not _option_choice_answer_names_option(query, result.answer)):
-        return None
-    # WHY-question FORM refusal: a reason has clause shape ('because/since/to keep...'), never
-    # comma-list shape. Credible-item enumerations still answer nothing causal ('Friday,
-    # adoption agency interviews, LGBTQ, Research' shipped verified for a why-question on the
-    # fresh holdout) -- the items are quotable nouns, so NLI anchors happily. Enumerations
-    # for why-questions fall to the reader, which composes an actual reason.
-    if (verify and result.op not in _COMPUTED_OPS
-            and re.match(r"\s*why\b", query or "", re.I)
-            and _ENUMERATED_ANSWER_RE.match(result.answer or "")
-            and not re.search(r"\b(?:because|since)\b", result.answer or "", re.I)):
-        return None
-    # When-question type agreement, structured side: a when-answer without a single temporal
-    # token is malformed regardless of which operator derived it (an ongoing-activity
-    # fragment with no date word shipped verified for a when-took-place question).
-    if (verify and _main_wh(query) == "when"
-            and not _TEMPORAL_TOKEN_RE.search(result.answer or "")):
-        return None
-    # Zero-information FORM refusal: an answer whose every content token already appears in
-    # the question restates it instead of answering ('My girlfriend' for 'what places have
-    # Ravi and his girlfriend checked out?' shipped verified on the fresh holdout -- the
-    # fragment is quotable, so it anchor-verifies while adding nothing). Computed ops are
-    # exempt (a count IS query tokens plus a digit... a digit is new; but '2' when the query
-    # says '2 sensors' is not, and the operator's arithmetic is the proof there). Option
-    # choices are exempt by construction: naming an option MUST echo the question.
-    if (verify and result.op not in _COMPUTED_OPS
-            and not _OPTION_SPLIT_RE.search(query or "")
-            and not re.match(r"\s*(?:yes|no)\b", result.answer or "", re.I)
-            and not _answer_adds_information(query, result.answer)):
-        return None
-    # Clean-fact FORM refusal: a verified structured answer must be a self-contained fact, not
-    # a conversational turn shard (a bare first-person pronoun+verb opening) or a comma-list
-    # that captured a dialogue turn-header. Non-computed ops only (computed values are bare by
-    # design); polarity and suggestion_synth keep their own carve-outs.
-    if (verify and result.op not in _COMPUTED_OPS
-            and ":suggestion_synth" not in (result.note or "")
-            and not re.match(r"\s*(?:yes|no)\b", result.answer or "", re.I)
-            and not _clean_fact_form_credible(query, result)):
+    # Category-object ANCHOR refusal: a 'genre/kind/type/style of X' preference question must
+    # be evidenced by the X class itself -- a cue-matched atom about a different object class
+    # is unanchored synthesis regardless of entailment (the atom really does state a favorite;
+    # of the wrong thing).
+    if pref_floor and not _category_object_anchored(query, result.answer, result.supports):
         return None
     citations: list[Citation] = []
     entailed = 0
@@ -739,7 +813,12 @@ def answer_from_result(retriever, query: str, result: StructuredAnswerResult,
                 result.backend == "claim"
                 and callable(getattr(retriever, "verify", None))
             )
-            if strict_hypothesis:
+            if getattr(rec, "modality", Modality.TEXT) != Modality.TEXT:
+                label, conf = retriever.verify_citation(
+                    rec,
+                    _query_answer_hypothesis(query, result.answer),
+                )
+            elif strict_hypothesis:
                 anchor_ok = _atom_anchor_allowed(query, result)
                 if anchor_ok and _norm_ws(atom) and _norm_ws(atom) in _norm_ws(premise):
                     # A verbatim source anchor is the strongest possible proof for a derived

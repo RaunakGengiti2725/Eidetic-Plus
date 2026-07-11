@@ -25,7 +25,7 @@ import time
 from collections import OrderedDict
 from datetime import date, datetime, timedelta
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional
 
 import numpy as np
 
@@ -2488,6 +2488,17 @@ def _sentences(text: str) -> list[str]:
     return split_sentences(text)
 
 
+def _answer_claims(text: str) -> list[str]:
+    claims: list[str] = []
+    for line in re.split(r"[\r\n]+", text or ""):
+        line = re.sub(r"^\s*(?:[-*•]|\d+[.)])\s*", "", line).strip()
+        if not line or line.endswith(":"):
+            continue
+        for part in re.split(r";\s+(?=[A-Z0-9])", line):
+            claims.extend(_sentences(part))
+    return [claim for claim in claims if claim]
+
+
 def _strip_source_tags(text: str) -> str:
     cleaned = _SOURCE_TAG_RE.sub(" ", text or "")
     cleaned = _ANSWER_PREFIX_RE.sub("", cleaned).strip()
@@ -3240,6 +3251,10 @@ class Retriever:
         self._trace_tl.trace = value
 
     @property
+    def last_answer_telemetry(self) -> dict:
+        return getattr(self._trace_tl, "answer_telemetry", {})
+
+    @property
     def last_context_telemetry(self) -> dict:
         """Thread-local context telemetry from the most recent assemble_context call.
 
@@ -3326,12 +3341,13 @@ class Retriever:
                  qvec: Optional[np.ndarray] = None, use_recency: bool = True,
                  activation: Optional[dict] = None,
                  skip_rerank: bool = False) -> list[RetrievalCandidate]:
-        """Hybrid read path: dense + BM25 + single-step PPR + recency -> RRF -> rerank.
+        """Hybrid read path: dense + BM25 + single-step PPR (+ opt-in recency) -> RRF -> rerank.
 
         Scope + bi-temporal as-of filter applied first. `qvec` may be passed to avoid a
-        duplicate embedding (the semantic cache embeds once). Recency is a MINOR RRF
-        channel for benchmark accuracy; the age-independence proofs use the pure content
-        index (index.search), so the flat recall-vs-age claim is unaffected."""
+        duplicate embedding (the semantic cache embeds once). RANKING IS AGE-NEUTRAL BY
+        DEFAULT: the recency channel only exists when a run explicitly sets a positive
+        RRF_W_RECENCY, and `Engine.prove_age_independence` probes THIS full fusion path
+        (not just the raw index), so the flat recall-vs-age claim covers what ships."""
         at = now() if at is None else at
         scope = scope or Scope()
         if len(self.index) == 0:
@@ -3408,7 +3424,10 @@ class Retriever:
             return bm25.search(query, s.ann_topk)
 
         def _run_recency():
-            if not use_recency:
+            # Age-neutral contract (WP5): the channel exists ONLY when a run explicitly
+            # opts in with a positive RRF_W_RECENCY. At the 0.0 default nothing about the
+            # ranking -- fusion OR the underfill fallback below -- may read valid_at.
+            if not use_recency or s.rrf_w_recency <= 0.0:
                 return []
             return [r.memory_id for r in sorted(corpus, key=lambda r: -r.valid_at)][: s.ann_topk]
 
@@ -3524,7 +3543,7 @@ class Retriever:
         if record_trace:
             _lat["fuse_ms"] = (time.perf_counter() - _mark) * 1000.0
             _mark = time.perf_counter()
-        if len(fused) < s.final_topk and use_recency:
+        if len(fused) < s.final_topk and recency_order:
             for mid in recency_order:
                 fused.setdefault(mid, 0.0)
                 if len(fused) >= s.final_topk:
@@ -4532,26 +4551,54 @@ class Retriever:
         PIXELS (verified visual recall): a visual claim is judged against the raw image, so
         unsupported visual claims are rejected exactly like the text NLI path."""
         premise = self._ground_truth(rec)
-        if _extractive_entailment(premise, hypothesis, rec.valid_at):
+        if rec.modality == Modality.TEXT \
+                and _extractive_entailment(premise, hypothesis, rec.valid_at):
             return NLILabel.ENTAILMENT, 1.0
-        if rec.modality == Modality.IMAGE:
+        media_modalities = {Modality.IMAGE, Modality.PDF, Modality.AUDIO, Modality.VIDEO}
+        if rec.modality in media_modalities:
             try:
                 raw = self.substrate.get(rec.content_hash)
                 tmp_dir = self.settings.data_dir / "tmp"
                 tmp_dir.mkdir(parents=True, exist_ok=True)
-                with tempfile.NamedTemporaryFile(dir=tmp_dir, suffix=".png", delete=False) as f:
+                source_suffix = Path(rec.source or "").suffix.lower()
+                fallback_suffix = {
+                    Modality.IMAGE: ".png",
+                    Modality.PDF: ".pdf",
+                    Modality.AUDIO: ".wav",
+                    Modality.VIDEO: ".mp4",
+                }[rec.modality]
+                suffix = source_suffix if re.fullmatch(r"\.[a-z0-9]{1,8}", source_suffix) \
+                    else fallback_suffix
+                with tempfile.NamedTemporaryFile(dir=tmp_dir, suffix=suffix, delete=False) as f:
                     f.write(raw)
                     path = f.name
                 try:
-                    label, conf = self.client.verify_visual(path, hypothesis)
+                    if rec.modality == Modality.IMAGE:
+                        label, conf = self.client.verify_visual(path, hypothesis)
+                        return NLILabel(label), conf
+                    if rec.modality == Modality.PDF:
+                        media_text = self.client.read_document(path)
+                    elif rec.modality == Modality.AUDIO:
+                        media_text = self.client.transcribe_audio(path)
+                    else:
+                        media_text = self.client.describe_video(path)
+                    if not str(media_text or "").strip():
+                        return NLILabel.NEUTRAL, 0.0
+                    bounded = _raw_query_centered_span(
+                        str(media_text), hypothesis,
+                        long_threshold_chars=self.settings.raw_span_min_chars,
+                        max_chars=3_200,
+                    )
+                    return self.verify(bounded, hypothesis)
                 finally:
                     try:
                         Path(path).unlink()
                     except OSError:
                         pass
-                return NLILabel(label), conf
             except Exception:
-                pass  # fall back to text verification below
+                return NLILabel.NEUTRAL, 0.0
+        if rec.modality == Modality.BINARY:
+            return NLILabel.NEUTRAL, 0.0
         return self.verify(self._bounded_proof_premise(rec, hypothesis), hypothesis)
 
     def _aggregation_proof_support(
@@ -4712,7 +4759,7 @@ class Retriever:
         )
         remaining: list[RetrievalCandidate] = []
         for c in ordered:
-            if c.record.modality == Modality.IMAGE:
+            if c.record.modality != Modality.TEXT:
                 remaining.append(c)
                 continue
             if _extractive_entailment(self._ground_truth(c.record), claim, c.record.valid_at):
@@ -4720,13 +4767,13 @@ class Retriever:
             remaining.append(c)
         if self.settings.batch_nli_enabled:
             text_pairs = [(self._bounded_proof_premise(c.record, claim), claim)
-                          for c in remaining if c.record.modality != Modality.IMAGE]
+                          for c in remaining if c.record.modality == Modality.TEXT]
             if text_pairs:
                 for lab, _conf in self.client.nli_batch(text_pairs):
                     if NLILabel(lab) == NLILabel.ENTAILMENT:
                         return True
             for c in remaining:
-                if c.record.modality == Modality.IMAGE:
+                if c.record.modality != Modality.TEXT:
                     lab, _conf = self.verify_citation(c.record, claim)
                     if lab == NLILabel.ENTAILMENT:
                         return True
@@ -4902,22 +4949,46 @@ class Retriever:
     def answer(self, query: str, at: Optional[float] = None, *, verify: bool = True,
                scope: Optional[Scope] = None, qvec: Optional[np.ndarray] = None,
                precomputed: Optional[list[RetrievalCandidate]] = None,
-               reader_model: Optional[str] = None, activation: Optional[dict] = None) -> Answer:
+               reader_model: Optional[str] = None, activation: Optional[dict] = None,
+               reader: Optional[Callable[[str, list[str]], str]] = None,
+               allow_structured: bool = True, require_all_claims: bool = True,
+               allow_grounding_rescue: bool = True) -> Answer:
+        if not verify:
+            raise ValueError("Retriever.answer requires verification; use retrieval diagnostics for drafts")
         at = now() if at is None else at
         scope = scope or Scope()
+        self._trace_tl.answer_telemetry = {}
+        self._trace_tl.context_telemetry = {}
+        retrieval_started = time.perf_counter()
         # `precomputed` lets a caller time retrieval separately and avoid re-retrieving.
         candidates = precomputed if precomputed is not None else self.retrieve(query, at, scope, qvec=qvec)
+        search_ms = 0.0 if precomputed is not None else (time.perf_counter() - retrieval_started) * 1000.0
+
+        def record_answer_telemetry(blocks: Optional[list[str]] = None) -> None:
+            self._trace_tl.answer_telemetry = {
+                "query": query,
+                "scope_key": scope.key(),
+                "candidate_memory_ids": [candidate.record.memory_id for candidate in candidates],
+                "blocks": list(blocks or []),
+                "search_ms": search_ms,
+                "context": dict(self.last_context_telemetry),
+            }
+
         if not candidates:
-            return Answer(
-                question=query, answer="I do not have that in memory.",
-                verified=True, confidence=1.0, generated_by=self.settings.gen_model,
-                retrieved_count=0, note="empty-or-no-active-memory",
+            record_answer_telemetry()
+            return Answer.abstain(
+                query,
+                answer="I do not have that in memory.",
+                generated_by=self.settings.gen_model,
+                retrieved_count=0,
+                note="abstained: empty-or-no-active-memory",
             )
 
         structured_answered = self._structured_answer_from_candidates(
             query, candidates, at, verify=verify, scope=scope
-        )
+        ) if allow_structured else None
         if structured_answered is not None:
+            record_answer_telemetry()
             return structured_answered
 
         # Pre-generation coverage signal (strength of the best content match).
@@ -4933,11 +5004,11 @@ class Retriever:
                 and not self.settings.abstention_v2_enabled
                 and coverage < min(self.settings.fast_abstain_floor,
                                    self.settings.abstention_threshold)):
-            return Answer(
-                question=query,
-                answer="I don't have enough verified evidence in memory to answer that confidently.",
-                verified=False, confidence=0.0, citations=[], unverified_claims=[],
-                generated_by=self.settings.gen_model, retrieved_count=len(candidates),
+            record_answer_telemetry()
+            return Answer.abstain(
+                query,
+                generated_by=self.settings.gen_model,
+                retrieved_count=len(candidates),
                 note=f"abstained: insufficient evidence (coverage {coverage:.2f}, pre-reader)",
             )
 
@@ -4946,15 +5017,20 @@ class Retriever:
                                        include_conflict_resolution=False, activation=activation)
         # reader_model pins one fixed answerer (neutral harness); else the difficulty cascade.
         # Speculative cascade (S5): try the cheap tier first, escalate only on a grounding miss.
-        if self.settings.cascade_enabled and reader_model is None:
-            model = self.settings.salience_model
+        if reader is not None:
+            model = reader_model or "external-reader"
+            text = reader(query, blocks)
         else:
-            model = reader_model or _reader_model(query, self.settings)
-        text = self.client.generate_answer(query, blocks, model=model)  # real call
+            if self.settings.cascade_enabled and reader_model is None:
+                model = self.settings.salience_model
+            else:
+                model = reader_model or _reader_model(query, self.settings)
+            text = self.client.generate_answer(query, blocks, model=model)  # real call
 
         citations, entailed = self._verify_candidates(candidates, text, verify, query=query, at=at)
 
-        if (self.settings.cascade_enabled and reader_model is None and verify and entailed == 0
+        if (reader is None and self.settings.cascade_enabled and reader_model is None
+                and verify and entailed == 0
                 and coverage >= self.settings.abstention_threshold
                 and model != self.settings.gen_model):
             # cheap answer didn't ground but coverage is real -> escalate to the strong tier.
@@ -4962,8 +5038,11 @@ class Retriever:
             text = self.client.generate_answer(query, blocks, model=model)
             citations, entailed = self._verify_candidates(candidates, text, verify, query=query, at=at)
 
-        citations, entailed, advice_anchor = self.rescue_grounding(
-            query, text, candidates, citations, entailed, verify=verify, scope=scope, at=at)
+        if allow_grounding_rescue:
+            citations, entailed, advice_anchor = self.rescue_grounding(
+                query, text, candidates, citations, entailed, verify=verify, scope=scope, at=at)
+        else:
+            advice_anchor = False
 
         # CoVe (Chain-of-Verification): factored fact-check of a grounded draft. Plan independent
         # verification questions, answer each ONLY from the retrieved blocks (factored -> the model
@@ -5003,14 +5082,27 @@ class Retriever:
         # partly-grounded answer can't ride one entailed sentence. One unentailed claim -> demote.
         # Whole-answer NLI already covers a single-sentence answer, so only multi-claim answers run.
         span_failed = False
-        if self.settings.span_nli_enabled and verify and entailed > 0 and not advice_anchor:
-            claims = [c for c in _sentences(text) if len(c) >= self.settings.span_nli_min_chars]
+        span_citations: list[Citation] = []
+        if ((self.settings.span_nli_enabled or require_all_claims)
+                and verify and entailed > 0 and not advice_anchor):
+            min_claim_chars = 3 if require_all_claims else self.settings.span_nli_min_chars
+            claims = [claim for claim in _answer_claims(text)
+                      if len(claim) >= min_claim_chars]
             if len(claims) > 1:
                 for claim in claims:
-                    if not _sub_claim_grounded(claim):
+                    claim_citations, claim_entailed = self._verify_candidates(
+                        candidates, claim, True, query=query, at=at)
+                    if claim_entailed <= 0:
                         entailed = 0      # an ungrounded claim demotes the whole answer
                         span_failed = True
                         break
+                    span_citations.extend(
+                        citation for citation in claim_citations
+                        if citation.nli_label == NLILabel.ENTAILMENT)
+                if not span_failed:
+                    citations.extend(span_citations)
+                    entailed = sum(1 for citation in citations
+                                   if citation.nli_label == NLILabel.ENTAILMENT)
 
         # A CoVe/SPAN demotion means the draft over-claims: strip the ENTAILMENT evidence so the
         # abstention gate, the proof surface, AND engine.ask()'s post-answer reconsolidation never
@@ -5064,11 +5156,15 @@ class Retriever:
                                  if c.nli_label == NLILabel.ENTAILMENT else c
                                  for c in citations]
 
-        verified = (entailed > 0) if verify else False
+        contradiction_found = bool(verify and any(
+            citation.nli_label == NLILabel.CONTRADICTION for citation in citations))
+        verified = bool(verify and entailed > 0 and not contradiction_found)
         unverified: list[str] = []
         abstained = False
         note = ""
-        if cove_failed:
+        if contradiction_found:
+            _unverified_reason = "unverified: active memory contradicts the answer"
+        elif cove_failed:
             _unverified_reason = "unverified: a CoVe verification question was not grounded in memory"
         elif span_failed:
             _unverified_reason = "unverified: a sentence-level claim was not grounded in memory"
@@ -5093,15 +5189,19 @@ class Retriever:
                         f"coverage={sig['coverage']:.2f} agreement={sig['agreement']:.2f} "
                         f"proof={sig['proof']:.2f})")
             elif not verified:
-                note = _unverified_reason
-                unverified = [text]
+                abstained = True
+                text = "I don't have enough verified evidence in memory to answer that confidently."
+                note = (f"abstained: {_unverified_reason.removeprefix('unverified: ')} "
+                        f"(confidence {conf:.2f} >= tau {self.settings.abstention_v2_tau:.2f}; "
+                        "proof is still required)")
         elif verify and not verified and coverage < self.settings.abstention_threshold:
             abstained = True
             text = "I don't have enough verified evidence in memory to answer that confidently."
             note = f"abstained: insufficient evidence (coverage {coverage:.2f})"
         elif verify and not verified:
-            note = _unverified_reason
-            unverified = [text]
+            abstained = True
+            text = "I don't have enough verified evidence in memory to answer that confidently."
+            note = f"abstained: {_unverified_reason.removeprefix('unverified: ')}"
         if verified and advice_anchor and not note:
             note = "verified: advice grounded on context restatement (sentence-level)"
 
@@ -5121,6 +5221,7 @@ class Retriever:
             # the considered candidates remain in retrieval telemetry.
             citations = []
 
+        record_answer_telemetry(blocks)
         return Answer(
             question=query, answer=text, verified=verified, confidence=confidence,
             citations=citations, unverified_claims=unverified,

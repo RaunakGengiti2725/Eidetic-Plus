@@ -1818,8 +1818,15 @@ def test_retrieve_does_not_pad_zero_score_records(fresh_settings):
     retriever = Retriever(store, EmptyIndex(), KnowledgeGraph(store), object(), FakeClient(), settings)
     assert retriever.retrieve("no lexical overlap", scope=scope,
                               qvec=np.ones(4, dtype=np.float32), use_recency=False) == []
-    with_recency = retriever.retrieve("no lexical overlap", scope=scope,
-                                      qvec=np.ones(4, dtype=np.float32), use_recency=True)
+    # Age-neutral default (WP5): use_recency=True alone no longer creates the channel --
+    # at RRF_W_RECENCY=0.0 nothing may rank or pad by valid_at.
+    assert retriever.retrieve("no lexical overlap", scope=scope,
+                              qvec=np.ones(4, dtype=np.float32), use_recency=True) == []
+    # Explicit opt-in restores the documented padding behavior (ablation switch).
+    opted = Retriever(store, EmptyIndex(), KnowledgeGraph(store), object(), FakeClient(),
+                      replace(settings, rrf_w_recency=0.3))
+    with_recency = opted.retrieve("no lexical overlap", scope=scope,
+                                  qvec=np.ones(4, dtype=np.float32), use_recency=True)
     assert 0 < len(with_recency) <= settings.final_topk
 
 
