@@ -1,0 +1,47 @@
+{
+  "schema_version": "eidetic.phase_a.fix_spec.v1",
+  "source_revision": "3842ba9ff03a9482213ca4f958666e70e8438b9d",
+  "parent_evidence": {
+    "path": "artifacts/forensics/phase_a_proof_boundary_prefx_3842ba9f.json",
+    "sha256": "370996612caccb51d0c0e2ab0d4db6aabd09351350fb237070a7123176399db7"
+  },
+  "invariant": "A public factual result is VERIFIED with proof or ABSTAINED with no draft text or citations.",
+  "root_cause": "Proof failure is represented as verified=false metadata while the generated text is still deliverable; the benchmark duplicates and overrides that policy.",
+  "scope": [
+    "Add an explicit VERIFIED or ABSTAINED answer status while retaining the legacy verified field additively.",
+    "Centralize abstention construction so failed proof cannot retain draft text, citations, confidence, or unverified_claims.",
+    "Reject verify=false at direct canonical answer entry points and force public transports to use verification.",
+    "Make no-candidate, low-proof, CoVe, span, form, numeric, and NLI failures abstain regardless of retrieval coverage.",
+    "Normalize exact-cache, semantic-cache, structured, reflex, and hybrid answers before reconsolidation or serialization.",
+    "Route the fixed benchmark reader through canonical Engine orchestration and remove coverage-backed and dense unverified delivery behavior.",
+    "Keep structured failed derivations only as explicitly typed diagnostic drafts, not answer fields.",
+    "Prepare the same typed reader seam for a subsequent NotebookLM UntrustedDraft integration."
+  ],
+  "out_of_scope": [
+    "No age-ranking, bi-temporal, scope-schema, immutable-ledger, or cloud changes in this diff.",
+    "No benchmark prompt, judge, sample, or gold changes.",
+    "No fresh holdout execution.",
+    "No claim of improved accuracy."
+  ],
+  "predeclared_checks": {
+    "safety": [
+      "Zero public Answer objects with verified=false and non-abstention factual text.",
+      "Every ABSTAINED result has zero citations, zero confidence, and zero unverified_claims.",
+      "Every VERIFIED result retains at least one entailed citation.",
+      "verify=false cannot bypass the canonical boundary.",
+      "Benchmark product rows contain zero unverified_answered outputs by construction."
+    ],
+    "regression": [
+      "All previously verified-correct burned rows remain mechanically unchanged by status projection.",
+      "Existing verified-answer unit tests retain answer text and proof references.",
+      "Existing abstention tests remain abstentions.",
+      "Raw source artifacts remain byte-identical."
+    ],
+    "replay": [
+      "Mechanically project all 57 historical unverified_answered rows to abstentions without editing source JSONL.",
+      "Report raw judged-correct loss separately from verified-correct preservation.",
+      "Run targeted offline tests, then the full offline suite if targeted tests pass."
+    ]
+  },
+  "rollback": "Revert the source diff only; retain the pre-fix evidence and failed test/replay artifacts. Never restore unverified delivery as a compatibility mode."
+}

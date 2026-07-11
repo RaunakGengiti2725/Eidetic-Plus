@@ -33,5 +33,18 @@ artifacts/*.png
 artifacts/*.json
 !artifacts/.gitkeep
 
+# Ephemeral live-run scratch dirs (session probes / ablation sweeps; the EVIDENCE
+# artifacts that back public claims -- holdout windows, replay + guard projection,
+# forensics reports -- are tracked, never ignored)
+artifacts/live_*/
+artifacts/cost_*/
+artifacts/dev*/
+artifacts/wave_*/
+artifacts/release_gate/
+artifacts/quota_queue_run.log
+
+# Unrelated project checked out in the same tree
+Karaoke-Minimalistic/
+
 # OS
 .DS_Store

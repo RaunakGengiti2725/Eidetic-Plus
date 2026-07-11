@@ -579,3 +579,95 @@ Reverted cleanly. The constraint is now MEASURED: selection-side only --
 either extend the :event_date consumer's tie discipline over the legacy
 loop's shapes, or tag deterministic derivations for a note-keyed floor.
 Evidence: artifacts/forensics/relative_temporal_floor_replay_20260710.jsonl.
+
+## GUARD WAVE SHIPPED: FORM SHAPES 3-5 + PREF ANCHOR + STATED-EVIDENCE TEMPORAL GUARD (2026-07-10)
+
+Mined the phase-a replay artifact's 129 verified-wrong rows for deterministic
+signatures, then shipped four selection/form-side guards with a mechanical
+projection artifact (no live calls):
+
+1. Clean-fact shapes 3-5 (eidetic/smqe/verify.py `_clean_fact_form_credible`):
+   dangling separator tails, degenerate conjunction repetition, junk-stripped
+   question echoes. Pure floors extracted into `structured_answer_form_floor`
+   (single source of truth; `answer_from_result` and the projection both call it).
+2. Preference category-object anchor (`_category_object_anchored`): a
+   'genre/kind/type/style of X' question cannot verify from evidence about a
+   different object class.
+3. relative_temporal STATED-EVIDENCE ambiguity guard (record_ops legacy loop,
+   selection-side per the replay-refuted verify-side constraint above):
+   candidates now carry a stated-vs-deictic derivation flag; on evidence-gate
+   ties, a unique explicitly-stated period outranks deictic session
+   resolutions; two conflicting stated periods abstain. ALL-DEICTIC ties keep
+   the latest-instance knowledge-update convention (time-invariant suite locks
+   it; first attempt to fail-close those broke `bench.smqe_time_invariant` and
+   was corrected). Wrong-instance selection among purely deictic mentions is
+   therefore a DOCUMENTED residual, not silent.
+4. `bench.replay --project-guards`: mechanical guard projection over frozen
+   rows, binding replay.py + verify.py bytes. MEASURED on r1-r10
+   (artifacts/guard_projection_r1_r10): verified rows 341, wrong-before 129,
+   wrong CONVERTED to abstain 21, correct lost 3 (all three are the
+   pre-existing shape-1 first-person losses, enumerated in the artifact),
+   residual 108 = reader 47, relative_temporal 33, latest_value 14,
+   open_inference 9, preference_synth 2, count_aggregate 2, temporal_delta 1.
+   The temporal guard (item 3) is NOT in these numbers -- selection-side
+   effects need live candidate sets; dev A/B before any claim on the 33.
+
+Leakage audit: registered the five pre-existing HANDOFF forensic sample-id
+references (c7_q31/c7_q35/c2_q38/c4_q55/c8_q140) as documented exemptions;
+audit green with 20 exemptions used, 0 findings.
+
+Live keys (eidetic.doctor, 2026-07-10): healthy. embed/chat/rerank/
+embed_image OK; `read_document` (qwen-doc-turbo) 404 bad_model_id -- optional
+capability, typed degradation, fresh-window reruns ARE unblocked.
+
+Research scan (for the reader-47 residual, the largest): published SOTA
+memory systems (ENGRAM typed-memory routing; Chain-of-Memory inference-path
+organization + adaptive truncation; TiMem temporal-hierarchical trees;
+Hindsight retain/recall/reflect belief networks) all improve raw accuracy;
+NONE mechanically verify citations or fail closed -- the proof boundary
+remains this system's differentiator. The strongest transferable idea for
+the reader stage is CoM-style evidence-path organization + noise truncation
+BEFORE the existing proof gauntlet; that is a READ-stage (Phase B) lever,
+not a floor.
+
+## DERIVATION BOUNDARY SHIPPED: atom_derived vs mention_selected (2026-07-11)
+
+The r17 blocker (this file, two sections up) is closed, selection-side, per its
+own spec. The legacy relative_temporal candidate loop tags every shipped date:
+`:atom_derived` when NO surviving candidate that matches the event AT LEAST as
+well on both evidence gates (target hits, entity hits -- dominance scope; score
+is excluded because score embeds recency) names a materially different period,
+or a deterministic rule resolves the contest (ordinal-first; unique explicit
+bare-YEAR statement -- week/month PHRASES deliberately do NOT reassign or
+shield, the c1_q38 replay shape; identical-statement recurrence = the
+knowledge-update refresh the time-invariant locks; question-lemma present in
+winner and absent in every rival). Everything else is `:mention_selected` and
+the note-keyed `temporal_selection` floor (verify.py) fails it closed.
+
+MEASURED, offline, before ship (bench/selection_replay.py re-runs the CURRENT
+selection code against the burned windows' frozen store snapshots -- same
+namespace/as-of reconstruction as the harness, zero provider calls):
+r1-r10 relative_temporal rows = 63 (28 VC / 35 VW). Result: 12/35 VW now fail
+closed; 26/28 VC keep exact answers; the two itemized non-keeps are (a) c1_q38,
+answer drift that REPRODUCES ON THE PRE-DIFF TREE (stashed-baseline report
+shipped alongside -- not this diff's doing), and (b) c9_q17, a hit-tied contest
+the old code won by score-luck, now fail-closed by definition (correct-or-
+silent). Gate: vc_regressions_atom_derived_diff_attributable = 0. r16/r17
+store snapshots are EMPTY (0 records) -- reported loudly as unreplayable, never
+folded into gates. Evidence:
+artifacts/forensics/selection_replay_20260711.json (+ _baseline_).
+
+## WP5 SUBSET SHIPPED: AGE-NEUTRAL RANKER, FULL-PATH PROOF (2026-07-11)
+
+The megaplan P0 contradiction (age-independence claimed on index.search while
+retrieve() fused a recency channel at RRF_W_RECENCY=0.3) is closed:
+- config: rrf_w_recency DEFAULTS 0.0; the channel AND its underfill fallback
+  are gated on a positive weight (retrieval.py) -- opt-in only, manifest-visible.
+- engine.prove_age_independence now probes BOTH the raw index and the full
+  retrieve() fusion path (rerank skipped: qwen3-rerank sees only (query, text)
+  pairs, no timestamp -- age cannot enter there; fusion is where it could, and
+  that is probed). `flat` requires both recall slopes flat.
+- tests/test_age_independence.py: full-path ranking byte-identical under age
+  permutation at the default; diverges ONLY under explicit opt-in (proving the
+  gate, not luck). Scope wildcard (agent_id=None) and true two-axis bi-temporal
+  remain OPEN P0s -- do not overclaim.

@@ -1,0 +1,226 @@
+{
+  "schema_version": "eidetic.phase_a.forensics.v1",
+  "created_at_utc": "2026-07-11T03:00:12Z",
+  "status": "measured_historical_prefx",
+  "purpose": "Pre-fix evidence for public factual outputs that were answered without a verified proof verdict. This artifact is diagnostic only and makes no accuracy or SOTA claim.",
+  "source_revision": {
+    "git_sha": "3842ba9ff03a9482213ca4f958666e70e8438b9d",
+    "branch": "fix/numeric-aggregate-citation-floor",
+    "tracked_tree_clean_before_artifact": true,
+    "untracked_files_excluded_from_revision_identity": true
+  },
+  "invariant": "Every public factual result must be VERIFIED with immutable-source proof or ABSTAINED; no unverified factual text may exit.",
+  "method": {
+    "row_selector": "extra.verified is false AND abstained is false",
+    "correctness_source": "committed row-level judge field correct",
+    "split": "burned historical LoCoMo rotation windows only",
+    "provider_calls": 0,
+    "artifact_mutation": "none; source JSONL files were read only",
+    "limitations": [
+      "Windows use historical code and profiles and are not a frozen current-candidate estimate.",
+      "Correct and wrong labels are inherited from their committed judges and are not re-adjudicated here.",
+      "A judged-correct unverified answer still violates the product proof invariant.",
+      "The strict projection below changes delivery status only; it is not a model rerun or an accuracy improvement."
+    ]
+  },
+  "aggregate": {
+    "windows_with_unverified_outputs": 14,
+    "rows_scanned": 560,
+    "unverified_answered": 57,
+    "judge_correct": 39,
+    "judge_wrong": 18,
+    "by_policy": {
+      "fixed-reader + verify+abstain+proof": 41,
+      "fixed-reader + dense-topk-ensemble (unverified)": 14,
+      "fixed-reader + coverage-backed (unverified)": 2
+    },
+    "required_strict_projection": {
+      "unverified_answered_after": 0,
+      "new_abstentions": 57,
+      "previously_verified_correct_rows_changed": 0,
+      "claim": "mechanical delivery-status projection only"
+    }
+  },
+  "latest_two_windows": {
+    "rows_scanned": 80,
+    "unverified_answered": 26,
+    "judge_correct": 17,
+    "judge_wrong": 9,
+    "previously_verified_correct": 32,
+    "required_projection_preserves_verified_correct": 32
+  },
+  "windows": [
+    {
+      "artifact": "artifacts/holdout_rotation_r2_codex/eidetic-plus-full__run0.jsonl",
+      "sha256": "c532be10f71b7c908fe832b2f982424de48e71eaa4b730cf3f71f8a317a01470",
+      "n": 40,
+      "unverified_answered": 2,
+      "correct": 2,
+      "wrong": 0,
+      "sample_ids": ["c3_q127", "c7_q46"]
+    },
+    {
+      "artifact": "artifacts/holdout_rotation_r3_codex/eidetic-plus-full__run0.jsonl",
+      "sha256": "d3ef00aaca52f430e9e729bd60d8b997ffef6364cd987ddf63b6f8adeecdd81e",
+      "n": 40,
+      "unverified_answered": 1,
+      "correct": 1,
+      "wrong": 0,
+      "sample_ids": ["c7_q141"]
+    },
+    {
+      "artifact": "artifacts/holdout_rotation_r4_codex/eidetic-plus-full__run0.jsonl",
+      "sha256": "3419271e9e7274aeb9c6e25a67e0348e4e043d7ddeb5cb9f60e0c1f2886da249",
+      "n": 40,
+      "unverified_answered": 1,
+      "correct": 1,
+      "wrong": 0,
+      "sample_ids": ["c1_q5"]
+    },
+    {
+      "artifact": "artifacts/holdout_rotation_r6_codex/eidetic-plus-full__run0.jsonl",
+      "sha256": "b4da7bed118d1affa3271dfd9599c4e6d494465c6da7a32a4c29453c582e192e",
+      "n": 40,
+      "unverified_answered": 1,
+      "correct": 0,
+      "wrong": 1,
+      "sample_ids": ["c6_q38"]
+    },
+    {
+      "artifact": "artifacts/holdout_rotation_r7_codex/eidetic-plus-full__run0.jsonl",
+      "sha256": "f73aa828fccab734e5f672f144eb9cab4b96b32598b8c53ee14648b4ab1e5659",
+      "n": 40,
+      "unverified_answered": 2,
+      "correct": 2,
+      "wrong": 0,
+      "sample_ids": ["c2_q35", "c7_q64"]
+    },
+    {
+      "artifact": "artifacts/holdout_rotation_r9_codex/eidetic-plus-full__run0.jsonl",
+      "sha256": "718b2817f41852b5538d66188ae83788de6ef740cf87a0c2d3b194cfd26166fc",
+      "n": 40,
+      "unverified_answered": 1,
+      "correct": 1,
+      "wrong": 0,
+      "sample_ids": ["c8_q124"]
+    },
+    {
+      "artifact": "artifacts/holdout_rotation_r10_codex/eidetic-plus-full__run0.jsonl",
+      "sha256": "1bcf3d1d4dbd634e4729bd7ba5dc36a861f3c14915c774ce7f3b5aa430149802",
+      "n": 40,
+      "unverified_answered": 4,
+      "correct": 2,
+      "wrong": 2,
+      "sample_ids": ["c5_q52", "c7_q187", "c4_q109", "c3_q81"]
+    },
+    {
+      "artifact": "artifacts/holdout_rotation_r11_codex/eidetic-plus-full__run0.jsonl",
+      "sha256": "8c67a89de9b0e3f7fe86a506403690b262242dd066d1891fc6947b68475c6152",
+      "n": 40,
+      "unverified_answered": 4,
+      "correct": 1,
+      "wrong": 3,
+      "sample_ids": ["c7_q42", "c5_q43", "c6_q7", "c3_q78"]
+    },
+    {
+      "artifact": "artifacts/holdout_rotation_r12_codex/eidetic-plus-full__run0.jsonl",
+      "sha256": "4fbe101b34937b1acf6bdcd44c35217515fac04f40c580ebbe81cfc5c5cfc2f5",
+      "n": 40,
+      "unverified_answered": 5,
+      "correct": 5,
+      "wrong": 0,
+      "sample_ids": ["c3_q193", "c8_q109", "c8_q92", "c8_q71", "c5_q64"]
+    },
+    {
+      "artifact": "artifacts/holdout_rotation_r13_codex/eidetic-plus-full__run0.jsonl",
+      "sha256": "47bb59c686727c34e62697b04e82250fe52066ffa43428060c571f0af8de0b53",
+      "n": 40,
+      "unverified_answered": 4,
+      "correct": 3,
+      "wrong": 1,
+      "sample_ids": ["c0_q11", "c5_q71", "c4_q86", "c4_q125"]
+    },
+    {
+      "artifact": "artifacts/holdout_rotation_r14_codex/eidetic-plus-full__run0.jsonl",
+      "sha256": "7cc045a6ff0bc110f62b5f39513300303b5bf5aad9f8530aa2c3ed4e6a8ac64e",
+      "n": 40,
+      "unverified_answered": 3,
+      "correct": 3,
+      "wrong": 0,
+      "sample_ids": ["c7_q183", "c5_q92", "c3_q120"]
+    },
+    {
+      "artifact": "artifacts/holdout_rotation_r15_codex/eidetic-plus-full__run0.jsonl",
+      "sha256": "535936e30c17f3c2c349135195b9350ae802c66375f66703dcc564ec7351d710",
+      "n": 40,
+      "unverified_answered": 3,
+      "correct": 1,
+      "wrong": 2,
+      "sample_ids": ["c3_q34", "c0_q23", "c8_q33"]
+    },
+    {
+      "artifact": "artifacts/holdout_rotation_r16_codex/eidetic-plus-full__run0.jsonl",
+      "sha256": "42d4c6625fcf081c6505ff5e90d5edc8947a0f5ef667aa4560a20d6bc11b89a4",
+      "n": 40,
+      "unverified_answered": 14,
+      "correct": 10,
+      "wrong": 4,
+      "sample_ids": ["c4_q175", "c8_q46", "c8_q64", "c8_q18", "c3_q11", "c6_q113", "c6_q148", "c6_q146", "c7_q145", "c7_q75", "c5_q42", "c5_q74", "c5_q45", "c0_q40"]
+    },
+    {
+      "artifact": "artifacts/holdout_rotation_r17_codex/eidetic-plus-full__run0.jsonl",
+      "sha256": "2f5d7d9e47fa85dcf3cc6634a6ac13cfdb1b969178977d832dd456a63c43e193",
+      "n": 40,
+      "unverified_answered": 12,
+      "correct": 7,
+      "wrong": 5,
+      "sample_ids": ["c7_q13", "c7_q82", "c7_q189", "c7_q77", "c2_q137", "c2_q98", "c3_q63", "c3_q99", "c3_q19", "c4_q141", "c9_q130", "c5_q58"]
+    }
+  ],
+  "root_causes": [
+    {
+      "id": "core_unverified_exit",
+      "severity": "P0",
+      "location": "eidetic/retrieval.py:5067-5128",
+      "finding": "When verification finds no entailed source but coverage or abstention-v2 confidence is high, reader text is returned with verified=false instead of being replaced by an abstention."
+    },
+    {
+      "id": "benchmark_parallel_policy",
+      "severity": "P0",
+      "location": "bench/adapters/eidetic_adapter.py:275-407",
+      "finding": "The product benchmark duplicates generation, verification, and abstention policy and can explicitly override abstention or run an unverified dense-reader fallback."
+    },
+    {
+      "id": "public_verify_bypass",
+      "severity": "P0",
+      "location": "eidetic/engine.py:945-947; eidetic/api.py:73-78,186-203; eidetic/mcp_server.py:271-284,438-451",
+      "finding": "Public answer surfaces accept verify=false and can therefore request factual generation without proof."
+    },
+    {
+      "id": "implicit_status",
+      "severity": "P0",
+      "location": "eidetic/models.py:234-243",
+      "finding": "Answer has no explicit VERIFIED-or-ABSTAINED status; callers infer abstention from note text."
+    },
+    {
+      "id": "empty_store_false_verification",
+      "severity": "P0",
+      "location": "eidetic/retrieval.py:4910-4915",
+      "finding": "No-memory output is marked verified=true despite having no proof; it should be an explicit abstention."
+    },
+    {
+      "id": "notebooklm_draft_boundary",
+      "severity": "P0",
+      "location": "eidetic/integrations/notebooklm.py:1183-1269; eidetic/mcp_server.py:353-435",
+      "finding": "NotebookLM outputs are honestly labeled as non-gated today, but public tools return raw Gemini answer text. Governed use requires an UntrustedDraft that passes the same canonical proof service before any answer can ship."
+    }
+  ],
+  "phase_a_narrow_fix_order": [
+    "Introduce explicit answer status with a fail-closed public invariant.",
+    "Force every failed verification result, including empty-store results, to ABSTAINED with no citations or draft text.",
+    "Remove public verify bypasses while retaining clearly internal diagnostic draft/evidence APIs.",
+    "Make the benchmark product adapter call canonical product orchestration; delete coverage and dense unverified answer overrides.",
+    "Add NotebookLM as an UntrustedDraft reader strategy behind canonical proof; keep raw-draft research output separately labeled.",
+    "Replay burned rows mechanically first, then run offline tests and real-provider smoke without consuming fresh holdout windows."
+  ]
+}

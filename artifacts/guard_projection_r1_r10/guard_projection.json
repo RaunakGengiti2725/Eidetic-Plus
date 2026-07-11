@@ -1,0 +1,311 @@
+{
+  "aggregate": {
+    "correct_lost_to_abstain": 3,
+    "net_verified_delta": -24,
+    "verified_rows": 341,
+    "verified_wrong_after": 108,
+    "verified_wrong_before": 129,
+    "wrong_converted_to_abstain": 21
+  },
+  "artifact_type": "burned_window_guard_projection",
+  "checks": {
+    "all_conversions_enumerated": true,
+    "all_losses_enumerated": true,
+    "all_sources_nonempty": true,
+    "zero_provider_calls": true
+  },
+  "conversions": [
+    {
+      "family": "preference_synth",
+      "floor": "preference_form",
+      "gold": "Ginger snaps",
+      "predicted": "Going on beach sunsets is one of my favorites - good for exercise and totally calming; Going on beach sunsets is one of my favorites - good for exercise and tot",
+      "question": "What is Evan's favorite food?",
+      "sample_id": "c8_q14",
+      "source_id": "replay_phase_a_r1_r10/replay_rows.jsonl",
+      "source_row": 42
+    },
+    {
+      "family": "latest_value",
+      "floor": "zero_information",
+      "gold": "Seraphim",
+      "predicted": "It`s Susie",
+      "question": "Which pet did Jolene adopt more recently - Susie or Seraphim?",
+      "sample_id": "c7_q55",
+      "source_id": "replay_phase_a_r1_r10/replay_rows.jsonl",
+      "source_row": 53
+    },
+    {
+      "family": "open_inference",
+      "floor": "zero_information",
+      "gold": "cafes, new places to eat, open space for hikes, pet shelter, wine tasting event, park",
+      "predicted": "My girlfriend",
+      "question": "What kind of places have Andrew and his girlfriend checked out around the city?",
+      "sample_id": "c5_q3",
+      "source_id": "replay_phase_a_r1_r10/replay_rows.jsonl",
+      "source_row": 59
+    },
+    {
+      "family": "latest_value",
+      "floor": "clean_fact",
+      "gold": "basketball shoes and gear deal with Nike, potential sponsorship with Gatorade, Moxie a popular beverage company, outdoor gear company",
+      "predicted": "Money-wise, I've gotten some cool endorsement deals",
+      "question": "Which endorsement deals has John been offered?",
+      "sample_id": "c4_q9",
+      "source_id": "replay_phase_a_r1_r10/replay_rows.jsonl",
+      "source_row": 88
+    },
+    {
+      "family": "open_inference",
+      "floor": "zero_information",
+      "gold": "Harry Potter, Game of Thrones, the Name of the Wind, The Alchemist, The Hobbit, A Dance with Dragons, and the Wheel of Time.",
+      "predicted": "I'm reading",
+      "question": "What books has Tim read?",
+      "sample_id": "c4_q4",
+      "source_id": "replay_phase_a_r1_r10/replay_rows.jsonl",
+      "source_row": 89
+    },
+    {
+      "family": "preference_synth",
+      "floor": "preference_form",
+      "gold": "because of their inclusivity and support for LGBTQ+ individuals",
+      "predicted": "Friday, adoption agency interviews, adoption agencies, LGBTQ, Researching, and Researching adoption agencies it's",
+      "question": "Why did Caroline choose the adoption agency?",
+      "sample_id": "c0_q87",
+      "source_id": "replay_phase_a_r1_r10/replay_rows.jsonl",
+      "source_row": 100
+    },
+    {
+      "family": "open_inference",
+      "floor": "clean_fact",
+      "gold": "Sprucing up his business plan, tweaking his pitch to investors, and working on an online platform.",
+      "predicted": "Check,",
+      "question": "What plans does Jon have after receiving advice at the networking event?",
+      "sample_id": "c1_q80",
+      "source_id": "replay_phase_a_r1_r10/replay_rows.jsonl",
+      "source_row": 107
+    },
+    {
+      "family": "open_inference",
+      "floor": "clean_fact",
+      "gold": "Hiking, picnic, volunteer work",
+      "predicted": "last weekend, church, camping,",
+      "question": "What activities has Maria done with her church friends?",
+      "sample_id": "c2_q44",
+      "source_id": "replay_phase_a_r1_r10/replay_rows.jsonl",
+      "source_row": 116
+    },
+    {
+      "family": "latest_value",
+      "floor": "clean_fact",
+      "gold": "a 5K charity run",
+      "predicted": "Yeah, Maria",
+      "question": "What did Maria participate in last weekend before April 10, 2023?",
+      "sample_id": "c2_q84",
+      "source_id": "replay_phase_a_r1_r10/replay_rows.jsonl",
+      "source_row": 117
+    },
+    {
+      "family": "open_inference",
+      "floor": "clean_fact",
+      "gold": "Sustainable initiatives and developing innovative solutions for environmental issues",
+      "predicted": "involved and involved with organizations",
+      "question": "What type of projects is Jolene interested in getting involved in the future?",
+      "sample_id": "c7_q162",
+      "source_id": "replay_phase_a_r1_r10/replay_rows.jsonl",
+      "source_row": 131
+    },
+    {
+      "family": "relative_temporal",
+      "floor": "when_type",
+      "gold": "5 October, 2022",
+      "predicted": "I make it with almond flour, coconut oil, chocolate and raspberries",
+      "question": "When did Joanna make a chocolate tart with raspberries?",
+      "sample_id": "c3_q41",
+      "source_id": "replay_phase_a_r1_r10/replay_rows.jsonl",
+      "source_row": 143
+    },
+    {
+      "family": "relative_temporal",
+      "floor": "when_type",
+      "gold": "two weekends before 17 July 2023",
+      "predicted": "We're thinking about going camping",
+      "question": "When did Melanie go camping in July?",
+      "sample_id": "c0_q35",
+      "source_id": "replay_phase_a_r1_r10/replay_rows.jsonl",
+      "source_row": 153
+    },
+    {
+      "family": "latest_value",
+      "floor": "enumeration_form",
+      "gold": "books, movies, dreams",
+      "predicted": "books, movies, various sources, up with developer forums for information, watch tutorials, developer forums, fun spending time, hard work, practice paid off, ch",
+      "question": "Where does James get his ideas from?",
+      "sample_id": "c6_q127",
+      "source_id": "replay_phase_a_r1_r10/replay_rows.jsonl",
+      "source_row": 158
+    },
+    {
+      "family": "open_inference",
+      "floor": "enumeration_form",
+      "gold": "Grooming slowly and gently, paying attention to sensitive areas like ears and paws. And remember to stay patient and positive throughout the grooming process.",
+      "predicted": "difference regarding, them looking good, Regular, Regular grooming, dog grooming course, Toby, groom Toby, and learn dog grooming",
+      "question": "What advice did Audrey give to Andrew regarding grooming Toby?",
+      "sample_id": "c5_q88",
+      "source_id": "replay_phase_a_r1_r10/replay_rows.jsonl",
+      "source_row": 162
+    },
+    {
+      "family": "open_inference",
+      "floor": "clean_fact",
+      "gold": "A fantasy novel by Patrick Rothfuss",
+      "predicted": "book recommendations, travel agency,",
+      "question": "What book recommendation did Tim give to John for the trip?",
+      "sample_id": "c4_q110",
+      "source_id": "replay_phase_a_r1_r10/replay_rows.jsonl",
+      "source_row": 219
+    },
+    {
+      "family": "latest_value",
+      "floor": "clean_fact",
+      "gold": "hiking",
+      "predicted": "Hey Sam",
+      "question": "Which activity did Sam resume in December 2023 after a long time?",
+      "sample_id": "c8_q72",
+      "source_id": "replay_phase_a_r1_r10/replay_rows.jsonl",
+      "source_row": 223
+    },
+    {
+      "family": "open_inference",
+      "floor": "enumeration_form",
+      "gold": "Find a trainer",
+      "predicted": "started, avoid injuries, supplies if you're interested, Haven't, Just, work friends, finished few days, and started thinking",
+      "question": "What advice did Evan give to Sam to avoid injuries while starting weightlifting?",
+      "sample_id": "c8_q120",
+      "source_id": "replay_phase_a_r1_r10/replay_rows.jsonl",
+      "source_row": 224
+    },
+    {
+      "family": "preference_synth",
+      "floor": "preference_form",
+      "gold": "Winning first place at a regionals dance competition",
+      "predicted": "Here's a pic from; You guys look great and passionate about dancing",
+      "question": "What was Gina's favorite dancing memory?",
+      "sample_id": "c1_q41",
+      "source_id": "replay_phase_a_r1_r10/replay_rows.jsonl",
+      "source_row": 273
+    },
+    {
+      "family": "preference_synth",
+      "floor": "preference_form",
+      "gold": "Contemporary",
+      "predicted": "I have developed a video presentation to teach how to style my fashion pieces, btw; I have developed a video presentation to teach how to style my fashion piece",
+      "question": "What is Gina's favorite style of dance?",
+      "sample_id": "c1_q39",
+      "source_id": "replay_phase_a_r1_r10/replay_rows.jsonl",
+      "source_row": 297
+    },
+    {
+      "family": "latest_value",
+      "floor": "clean_fact",
+      "gold": "Ned, Daisy, Max",
+      "predicted": "I already have three dogs at home",
+      "question": "What are the names of James's dogs?",
+      "sample_id": "c6_q9",
+      "source_id": "replay_phase_a_r1_r10/replay_rows.jsonl",
+      "source_row": 361
+    },
+    {
+      "family": "latest_value",
+      "floor": "clean_fact",
+      "gold": "Sunset",
+      "predicted": "I took",
+      "question": "What did Joanna take a picture of near Fort Wayne last summer?",
+      "sample_id": "c3_q192",
+      "source_id": "replay_phase_a_r1_r10/replay_rows.jsonl",
+      "source_row": 391
+    }
+  ],
+  "correct_lost_by_floor": {
+    "clean_fact": 3
+  },
+  "generation_calls": 0,
+  "implementations": [
+    {
+      "bytes": 32593,
+      "path": "bench/replay.py",
+      "sha256": "cb59d51c63ab81ac1841a945f1198b934729b6cc907efa669faf685387107295"
+    },
+    {
+      "bytes": 45834,
+      "path": "eidetic/smqe/verify.py",
+      "sha256": "5bfd86483cc9b8120f58bafd8f2c997de1c6be8913b7423045aa5e59bcf47896"
+    }
+  ],
+  "limitations": [
+    "Projects only the PURE deterministic form floors; support-dependent floors (aggregate citation, category anchoring, premise position) and the relative_temporal ambiguity guard need live candidate sets and are NOT projected here.",
+    "Reuses frozen historical correctness labels; it does not rerun retrieval, generation, NLI, or judges.",
+    "Correct-lost rows are enumerated in full; accepting them is a policy decision, not a mechanical one."
+  ],
+  "losses": [
+    {
+      "family": "latest_value",
+      "floor": "clean_fact",
+      "gold": "To de-stress and clear her mind",
+      "predicted": "I've been running farther to de-stress",
+      "question": "What is Melanie's reason for getting into running?",
+      "sample_id": "c0_q107",
+      "source_id": "replay_phase_a_r1_r10/replay_rows.jsonl",
+      "source_row": 75
+    },
+    {
+      "family": "latest_value",
+      "floor": "clean_fact",
+      "gold": "call her",
+      "predicted": "I think I'll call tomorrow",
+      "question": "What is James planning to do after receiving Samantha's phone number?",
+      "sample_id": "c6_q114",
+      "source_id": "replay_phase_a_r1_r10/replay_rows.jsonl",
+      "source_row": 194
+    },
+    {
+      "family": "latest_value",
+      "floor": "clean_fact",
+      "gold": "an electrical engineering project",
+      "predicted": "I finished an electrical engineering project",
+      "question": "What project did Jolene finish last week before 23 January, 2023?",
+      "sample_id": "c7_q100",
+      "source_id": "replay_phase_a_r1_r10/replay_rows.jsonl",
+      "source_row": 303
+    }
+  ],
+  "mode": "mechanical_guard_projection",
+  "nli_calls": 0,
+  "provider_calls": 0,
+  "residual_wrong_by_family": {
+    "count_aggregate": 2,
+    "latest_value": 14,
+    "open_inference": 9,
+    "preference_synth": 2,
+    "reader": 47,
+    "relative_temporal": 33,
+    "temporal_delta": 1
+  },
+  "sources": [
+    {
+      "bytes": 1255742,
+      "rows": 400,
+      "sha256": "6571c01c3c78229a8648ca800c6a5ba6f87aa4004db1258ba630440cf009b90b",
+      "source_id": "replay_phase_a_r1_r10/replay_rows.jsonl"
+    }
+  ],
+  "status": "PASS",
+  "version": "policy-v2-guards-v1",
+  "wrong_converted_by_floor": {
+    "clean_fact": 9,
+    "enumeration_form": 3,
+    "preference_form": 4,
+    "when_type": 2,
+    "zero_information": 3
+  }
+}

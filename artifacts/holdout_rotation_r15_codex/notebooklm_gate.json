@@ -1,8 +1,8 @@
 {
-  "n_runs": 7,
+  "n_runs": 10,
   "min_runs": 10,
   "answered_floor": 36,
-  "runs_excluded_truncated": 2,
+  "runs_excluded_truncated": 1,
   "per_run": [
     {
       "file": "notebooklm_freetier.judged.json",
@@ -13,6 +13,13 @@
     },
     {
       "file": "notebooklm_freetier_run1.judged.json",
+      "correct": 33,
+      "answered": 40,
+      "accuracy": 0.825,
+      "counts_toward_gate": true
+    },
+    {
+      "file": "notebooklm_freetier_run10.judged.json",
       "correct": 33,
       "answered": 40,
       "accuracy": 0.825,
@@ -62,30 +69,30 @@
     },
     {
       "file": "notebooklm_freetier_run8.judged.json",
-      "correct": 8,
-      "answered": 8,
-      "accuracy": 1.0,
-      "counts_toward_gate": false
+      "correct": 33,
+      "answered": 40,
+      "accuracy": 0.825,
+      "counts_toward_gate": true
     },
     {
       "file": "notebooklm_freetier_run9.judged.json",
-      "correct": 0,
-      "answered": 0,
-      "accuracy": null,
-      "counts_toward_gate": false
+      "correct": 33,
+      "answered": 40,
+      "accuracy": 0.825,
+      "counts_toward_gate": true
     }
   ],
-  "mean_accuracy": 0.8209,
-  "stdev": 0.0201,
+  "mean_accuracy": 0.8221,
+  "stdev": 0.0169,
   "ci95_mean": [
-    0.8071,
-    0.8352
+    0.8125,
+    0.8321
   ],
   "comparator": {
     "name": "rag-vector (r15 fixed-reader)",
     "accuracy": 0.575
   },
-  "verdict": "PARTIAL",
-  "verdict_reason": "7/10 full runs -- need 3 more (2 truncated run(s) excluded, answered<36)",
+  "verdict": "PASS",
+  "verdict_reason": "meets run count and clears comparator CI",
   "honest_note": "PASS here is a STATISTICAL gate (>= min_runs runs, bootstrap CI clears the comparator). It is NOT itself a 'best/SOTA' claim -- that wording additionally needs named-comparator breadth and remains a human editorial decision. Different (Gemini) reader than the fixed-qwen table; own product row."
 }

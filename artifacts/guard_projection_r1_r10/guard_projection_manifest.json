@@ -1,0 +1,38 @@
+{
+  "algorithm": "sha256",
+  "artifact_type": "burned_window_guard_projection",
+  "implementations": [
+    {
+      "bytes": 32593,
+      "path": "bench/replay.py",
+      "sha256": "cb59d51c63ab81ac1841a945f1198b934729b6cc907efa669faf685387107295"
+    },
+    {
+      "bytes": 45834,
+      "path": "eidetic/smqe/verify.py",
+      "sha256": "5bfd86483cc9b8120f58bafd8f2c997de1c6be8913b7423045aa5e59bcf47896"
+    }
+  ],
+  "outputs": [
+    {
+      "bytes": 12004,
+      "path": "guard_projection.json",
+      "sha256": "816d3d0b16aae848fdf74b99eb80adc8654f3f7fa183506beaaa1352a9b17262"
+    },
+    {
+      "bytes": 1708,
+      "path": "guard_projection.md",
+      "sha256": "0db605322b3c92a2abca4979a9df817f8c44fee39a55c947dd9e20d27fa200ea"
+    }
+  ],
+  "sources": [
+    {
+      "bytes": 1255742,
+      "rows": 400,
+      "sha256": "6571c01c3c78229a8648ca800c6a5ba6f87aa4004db1258ba630440cf009b90b",
+      "source_id": "replay_phase_a_r1_r10/replay_rows.jsonl"
+    }
+  ],
+  "status": "PASS",
+  "version": "policy-v2-guards-v1"
+}

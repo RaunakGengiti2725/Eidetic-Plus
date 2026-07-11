@@ -1,0 +1,90 @@
+{
+  "algorithm": "sha256",
+  "artifact_type": "burned_window_mechanical_replay",
+  "implementation": {
+    "bytes": 32593,
+    "path": "bench/replay.py",
+    "sha256": "cb59d51c63ab81ac1841a945f1198b934729b6cc907efa669faf685387107295"
+  },
+  "outputs": [
+    {
+      "bytes": 1255742,
+      "path": "replay_rows.jsonl",
+      "sha256": "6571c01c3c78229a8648ca800c6a5ba6f87aa4004db1258ba630440cf009b90b"
+    },
+    {
+      "bytes": 12372,
+      "path": "replay_report.json",
+      "sha256": "0fd54e2afd6ffcd47ea010eeac37e0e8f1e6e71f3e5d3cc3b120cf25a89a3d90"
+    },
+    {
+      "bytes": 2049,
+      "path": "replay_report.md",
+      "sha256": "5299f0bfcd9c9e0028bac95b0104892a40e6c0f2d20883d58c584a7a29ffb489"
+    }
+  ],
+  "sources": [
+    {
+      "bytes": 107853,
+      "rows": 40,
+      "sha256": "1bcf3d1d4dbd634e4729bd7ba5dc36a861f3c14915c774ce7f3b5aa430149802",
+      "source_id": "holdout_rotation_r10_codex/eidetic-plus-full__run0.jsonl"
+    },
+    {
+      "bytes": 110641,
+      "rows": 40,
+      "sha256": "9ecb29e6c6087da599f8faacb53478263ebaa596c78979caa4e4daa354eaaaab",
+      "source_id": "holdout_rotation_r1_codex/eidetic-plus-full__run0.jsonl"
+    },
+    {
+      "bytes": 104883,
+      "rows": 40,
+      "sha256": "c532be10f71b7c908fe832b2f982424de48e71eaa4b730cf3f71f8a317a01470",
+      "source_id": "holdout_rotation_r2_codex/eidetic-plus-full__run0.jsonl"
+    },
+    {
+      "bytes": 107868,
+      "rows": 40,
+      "sha256": "d3ef00aaca52f430e9e729bd60d8b997ffef6364cd987ddf63b6f8adeecdd81e",
+      "source_id": "holdout_rotation_r3_codex/eidetic-plus-full__run0.jsonl"
+    },
+    {
+      "bytes": 104502,
+      "rows": 40,
+      "sha256": "3419271e9e7274aeb9c6e25a67e0348e4e043d7ddeb5cb9f60e0c1f2886da249",
+      "source_id": "holdout_rotation_r4_codex/eidetic-plus-full__run0.jsonl"
+    },
+    {
+      "bytes": 109003,
+      "rows": 40,
+      "sha256": "6ed60de75c192f47195d86732e8ca696670a851fb05f7d34e7f79484f5647491",
+      "source_id": "holdout_rotation_r5_codex/eidetic-plus-full__run0.jsonl"
+    },
+    {
+      "bytes": 107749,
+      "rows": 40,
+      "sha256": "b4da7bed118d1affa3271dfd9599c4e6d494465c6da7a32a4c29453c582e192e",
+      "source_id": "holdout_rotation_r6_codex/eidetic-plus-full__run0.jsonl"
+    },
+    {
+      "bytes": 107448,
+      "rows": 40,
+      "sha256": "f73aa828fccab734e5f672f144eb9cab4b96b32598b8c53ee14648b4ab1e5659",
+      "source_id": "holdout_rotation_r7_codex/eidetic-plus-full__run0.jsonl"
+    },
+    {
+      "bytes": 109293,
+      "rows": 40,
+      "sha256": "be0f6ae82b7c140443aa31cf106283643f8becd4a8fb421a534ab7b6f6357830",
+      "source_id": "holdout_rotation_r8_codex/eidetic-plus-full__run0.jsonl"
+    },
+    {
+      "bytes": 106923,
+      "rows": 40,
+      "sha256": "718b2817f41852b5538d66188ae83788de6ef740cf87a0c2d3b194cfd26166fc",
+      "source_id": "holdout_rotation_r9_codex/eidetic-plus-full__run0.jsonl"
+    }
+  ],
+  "status": "PASS",
+  "version": "phase-a-v1"
+}

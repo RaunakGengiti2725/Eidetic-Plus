@@ -1,11 +1,11 @@
 # Public claims — with the evidence path for each
 
-Scope: **limited** (`artifacts/public_ship/claim_scope.json`). The claim we make is
-"the best *governed, verified* long-horizon memory agent **we can measure today**" —
-every answer is verify-or-abstain with checkable provenance (content hash, validity
-window, NLI entailment label), and against Mem0, the comparable bounded-retrieval
-memory system, we lead on every rolling holdout window. We do NOT claim to be the most
-accurate system in absolute terms — against full-context RAG our raw accuracy is lower
+Scope: **limited** (`artifacts/public_ship/claim_scope.json`). The current runtime is a
+governed, verified long-horizon memory agent: every public factual answer is
+verify-or-abstain with checkable provenance (content hash, validity window, NLI
+entailment label). Against Mem0, the comparable bounded-retrieval memory system, the
+committed rolling aggregate leads while individual windows include a loss. We do NOT
+claim to be the most accurate system in absolute terms — against full-context RAG our raw accuracy is lower
 (see "Limitations: the four-system comparison" at the end). We explicitly do NOT claim
 SOTA or best-in-world; see [claims.md](claims.md) and "What we refuse to claim".
 
@@ -14,21 +14,88 @@ Every number here is recomputed from committed raw per-row logs
 git SHA in their launch logs and whose score-affecting flags are recorded in
 `run_manifest.json`.
 
+## 2026-07-10 proof-boundary correction
+
+The current runtime has one public factual answer contract: `VERIFIED` or `ABSTAINED`.
+`Engine.ask`, HTTP, MCP, fixed-reader evaluation, and governed NotebookLM recall share
+the same implementation. `verify=false` cannot bypass it. Verification requires exact
+scope, query-time activity, raw-byte hash resolution, source-span resolution, no active
+contradiction, and per-claim proof for sentences and list items. Image claims are checked
+against pixels; PDF/audio/video claims are re-read from immutable media. Direct Gemini
+output is labeled `UNTRUSTED_DRAFT` and is not a normal answer.
+
+The burned-window mechanical replay in `artifacts/replay_phase_a_r1_r10/` corrects an
+older claim below: the ten frozen r1–r10 logs contained **12 unverified delivered
+answers**, not zero. Applying the current output policy converts all 12 to abstentions,
+leaves **0 unverified delivered**, and preserves **212/212 verified-correct rows**. The
+artifact is SHA-256-bound to all ten source logs, all outputs, and `bench/replay.py`, and
+made zero provider/NLI/generation calls. It is explicitly a policy projection, not a
+provider rerun.
+
+This does **not** establish accuracy-first release readiness. The same historical logs
+contain **129/341 (37.8%) verified-but-judge-wrong rows**: 46 single-hop, 40 multi-hop,
+37 temporal, and 6 open-domain. `VERIFIED` means every delivered claim is grounded in
+resolving evidence under the current proof rules; it does not prove task correctness or
+completeness. The runtime now adds contradiction, temporal-validity, source-span,
+per-item, and multimodal fail-closed guards, but fresh unseen reruns are still required.
+
+## 2026-07-11 verified-precision guard wave (mechanical projections, no fresh window yet)
+
+Two selection/form-side guard families landed against that 129-row verified-wrong
+panel, each measured OFFLINE against frozen rows before shipping (zero provider calls;
+both artifacts hash-bound to implementation bytes):
+
+- **Pure form floors** (dangling separator tails, degenerate conjunction repetition,
+  junk-stripped question echoes, preference category-object anchoring, when-type
+  agreement): projected over the 341 frozen verified rows, **21 verified-wrong rows
+  convert to abstention; 3 verified-correct rows are lost** (all three are the
+  pre-existing first-person clean-fact shape, enumerated in the artifact).
+  Evidence: `artifacts/guard_projection_r1_r10/`.
+- **relative_temporal derivation boundary**: the legacy candidate loop now tags every
+  shipped date `atom_derived` (the winning atom's own expression dates the event, or a
+  deterministic rule resolved the contest) or `mention_selected` (score/hit ordering
+  alone picked among materially conflicting dated mentions); `mention_selected` fails
+  closed. Selection-replayed against ten burned windows' frozen stores:
+  **12/35 verified-wrong rows convert to abstention; 26/28 verified-correct rows keep
+  their exact answers; 0 atom-derived regressions attributable to the diff** (one
+  pre-existing drift row and one deliberate fail-closed tie are itemized, with a
+  stashed-tree baseline report shipped for the attribution).
+  Evidence: `artifacts/forensics/selection_replay_20260711.json` +
+  `selection_replay_baseline_20260711.json`, harness `bench/selection_replay.py`.
+
+These are projections over burned windows — the honest status of the runtime's
+verified precision remains "improved on frozen evidence, unproven on fresh windows"
+until the next never-touched window runs under this stack.
+
+## 2026-07-11 age-neutral ranking, now enforced and proven on the shipped path
+
+The age-independence claim previously covered only the raw vector index while the
+shipped hybrid ranker fused a recency channel (`RRF_W_RECENCY=0.3`) — a real
+contradiction, now closed: the recency fusion weight **defaults to 0.0** (the channel
+and its underfill fallback are dead code unless a run explicitly opts in, which its
+manifest must then show), and `Engine.prove_age_independence` probes **both** the raw
+index and the full `retrieve()` fusion path (`flat` requires both recall curves flat).
+Offline proof: ranking is byte-identical under age permutation of the same corpus at
+the default, and provably diverges only under explicit opt-in
+(`tests/test_age_independence.py`).
+
 ## Claim 1 — verified answers, not vibes
 
-Across nine disjoint, never-touched LoCoMo holdout windows (n=360, both systems on
-every window), every eidetic answer is verify-or-abstain: NLI-checked against
-immutable stored sources with citations, or an explicit abstention. **Verified
-answers: eidetic 302 vs Mem0 0.** Mem0 (and the RAG baselines) return unverified
-text through the same reader.
+The current runtime is verify-or-abstain. Historical rolling artifacts predate that
+hard boundary and must be read through the correction above rather than described as
+having zero unverified deliveries. On the r1–r10 replay panel, 341/400 historical rows
+were labeled verified, 47 had already abstained, and 12 unverified answers had been
+delivered; the mechanical replay converts those 12 to abstentions. Mem0 and RAG rows
+remain unverified comparator outputs under the shared reader.
 
-Evidence: `artifacts/holdout_rotation_r1..r8_codex/*__run0.jsonl` (`extra.verified`
-per row); recompute with `bench/rolling_holdout_table.py`.
+Evidence: `artifacts/replay_phase_a_r1_r10/replay_report.json`, its manifest, and the
+source `artifacts/holdout_rotation_r1_codex` through `r10_codex` JSONL logs.
 
-## Claim 2 — more correct than Mem0 on rolling never-touched holdout
+## Claim 2 — aggregate lead over Mem0 on rolling never-touched holdout
 
-Against Mem0 — the comparable bounded-retrieval memory system — eidetic wins on every
-rolling window, and the margin has grown as the write-side claim families landed,
+Against Mem0 — the comparable bounded-retrieval memory system — eidetic leads in the
+committed rolling aggregate, while the published per-window record includes a loss. The
+margin grew as the write-side claim families landed,
 peaking at **+14 on r8** (23/40 vs 9/40), the freshest window and the first to carry
 the VW-killer + event-date family. This is scoped to Mem0, not a claim of general
 accuracy leadership (see the four-system limitations note at the end). Rolling
@@ -107,8 +174,11 @@ table, never merged:
   (`artifacts/lme_s_r1_codex/provenance_citation_map_live.json`,
   gate `bench/provenance_live_probe.py`). Attribution is conservative: ambiguous or
   unmatched quotes are returned unattributed with the reason, never guessed.
-- Honest boundary unchanged: the free answer is Gemini-side and NOT gate-verified;
-  provenance lets you CHECK every cited source against the immutable store.
+- The direct research surface remains Gemini-side and is returned as
+  `output_type=UNTRUSTED_DRAFT`, never as a normal verified answer. The product
+  `NotebookLMBridge.governed_recall` path submits that draft and the exact exported evidence IDs
+  to `Engine.prove_external_draft`; it returns only `VERIFIED` with resolving proof or
+  `ABSTAINED`. Proof-model usage is reported separately from the 0 caller-generation-token read.
 
 ## Claim 3d — the export-truncation correction, measured (2026-07-10)
 
