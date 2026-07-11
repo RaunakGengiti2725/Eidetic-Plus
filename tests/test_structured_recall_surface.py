@@ -53,6 +53,8 @@ def test_engine_structured_recall_exposes_plan_supports_and_proof(fresh_settings
     assert out["answered"] is True
     assert out["abstained"] is False
     assert out["verified"] is True
+    assert out["status"] == "VERIFIED"
+    assert out["draft"] == ""
     assert out["immutable_proof"] is True
     assert out["proof_link_checks"] == len(out["citations"]) == 1
     assert out["generated_by"] == "smqe"
@@ -77,6 +79,8 @@ def test_engine_structured_recall_abstains_without_active_memory(fresh_settings)
 
     assert out["answered"] is False
     assert out["abstained"] is True
+    assert out["status"] == "ABSTAINED"
+    assert out["answer"] == ""
     assert out["failure_reason"] == "no_active_records"
     assert out["immutable_proof"] is False
     assert out["proof_link_checks"] == 0
@@ -118,6 +122,9 @@ def test_engine_structured_recall_abstains_without_immutable_source_bytes(fresh_
     assert out["answered"] is False
     assert out["abstained"] is True
     assert out["verified"] is False
+    assert out["status"] == "ABSTAINED"
+    assert out["answer"] == ""
+    assert out["draft"] == "Blue Arch Gym"
     assert out["immutable_proof"] is False
     assert out["proof_link_checks"] == 0
     assert out["failure_reason"] == "missing_immutable_proof"
