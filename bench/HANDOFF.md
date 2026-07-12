@@ -747,3 +747,22 @@ NEXT, in order: (a) bench.run DATA_DIR guard; (b) suggestion_synth floor
 audit; (c) structured latest_value location-question mistag; (d) r19-class
 entailment-variance forensics (the 11 'no source entails' rows); (e) rolling
 table + ledger entries for r19 with the incident note attached.
+
+## PHASE-SHIFT DIRECTIVE (user, 2026-07-11) -- BINDING for the next session (Devin)
+
+Invariant/gate work SUFFICIENT. No new proof floors, abstention thresholds,
+or holdout windows until READ recovery is measured on dev.
+NON-NEGOTIABLE: verified-or-abstained only; fail loud; replay before ship;
+zero verified-correct regression. DO NOT: tune on r18/r19, lower NLI/
+contradiction thresholds, add recency to ranking, run r20 pre-dev-proof.
+
+NEXT LEVER (READ stage; retrieval measured at ceiling): classify r19's 11
+'no source entails' rows (store = ./data, shared -- see incident note):
+per row pull candidate_memory_ids + reader draft + entailed citations;
+classify {span mismatch | wrong record entailed | stacked-NLI unrelated-
+entailment | reader wrong aspect}. Fix ONE class, smallest diff; replay
+burned rows offline; dev A/B; only then ONE fresh window with DATA_DIR
+under --out (the new guard enforces this). Also queued deterministic:
+suggestion_synth fragment floor audit; latest_value location-mistag
+('Tokyo' shape); support-anchored event identity for stacked-NLI rows.
+SUCCESS = verified-correct UP, abstentions DOWN, unverified stays 0.
