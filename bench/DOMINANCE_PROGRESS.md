@@ -2178,3 +2178,25 @@ OS runner for the 23:25 quota reset. Hindsight comparator landed: 29/40 (72.5%).
 Still true, still stated: Chronos's 95.6% (unreproduced, agentic reader, no code) sits
 above the product row's 90.4%. The gap is 5.2 points, every one of them mapped to an
 armed measurement or a written constraint. No SOTA wording until the ledger carries it.
+
+**SLICE 18 (r18, first fresh window under the proof boundary + derivation boundary +
+age-neutral ranker; sha 00cf67d3d):** eidetic 18/40 < mem0 21/40 < rag-vector 26/40.
+**A LOSS, and it goes in the table like the wins did** (-3 to mem0, the first since r2;
+rolling 225/400 vs 184/400 = +41 over ten windows, eight wins two losses). What the
+window actually measured, forensically separated:
+- **The proof boundary held live where it had never been tested fresh: 0 unproven
+  deliveries** (r1-r10 had shipped 12), 28/28 delivered answers carried resolving
+  proofs, verified precision 64.3% vs the 62.2% historical panel.
+- **Today's guards caused ZERO of the 12 abstentions** — every one is the
+  contradiction gate (8) or the NLI confidence floor (4); no form-floor, no
+  mention_selected, no temporal_selection abstention fired. The raw drop is
+  gate-calibration + window difficulty, NOT the new floors.
+- **The temporal edge held under the derivation boundary:** 4/8 vs mem0 1/8 and
+  rag-vector 1/8 — the boundary did not surrender the category it disciplined.
+- **The honest lead to pull:** the contradiction gate fired on 8 rows (20% of the
+  window) with high NLI confidence in the answer (0.68-0.93) — either real
+  cross-session contradictions on this window's personas or the gate over-firing on
+  benign supersession; per-row forensics is the next slice's first job before any
+  parameter touch.
+- Age curves on the fresh store: recall slope -1.01/yr on a 40-question probe
+  (small-n noise; the offline full-path invariance proof is the binding one).

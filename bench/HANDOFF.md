@@ -671,3 +671,26 @@ retrieve() fused a recency channel at RRF_W_RECENCY=0.3) is closed:
   permutation at the default; diverges ONLY under explicit opt-in (proving the
   gate, not luck). Scope wildcard (agent_id=None) and true two-axis bi-temporal
   remain OPEN P0s -- do not overclaim.
+
+## r18 FRESH WINDOW (2026-07-11, sha 00cf67d3d): A LOSS, RECORDED
+
+First never-touched window under proof boundary + derivation boundary +
+age-neutral ranker: eidetic 18/40 < mem0 21/40 < rag-vector 26/40 (-3, first
+mem0 loss since r2; rolling 225/400 vs 184/400 = +41). Forensic separation
+(SLICE 18 in DOMINANCE_PROGRESS.md has the full read):
+- Proof boundary held LIVE: 0 unproven deliveries (r1-r10 era shipped 12),
+  28/28 delivered with resolving proofs, verified precision 64.3% (vs 62.2%
+  historical panel).
+- The 12 abstentions: 8 contradiction gate (NLI conf 0.68-0.93!), 4 NLI
+  confidence floor. ZERO from today's guards (no form-floor, no
+  mention_selected fired). The raw drop is NOT the new floors.
+- Temporal held: 4/8 vs mem0 1/8, ragv 1/8.
+
+NEXT SESSION, FIRST JOB (before touching ANY parameter): per-row forensics on
+the 8 contradiction-gate abstentions in
+artifacts/holdout_rotation_r18_codex/eidetic-plus-full__run0.jsonl -- for each,
+pull the contradicting memory pair from the run's data/ store and classify:
+real cross-session contradiction (gate correct, coverage loss legitimate) vs
+benign supersession/paraphrase over-fire (gate bug -> fix the CLASS, replay
+offline, only then consider the threshold). 8 rows = 20% of a window; this is
+the single highest-leverage accuracy lever the fresh window surfaced.

@@ -63,9 +63,13 @@ both artifacts hash-bound to implementation bytes):
   Evidence: `artifacts/forensics/selection_replay_20260711.json` +
   `selection_replay_baseline_20260711.json`, harness `bench/selection_replay.py`.
 
-These are projections over burned windows — the honest status of the runtime's
-verified precision remains "improved on frozen evidence, unproven on fresh windows"
-until the next never-touched window runs under this stack.
+These are projections over burned windows. The first never-touched window under this
+stack (r18, 2026-07-11) then measured live: **0 unproven deliveries on 40 fresh rows**
+(the r1–r10 era had shipped 12), verified precision 64.3% vs the 62.2% historical
+panel, and **none of the 12 abstentions came from these guards** (8 contradiction-gate,
+4 NLI confidence floor). The same window is a raw-accuracy loss to Mem0 (18/40 vs
+21/40, recorded in the Claim 2 table) — the strict boundary's coverage cost is visible
+and we publish it; contradiction-gate calibration forensics is the named next step.
 
 ## 2026-07-11 age-neutral ranking, now enforced and proven on the shipped path
 
@@ -115,19 +119,22 @@ carrying the VW-killer + event-date family):
 | r7 | 20/40 | 12/40 | +8 |
 | r8 | 23/40 | 9/40 | +14 |
 | r16 | 25/40 | 23/40 | +2 |
-| rolling | **207/360** | **163/360** | **+44** |
+| r18 | 18/40 | 21/40 | -3 |
+| rolling | **225/400** | **184/400** | **+41** |
 
 Windows swing ±5pp at n=40 — the rolling total is the evidence unit, not any single
-window. We publish the losing window (r2: −1) and the hard draw (r7, below our own
-internal bars). Six consecutive wins (r3–r8), and the margin has grown over the last
-four windows (+7/+7/+8/+14) as the write-side claim families landed; r8 — the first
-window carrying the VW-killer and event-date family — is the largest margin of all
-eight. The ledger records every window, wins and losses
-(`bench/DOMINANCE_PROGRESS.md`, "SLICE 8").
+window. We publish the losing windows (r2: −1; r18: −3) and the hard draw (r7, below
+our own internal bars). Six consecutive wins (r3–r8) preceded r18 — the first fresh
+window under the strict proof boundary, where a 30% abstention rate (12 rows, all
+contradiction-gate or NLI-floor, none from the newest guards) cost raw coverage while
+delivering 0 unproven answers; the ledger's SLICE 18 carries the full forensic
+separation. The ledger records every window, wins and losses
+(`bench/DOMINANCE_PROGRESS.md`, "SLICE 8", "SLICE 18").
 
 Temporal-reasoning questions across r1–r8: eidetic 25/60 vs Mem0 3/60 — the
 write-time event-date/identity path generalized on holdout (2/8 pre-P2 ingest → 6/9
-on both r6 and r8).
+on both r6 and r8). On r18 the temporal edge held under the new derivation boundary:
+4/8 vs Mem0 1/8 and rag-vector 1/8.
 
 ## Claim 3 — the structured path is radically cheaper, verification included
 
