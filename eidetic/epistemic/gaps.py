@@ -15,13 +15,23 @@ the knowledge map's counts cannot be inflated or gamed:
   c1 multi_active_conflict   -- >1 distinct active object for a single-valued
                                 (subject, relation): contradictory witnesses that
                                 supersession has not resolved.
+  g6 end_without_newer_begin -- an END-verb fact (cancelled/ended/quit) with no newer
+                                BEGIN-verb fact in the same subject+object family:
+                                the current state is unwitnessed (day0 forensics --
+                                live extraction speaks in begin/end verb pairs, not
+                                same-relation supersessions).
+  c2 cross_layer_conflict    -- the graph adjudicated a conflict but the claim layer
+                                still actively carries the LOSING value: the proof
+                                surfaces disagree (found live: a structured read
+                                served the graph-closed phone number, verified).
 
-Query cells (g5) and NLI-conflict cells (c2) are minted INCREMENTALLY by the map's
+Query cells (g5) and NLI-conflict cells are minted INCREMENTALLY by the map's
 on_answer/on_contradiction hooks -- they come from live outcomes, not store scans.
-Falsified-law cells (c3) are minted by laws.py.
+Falsified-law cells are minted by laws.py.
 """
 from __future__ import annotations
 
+import re
 from collections import defaultdict
 from typing import Optional
 
@@ -212,12 +222,113 @@ def law_predicted_unwitnessed(store: RecordStore, scope: Scope,
     return out
 
 
+# Live extraction speaks in BEGIN/END VERB PAIRS ('joined' / 'cancelled membership'),
+# not tidy same-relation supersessions -- measured on the day0 demo corpus, where g1
+# missed a cancelled-gym gap because the two edges carry different relations. The
+# family table is deterministic and small on purpose: precision over recall (a wrong
+# gap wastes one probe; a fabricated pairing would poison the map).
+_BEGIN_VERBS = ("join", "sign", "start", "begin", "enroll", "subscribe", "adopt",
+                "move in", "moved in", "lease")
+_END_VERBS = ("cancel", "end", "quit", "leav", "stop", "terminat", "expir",
+              "move out", "moved out", "resign", "unsubscrib")
+
+
+def _verb_phase(relation: str) -> str:
+    low = (relation or "").lower()
+    if any(v in low for v in _END_VERBS):
+        return "end"
+    if any(v in low for v in _BEGIN_VERBS):
+        return "begin"
+    return ""
+
+
+def end_without_newer_begin(store: RecordStore, scope: Scope,
+                            at: Optional[float] = None) -> list[EpistemicCell]:
+    """g6: an END-verb edge (s, cancelled/ended/quit, o) with no BEGIN-verb edge for
+    the same subject+object family AFTER it -> the current state is UNKNOWN."""
+    t = now() if at is None else at
+    active = store.active_edges_at(t, scope, include_inferred=False)
+    all_edges = [e for e in store.all_edges(scope) if e.valid_at <= t]
+    out: list[EpistemicCell] = []
+    for e in active:
+        if _verb_phase(e.relation) != "end" or not e.src or not e.dst:
+            continue
+        obj_terms = {w for w in re.findall(r"[a-z0-9]+", e.dst.lower()) if len(w) > 3}
+        newer_begin = any(
+            b.src == e.src and _verb_phase(b.relation) == "begin"
+            and b.valid_at > e.valid_at
+            and (obj_terms & {w for w in re.findall(r"[a-z0-9]+", b.dst.lower())
+                              if len(w) > 3})
+            for b in all_edges)
+        if newer_begin:
+            continue
+        out.append(EpistemicCell(
+            namespace=scope.namespace, agent_id=scope.agent_id,
+            project_id=scope.project_id,
+            kind=CellKind.FACT.value, subject=e.src.strip().lower(),
+            relation=f"current_state_of {e.dst.strip().lower()}",
+            state=CellState.UNKNOWN.value,
+            reason=(f"'{e.relation}' witnessed with no newer begin-verb fact for "
+                    f"'{e.dst}' -- the current state is unwitnessed"),
+            evidence_ids=[e.edge_id],
+            origin="enumerator", info_gain=0.7,
+        ))
+    return out
+
+
+def cross_layer_conflict(store: RecordStore, scope: Scope,
+                         at: Optional[float] = None) -> list[EpistemicCell]:
+    """c2 (found live, day0 demo): the GRAPH adjudicated a conflict (closed one edge,
+    kept a sibling) but the CLAIM layer still actively carries the LOSING value --
+    the two proof surfaces disagree, and a structured read can serve the loser with
+    a citation. That is CONTESTED, not settled."""
+    t = now() if at is None else at
+    active_claims = store.active_claims_at(t, scope)
+    if not active_claims:
+        return []
+    groups = _fact_groups(store, scope)
+    out: list[EpistemicCell] = []
+    for (subject, relation), edges in groups.items():
+        if not subject or not relation:
+            continue
+        closed = [e for e in edges if e.invalid_at is not None and e.invalid_at <= t]
+        alive = [e for e in edges if e.is_active_at(t)]
+        if not closed or not alive:
+            continue
+        subject_low = subject.lower()
+        for loser in closed:
+            loser_val = (loser.dst or "").strip()
+            if len(loser_val) < 4:
+                continue
+            carriers = [c for c in active_claims
+                        if subject_low in (c.subject or "").lower()
+                        and loser_val.lower() in str(c.value or c.object or "").lower()]
+            if not carriers:
+                continue
+            out.append(EpistemicCell(
+                namespace=scope.namespace, agent_id=scope.agent_id,
+                project_id=scope.project_id,
+                kind=CellKind.CONFLICT.value, subject=subject,
+                relation=f"{relation} [cross-layer]",
+                state=CellState.CONTESTED.value,
+                reason=(f"graph closed '{loser_val}' (kept '{alive[0].dst}') but "
+                        f"{len(carriers)} active claim(s) still carry the losing "
+                        "value -- proof surfaces disagree"),
+                evidence_ids=([loser.edge_id, alive[0].edge_id]
+                              + [c.claim_id for c in carriers])[:8],
+                origin="enumerator", info_gain=1.3,
+            ))
+    return out
+
+
 ENUMERATORS = (
     superseded_no_current,       # g1
     law_predicted_unwitnessed,   # g2
     event_missing_date,          # g3
     temporal_hole,               # g4
     multi_active_conflict,       # c1
+    end_without_newer_begin,     # g6 (day0 forensics)
+    cross_layer_conflict,        # c2 (day0 forensics)
 )
 
 

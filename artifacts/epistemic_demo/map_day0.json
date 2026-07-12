@@ -1,0 +1,94 @@
+{
+ "label": "day0-post-forensics",
+ "ts": 1783883495.9986932,
+ "namespace": "demo",
+ "known_n": 0,
+ "unknown_n": 7,
+ "contested_n": 1,
+ "unknown_cells": [
+  {
+   "cell_id": "cell_eb8ce20ee568f3470403",
+   "kind": "fact",
+   "subject": "maya",
+   "relation": "current_state_of alvalade climbing gym",
+   "state": "UNKNOWN",
+   "reason": "'cancelled membership' witnessed with no newer begin-verb fact for 'Alvalade climbing gym' -- the current state is unwitnessed",
+   "info_gain": 0.7,
+   "probe_count": 0
+  },
+  {
+   "cell_id": "cell_951c49df669c9bf381b4",
+   "kind": "fact",
+   "subject": "maya",
+   "relation": "current_state_of fintor",
+   "state": "UNKNOWN",
+   "reason": "'ended contract with' witnessed with no newer begin-verb fact for 'Fintor' -- the current state is unwitnessed",
+   "info_gain": 0.7,
+   "probe_count": 0
+  },
+  {
+   "cell_id": "cell_876f6f3b946cad359c85",
+   "kind": "query",
+   "subject": "where was maya living in may?",
+   "relation": "",
+   "state": "UNKNOWN",
+   "reason": "abstained: a sentence-level claim was not grounded in memory",
+   "info_gain": 0.6,
+   "probe_count": 0
+  },
+  {
+   "cell_id": "cell_054e98bada893007fab8",
+   "kind": "query",
+   "subject": "which ci system does the cormorant repo use?",
+   "relation": "",
+   "state": "UNKNOWN",
+   "reason": "abstained: no source entails the answer",
+   "info_gain": 0.6,
+   "probe_count": 0
+  },
+  {
+   "cell_id": "cell_81b3cefe4bb53c8c67a3",
+   "kind": "query",
+   "subject": "does maya still have a gym membership?",
+   "relation": "",
+   "state": "UNKNOWN",
+   "reason": "abstained: no source entails the answer",
+   "info_gain": 0.6,
+   "probe_count": 0
+  },
+  {
+   "cell_id": "cell_70be94c77f0d5e170df7",
+   "kind": "query",
+   "subject": "what was maya's favourite meal after climbing?",
+   "relation": "",
+   "state": "UNKNOWN",
+   "reason": "abstained: no source entails the answer",
+   "info_gain": 0.6,
+   "probe_count": 0
+  },
+  {
+   "cell_id": "cell_014616e982c7bf4a7d2a",
+   "kind": "query",
+   "subject": "what makes maya trust a dataset?",
+   "relation": "",
+   "state": "UNKNOWN",
+   "reason": "abstained: a sentence-level claim was not grounded in memory",
+   "info_gain": 0.6,
+   "probe_count": 0
+  }
+ ],
+ "contested_cells": [
+  {
+   "cell_id": "cell_c33dd476e50f0455e0ca",
+   "kind": "conflict",
+   "subject": "dana",
+   "relation": "has phone number [cross-layer]",
+   "state": "CONTESTED",
+   "reason": "graph closed '+351 912 111 222' (kept '+351 933 444 555') but 1 active claim(s) still carry the losing value -- proof surfaces disagree",
+   "info_gain": 1.3,
+   "probe_count": 0
+  }
+ ],
+ "known_cells": [],
+ "digest": "de8dfde131e179ea"
+}

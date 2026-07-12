@@ -115,6 +115,38 @@ def test_event_missing_date(store):
     assert len(event_missing_date(store, SCOPE)) == 1     # dated event not a gap
 
 
+def test_end_without_newer_begin_names_the_gap(store):
+    from eidetic.epistemic.gaps import end_without_newer_begin
+    t0 = now() - 1000
+    _edge(store, "maya", "alvalade gym", "joined", t0)
+    _edge(store, "maya", "alvalade gym membership", "cancelled membership", t0 + 100)
+    cells = end_without_newer_begin(store, SCOPE)
+    assert len(cells) == 1
+    assert cells[0].relation.startswith("current_state_of")
+    # a NEWER begin-verb fact in the same object family closes the gap
+    _edge(store, "maya", "campo gym membership", "signed up for", t0 + 200)
+    assert end_without_newer_begin(store, SCOPE) == []
+
+
+def test_cross_layer_conflict_flags_disagreeing_surfaces(store):
+    from eidetic.epistemic.gaps import cross_layer_conflict
+    from eidetic.models import ClaimRecord, MemoryRecord
+    t0 = now() - 1000
+    _edge(store, "dana", "+351 912 111 222", "has phone number", t0, invalid_at=t0 + 10)
+    _edge(store, "dana", "+351 933 444 555", "has phone number", t0 + 10)
+    mem = MemoryRecord(text="Dana's phone number is +351 912 111 222.",
+                       scope=SCOPE, valid_at=t0)
+    store.upsert_record(mem)
+    store.add_claim(ClaimRecord(claim_type="state", scope=SCOPE, subject="Dana",
+                                value="Dana's phone number is +351 912 111 222.",
+                                valid_at=t0, source_memory_id=mem.memory_id))
+    cells = cross_layer_conflict(store, SCOPE)
+    assert len(cells) == 1
+    c = cells[0]
+    assert c.state == CellState.CONTESTED.value and "[cross-layer]" in c.relation
+    assert "912" in c.reason and len(c.evidence_ids) >= 3
+
+
 def test_enumerate_cells_contested_outranks_unknown(store):
     t0 = now() - 1000
     _edge(store, "ada", "acme", "employer", t0)
