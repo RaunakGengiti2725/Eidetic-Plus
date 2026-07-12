@@ -766,3 +766,64 @@ under --out (the new guard enforces this). Also queued deterministic:
 suggestion_synth fragment floor audit; latest_value location-mistag
 ('Tokyo' shape); support-anchored event identity for stacked-NLI rows.
 SUCCESS = verified-correct UP, abstentions DOWN, unverified stays 0.
+
+## SESSION RECORD (2026-07-12, Cascade) -- EPISTEMIC ORGANISM SHIPPED
+
+Directive executed: the system now maintains a live map of what it KNOWS /
+does NOT know / CONTESTS, and runs research to shrink the frontier.
+Suite: 1774 green (was 1696). Commits 3190578a6..7c476a4e1.
+
+SHIPPED:
+1. eidetic/epistemic/ -- cells (deterministic ids), 7 zero-LLM gap
+   enumerators (g1 superseded-no-current, g2 law-predicted-unwitnessed,
+   g3 event-missing-date, g4 temporal-hole, c1 multi-active-conflict,
+   g6 end-without-newer-begin, c2 cross-layer-conflict), KnowledgeMap
+   (own sqlite, append-only transition ledger, proof-gated mark_known,
+   snapshot/delta), curiosity (probes through the REAL prove path, MemMA
+   diagnosis routing), laws (candidate->verify-or-discard lifecycle;
+   falsification mints CONTESTED), contested (resolution program:
+   cross-layer repair -> bi-temporal adjudication -> verified probe ->
+   honest hold).
+2. eidetic/autoresearch/ -- the ratchet as the map's instrument: 13-class
+   failure taxonomy mined from r18/r19, agenda (priority frontier +
+   benchmark-namespace wall), PROOF_DNA constitution (import-time assert,
+   disjoint from search space), operator DSL (prove is not an op),
+   proposer priors, DevLab, champion-challenger trials via bench.guard,
+   registry + promotions ledger, replay honesty checks, leaderboard.
+3. Engine wiring: passive OFF-PATH hooks (abstain -> UNKNOWN cell + task;
+   contradiction veto -> CONTESTED; verified -> KNOWN w/ proof), improve/
+   research_status verbs, Engine.close() joins hook threads (tempdir
+   teardown race found by smqe fullpath eval). MCP: knowledge_map,
+   explain_gap, research_status, improve.
+4. READ_CLAIM_SELECT (flag, default OFF): r19 forensics showed 10/11
+   'no source entails' rows had gold text INSIDE a retrieved candidate.
+   When a draft grounds nowhere + nothing contradicts, retry ONCE with
+   the best verbatim sentence window through the SAME gates. Offline
+   real-engine A/B test proves the flip. artifacts/forensics/
+   read_recovery_r19.json holds the row-level evidence.
+
+DEMO (artifacts/epistemic_demo/): planted corpus, day0 7/12 verified,
+map 0K/7U/1C -> overnight waves (curiosity+contested+laws) -> day1
+9/12 verified, 4K/3U/0C. Both read-recovery targets flipped verified;
+residual unknowns are the PLANTED unanswerables (honest). Zero
+unverified public answers at every step. map_delta.json + night_log.jsonl
++ transition ledger = the skeptic's diff.
+
+LIVE BUGS FOUND BY THE ORGANISM (and fixed):
+1. Cross-layer incoherence (c2): graph closed Dana's losing phone number;
+   claim layer still served it VERIFIED via smqe latest_value. Repair:
+   store.invalidate_claim closes loser-carrying claims at the graph's own
+   adjudication time. Re-ask now serves the winner.
+2. Conflict laundering: curiosity probed a CONTESTED cell; the buggy
+   answer verified; conflict closed KNOWN with the losing value. Fix:
+   frontier serves UNKNOWN only (conflicts go to the resolution program);
+   enumerator CONTESTED reopens a proven KNOWN (stale proof dropped).
+3. smqe latest_value answers a NAME question with a non-name echo
+   ('tiny jazz bar') -- claim value-type floor queued as research task.
+4. Law mining blocked by entity-shape breaks ('Albatross' vs 'Albatross
+   repo' nodes) -- alias resolution documented as the unlock.
+
+NOT RUN (ready, needs hours of spend): DevLab challenger trials
+(scripts/epistemic_demo.py night --trials N; READ_CLAIM_SELECT is the
+queued Tier-B challenger for entail_failure). The lab enforces the wall;
+promotion needs the McNemar gate + replay.
