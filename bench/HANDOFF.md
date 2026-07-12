@@ -694,3 +694,12 @@ real cross-session contradiction (gate correct, coverage loss legitimate) vs
 benign supersession/paraphrase over-fire (gate bug -> fix the CLASS, replay
 offline, only then consider the threshold). 8 rows = 20% of a window; this is
 the single highest-leverage accuracy lever the fresh window surfaced.
+
+## OVERNIGHT QUEUE LANDED (2026-07-11, commit eeeca204b) -- GATE PASS
+
+Detached runner executed everything at quota reset: 10-run gate PASS
+(mean 82.2, CI [81.3, 83.2] vs 57.5 -- +23.8pp at the CI floor); provenance
+revalidation 26/26 (100%); lossless pack reproduced 25/30 (83.3%). Claims
+updated. Repo pushed to GitHub main for Devin handoff. Remaining measured
+levers: selection-side relative_temporal fix (57-row class, constraint
+measured), stage-2 option A ceiling, judge-v2 as future primary.
