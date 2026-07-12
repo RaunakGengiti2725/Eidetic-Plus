@@ -174,10 +174,17 @@ table, never merged:
 - **Judged accuracy: 102/120 = 85.0%** over three disjoint LoCoMo holdout windows
   (r14 77.5% / r13 92.5% / r15 85.0%, r15 fully prospective), pinned qwen3-max judge,
   vs same-window/same-judge rag-vector 74/120 = 59.2% (paired McNemar p<1e-5).
-  Single run per window — the ≥10-run gate has NOT passed; no SOTA wording.
+- **The ≥10-run reproduce gate: PASS (2026-07-11).** Ten full same-window collections
+  (r15), every run judged with the pinned judge: mean 82.2%, bootstrap 95% CI
+  [81.3, 83.2] — the CI FLOOR clears the same-window rag-vector fixed-reader
+  comparator (57.5) by 23.8pp (`artifacts/holdout_rotation_r15_codex/notebooklm_gate.json`,
+  runs 0-10 committed, run3 excluded as quota-truncated). The gate's own honest note
+  stands: statistical reproducibility, not by itself a best/SOTA claim.
 - **Citation provenance, measured live (2026-07-09):** the quote-content citation map
   resolves Gemini's `[n]` references to immutable content hashes on **25/26 rows (96%),
-  198/204 references (97%)** of the LME-S retrieval-guided panel
+  198/204 references (97%)** of the LME-S retrieval-guided panel — revalidated
+  2026-07-11 after resolver hardening at **26/26 rows (100%)**
+  (`provenance_citation_map_live_20260711_0000.json`)
   (`artifacts/lme_s_r1_codex/provenance_citation_map_live.json`,
   gate `bench/provenance_live_probe.py`). Attribution is conservative: ambiguous or
   unmatched quotes are returned unattributed with the reason, never guessed.
@@ -197,7 +204,8 @@ paired on fresh notebooks, same window, same pinned judge:
 
 **LME-S whole-export: 25.0% → 78.6% (McNemar exact p = 0.0003; 16 fixed / 1 lost —
 the 16 are exactly the fleet's predicted cluster).** knowledge-update went 0/4 → 4/4.
-Single run, one window: directional until reproduced. Evidence:
+**Reproduced 2026-07-11 on fresh -v3 notebooks: 25/30 (83.3%)** — two independent
+collections both far above the 25.0% baseline; no longer single-run directional. Evidence:
 `artifacts/lme_s_r1_codex/notebooklm_freetier_v2pack.*`,
 `artifacts/forensics/miss_forensics_fleet_20260709.json`.
 
