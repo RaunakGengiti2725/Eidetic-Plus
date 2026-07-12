@@ -1,0 +1,16 @@
+{
+  "generated": "2026-07-11T23:30:00-07:00",
+  "source_rows": "artifacts/holdout_rotation_r19_codex/eidetic-plus-full__run0.jsonl",
+  "store": "data/eidetic.sqlite (shared-store incident window; r19's records live here)",
+  "method": "deterministic, zero model calls: gold-term coverage over retrieved candidate records; verify-path span simulation via _raw_query_centered_span under both question- and gold-worded hypotheses",
+  "target": "the 11 'abstained: no source entails the answer' rows (the READ-recovery class named by the phase-shift directive)",
+  "findings": {
+    "retrieval_failure": 1,
+    "read_failure_gold_reachable": 10,
+    "span_selection_implicated": 0,
+    "detail": "10/10 READ-failure rows: the gold answer text IS present in a retrieved candidate (gold-term coverage 0.5-1.0) and that record is SHORT (2.4k-6.4k chars, below RAW_SPAN_MIN_CHARS=12000), so model NLI received the FULL gold-bearing premise and still returned no entailment. Span-centering simulation confirms even a perfectly-worded draft's span would contain the gold region (span_g coverage 1.0 on every row). The 1 retrieval row is a derived aggregation count ('Twice') that no source states verbatim - honestly unprovable by citation, the class the numeric floor already governs."
+  },
+  "class_verdict": "draft-vs-NLI: the reader's draft wording (aspect/paraphrase) fails whole-answer NLI against premises that visibly contain the answer, or NLI under-entails on multi-turn dialogue premises. NOT span selection. NOT retrieval. NOT floor calibration.",
+  "track_b_implication": "The smallest-diff honest fix is DRAFT-SIDE: a verbatim claim-selection read stage (answer with the source's own sentence when the free-form draft fails verification), which makes extractive entailment fire legitimately. Loosening _extractive_entailment or any NLI floor is proof-weakening and REFUSED. This is exactly the Tier B 'read := claim_select' operator; Phase 6 implements and A/Bs it on dev, then replays these burned rows offline.",
+  "rows": "see /tmp passes; per-row memory_ids withheld from committed docs (holdout hygiene), full detail reproducible via the method above"
+}

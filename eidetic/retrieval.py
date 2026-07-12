@@ -3214,6 +3214,57 @@ def _dedup(cands: list["RetrievalCandidate"]) -> list["RetrievalCandidate"]:
     return out
 
 
+_CLAIM_SELECT_SPEAKER_RE = re.compile(r"^\s*[\w'-]{2,20}\s*:\s*")
+
+
+def _claim_select_draft(query: str, candidates: list["RetrievalCandidate"], *,
+                        max_sentences: int = 2, max_chars: int = 400,
+                        min_hits: int = 2) -> str:
+    """READ_CLAIM_SELECT stage (r19 forensics, 2026-07-12): pick the sentence(s) from
+    the retrieved candidates that best answer the query, VERBATIM (speaker prefix
+    stripped). Deterministic -- same scorer family as the event-window/raw-span
+    selectors; no model call. Returns "" when nothing scores >= min_hits distinct
+    query terms (a weak extraction must not replace an honest abstention)."""
+    qterms = {t for t in re.findall(r"[a-z0-9]+", (query or "").lower()) if len(t) > 2}
+    qterms -= {"what", "when", "where", "which", "who", "how", "did", "does", "was",
+               "were", "the", "has", "have", "had", "and", "for", "with", "about",
+               "kind", "many", "much", "new", "his", "her", "their", "you", "your"}
+    if not qterms:
+        return ""
+
+    def _hits(text_s: str) -> int:
+        low = text_s.lower()
+        return sum(1 for t in qterms if t in low)
+
+    # Dialogue answers span adjacent lines ('...instead of soda. also dark chocolate
+    # ... candy alternative.'), so score WINDOWS of up to `max_sentences` adjacent
+    # sentences, not single sentences (single-line scoring starves on r19-shaped
+    # sessions where the question's verb never appears verbatim).
+    best: Optional[tuple[int, int, int, list[str]]] = None   # (-hits, rank, idx, window)
+    for rank, cand in enumerate(candidates[:6]):
+        text = cand.record.text or cand.record.summary or ""
+        pieces = [s.strip() for s in re.split(r"(?<=[.!?])\s+|\n+", text) if s.strip()]
+        for idx in range(len(pieces)):
+            for width in range(1, max_sentences + 1):
+                window = pieces[idx:idx + width]
+                if not window:
+                    continue
+                key = (-_hits(" ".join(window)), rank, idx, window)
+                if key[0] <= -min_hits and (best is None or key[:3] < best[:3]):
+                    best = key
+    if best is None:
+        return ""
+    chosen: list[str] = []
+    for sentence in best[3]:
+        clean = _CLAIM_SELECT_SPEAKER_RE.sub("", sentence).strip()
+        if not clean or _hits(clean) == 0:            # trim greeting/no-hit filler
+            continue
+        chosen.append(clean)
+        if sum(len(c) for c in chosen) >= max_chars:
+            break
+    return " ".join(chosen)[:max_chars]
+
+
 class Retriever:
     def __init__(
         self,
@@ -5043,6 +5094,24 @@ class Retriever:
                 query, text, candidates, citations, entailed, verify=verify, scope=scope, at=at)
         else:
             advice_anchor = False
+
+        # READ_CLAIM_SELECT (r19 read-recovery, forensics 2026-07-12): 10/11 'no source
+        # entails' abstentions had the gold answer text INSIDE a retrieved candidate --
+        # the free-form draft's wording failed NLI, not the evidence. When the draft
+        # grounds nowhere (entailed==0) and nothing contradicts, retry ONCE with the
+        # best answering sentence(s) selected VERBATIM from the candidates, through the
+        # SAME _verify_candidates and every downstream floor. The most provable wording
+        # possible; if even it fails, the abstention was honest. Flag-gated OFF.
+        if (verify and entailed == 0
+                and getattr(self.settings, "read_claim_select_enabled", False)
+                and not any(c.nli_label == NLILabel.CONTRADICTION for c in citations)):
+            extracted = _claim_select_draft(query, candidates)
+            if extracted and extracted.strip().lower() != (text or "").strip().lower():
+                cs_citations, cs_entailed = self._verify_candidates(
+                    candidates, extracted, verify, query=query, at=at)
+                if cs_entailed > 0:
+                    text = extracted
+                    citations, entailed = cs_citations, cs_entailed
 
         # CoVe (Chain-of-Verification): factored fact-check of a grounded draft. Plan independent
         # verification questions, answer each ONLY from the retrieved blocks (factored -> the model
