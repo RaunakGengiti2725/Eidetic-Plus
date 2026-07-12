@@ -703,3 +703,15 @@ revalidation 26/26 (100%); lossless pack reproduced 25/30 (83.3%). Claims
 updated. Repo pushed to GitHub main for Devin handoff. Remaining measured
 levers: selection-side relative_temporal fix (57-row class, constraint
 measured), stage-2 option A ceiling, judge-v2 as future primary.
+
+## R18 CONTRADICTION FORENSICS -> PROOF-OR-NO-VETO GATE (2026-07-11, commit 08726add4)
+
+The named next step, executed: instrumented replay of the 8 contradiction
+abstentions proved the NLI judge labels UNRELATED turns as contradiction at
+0.95-0.99 (>=4 killed drafts matched gold, incl. turtles and the 23-July
+date). Prompt fix measured INSUFFICIENT (control still mislabels at 0.95).
+Shipped: contradiction citations keep veto power only with a verbatim-quoted
+incompatible premise sentence (machine-checked); errors fail closed; flag
+CONTRADICTION_PROOF_GATE default ON. Controls pass both directions; 5 tests;
+suite 1692. Window-level effect = next fresh slice (r19). Remaining r18
+abstention rows now hit span/entailment-variance floors -- separate classes.
