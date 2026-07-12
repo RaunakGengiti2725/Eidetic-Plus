@@ -854,7 +854,10 @@ class DashScopeClient:
             "truth) and a HYPOTHESIS, decide if the premise ENTAILS the hypothesis. "
             "Reply ONLY as JSON: {\"label\": \"entailment\"|\"neutral\"|\"contradiction\", "
             "\"confidence\": <float 0..1>}. Use 'entailment' only if the premise fully "
-            "supports the hypothesis with no added claims.",
+            "supports the hypothesis with no added claims. Use 'contradiction' ONLY if the "
+            "premise asserts a fact that makes the hypothesis FALSE (an incompatible claim "
+            "about the same entity or event). A premise that is silent about the hypothesis, "
+            "or about a different topic entirely, is 'neutral' -- NEVER 'contradiction'.",
             f"PREMISE:\n{premise[:6000]}\n\nHYPOTHESIS:\n{hypothesis[:2000]}",
             temperature=0.0, max_tokens=128,
         )
@@ -862,6 +865,31 @@ class DashScopeClient:
         if label not in ("entailment", "neutral", "contradiction"):
             label = "neutral"
         return label, float(max(0.0, min(1.0, data.get("confidence", 0.5))))
+
+    def confirm_contradiction(self, premise: str, hypothesis: str) -> tuple[bool, str]:
+        """PROOF-OR-NO-VETO check for a contradiction label (r18 forensics 2026-07-11: the
+        NLI judge labels topically-UNRELATED long conversation premises as 'contradiction'
+        at 0.95-0.99 -- 'took the dog for a walk' vetoed a correct 'took turtles to the
+        beach' answer -- and a definitional prompt fix measurably does not move it). A
+        contradiction may veto ONLY if this focused second pass can QUOTE the premise
+        sentence that makes the hypothesis false; the caller verifies the quote appears
+        verbatim in the premise, so a confabulated justification cannot sustain the veto.
+        Returns (confirmed, quote)."""
+        data = self.chat_json(
+            self.settings.verify_model,
+            "A judge labeled the PREMISE as contradicting the HYPOTHESIS. Verify that "
+            "strictly. The premise contradicts ONLY if it contains a statement asserting "
+            "something INCOMPATIBLE with the hypothesis (same entity/event, opposite or "
+            "mutually exclusive fact). Reply ONLY as JSON: "
+            "{\"contradicts\": true|false, \"quote\": \"<the EXACT premise sentence that "
+            "makes the hypothesis false, copied verbatim, or empty>\"}. If the premise is "
+            "merely about something else, or silent on the hypothesis, reply false.",
+            f"PREMISE:\n{premise[:6000]}\n\nHYPOTHESIS:\n{hypothesis[:2000]}",
+            temperature=0.0, max_tokens=256,
+        )
+        confirmed = bool(data.get("contradicts") is True)
+        quote = str(data.get("quote") or "").strip()
+        return confirmed, quote
 
     def nli_batch(self, pairs: list[tuple]) -> list[tuple]:
         """S1: judge EVERY (premise, hypothesis) pair in ONE request -> per-pair (label, conf).

@@ -322,6 +322,12 @@ class Settings:
     # on reader-path answers -- a verbatim conversational fragment entails trivially and
     # shipped verified-wrong at scale on the rotation holdout.
     reader_form_floor_enabled: bool = field(default_factory=lambda: _get_bool("READER_FORM_FLOOR", "1"))
+    # PROOF-OR-NO-VETO on reader-path contradiction labels (r18 forensics 2026-07-11): a
+    # CONTRADICTION citation keeps its veto only when a focused second pass quotes the
+    # incompatible premise sentence verbatim; unrelated-turn mislabels (measured at
+    # 0.95-0.99 on 8/40 rows, >=4 correct drafts killed) demote to neutral. Default ON.
+    contradiction_proof_gate_enabled: bool = field(
+        default_factory=lambda: _get_bool("CONTRADICTION_PROOF_GATE", "1"))
     # PROBLEM_CLAIMS (default off): war-room revisions also emit typed claims into the same
     # claim tier SMQE and verify already use, so problem state answers structurally.
     problem_claims_enabled: bool = field(default_factory=lambda: _get_bool("PROBLEM_CLAIMS", "0"))

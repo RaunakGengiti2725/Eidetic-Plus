@@ -1,0 +1,132 @@
+[
+  {
+    "sid": "c2_q17",
+    "q": "What might John's degree be in?",
+    "gold": "Political science, Public administration, Public affairs",
+    "draft": "Based on the provided sources, John's degree is likely in a field related to **public policy, political science, or public administration**, given his stated in",
+    "contras": [
+      {
+        "premise": "John: Hey Maria, great to chat again! I joined a service-focused online group last week and it's been an emotional ride. Everyone there is incredible with their",
+        "hypothesis": "Based on the provided sources, John's degree is likely in a field related to **public policy, political science, or publ",
+        "score": 0.95
+      },
+      {
+        "premise": "John: Hey Maria, great chatting with you again! Crazy thing happened since we last talked. I lost my job at the mechanical engineering company. They tanked and ",
+        "hypothesis": "Based on the provided sources, John's degree is likely in a field related to **public policy, political science, or publ",
+        "score": 0.98
+      }
+    ],
+    "final_abstained": true
+  },
+  {
+    "sid": "c3_q168",
+    "q": "What helps Joanna stay focused and brings her joy?",
+    "gold": "stuffed animal dog named Tilly",
+    "draft": "Joanna stays focused and finds joy in writing, watching movies (especially romantic dramas and romcoms), exploring nature, reading, and spending time with suppo",
+    "contras": [],
+    "final_abstained": false
+  },
+  {
+    "sid": "c3_q179",
+    "q": "How did Joanna feel on October 25, 2022 about seeing her characters come alive on the big ",
+    "gold": "surreal and cool",
+    "draft": "On October 25, 2022, Joanna felt that seeing her characters come alive on the big screen was \u201csuch a cool feeling\u201d and \u201ctotally surreal.\u201d She described it as if",
+    "contras": [
+      {
+        "premise": "Joanna: Hey Nate! Yesterday was crazy cool - I wrote a few bits for a screenplay that appeared on the big screen yesterday! It was nerve-wracking but so inspiri",
+        "hypothesis": "On October 25, 2022, Joanna felt that seeing her characters come alive on the big screen was \u201csuch a cool feeling\u201d and \u201c",
+        "score": 0.95
+      },
+      {
+        "premise": "Joanna: Hey Nate, long time no see! The screenplay I sent in to the film festival has been on my mind all day everyday. I keep bouncing between crazy emotions l",
+        "hypothesis": "On October 25, 2022, Joanna felt that seeing her characters come alive on the big screen was \u201csuch a cool feeling\u201d and \u201c",
+        "score": 0.95
+      }
+    ],
+    "final_abstained": true
+  },
+  {
+    "sid": "c3_q196",
+    "q": "What did Nate take to the beach in Tampa?",
+    "gold": "turtles",
+    "draft": "Nate took his turtles to the beach in Tampa. [S8]",
+    "contras": [
+      {
+        "premise": "Joanna: Hey Nate! Great to hear from you! Quite a week since we last talked - something awesome happened to me!\nNate: Hey Jo! Great hearing from you! What happe",
+        "hypothesis": "Nate took his turtles to the beach in Tampa. [S8]",
+        "score": 0.99
+      },
+      {
+        "premise": "Nate: Hey Jo! Been ages since we last talked. Here's something cool that happened the other day - I took Max for a walk and ran into this super nice couple who ",
+        "hypothesis": "Nate took his turtles to the beach in Tampa. [S8]",
+        "score": 0.99
+      }
+    ],
+    "final_abstained": true
+  },
+  {
+    "sid": "c9_q98",
+    "q": "How did the audience in Tokyo react when Calvin sang one of his songs?",
+    "gold": "Everyone was so into it and sang along",
+    "draft": "The audience in Tokyo reacted very enthusiastically when Calvin sang one of his songs \u2014 they were \u201cso into it\u201d and even sang along. Calvin described it as \u201ca ma",
+    "contras": [
+      {
+        "premise": "Calvin: Hey Dave! Long time no chat! Lots has gone down since we last caught up.\nDave: Hey Calvin! Long time no chat! How's everything been going since we last ",
+        "hypothesis": "The audience in Tokyo reacted very enthusiastically when Calvin sang one of his songs \u2014 they were \u201cso into it\u201d and even ",
+        "score": 0.95
+      },
+      {
+        "premise": "Calvin: Hey Dave! Long time no see. I just went to an awesome music thingy in Tokyo - so cool!\nDave: Hey Calvin! Great to hear from you. How was the music thing",
+        "hypothesis": "The audience in Tokyo reacted very enthusiastically when Calvin sang one of his songs \u2014 they were \u201cso into it\u201d and even ",
+        "score": 0.95
+      }
+    ],
+    "final_abstained": true
+  },
+  {
+    "sid": "c8_q10",
+    "q": "Which type of vacation would Evan prefer with his family, walking tours in metropolitan ci",
+    "gold": "camping trip in the outdoors",
+    "draft": "Evan would prefer a **camping trip in the outdoors**.\n\nEvidence from the sources shows Evan consistently expresses enthusiasm for outdoor, nature-based activiti",
+    "contras": [],
+    "final_abstained": false
+  },
+  {
+    "sid": "c4_q47",
+    "q": "When did John get married at a greenhouse?",
+    "gold": "last week of September 2023",
+    "draft": "John got married at a greenhouse last week before the session date of **2023-10-02**, as stated in [S10]:  \n> *\"My girlfriend and I had an amazing and emotional",
+    "contras": [
+      {
+        "premise": "John: Hey Tim! Great to chat again. So much has happened!\nTim: Hey John! Great chatting with you as always. What's been happening lately? I've been reading as u",
+        "hypothesis": "John got married at a greenhouse last week before the session date of **2023-10-02**, as stated in [S10]:  \n> *\"My girlf",
+        "score": 0.99
+      },
+      {
+        "premise": "John: Hey Tim! Great to hear from you. My week's been busy - I started doing seminars, helping people with their sports and marketing. It's been awesome! [share",
+        "hypothesis": "John got married at a greenhouse last week before the session date of **2023-10-02**, as stated in [S10]:  \n> *\"My girlf",
+        "score": 0.99
+      }
+    ],
+    "final_abstained": true
+  },
+  {
+    "sid": "c1_q37",
+    "q": "When did Gina mention Shia Labeouf?",
+    "gold": " 23 July, 2023",
+    "draft": "Gina mentioned Shia LaBeouf on **2023-07-23**, during a conversation with Jon, where she quoted \u201cJust do it!\u201d and attributed it to Shia LaBeouf [S10].",
+    "contras": [
+      {
+        "premise": "Jon: Hey Gina, thanks for being there for me and believing in me. It means a lot.\nGina: Sure, Jon! I'm always around for you. How've you been since we caught up",
+        "hypothesis": "Gina mentioned Shia LaBeouf on **2023-07-23**, during a conversation with Jon, where she quoted \u201cJust do it!\u201d and attrib",
+        "score": 0.99
+      },
+      {
+        "premise": "Jon: Hey Gina, I had to shut down my bank account. It was tough, but I needed to do it for my biz.\nGina: Oh no, Jon! Sorry to hear that. Tough decision for you?",
+        "hypothesis": "Gina mentioned Shia LaBeouf on **2023-07-23**, during a conversation with Jon, where she quoted \u201cJust do it!\u201d and attrib",
+        "score": 0.99
+      }
+    ],
+    "final_abstained": true
+  }
+]

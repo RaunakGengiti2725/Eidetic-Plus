@@ -5156,6 +5156,36 @@ class Retriever:
                                  if c.nli_label == NLILabel.ENTAILMENT else c
                                  for c in citations]
 
+        # PROOF-OR-NO-VETO on contradictions (r18 forensics, 2026-07-11): the NLI judge
+        # labels topically-unrelated long premises as CONTRADICTION at 0.95-0.99 ('took the
+        # dog for a walk' vetoed a correct turtles-to-the-beach answer -- 8 rows, >=4 correct
+        # drafts killed, 20% of the window), and a definitional prompt fix measurably does
+        # not move it. A contradiction citation keeps veto power ONLY if a focused second
+        # pass QUOTES the premise sentence that makes the draft false and the quote appears
+        # VERBATIM in that premise -- a confabulated justification cannot sustain the veto.
+        # Unconfirmed contradiction labels demote to NEUTRAL (the citation still never
+        # counts as support). Flag-gated default ON; kill switch preserves old behavior.
+        if (verify and getattr(self.settings, "contradiction_proof_gate_enabled", True)
+                and any(c.nli_label == NLILabel.CONTRADICTION for c in citations)):
+            confirmer = getattr(self.client, "confirm_contradiction", None)
+            if callable(confirmer):
+                def _norm_q(s: str) -> str:
+                    return re.sub(r"\s+", " ", (s or "").lower()).strip()
+                demoted = []
+                for c in citations:
+                    if c.nli_label != NLILabel.CONTRADICTION:
+                        demoted.append(c)
+                        continue
+                    try:
+                        confirmed, quote = confirmer(c.snippet or "", text)
+                    except Exception:
+                        confirmed, quote = True, ""   # fail CLOSED: keep the veto on error
+                    if confirmed and (not quote or _norm_q(quote) in _norm_q(c.snippet or "")):
+                        demoted.append(c)             # veto stands, proof (or error) present
+                    else:
+                        demoted.append(c.model_copy(update={"nli_label": NLILabel.NEUTRAL,
+                                                            "nli_score": 0.0}))
+                citations = demoted
         contradiction_found = bool(verify and any(
             citation.nli_label == NLILabel.CONTRADICTION for citation in citations))
         verified = bool(verify and entailed > 0 and not contradiction_found)

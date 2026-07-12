@@ -529,3 +529,89 @@ def test_reader_prompt_demands_complete_lists_on_plural_questions(monkeypatch):
 
     c.generate_answer("What is Jon working on opening?", ["ctx"])
     assert "COMPLETE list" not in seen["system"]
+
+
+# ---- contradiction PROOF-OR-NO-VETO gate (r18 forensics, 2026-07-11) --------------------------
+def _proof_gate_engine(fresh_settings, confirm_impl, *, flag=True):
+    """Engine whose reader drafts an answer, one candidate labels CONTRADICTION, and the
+    confirmation behavior is injected. Two records so the contradiction citation is a
+    DIFFERENT (topically unrelated) source than the entailing one -- the measured r18 shape."""
+    from dataclasses import replace as _replace
+
+    from eidetic.engine import Engine
+    from eidetic.models import Scope
+
+    class _Client(_FakeEmbed):
+        def __init__(self, dim):
+            super().__init__(dim)
+            self.confirm_calls = []
+
+        def extract_edges(self, text):
+            return []
+
+        def generate_answer(self, q, blocks, model=None):
+            return "Nate took his turtles to the beach."
+
+        def nli(self, premise, hypothesis):
+            if "walk" in premise:
+                return ("contradiction", 0.99)   # the unrelated-turn mislabel
+            return ("entailment", 0.9)
+
+        def confirm_contradiction(self, premise, hypothesis):
+            self.confirm_calls.append(premise[:40])
+            return confirm_impl(premise, hypothesis)
+
+    s = _replace(fresh_settings, rerank_enabled=False, abstention_v2_enabled=False,
+                 span_nli_enabled=False, cove_enabled=False,
+                 contradiction_proof_gate_enabled=flag)
+    client = _Client(s.embed_dim)
+    e = Engine(s, client=client)
+    scope = Scope(namespace=f"proofgate-{flag}-{id(confirm_impl) % 9973}")
+    e.ingest_text("Nate took his turtles to the beach in Tampa.", scope=scope,
+                  consolidate_now=False)
+    e.ingest_text("Nate took Max for a walk and met a nice couple.", scope=scope,
+                  consolidate_now=False)
+    return e, client, scope
+
+
+def test_unconfirmed_contradiction_demotes_and_answer_verifies(fresh_settings):
+    """The r18 class: a 0.99 'contradiction' from an unrelated turn. Confirmation says
+    false -> the veto demotes to neutral and the entailed answer ships VERIFIED."""
+    e, client, scope = _proof_gate_engine(fresh_settings, lambda p, h: (False, ""))
+    ans = e.ask("What did Nate take to the beach?", verify=True, scope=scope)
+    assert ans.verified is True
+    assert "turtles" in (ans.answer or "")
+    assert client.confirm_calls                       # the gate actually consulted proof
+
+
+def test_confirmed_contradiction_with_verbatim_quote_keeps_veto(fresh_settings):
+    e, client, scope = _proof_gate_engine(
+        fresh_settings, lambda p, h: (True, "Nate took Max for a walk"))
+    ans = e.ask("What did Nate take to the beach?", verify=True, scope=scope)
+    assert ans.verified is not True
+    assert "contradicts" in (ans.note or "")
+
+
+def test_confabulated_quote_cannot_sustain_the_veto(fresh_settings):
+    """confirms=True but the quote is NOT in the premise -> machine check rejects it,
+    veto demotes. A justification the source does not contain is no justification."""
+    e, client, scope = _proof_gate_engine(
+        fresh_settings, lambda p, h: (True, "Nate sold his turtles yesterday"))
+    ans = e.ask("What did Nate take to the beach?", verify=True, scope=scope)
+    assert ans.verified is True
+
+
+def test_confirmer_error_fails_closed_veto_stands(fresh_settings):
+    def _boom(p, h):
+        raise RuntimeError("transient")
+    e, client, scope = _proof_gate_engine(fresh_settings, _boom)
+    ans = e.ask("What did Nate take to the beach?", verify=True, scope=scope)
+    assert ans.verified is not True                   # error never silently un-vetoes
+
+
+def test_proof_gate_flag_off_preserves_old_behavior(fresh_settings):
+    e, client, scope = _proof_gate_engine(fresh_settings, lambda p, h: (False, ""),
+                                          flag=False)
+    ans = e.ask("What did Nate take to the beach?", verify=True, scope=scope)
+    assert ans.verified is not True
+    assert client.confirm_calls == []                 # confirmer never consulted
