@@ -715,3 +715,35 @@ incompatible premise sentence (machine-checked); errors fail closed; flag
 CONTRADICTION_PROOF_GATE default ON. Controls pass both directions; 5 tests;
 suite 1692. Window-level effect = next fresh slice (r19). Remaining r18
 abstention rows now hit span/entailment-variance floors -- separate classes.
+
+## R19 LANDED + INFRA INCIDENT + PROOF-GATE HARDENING (2026-07-11, c158415ca)
+
+R19 (first window under proof gate): eidetic 13/40 < mem0 14/40(14 err) <
+rag 27/40. THIRD consecutive drop (24->18->13). Forensics chain:
+
+1. INFRA INCIDENT FOUND + TRIAGED: r16/r17/r19 launches (this desk) omitted
+   DATA_DIR -> all three ran against the SHARED ./data store with COLLIDING
+   namespace names; each window's reset() destroyed the previous window's
+   records. MEASURED: retrieval recall on the shared store = 16/16 (100%) --
+   scope filters + fetch-inflation held, numbers remain valid; the deviation
+   is ARCHIVAL (r16/r17 window stores destroyed; r19's lives in ./data).
+   REQUIRED FIX: bench.run must fail loud unless DATA_DIR is explicitly set
+   per window (guard not yet written).
+2. Proof gate live verdict: contradiction abstentions 8 -> 2. Two confirmer
+   leaks found + fixed with deterministic discipline (subject walk-back;
+   different-event modifier-disjointness) -- see commit c158415ca.
+3. REMAINING r19 miss classes (forensic samples): reader drafts answering a
+   different aspect than gold (2); structured latest_value VW ('Tokyo' for a
+   location question, note smqe:latest_value:claim); suggestion_synth
+   fragment garbage shipped ('even train, helping out, Life's...') -- the
+   :suggestion_synth carve-out needs its own floor audit; STACKED-NLI row
+   (entailment on unrelated record + contradiction from different event) ->
+   support-anchored event identity is the named design.
+4. Audit note: the leakage audit caught benchmark text in draft comments of
+   this very fix (runtime-root shingle scan working as designed); genericized,
+   PASS 0 findings.
+
+NEXT, in order: (a) bench.run DATA_DIR guard; (b) suggestion_synth floor
+audit; (c) structured latest_value location-question mistag; (d) r19-class
+entailment-variance forensics (the 11 'no source entails' rows); (e) rolling
+table + ledger entries for r19 with the incident note attached.
