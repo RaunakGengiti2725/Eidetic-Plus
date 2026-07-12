@@ -74,6 +74,15 @@ class LifecycleController:
         out["dream"] = self.engine.dream(scope=scope)
         if llm_summaries:
             out["consolidate"] = self.engine.consolidate(scope=scope)
+        # Epistemic map refresh on the sleep cadence: deterministic enumerators over the
+        # store, ZERO model calls, own derived sqlite -- sleep stays token-free. Curiosity
+        # probes/trials NEVER run here; they live behind the explicit improve verb.
+        kmap = getattr(self.engine, "knowledge_map_store", None)
+        if kmap is not None:
+            try:
+                out["epistemic_map"] = kmap.rebuild(self.engine.store, scope)
+            except Exception as e:
+                out["epistemic_map_error"] = f"{type(e).__name__}: {str(e)[:120]}"
         return out
 
     # ---- idle (background learning / embedding warm-up) --------------------------------------
@@ -104,10 +113,26 @@ class LifecycleController:
         REPAIR_PROPOSED event with the proposal count when any are produced."""
         scope = scope or Scope()
         out = self.engine.dream_repair(scope=scope)
-        n = len(out.get("proposals", []) or []) if isinstance(out, dict) else 0
-        if n:
+        proposals = out.get("proposals", []) or [] if isinstance(out, dict) else []
+        if proposals:
             self.engine._brain(BrainEventType.REPAIR_PROPOSED, namespace=scope.namespace,
-                               proposals=n)
+                               proposals=len(proposals))
+        # MemMA proposals feed the research agenda (origin=repair, below frontier cells):
+        # a proposal names a query-shaped gap; the ratchet decides if any mind change helps.
+        agenda = getattr(self.engine, "research_agenda", None)
+        if agenda is not None and proposals:
+            try:
+                from .autoresearch.types import FailureClass, ResearchTask
+                for p in proposals[:8]:
+                    query = str(p.get("query") or p.get("probe") or p.get("fact") or "").strip()
+                    if not query:
+                        continue
+                    agenda.enqueue(ResearchTask(
+                        query=query, namespace=scope.namespace, agent_id=scope.agent_id,
+                        project_id=scope.project_id,
+                        failure_class=FailureClass.REPAIR_PROPOSAL, origin="repair"))
+            except Exception:
+                pass
         return out
 
     # ---- autonomous host write drain --------------------------------------------------------

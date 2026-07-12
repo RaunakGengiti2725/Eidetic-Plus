@@ -270,6 +270,13 @@ class Settings:
     context_token_budget: int = field(default_factory=lambda: _get_int("CONTEXT_TOKEN_BUDGET", 8000))
     cache_cosine: float = field(default_factory=lambda: float(_get("CACHE_COSINE", "0.9")))
     reader_cot_enabled: bool = field(default_factory=lambda: _get_bool("READER_COT", "0"))
+    # READ_CLAIM_SELECT (r19 read-recovery): when a free-form draft grounds in NO source
+    # (entailed==0, no contradiction), retry ONCE with the best answering sentence selected
+    # VERBATIM from the top candidates -- the most provable possible wording -- through the
+    # SAME verify gates and floors. Deterministic selection; one extra NLI pass; no extra
+    # reader call. Default OFF; Tier B pipelines / dev A/B enable it.
+    read_claim_select_enabled: bool = field(
+        default_factory=lambda: _get_bool("READ_CLAIM_SELECT", "0"))
     reader_router_enabled: bool = field(
         default_factory=lambda: _get_bool("READER_ROUTER", "1")
     )
@@ -443,6 +450,35 @@ class Settings:
     dream_repair_apply_enabled: bool = field(default_factory=lambda: _get_bool("DREAM_REPAIR_APPLY", "0"))
     # Per-triple anomaly scoring threshold (flag low-confidence observed edges for repair).
     anomaly_threshold: float = field(default_factory=lambda: float(_get("ANOMALY_THRESHOLD", "0.35")))
+    # ---- EPISTEMIC ORGANISM -------------------------------------------------------------
+    # The knowledge map (KNOWN/UNKNOWN/CONTESTED over the witness). Deterministic + zero-LLM
+    # on the enumeration side, so default ON is safe: hooks only write to the map's own
+    # derived SQLite file; nothing in retrieval/proof reads it.
+    epistemic_map_enabled: bool = field(default_factory=lambda: _get_bool("EPISTEMIC_MAP", "1"))
+    # Curiosity probes per improve/sleep tick (each probe is a REAL verified ask -> model
+    # calls; only runs when explicitly invoked via improve/research_tick, never in ingest).
+    curiosity_max_probes_per_tick: int = field(
+        default_factory=lambda: _get_int("CURIOSITY_MAX_PROBES", 8))
+    curiosity_probe_cooldown_sec: float = field(
+        default_factory=lambda: float(_get("CURIOSITY_PROBE_COOLDOWN_SEC", "3600")))
+    # ---- AUTORESEARCH (the ratchet: hypothesis -> DEV trial -> guard -> promote) ---------
+    # Enqueue-on-abstain is passive (no model calls) -> default ON. Draining trials costs
+    # real model spend and ONLY happens via explicit improve/research_tick or when
+    # AUTORESEARCH_AUTO_DRAIN is set.
+    autoresearch_enabled: bool = field(default_factory=lambda: _get_bool("AUTORESEARCH", "1"))
+    autoresearch_auto_drain: bool = field(
+        default_factory=lambda: _get_bool("AUTORESEARCH_AUTO_DRAIN", "0"))
+    autoresearch_max_trials_per_tick: int = field(
+        default_factory=lambda: _get_int("AUTORESEARCH_MAX_TRIALS_PER_TICK", 1))
+    autoresearch_cooldown_sec: float = field(
+        default_factory=lambda: float(_get("AUTORESEARCH_COOLDOWN_SEC", "0")))
+    autoresearch_dir: Path = field(
+        default_factory=lambda: Path(_get("AUTORESEARCH_DIR", "artifacts/autoresearch")))
+    # Tier B operator pipeline (JSON compiled by eidetic/autoresearch/operators.py onto
+    # EXISTING execution paths only). Empty string = legacy path, byte-identical.
+    operator_pipeline: str = field(default_factory=lambda: _get("OPERATOR_PIPELINE", ""))
+    # Law induction lifecycle (verify-or-discard against the substrate; inferred layer only).
+    laws_enabled: bool = field(default_factory=lambda: _get_bool("LAWS", "1"))
     # MIRIX-style role typing of memories (deterministic classifier; LLM typing optional/gated).
     memory_typing_enabled: bool = field(default_factory=lambda: _get_bool("MEMORY_TYPING", "0"))
     # MIRIX Active Retrieval: generate an anticipated topic before retrieval (LLM-gated).

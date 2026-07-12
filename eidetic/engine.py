@@ -29,8 +29,9 @@ from .graph import KnowledgeGraph
 from .ingestion import IngestInput, from_bytes, from_file, from_text
 from .memory_types import classify_record
 from .brain import BrainEventLog, build_evidence_packets
-from .models import (Answer, BrainEvent, BrainEventType, EvidencePacket, MemoryRecord,
-                     Modality, NLILabel, RecallTrace, RetrievalCandidate, Scope, now)
+from .models import (Answer, AnswerStatus, BrainEvent, BrainEventType, EvidencePacket,
+                     MemoryRecord, Modality, NLILabel, RecallTrace, RetrievalCandidate,
+                     Scope, now)
 from .activation import ActivationField
 from .reflex import MemoryPacket
 from .reflex_activation import build_memory_packet
@@ -97,6 +98,23 @@ class Engine:
         # Dev-only feedback replay buffer (the spine of the idle learning cadence).
         from .feedback import FeedbackBuffer
         self.feedback = FeedbackBuffer(self.settings.data_dir / "feedback.sqlite")
+        # EPISTEMIC ORGANISM: the knowledge map (KNOWN/UNKNOWN/CONTESTED, derived layer in
+        # its own sqlite) + the research agenda (frontier queue). Both passive on the wake
+        # paths -- hooks only append to these side stores; retrieval/proof never read them.
+        self.knowledge_map_store = None
+        self.research_agenda = None
+        if self.settings.epistemic_map_enabled:
+            from .epistemic.map import KnowledgeMap
+            self.knowledge_map_store = KnowledgeMap(
+                self.settings.data_dir / "epistemic_map.sqlite")
+        if self.settings.autoresearch_enabled:
+            from .autoresearch.agenda import ResearchAgenda
+            self.research_agenda = ResearchAgenda(
+                self.settings.data_dir / "research_agenda.sqlite")
+        # In-flight passive-hook threads (see _epistemic_after_ask): tracked so close()
+        # can JOIN them before a caller tears down the data directory (tempdir evals).
+        self._epistemic_threads: set = set()
+        self._epistemic_threads_lock = threading.Lock()
         # Prospective memory: a first-order Markov model of query-signature transitions.
         from .optim.markov import MarkovPrefetcher
         self.markov = MarkovPrefetcher()
@@ -1178,7 +1196,10 @@ class Engine:
             ans = self.retriever.answer(query, at=read_at, verify=verify, scope=scope, qvec=qvec,
                                         reader_model=reader_model, **reader_kwargs)
 
+        pre_govern_contradicted = [c.memory_id for c in ans.citations
+                                   if c.nli_label == NLILabel.CONTRADICTION]
         ans = self._govern_answer(query, ans, scope, read_at)
+        self._epistemic_after_ask(query, ans, scope, pre_govern_contradicted)
 
         # Reconsolidation as a write path (retrieval is no longer read-only).
         # PHASE 1 (NO lock): the confirmed-citation re-embed is the only model call here; it must
@@ -1297,6 +1318,94 @@ class Engine:
         with self._write_lock:
             linked = self.graph.link_memories(ids, scope=scope, valid_at=valid_at)
         return {"linked": linked, "memory_ids": ids}
+
+    def _epistemic_after_ask(self, query: str, ans: Answer, scope: Scope,
+                             contradicted_ids: list[str]) -> None:
+        """Dispatch the passive epistemic hooks OFF the answer path. The map/agenda
+        writes are sqlite commits; inline they measurably cost the ask's latency
+        budget (caught by the smqe fullpath p95 invariant), and nothing downstream
+        of an ask reads them synchronously -- so a daemon thread absorbs the IO.
+        The body is `_epistemic_after_ask_sync` (tests exercise it directly)."""
+        if self.knowledge_map_store is None and self.research_agenda is None:
+            return
+        t = threading.Thread(
+            target=self._epistemic_hook_worker,
+            args=(query, ans, scope, contradicted_ids),
+            name="epistemic-hook", daemon=True,
+        )
+        with self._epistemic_threads_lock:
+            self._epistemic_threads.add(t)
+        t.start()
+
+    def _epistemic_hook_worker(self, query: str, ans: Answer, scope: Scope,
+                               contradicted_ids: list[str]) -> None:
+        try:
+            self._epistemic_after_ask_sync(query, ans, scope, contradicted_ids)
+        finally:
+            with self._epistemic_threads_lock:
+                self._epistemic_threads.discard(threading.current_thread())
+
+    def close(self) -> None:
+        """Idempotent shutdown: JOIN in-flight passive-hook threads, then close every
+        sqlite owner. Callers that build an Engine inside a TemporaryDirectory MUST
+        call this before the directory is removed -- a background hook creating a WAL
+        file mid-rmtree is a teardown race (caught live by the smqe fullpath eval)."""
+        with self._epistemic_threads_lock:
+            pending = list(self._epistemic_threads)
+        for t in pending:
+            t.join(timeout=5.0)
+        for owner in (self.knowledge_map_store, self.research_agenda,
+                      self.feedback, self.store):
+            try:
+                if owner is not None:
+                    owner.close()
+            except Exception:
+                pass
+
+    def _epistemic_after_ask_sync(self, query: str, ans: Answer, scope: Scope,
+                                  contradicted_ids: list[str]) -> None:
+        """Passive epistemic hooks on the governed read path (ZERO model calls, best
+        effort): an abstain mints/refreshes an UNKNOWN query cell and enqueues a
+        research task; a contradiction veto mints a CONTESTED cell; a verified answer
+        closes its matching query cell with the proof. Failure here degrades, never
+        breaks an ask."""
+        if self.knowledge_map_store is None and self.research_agenda is None:
+            return
+        try:
+            contradiction_veto = bool(contradicted_ids) and "contradict" in (ans.note or "")
+            if self.knowledge_map_store is not None:
+                if contradiction_veto:
+                    self.knowledge_map_store.on_contradiction(
+                        query, contradicted_ids, scope, note=ans.note)
+                self.knowledge_map_store.on_answer(query, ans, scope)
+            if (self.research_agenda is not None
+                    and ans.status == AnswerStatus.ABSTAINED):
+                from .autoresearch.types import ResearchTask, classify_failure
+                self.research_agenda.enqueue(ResearchTask(
+                    query=query, namespace=scope.namespace, agent_id=scope.agent_id,
+                    project_id=scope.project_id,
+                    failure_class=classify_failure(ans.note),
+                    origin="contested_cell" if contradiction_veto else "ask_fail",
+                    trace_id=""))
+        except Exception as e:
+            self._degraded("epistemic-hook", e)
+
+    def improve(self, *, scope: Optional[Scope] = None, max_trials: int = 0,
+                max_probes: Optional[int] = None, dry_run: bool = False,
+                lab=None, judge=None) -> dict:
+        """The IMPROVE verb: one metabolic research cycle -- token-free map rebuild,
+        curiosity wave over the frontier (real prove-path probes), then up to
+        `max_trials` guarded dev experiments (requires `lab`). Model spend happens
+        ONLY here, never on ingest/sleep."""
+        from .autoresearch.loop import drain
+        return drain(self, scope=scope, max_trials=max_trials, max_probes=max_probes,
+                     dry_run=dry_run, judge=judge, lab=lab)
+
+    def research_status(self, *, last_n: int = 5) -> dict:
+        """Method metadata only (agenda depth, champion, last trials, map counts) --
+        no answer text, no drafts."""
+        from .autoresearch.loop import research_status as _status
+        return _status(self, last_n=last_n)
 
     def _emit_feedback(self, scope: Scope, query: str, qvec, candidates: list,
                        confirmed: list[str]) -> None:

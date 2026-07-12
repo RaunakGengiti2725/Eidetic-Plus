@@ -258,6 +258,10 @@ def run_eval(*, seed: Optional[int] = None, cases: int = 24) -> dict:
                 client.reader_models.clear()
         finally:
             bench_reader.get_client = old_get_client
+            # Join in-flight passive-hook threads + close sqlite owners BEFORE the
+            # TemporaryDirectory exits: a background epistemic hook creating a WAL
+            # file mid-rmtree is a teardown race (observed 2026-07-12).
+            engine.close()
 
     return {
         "pass": not failures,

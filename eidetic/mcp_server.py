@@ -466,6 +466,73 @@ def sync_health(namespace: Optional[str] = None, agent_id: Optional[str] = None,
 
 
 @_threaded_tool
+def knowledge_map(namespace: Optional[str] = None, agent_id: Optional[str] = None,
+                  project_id: Optional[str] = None, top: int = 10,
+                  rebuild: bool = False) -> dict:
+    """What this memory KNOWS / does NOT know / CONTESTS -- counts plus the top named
+    gaps and conflicts, each with a cell id, kind, and WHY. The map is a derived,
+    recomputable layer over the immutable store (deterministic enumerators; zero
+    model calls). `rebuild=True` re-derives it from the store first. Read-only, no key."""
+    scope = _scope(namespace, agent_id, project_id)
+    eng = engine()
+    kmap = eng.knowledge_map_store
+    if kmap is None:
+        return {"enabled": False, "note": "EPISTEMIC_MAP=0"}
+    top = _bounded_int(top, default=10, minimum=1, maximum=50)
+    out: dict = {"enabled": True}
+    if rebuild:
+        out["rebuild"] = kmap.rebuild(eng.store, scope)
+    out.update(kmap.knowledge_map(scope, top=top))
+    return out
+
+
+@_threaded_tool
+def explain_gap(gap_id: str) -> dict:
+    """Explain ONE epistemic cell: its kind, state, WHY it is unknown/contested, the
+    evidence ids behind that reason, probe history, and the deterministic probe the
+    curiosity loop would ask. Read-only, no key."""
+    gap_id = _text_arg(gap_id, "gap_id", max_chars=64)
+    kmap = engine().knowledge_map_store
+    if kmap is None:
+        return {"enabled": False, "note": "EPISTEMIC_MAP=0"}
+    out = kmap.explain_gap(gap_id)
+    if out is None:
+        raise RuntimeError(f"no such cell: {gap_id}")
+    return out
+
+
+@_threaded_tool
+def research_status(last_n: int = 5) -> dict:
+    """The autoresearch ratchet's state: agenda depth by origin/failure-class, the
+    current champion config, the last N trial verdicts (delta, McNemar p, ACCEPT/
+    REJECT), and knowledge-map counts. Method metadata ONLY -- no answer text, no
+    drafts, no memory content. Read-only, no key."""
+    last_n = _bounded_int(last_n, default=5, minimum=1, maximum=25)
+    return engine().research_status(last_n=last_n)
+
+
+@_threaded_tool
+def improve(namespace: Optional[str] = None, agent_id: Optional[str] = None,
+            project_id: Optional[str] = None, max_probes: int = 4,
+            dry_run: bool = True) -> dict:
+    """One metabolic research cycle: token-free knowledge-map rebuild, then a curiosity
+    wave (up to `max_probes` REAL verified asks over the highest-value gaps -- model
+    spend; needs DASHSCOPE_API_KEY), minting KNOWN cells on proof and research tasks on
+    failure. `dry_run=True` (default) proposes without probing: zero model calls.
+    Guarded DEV trials do NOT run from this tool (they need the offline lab; see
+    eidetic/autoresearch/loop.py). Answers from probes are never returned here."""
+    scope = _scope(namespace, agent_id, project_id)
+    max_probes = _bounded_int(max_probes, default=4, minimum=0, maximum=16)
+    try:
+        return engine().improve(scope=scope, max_trials=0, max_probes=max_probes,
+                                dry_run=dry_run)
+    except ModelCallError as e:
+        raise RuntimeError(
+            f"improve's curiosity probes need the model and nothing was fabricated: {e}. "
+            "Set DASHSCOPE_API_KEY or call with dry_run=true.")
+
+
+@_threaded_tool
 def remember_many(contents: list[str], namespace: Optional[str] = None,
                   agent_id: Optional[str] = None, project_id: Optional[str] = None,
                   valid_at: Optional[float] = None, source: Optional[str] = None) -> dict:
