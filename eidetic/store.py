@@ -565,6 +565,24 @@ class RecordStore:
             edge.invalid_at = at
         self.add_edge(edge)
 
+    def invalidate_claim(self, claim_id: str, at: Optional[float] = None) -> None:
+        """Bi-temporally close a claim (set invalid_at; row and provenance retained).
+        The repair arm of cross-layer conflict resolution: when the graph adjudicated
+        a conflict, the claim layer must stop serving the losing value as current.
+        Never deletes; as-of reads keep the history."""
+        at = now() if at is None else at
+        c = self._conn()
+        row = c.execute("SELECT json FROM claims WHERE claim_id=?", (claim_id,)).fetchone()
+        if not row:
+            return
+        claim = ClaimRecord.model_validate_json(row["json"])
+        if claim.invalid_at is not None and claim.invalid_at <= at:
+            return
+        claim.invalid_at = at
+        c.execute("UPDATE claims SET invalid_at=?, json=? WHERE claim_id=?",
+                  (at, claim.model_dump_json(), claim_id))
+        c.commit()
+
     # ---- structured event calendar ---------------------------------------
     def add_event(self, ev: EventRecord) -> None:
         c = self._conn()

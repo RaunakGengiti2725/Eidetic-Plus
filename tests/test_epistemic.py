@@ -306,6 +306,31 @@ def test_run_curiosity_routes_outcomes(kmap, tmp_path):
     assert len(rows) == 2 and all("diagnosis" in r for r in rows)
 
 
+def test_enumerator_contested_reopens_proven_known(kmap):
+    cell = EpistemicCell(namespace="t", kind="conflict", subject="dana",
+                         relation="has phone number [cross-layer]")
+    kmap.upsert_cell(cell)
+    kmap.mark_known(cell.cell_id, _verified(), cause="probe")
+    reopened = EpistemicCell(namespace="t", kind="conflict", subject="dana",
+                             relation="has phone number [cross-layer]",
+                             state=CellState.CONTESTED.value, origin="enumerator",
+                             reason="surfaces disagree")
+    kmap.upsert_cell(reopened, cause="conflict reopens proven cell")
+    got = kmap.get_cell(cell.cell_id)
+    assert got.state == CellState.CONTESTED.value      # conflict is new information
+    assert got.proof is None                           # stale proof dropped
+
+
+def test_frontier_never_serves_contested(kmap):
+    kmap.upsert_cell(EpistemicCell(namespace="t", kind="conflict", subject="s",
+                                   relation="r", state=CellState.CONTESTED.value,
+                                   info_gain=9.0))
+    kmap.upsert_cell(EpistemicCell(namespace="t", kind="query", subject="q?",
+                                   info_gain=0.1))
+    frontier = kmap.sample_frontier(SCOPE, 5, probe_cooldown_sec=0.0)
+    assert [c.kind for c in frontier] == ["query"]     # conflicts go to the program
+
+
 def test_curiosity_cooldown_skips_recently_probed(kmap):
     c = EpistemicCell(namespace="t", kind="query", subject="q?", origin="ask")
     c.last_probed = now()

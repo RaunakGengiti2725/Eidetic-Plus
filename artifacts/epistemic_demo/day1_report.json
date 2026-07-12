@@ -1,0 +1,116 @@
+{
+ "label": "day1",
+ "ts": 1783884196.087009,
+ "verified": 9,
+ "total": 12,
+ "rows": [
+  {
+   "q": "Where does Maya live?",
+   "expect": "verified",
+   "status": "VERIFIED",
+   "answer": "Porto",
+   "note": "smqe:latest_value:claim",
+   "citations": 1,
+   "ms": 26.0
+  },
+  {
+   "q": "What is the name of Maya's sailboat?",
+   "expect": "verified",
+   "status": "VERIFIED",
+   "answer": "Gaivota",
+   "note": "smqe:latest_value:claim",
+   "citations": 1,
+   "ms": 3.5
+  },
+  {
+   "q": "Who is Maya currently working with?",
+   "expect": "verified",
+   "status": "VERIFIED",
+   "answer": "Oceanic Labs",
+   "note": "smqe:latest_value:claim",
+   "citations": 1,
+   "ms": 1444.9
+  },
+  {
+   "q": "What makes Maya trust a dataset?",
+   "expect": "read_recovery",
+   "status": "VERIFIED",
+   "answer": "What makes Maya trust a dataset is knowing exactly who collected it and why they collected it [S4].",
+   "note": "",
+   "citations": 1,
+   "ms": 16638.7
+  },
+  {
+   "q": "What trick did Maya's sailing instructor teach her?",
+   "expect": "read_recovery",
+   "status": "VERIFIED",
+   "answer": "Maya's sailing instructor, Rui, taught her the trick of reading gusts from the water's texture [S4].",
+   "note": "",
+   "citations": 1,
+   "ms": 16972.9
+  },
+  {
+   "q": "What was Maya's favourite meal after climbing?",
+   "expect": "read_recovery",
+   "status": "VERIFIED",
+   "answer": "Maya's favourite meal after climbing was lentil soup from the corner tasca near the gym [S6]. It is also stated more generally that her favourite recovery meal after climbing was lentil soup [S18].",
+   "note": "",
+   "citations": 3,
+   "ms": 45498.4
+  },
+  {
+   "q": "What is Dana's phone number?",
+   "expect": "contested_abstain",
+   "status": "VERIFIED",
+   "answer": "+351 933 444 555",
+   "note": "smqe:latest_value:claim",
+   "citations": 1,
+   "ms": 4.5
+  },
+  {
+   "q": "Does Maya still have a gym membership?",
+   "expect": "unknown_current",
+   "status": "ABSTAINED",
+   "answer": "I don't have enough verified evidence in memory to answer that confidently.",
+   "note": "abstained: no source entails the answer",
+   "citations": 0,
+   "ms": 23580.0
+  },
+  {
+   "q": "What is the name of the jazz bar Maya visited in Barcelona?",
+   "expect": "honest_abstain",
+   "status": "VERIFIED",
+   "answer": "tiny jazz bar",
+   "note": "smqe:latest_value:claim",
+   "citations": 1,
+   "ms": 8.1
+  },
+  {
+   "q": "Which CI system does the Cormorant repo use?",
+   "expect": "law_prediction",
+   "status": "ABSTAINED",
+   "answer": "I don't have enough verified evidence in memory to answer that confidently.",
+   "note": "abstained: no source entails the answer",
+   "citations": 0,
+   "ms": 19741.9
+  },
+  {
+   "q": "Where was Maya living in May?",
+   "expect": "temporal_hole",
+   "status": "ABSTAINED",
+   "answer": "I don't have enough verified evidence in memory to answer that confidently.",
+   "note": "abstained: a sentence-level claim was not grounded in memory",
+   "citations": 0,
+   "ms": 47900.0
+  },
+  {
+   "q": "What book is Maya rereading?",
+   "expect": "verified",
+   "status": "VERIFIED",
+   "answer": "The Left Hand of Darkness",
+   "note": "smqe:open_inference:claim",
+   "citations": 1,
+   "ms": 6.2
+  }
+ ]
+}

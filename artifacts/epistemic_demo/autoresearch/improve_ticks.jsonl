@@ -1,0 +1,3 @@
+{"ts": 1783883517.580468, "map_before": {"known_n": 0, "unknown_n": 7, "contested_n": 1}, "map_after": {"known_n": 3, "unknown_n": 5, "contested_n": 0}, "map_delta": {"unknown": -2, "contested": -1, "known": 3}}
+{"ts": 1783883585.0110831, "map_before": {"known_n": 3, "unknown_n": 5, "contested_n": 0}, "map_after": {"known_n": 5, "unknown_n": 3, "contested_n": 0}, "map_delta": {"unknown": -2, "contested": 0, "known": 2}}
+{"ts": 1783883621.338044, "map_before": {"known_n": 5, "unknown_n": 3, "contested_n": 0}, "map_after": {"known_n": 5, "unknown_n": 3, "contested_n": 0}, "map_delta": {"unknown": 0, "contested": 0, "known": 0}}

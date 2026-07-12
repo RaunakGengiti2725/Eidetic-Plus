@@ -1,0 +1,111 @@
+{
+ "before": {
+  "label": "day0-post-forensics",
+  "ts": 1783883495.9986932,
+  "known_n": 0,
+  "unknown_n": 7,
+  "contested_n": 1,
+  "digest": "de8dfde131e179ea"
+ },
+ "after": {
+  "label": "day1",
+  "ts": 1783884024.2609699,
+  "known_n": 4,
+  "unknown_n": 3,
+  "contested_n": 0,
+  "digest": "049147c66a93a8f4"
+ },
+ "unknown_delta": -4,
+ "contested_delta": -1,
+ "known_delta": 4,
+ "unknown_closed": [
+  "cell_014616e982c7bf4a7d2a",
+  "cell_70be94c77f0d5e170df7",
+  "cell_951c49df669c9bf381b4",
+  "cell_eb8ce20ee568f3470403"
+ ],
+ "unknown_opened": [],
+ "contested_closed": [
+  "cell_c33dd476e50f0455e0ca"
+ ],
+ "contested_opened": [],
+ "transitions": [
+  {
+   "ts": 1783883519.1757262,
+   "cell_id": "cell_c33dd476e50f0455e0ca",
+   "from_state": "CONTESTED",
+   "to_state": "KNOWN",
+   "cause": "curiosity probe verified"
+  },
+  {
+   "ts": 1783883520.7146041,
+   "cell_id": "cell_eb8ce20ee568f3470403",
+   "from_state": "UNKNOWN",
+   "to_state": "KNOWN",
+   "cause": "curiosity probe verified"
+  },
+  {
+   "ts": 1783883522.1840699,
+   "cell_id": "cell_951c49df669c9bf381b4",
+   "from_state": "UNKNOWN",
+   "to_state": "KNOWN",
+   "cause": "curiosity probe verified"
+  },
+  {
+   "ts": 1783883603.3222148,
+   "cell_id": "cell_70be94c77f0d5e170df7",
+   "from_state": "UNKNOWN",
+   "to_state": "KNOWN",
+   "cause": "verified answer (live ask)"
+  },
+  {
+   "ts": 1783883603.3240142,
+   "cell_id": "cell_70be94c77f0d5e170df7",
+   "from_state": "KNOWN",
+   "to_state": "KNOWN",
+   "cause": "curiosity probe verified"
+  },
+  {
+   "ts": 1783883621.337513,
+   "cell_id": "cell_014616e982c7bf4a7d2a",
+   "from_state": "UNKNOWN",
+   "to_state": "KNOWN",
+   "cause": "curiosity probe verified"
+  },
+  {
+   "ts": 1783883621.337773,
+   "cell_id": "cell_014616e982c7bf4a7d2a",
+   "from_state": "KNOWN",
+   "to_state": "KNOWN",
+   "cause": "verified answer (live ask)"
+  },
+  {
+   "ts": 1783884009.524587,
+   "cell_id": "cell_c33dd476e50f0455e0ca",
+   "from_state": "KNOWN",
+   "to_state": "CONTESTED",
+   "cause": "enumerator rebuild"
+  },
+  {
+   "ts": 1783884009.525815,
+   "cell_id": "cell_c33dd476e50f0455e0ca",
+   "from_state": "CONTESTED",
+   "to_state": "CLOSED",
+   "cause": "cross-layer repair: 1 claim(s) carrying the graph-closed value bi-temporally closed; surfaces agree on '+351 933 444 555'"
+  },
+  {
+   "ts": 1783884042.371876,
+   "cell_id": "cell_014616e982c7bf4a7d2a",
+   "from_state": "KNOWN",
+   "to_state": "KNOWN",
+   "cause": "verified answer (live ask)"
+  },
+  {
+   "ts": 1783884104.8430998,
+   "cell_id": "cell_70be94c77f0d5e170df7",
+   "from_state": "KNOWN",
+   "to_state": "KNOWN",
+   "cause": "verified answer (live ask)"
+  }
+ ]
+}

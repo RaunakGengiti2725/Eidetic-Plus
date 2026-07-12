@@ -127,14 +127,17 @@ class KnowledgeMap:
 
     def upsert_cell(self, cell: EpistemicCell, *, cause: str = "") -> str:
         """Insert or refresh a cell. A state CHANGE is ledgered; a same-state refresh
-        only bumps metadata. KNOWN is protected: an enumerator refresh never demotes a
-        proven cell (only explicit invalidation via a new conflicting outcome can)."""
+        only bumps metadata. KNOWN is protected against UNKNOWN re-enumeration (proof
+        outranks a rescan) -- but an enumerator CONTESTED does reopen it: a structural
+        conflict discovered UNDER an accepted proof is new information, not noise
+        (day0 night wave laundered a cross-layer conflict into KNOWN this way)."""
         c = self._conn()
         row = c.execute("SELECT state, first_seen, probe_count, last_probed, proof "
                         "FROM cells WHERE cell_id=?", (cell.cell_id,)).fetchone()
         if row is not None:
             prior_state = row["state"]
-            if prior_state == CellState.KNOWN.value and cell.state != CellState.KNOWN.value \
+            if prior_state == CellState.KNOWN.value \
+                    and cell.state == CellState.UNKNOWN.value \
                     and cell.origin == "enumerator":
                 return cell.cell_id            # proof outranks a re-enumeration
             cell.first_seen = float(row["first_seen"])
@@ -310,11 +313,15 @@ class KnowledgeMap:
 
     def sample_frontier(self, scope: Scope, k: int, *,
                         probe_cooldown_sec: float = 3600.0) -> list[EpistemicCell]:
-        """Contested first, then unknown by info gain -- skipping cells probed within
-        the cooldown so curiosity never thrashes one stubborn gap."""
+        """UNKNOWN cells by info gain, skipping cells probed within the cooldown so
+        curiosity never thrashes one stubborn gap. CONTESTED cells are deliberately
+        NOT probe fodder: a generic verified re-ask can launder one side of a live
+        conflict into KNOWN (happened on the day0 demo -- the cross-layer phone cell
+        closed with the losing value). Conflicts go to the resolution program
+        (epistemic/contested.py), which adjudicates sides before accepting proof."""
         t = now()
         picked: list[EpistemicCell] = []
-        for state in (CellState.CONTESTED.value, CellState.UNKNOWN.value):
+        for state in (CellState.UNKNOWN.value,):
             for cell in self.cells_in_state(scope, state, limit=k * 4):
                 if cell.last_probed is not None and (t - cell.last_probed) < probe_cooldown_sec:
                     continue

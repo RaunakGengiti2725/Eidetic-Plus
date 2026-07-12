@@ -217,6 +217,37 @@ def test_verified_probe_resolves_and_closes_losers(store, kmap):
     assert resolved.proof["citations"][0]["memory_id"] == "mem_new"
 
 
+def test_cross_layer_repair_closes_loser_claims(store, kmap):
+    from eidetic.epistemic.gaps import cross_layer_conflict
+    from eidetic.models import ClaimRecord, MemoryRecord
+    t0 = now() - 5000
+    _edge(store, "dana", "+351 912 111 222", "has phone number",
+          valid_at=t0, invalid_at=t0 + 10)
+    _edge(store, "dana", "+351 933 444 555", "has phone number", valid_at=t0 + 10)
+    mem = MemoryRecord(text="Dana's phone number is +351 912 111 222.",
+                       scope=SCOPE, valid_at=t0)
+    store.upsert_record(mem)
+    loser_claim = ClaimRecord(claim_type="state", scope=SCOPE, subject="Dana",
+                              value="Dana's phone number is +351 912 111 222.",
+                              valid_at=t0, source_memory_id=mem.memory_id)
+    store.add_claim(loser_claim)
+    for cell in cross_layer_conflict(store, SCOPE):
+        kmap.upsert_cell(cell)
+    cell = kmap.cells_in_state(SCOPE, CellState.CONTESTED.value, limit=5)[0]
+    eng = _ContestedEngine(store, kmap)
+    out = resolve_contested_cell(eng, cell.cell_id, scope=SCOPE, allow_probe=False)
+    assert out["outcome"] == "resolved_cross_layer_repair"
+    assert out["steps"][0]["claims_closed"][0]["claim_id"] == loser_claim.claim_id
+    # the claim layer no longer serves the loser as current
+    active_vals = [str(c.value) for c in store.active_claims_at(None, SCOPE)]
+    assert not any("912" in v for v in active_vals)
+    # history preserved: the claim row still exists, bi-temporally closed
+    all_claims = store.claims_in_scope(SCOPE)
+    assert any(c.claim_id == loser_claim.claim_id and c.invalid_at is not None
+               for c in all_claims)
+    assert kmap.get_cell(cell.cell_id) is None
+
+
 def test_contested_wave_bounded(store, kmap):
     t0 = now() - 5000
     for i in range(6):

@@ -55,6 +55,43 @@ def resolve_contested_cell(engine, cell_id: str, *, scope: Optional[Scope] = Non
     transcript: dict = {"cell_id": cell_id, "subject": cell.subject,
                         "relation": cell.relation, "steps": []}
 
+    # -- step 0: cross-layer repair (token-free, found live on day0) -------------
+    # The graph already adjudicated; the claim layer still serves the loser. The
+    # resolution is not a probe -- it is making the surfaces agree: bi-temporally
+    # close the loser-carrying claims at the graph's own adjudication time.
+    if cell.relation.endswith("[cross-layer]"):
+        base_relation = cell.relation.replace("[cross-layer]", "").strip()
+        all_edges = engine.store.all_edges(scope)
+        siblings = [e for e in all_edges
+                    if (e.src or "").strip().lower() == cell.subject
+                    and (e.relation or "").strip().lower() == base_relation]
+        closed = [e for e in siblings if e.invalid_at is not None]
+        alive = [e for e in siblings if e.is_active_at(now())]
+        closed_claims = []
+        if closed and alive:
+            for c in engine.store.active_claims_at(None, scope):
+                text = str(c.value or c.object or "").lower()
+                if cell.subject not in (c.subject or "").lower():
+                    continue
+                for loser in closed:
+                    lv = (loser.dst or "").strip().lower()
+                    if len(lv) >= 4 and lv in text:
+                        engine.store.invalidate_claim(
+                            c.claim_id, at=loser.invalid_at)
+                        closed_claims.append({"claim_id": c.claim_id,
+                                              "carried": lv})
+                        break
+        transcript["steps"].append({"step": "cross_layer_repair",
+                                    "claims_closed": closed_claims,
+                                    "kept": [e.dst for e in alive]})
+        if closed_claims:
+            kmap.close_cell(cell_id, cause=(
+                f"cross-layer repair: {len(closed_claims)} claim(s) carrying the "
+                f"graph-closed value bi-temporally closed; surfaces agree on "
+                f"'{alive[0].dst if alive else '?'}'"))
+            transcript["outcome"] = "resolved_cross_layer_repair"
+            return transcript
+
     # -- step 1+2: token-free bi-temporal adjudication ---------------------------
     edges = _conflict_edges(engine, cell, scope)
     if len(edges) >= 2:

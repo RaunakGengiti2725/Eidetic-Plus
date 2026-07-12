@@ -1,0 +1,84 @@
+{
+ "label": "day1",
+ "ts": 1783884024.2609699,
+ "namespace": "demo",
+ "known_n": 4,
+ "unknown_n": 3,
+ "contested_n": 0,
+ "unknown_cells": [
+  {
+   "cell_id": "cell_81b3cefe4bb53c8c67a3",
+   "kind": "query",
+   "subject": "does maya still have a gym membership?",
+   "relation": "",
+   "state": "UNKNOWN",
+   "reason": "abstained: no source entails the answer",
+   "info_gain": 0.8,
+   "probe_count": 1
+  },
+  {
+   "cell_id": "cell_054e98bada893007fab8",
+   "kind": "query",
+   "subject": "which ci system does the cormorant repo use?",
+   "relation": "",
+   "state": "UNKNOWN",
+   "reason": "abstained: no source entails the answer",
+   "info_gain": 0.8,
+   "probe_count": 1
+  },
+  {
+   "cell_id": "cell_876f6f3b946cad359c85",
+   "kind": "query",
+   "subject": "where was maya living in may?",
+   "relation": "",
+   "state": "UNKNOWN",
+   "reason": "abstained: no source entails the answer",
+   "info_gain": 0.8,
+   "probe_count": 1
+  }
+ ],
+ "contested_cells": [],
+ "known_cells": [
+  {
+   "cell_id": "cell_951c49df669c9bf381b4",
+   "kind": "fact",
+   "subject": "maya",
+   "relation": "current_state_of fintor",
+   "state": "KNOWN",
+   "reason": "curiosity probe verified",
+   "info_gain": 0.7,
+   "probe_count": 1
+  },
+  {
+   "cell_id": "cell_eb8ce20ee568f3470403",
+   "kind": "fact",
+   "subject": "maya",
+   "relation": "current_state_of alvalade climbing gym",
+   "state": "KNOWN",
+   "reason": "curiosity probe verified",
+   "info_gain": 0.7,
+   "probe_count": 1
+  },
+  {
+   "cell_id": "cell_014616e982c7bf4a7d2a",
+   "kind": "query",
+   "subject": "what makes maya trust a dataset?",
+   "relation": "",
+   "state": "KNOWN",
+   "reason": "verified answer (live ask)",
+   "info_gain": 0.6,
+   "probe_count": 1
+  },
+  {
+   "cell_id": "cell_70be94c77f0d5e170df7",
+   "kind": "query",
+   "subject": "what was maya's favourite meal after climbing?",
+   "relation": "",
+   "state": "KNOWN",
+   "reason": "curiosity probe verified",
+   "info_gain": 0.6,
+   "probe_count": 1
+  }
+ ],
+ "digest": "049147c66a93a8f4"
+}
