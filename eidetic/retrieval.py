@@ -5171,6 +5171,78 @@ class Retriever:
             if callable(confirmer):
                 def _norm_q(s: str) -> str:
                     return re.sub(r"\s+", " ", (s or "").lower()).strip()
+
+                # SUBJECT DISCIPLINE (first live window, forensically adjudicated): the
+                # confirmer accepted one speaker's first-person achievement as contradicting
+                # a DIFFERENT person's prize -- another person's achievement is not an
+                # incompatible fact. When the draft names a subject, the quoted proof must
+                # involve that subject: name it, or be SPOKEN by it (dialogue speaker walk-back
+                # from the quote's position in the premise). Draft without a proper-noun
+                # subject skips this check (no basis to discriminate).
+                def _subject_of(draft: str) -> str:
+                    m = re.match(r"\s*([A-Z][a-z]+)\b", draft or "")
+                    return m.group(1).lower() if m else ""
+
+                def _quote_involves(subject: str, quote: str, premise: str) -> bool:
+                    if not subject:
+                        return True
+                    if re.search(rf"\b{re.escape(subject)}\b", quote, re.I):
+                        return True
+                    pos = _norm_q(premise).find(_norm_q(quote))
+                    if pos < 0:
+                        return False
+                    head = premise[:len(premise)]  # walk speakers in original text
+                    # nearest "Name:" line at or before the quote position (approx by norm pos)
+                    speakers = [(m.start(), m.group(1)) for m in
+                                re.finditer(r"(?:^|\n)\s*([A-Z][\w'-]+)\s*:", premise)]
+                    qpos = premise.lower().find(quote.lower()[:40])
+                    speaker = ""
+                    for start, name in speakers:
+                        if qpos >= 0 and start <= qpos:
+                            speaker = name.lower()
+                    return speaker == subject
+
+                # DIFFERENT-EVENT discipline (adjudicated against a raw live conversation):
+                # the same speaker WON one competition and separately placed SECOND in a
+                # different one; the confirmer treats them as one event even when asked for
+                # same_event explicitly (measured on the exact pair). Deterministic rule, precision-first: when the
+                # veto quote and an ENTAILED support snippet both modify the SAME event
+                # head-noun with NON-EMPTY, DISJOINT modifier sets ('regional chess
+                # tournament' vs 'local tournament'), they describe different occasions --
+                # the veto is rejected. Rule stays silent when either side leaves the noun
+                # unmodified.
+                _EVENT_NOUNS = ("tournament", "trip", "party", "wedding", "concert", "match",
+                                "game", "festival", "competition", "race", "class",
+                                "course", "interview", "meeting", "conference", "show")
+                _MOD_STOP = {"the", "a", "an", "my", "our", "his", "her", "their", "this",
+                             "that", "in", "at", "of", "for", "to", "and"}
+
+                def _noun_modifiers(text_s: str, noun: str) -> set[str]:
+                    mods: set[str] = set()
+                    for m in re.finditer(rf"((?:[\w'-]+\s+){{1,3}}){noun}\b",
+                                         (text_s or "").lower()):
+                        mods |= {w for w in m.group(1).split() if w not in _MOD_STOP}
+                    return mods
+
+                def _different_event(quote: str, entailed_snips: list[str]) -> bool:
+                    ql = (quote or "").lower()
+                    for noun in _EVENT_NOUNS:
+                        if not re.search(rf"\b{noun}\b", ql):
+                            continue
+                        qmods = _noun_modifiers(quote, noun)
+                        if not qmods:
+                            continue
+                        for snip in entailed_snips:
+                            if not re.search(rf"\b{noun}\b", (snip or "").lower()):
+                                continue
+                            smods = _noun_modifiers(snip, noun)
+                            if smods and not (qmods & smods):
+                                return True           # same noun, disjoint modifiers
+                    return False
+
+                subject = _subject_of(text)
+                entailed_snips = [c.snippet or "" for c in citations
+                                  if c.nli_label == NLILabel.ENTAILMENT]
                 demoted = []
                 for c in citations:
                     if c.nli_label != NLILabel.CONTRADICTION:
@@ -5180,7 +5252,10 @@ class Retriever:
                         confirmed, quote = confirmer(c.snippet or "", text)
                     except Exception:
                         confirmed, quote = True, ""   # fail CLOSED: keep the veto on error
-                    if confirmed and (not quote or _norm_q(quote) in _norm_q(c.snippet or "")):
+                    quote_ok = (not quote) or _norm_q(quote) in _norm_q(c.snippet or "")
+                    subject_ok = (not quote) or _quote_involves(subject, quote, c.snippet or "")
+                    event_ok = (not quote) or not _different_event(quote, entailed_snips)
+                    if confirmed and quote_ok and subject_ok and event_ok:
                         demoted.append(c)             # veto stands, proof (or error) present
                     else:
                         demoted.append(c.model_copy(update={"nli_label": NLILabel.NEUTRAL,
