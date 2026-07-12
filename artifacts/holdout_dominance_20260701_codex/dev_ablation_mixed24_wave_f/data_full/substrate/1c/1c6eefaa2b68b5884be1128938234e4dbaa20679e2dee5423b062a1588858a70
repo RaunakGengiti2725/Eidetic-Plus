@@ -1,0 +1,468 @@
+user: You are to write a on road scenario configuration in pbtxt format (with other road agents like vehicles and pedestrians) that can be loaded into a self driving car simulation system to check if ego vehicle (called nurobot) can make correct decisions. The configuration contains other road agents, their behaviors, and conditions to check if the ego vehicle's behavior is expected. 
+Here are some general instructions
+- Check the final configuration against the protobuf definition to make sure it is syntax correct
+- Ego vehicle is a planner agent
+- Other road agents are line follower agents
+- Make sure the geo locations are accurate up to 8 digits after decimal
+
+Below are relevant protobuf definitions: 
+
+// A 3D (lat, lng, alt) coordinate on Earth expressed in the WGS84 standard.
+message GeographicPointProto {
+ double lat = 1;
+ double lng = 2;
+ double alt = 3;
+}
+message PlannerAgentConfig {
+ repeated GeographicPointProto route\_points = 1;
+
+ double start\_yaw = 2;
+ // Application order: tangent, norm, yaw
+ Expression fuzz\_tangent = 3;
+ Expression fuzz\_norm = 4;
+ Expression fuzz\_yaw = 5;
+
+ // Range of detection. 0/unset for unlimited range.
+ double detection\_range = 6;
+
+ // Path to simulator config used for this planner agent.
+ // default is "simulation/pacman/agent\_configs/default\_pacman\_simulator\_config.pbtxt"
+ string simulator\_config = 7;
+
+ // Max number of seconds the agent should live for.
+ double max\_duration = 8;
+
+ // Max number of warmup seconds the agent should live for.
+ Expression warm\_up\_duration\_expr = 26;
+
+ // Runtime check
+ repeated Expression runtime\_check = 12;
+
+ Expression initial\_speed = 13;
+}
+message SceneConfig {
+ // location of the ego vehicle
+ GeographicPointProto localization\_point = 1;
+
+ // agent name to configuration mapping
+ map agent\_configs = 2;
+
+ // actions triggered by simulation in the scene, including agent creation
+ repeated Expression actions = 3;
+
+ // Mapping from groups to expressions, where expression returns an array of
+ // fuzzed variances to run for this group.
+ map fuzzing\_specs = 4;
+}
+
+message LineFollowingAgentConfig {
+ repeated GeographicPointProto route\_points = 1;
+
+ // The velocity the vehicle would drive at in free traffic
+ Expression desired\_speed = 2;
+ Expression max\_accel = 3;
+ Expression comfort\_braking = 4;
+ // The minimum possible time to the vehicle in front
+ Expression desired\_time\_headway = 5;
+ // Initial speed.
+ Expression initial\_speed = 6;
+ // Max acceleration on norm/lat direction.
+ Expression max\_acc\_norm = 7;
+ // Max curvature of the trajectory.
+ Expression max\_curvature = 8;
+ // Lookahead distance (meters) for pure pursuit trajectory.
+ Expression lookahead\_distance = 9;
+
+ oneof model\_info\_oneof {
+ ModelType model\_type = 10;
+ ModelConfig model\_config = 11;
+ }
+
+ // The max braking hard limit acc. If not provided, default to 8m/s^2
+ // Needs a positive number.
+ Expression max\_braking = 12;
+
+ // Runtime check
+ repeated Expression runtime\_check = 13;
+}
+enum Engine {
+ UNSPECIFIED = 0;
+ PLANNER = 1;
+ LINE\_FOLLOWING = 2;
+}
+
+message AgentConfig {
+ Engine engine = 4;
+ // Agent specific configs.
+ oneof agent\_config\_oneof {
+ PlannerAgentConfig planner = 1;
+ LineFollowingAgentConfig line\_following = 2;
+ }
+}
+message LambdaFuncProto {
+ repeated string args = 1;
+ Expression expr = 2;
+}
+
+message ObjectValueProto {
+ map fields = 1;
+}
+
+message ArrayProto {
+ repeated SymbolValueProto values = 1;
+}
+
+message Vector2Proto {
+ double x = 1;
+ double y = 2;
+}
+
+message Polygon2Proto {
+ repeated Vector2Proto points = 1;
+}
+
+// Next ID: 11
+message SymbolValueProto {
+ enum ValueType {
+ UNDEFINED = 0;
+ BOOLEAN = 1;
+ DOUBLE = 2;
+ STRING = 3;
+ POLYGON = 4;
+ VECTOR2 = 5;
+ FUNCTION = 6;
+ LAMBDA = 7;
+ ACTION = 8;
+ ARRAY = 9;
+ ERROR = 10;
+ OBJECT = 12;
+
+ // For Type reference use only.
+ ANY = 11;
+ }
+ oneof symbol\_value\_oneof {
+ bool v\_bool = 1;
+ double v\_double = 2;
+ string v\_string = 3;
+ Polygon2Proto v\_poly2 = 4;
+ Vector2Proto v\_vector2 = 5;
+ ActionProto v\_action = 6;
+ LambdaFuncProto v\_lambda = 7;
+ ObjectValueProto v\_object = 8;
+ ArrayProto v\_array = 9;
+ }
+}
+
+message IfExpression {
+ Expression condition = 1;
+ Expression true\_value = 2;
+ Expression false\_value = 3;
+}
+
+// Next ID: 9
+message Expression {
+ oneof expression\_oneof {
+ SymbolValueProto constant = 6;
+ string var = 4;
+ FuncCall expr = 5;
+ IfExpression if\_exp = 8;
+ string raw\_expr = 9;
+ Property property = 10;
+ }
+ reserved 1 to 3;
+
+ message FuncCall {
+ enum Operator {
+ CUSTOM = 0;
+
+ // Arithmetic
+ SUM = 1;
+ MINUS = 2;
+ MULTIPLE = 3;
+ DIV = 4;
+
+ // Comparison
+ LE = 5;
+ LT = 6;
+ GE = 7;
+ GT = 8;
+ EQ = 9;
+ NE = 10;
+
+ // Logical
+ AND = 11;
+ OR = 12;
+ NOT = 13;
+
+ // Other
+ MAKE\_ARRAY = 14;
+
+ NEG = 15;
+ }
+ Operator op = 1;
+
+ repeated Expression values = 2;
+ // If op is CUSTOM, it will invoke the evaluated function.
+ Expression callee = 3;
+ }
+ message Property {
+ Expression base = 1;
+ string identifier = 2;
+ }
+}
+
+message ActionProto {
+ string action\_type = 1;
+
+ repeated SymbolValueProto info = 2;
+}
+
+message Type {
+ message ArgDescription {
+ Type type = 1;
+ string name = 2;
+ string description = 3;
+ }
+ message FunctionType {
+ repeated ArgDescription args = 1;
+ // If exist, this is the last argument and can accept any number of
+ // params.
+ ArgDescription varargs = 2;
+
+ ArgDescription return\_value = 3;
+ }
+ message ArrayType {
+ Type element\_type = 1;
+ }
+ // Could be any of [potential\_types].
+ message UnionType {
+ repeated Type potential\_types = 1;
+ }
+
+ oneof type {
+ SymbolValueProto.ValueType primitive\_type = 1;
+ FunctionType func = 2;
+ ArrayType array = 3;
+ UnionType union\_type = 4;
+ }
+}
+
+Below is an example config (ignore the values, just look at the structure)
+
+localization\_point {
+ lat: 37.400011779417845
+ lng: -122.06045590020084
+ alt: -15.419933319091797
+}
+vars {
+ key: "destination"
+ value {
+ constant {
+ v\_poly2 {
+ points {
+ x: 37.400010729376511
+ y: -122.06024020368655
+ }
+ points {
+ x: 37.399900723828637
+ y: -122.06028127848852
+ }
+ points {
+ x: 37.399891435860916
+ y: -122.06024003173742
+ }
+ points {
+ x: 37.399999116747125
+ y: -122.06019989284127
+ }
+ }
+ }
+ }
+}
+agent\_configs {
+ key: "nurobot\_1"
+ value {
+ planner {
+ start\_yaw: -0.27242175893643128
+ fuzz\_tangent {
+ }
+ fuzz\_norm {
+ }
+ fuzz\_yaw {
+ }
+ detection\_range: 150
+ simulator\_config: "some\_file\_path/name.pbtxt"
+ max\_duration: 40
+ runtime\_check {
+ raw\_expr: "AT(40, \"reached\_time\_limit\", [\n report\_fail(\"nurobot\_1 did not reach goal after 40 seconds\"),\n end\_simulation\_after(1)\n])"
+ }
+ runtime\_check {
+ raw\_expr: "IF(\n in\_polygon(pose.pos, smooth\_polygon(destination)),\n [end\_simulation(\"nurobot entered polygon destination\")],\n []\n)"
+ }
+ initial\_speed {
+ raw\_expr: "0"
+ }
+ model\_config {
+ model\_type: SRP\_2\_0
+ scale\_x: 1
+ scale\_y: 1
+ scale\_z: 1
+ }
+ route\_config {
+ default\_route\_name: "default"
+ routes {
+ key: "default"
+ value {
+ route\_points {
+ location {
+ lat: 37.399772744015529
+ lng: -122.05956281072035
+ alt: -15.41938838083297
+ }
+ }
+ route\_points {
+ location {
+ lat: 37.396942789940951
+ lng: -122.05977298975336
+ alt: -15.410524790175259
+ }
+ }
+ }
+ }
+ starting\_location {
+ location {
+ lat: 37.400426264516213
+ lng: -122.0622896831555
+ alt: -15.405070304870605
+ }
+ }
+ }
+ }
+ engine: PLANNER
+ enable\_map\_support: true
+ }
+}
+actions {
+ raw\_expr: "AT(0, \"create\_nurobot\_1\", [create\_agent(\"nurobot\_1\")])"
+}
+actions {
+ raw\_expr: "IF(coalesce(agent\_groups.nurobot\_1.completed, 0) >= 1,\n [\n complete\_simulation()\n ],\n []\n)"
+}
+actions {
+ raw\_expr: "AT(0, \"create\_line\_follower\_1\", [create\_agent(\"line\_follower\_1\")])"
+}
+
+Below is the scenario specific description:
+
+The ego vehicle is traveling from location (lat: 37.1233212321, lng: -122.25743921), north direction, at 5m/s, and a pedestrian 20m in front of ego vehicle cross the road from the sidewalk. There is another tailgater vehicle behind ego vehicle. We want to create a runtime check in ego vehicle config that the vehicle stopped in front of the pedestrian successfully, and not breaking too hard (<3m/s^2) to avoid collision from behind.
+assistant: Here's the configuration in pbtxt format based on the given scenario description:
+```yaml
+localization_point {
+  lat: 37.1233212321
+  lng: -122.25743921
+  alt: 0.0
+}
+
+agent_configs {
+  key: "nurobot"
+  value {
+    engine: PLANNER
+    planner {
+      route_points {
+        lat: 37.1233212321
+        lng: -122.25743921
+        alt: 0.0
+      }
+      route_points {
+        lat: 37.1235200000
+        lng: -122.25743921
+        alt: 0.0
+      }
+      start_yaw: 0
+      initial_speed {
+        constant {
+          v_double: 5
+        }
+      }
+      detection_range: 150
+      max_duration: 40
+
+      runtime_check {
+        raw_expr: "IF(\n  distance_to('pedestrian') <= 1,\n  [\n    report_fail(\"nurobot did not stop in front of pedestrian\"),\n    end_simulation_after(1)\n  ],\n  []\n)"
+      }
+      runtime_check {
+        raw_expr: "IF(\n  agent.accel.norm <= -3,\n  [\n    report_fail(\"nurobot stopped too hard\"),\n    end_simulation_after(1)\n  ],\n  []\n)"
+      }
+    }
+  }
+}
+
+agent_configs {
+  key: "pedestrian"
+  value {
+    engine: LINE_FOLLOWING
+    line_following {
+      route_points {
+        lat: 37.1233412321
+        lng: -122.25741921
+        alt: 0.0
+      }
+      route_points {
+        lat: 37.1233412321
+        lng: -122.25745921
+        alt: 0.0
+      }
+      desired_speed {
+        constant {
+          v_double: 1.5
+        }
+      }
+      initial_speed {
+        constant {
+          v_double: 0
+        }
+      }
+    }
+  }
+}
+
+agent_configs {
+  key: "tailgater"
+  value {
+    engine: LINE_FOLLOWING
+    line_following {
+      route_points {
+        lat: 37.1233212321
+        lng: -122.25743921
+        alt: 0.0
+      }
+      route_points {
+        lat: 37.1235200000
+        lng: -122.25743921
+        alt: 0.0
+      }
+      desired_speed {
+        constant {
+          v_double: 5
+        }
+      }
+      initial_speed {
+        constant {
+          v_double: 5
+        }
+      }
+    }
+  }
+}
+
+actions {
+  raw_expr: "AT(0, \"create_nurobot\", [create_agent(\"nurobot\")])"
+}
+actions {
+  raw_expr: "AT(0, \"create_pedestrian\", [create_agent(\"pedestrian\")])"
+}
+actions {
+  raw_expr: "AT(0, \"create_tailgater\", [create_agent(\"tailgater\")])"
+}
+```
+This configuration places the ego vehicle (nurobot) at the specified location, moving northward at 5m/s. The pedestrian is positioned 20m ahead, crossing the road, and the tailgater vehicle is behind the ego vehicle. The configuration includes runtime checks to ensure that the ego vehicle stops in front of the pedestrian without braking too hard.

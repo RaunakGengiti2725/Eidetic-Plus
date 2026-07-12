@@ -1,0 +1,575 @@
+[
+  {
+    "sample_id": "603deb26",
+    "n_references": 7,
+    "n_resolved": 6,
+    "row_resolved": true,
+    "matches": [
+      "high-overlap",
+      "high-overlap",
+      "verbatim",
+      "high-overlap",
+      "verbatim",
+      "verbatim"
+    ],
+    "reasons_unresolved": [
+      "unmatched"
+    ],
+    "hashes": [
+      "a641a409f58a",
+      "c1a17b24c032"
+    ]
+  },
+  {
+    "sample_id": "gpt4_2f91af09",
+    "n_references": 8,
+    "n_resolved": 8,
+    "row_resolved": true,
+    "matches": [
+      "verbatim",
+      "high-overlap",
+      "verbatim",
+      "high-overlap",
+      "high-overlap",
+      "verbatim",
+      "high-overlap",
+      "verbatim"
+    ],
+    "reasons_unresolved": [],
+    "hashes": [
+      "0979d8669af4",
+      "655da6e045fc",
+      "77223c093205"
+    ]
+  },
+  {
+    "sample_id": "b759caee",
+    "n_references": 2,
+    "n_resolved": 2,
+    "row_resolved": true,
+    "matches": [
+      "high-overlap",
+      "high-overlap"
+    ],
+    "reasons_unresolved": [],
+    "hashes": [
+      "2a019489917a"
+    ]
+  },
+  {
+    "sample_id": "afdc33df",
+    "n_references": 13,
+    "n_resolved": 13,
+    "row_resolved": true,
+    "matches": [
+      "high-overlap",
+      "high-overlap",
+      "high-overlap",
+      "high-overlap",
+      "high-overlap",
+      "high-overlap",
+      "high-overlap",
+      "high-overlap",
+      "high-overlap",
+      "high-overlap",
+      "high-overlap",
+      "high-overlap",
+      "high-overlap"
+    ],
+    "reasons_unresolved": [],
+    "hashes": [
+      "41bffaeedfd2",
+      "9a74b454c203",
+      "c52ec0242e41",
+      "e937c0967246"
+    ]
+  },
+  {
+    "sample_id": "a82c026e",
+    "n_references": 2,
+    "n_resolved": 2,
+    "row_resolved": true,
+    "matches": [
+      "verbatim",
+      "verbatim"
+    ],
+    "reasons_unresolved": [],
+    "hashes": [
+      "83967116a812"
+    ]
+  },
+  {
+    "sample_id": "gpt4_8e165409",
+    "n_references": 3,
+    "n_resolved": 2,
+    "row_resolved": true,
+    "matches": [
+      "high-overlap",
+      "verbatim"
+    ],
+    "reasons_unresolved": [
+      "unmatched"
+    ],
+    "hashes": [
+      "d86df0424eb7"
+    ]
+  },
+  {
+    "sample_id": "f0e564bc",
+    "n_references": 3,
+    "n_resolved": 3,
+    "row_resolved": true,
+    "matches": [
+      "verbatim",
+      "verbatim",
+      "verbatim"
+    ],
+    "reasons_unresolved": [],
+    "hashes": [
+      "249d53642686",
+      "f35e0ff4fad4"
+    ]
+  },
+  {
+    "sample_id": "5c40ec5b",
+    "n_references": 5,
+    "n_resolved": 5,
+    "row_resolved": true,
+    "matches": [
+      "high-overlap",
+      "high-overlap",
+      "verbatim",
+      "high-overlap",
+      "verbatim"
+    ],
+    "reasons_unresolved": [],
+    "hashes": [
+      "2e35e018d3d4",
+      "38464e965e57"
+    ]
+  },
+  {
+    "sample_id": "60d45044",
+    "n_references": 12,
+    "n_resolved": 12,
+    "row_resolved": true,
+    "matches": [
+      "high-overlap",
+      "verbatim",
+      "verbatim",
+      "high-overlap",
+      "high-overlap",
+      "high-overlap",
+      "high-overlap",
+      "high-overlap",
+      "high-overlap",
+      "high-overlap",
+      "verbatim",
+      "verbatim"
+    ],
+    "reasons_unresolved": [],
+    "hashes": [
+      "273dec68a601",
+      "342b3e1852c7",
+      "4abe27850f79",
+      "8930d14c2fca",
+      "d43961306aff",
+      "d6aa8ca9dcf7",
+      "f1fbed60380c"
+    ]
+  },
+  {
+    "sample_id": "gpt4_85da3956",
+    "n_references": 8,
+    "n_resolved": 8,
+    "row_resolved": true,
+    "matches": [
+      "high-overlap",
+      "verbatim",
+      "high-overlap",
+      "verbatim",
+      "verbatim",
+      "verbatim",
+      "verbatim",
+      "verbatim"
+    ],
+    "reasons_unresolved": [],
+    "hashes": [
+      "48d51a3ad161",
+      "87ac9725c83b"
+    ]
+  },
+  {
+    "sample_id": "bc149d6b",
+    "n_references": 8,
+    "n_resolved": 7,
+    "row_resolved": true,
+    "matches": [
+      "high-overlap",
+      "verbatim",
+      "verbatim",
+      "high-overlap",
+      "verbatim",
+      "high-overlap",
+      "verbatim"
+    ],
+    "reasons_unresolved": [
+      "unmatched"
+    ],
+    "hashes": [
+      "21f17ff51aa1",
+      "2c65246dcf7f",
+      "e2c867d44fec"
+    ]
+  },
+  {
+    "sample_id": "65240037",
+    "n_references": 3,
+    "n_resolved": 3,
+    "row_resolved": true,
+    "matches": [
+      "high-overlap",
+      "high-overlap",
+      "verbatim"
+    ],
+    "reasons_unresolved": [],
+    "hashes": [
+      "82f17a48a173"
+    ]
+  },
+  {
+    "sample_id": "gpt4_2f8be40d",
+    "n_references": 12,
+    "n_resolved": 11,
+    "row_resolved": true,
+    "matches": [
+      "high-overlap",
+      "verbatim",
+      "high-overlap",
+      "high-overlap",
+      "high-overlap",
+      "high-overlap",
+      "verbatim",
+      "verbatim",
+      "high-overlap",
+      "verbatim",
+      "high-overlap"
+    ],
+    "reasons_unresolved": [
+      "unmatched"
+    ],
+    "hashes": [
+      "2fc6da43c107",
+      "612fe92747f4",
+      "d41a0f92040e",
+      "e144c3f56727"
+    ]
+  },
+  {
+    "sample_id": "06db6396",
+    "n_references": 5,
+    "n_resolved": 4,
+    "row_resolved": true,
+    "matches": [
+      "high-overlap",
+      "verbatim",
+      "verbatim",
+      "high-overlap"
+    ],
+    "reasons_unresolved": [
+      "unmatched"
+    ],
+    "hashes": [
+      "df173aae5255"
+    ]
+  },
+  {
+    "sample_id": "36580ce8",
+    "n_references": 25,
+    "n_resolved": 25,
+    "row_resolved": true,
+    "matches": [
+      "high-overlap",
+      "verbatim",
+      "high-overlap",
+      "high-overlap",
+      "high-overlap",
+      "verbatim",
+      "verbatim",
+      "high-overlap",
+      "high-overlap",
+      "verbatim",
+      "high-overlap",
+      "verbatim",
+      "high-overlap",
+      "high-overlap",
+      "verbatim",
+      "high-overlap",
+      "verbatim",
+      "high-overlap",
+      "verbatim",
+      "verbatim",
+      "verbatim",
+      "verbatim",
+      "high-overlap",
+      "high-overlap",
+      "high-overlap"
+    ],
+    "reasons_unresolved": [],
+    "hashes": [
+      "0d038c08cf3d",
+      "3e8a8245e2b0",
+      "56f168c90a3b",
+      "696adcf7c8f6",
+      "7d159f9d93f5",
+      "a517dca58b6b",
+      "c8c048bb2508",
+      "dabb00d614aa"
+    ]
+  },
+  {
+    "sample_id": "gpt4_76048e76",
+    "n_references": 6,
+    "n_resolved": 6,
+    "row_resolved": true,
+    "matches": [
+      "high-overlap",
+      "verbatim",
+      "verbatim",
+      "high-overlap",
+      "verbatim",
+      "verbatim"
+    ],
+    "reasons_unresolved": [],
+    "hashes": [
+      "243b33ee1094",
+      "63277de76444"
+    ]
+  },
+  {
+    "sample_id": "a1cc6108",
+    "n_references": 25,
+    "n_resolved": 25,
+    "row_resolved": true,
+    "matches": [
+      "high-overlap",
+      "verbatim",
+      "high-overlap",
+      "verbatim",
+      "high-overlap",
+      "verbatim",
+      "high-overlap",
+      "verbatim",
+      "verbatim",
+      "high-overlap",
+      "verbatim",
+      "verbatim",
+      "high-overlap",
+      "verbatim",
+      "high-overlap",
+      "high-overlap",
+      "verbatim",
+      "high-overlap",
+      "high-overlap",
+      "high-overlap",
+      "high-overlap",
+      "verbatim",
+      "verbatim",
+      "high-overlap",
+      "verbatim"
+    ],
+    "reasons_unresolved": [],
+    "hashes": [
+      "25028593dc32",
+      "308ff0dc874e",
+      "37c304398658",
+      "503ae59a7403",
+      "5132eb91bac2",
+      "8279cf7a7d8e",
+      "b94ca57ab53e",
+      "d14416324792"
+    ]
+  },
+  {
+    "sample_id": "a3838d2b",
+    "n_references": 12,
+    "n_resolved": 11,
+    "row_resolved": true,
+    "matches": [
+      "high-overlap",
+      "verbatim",
+      "verbatim",
+      "high-overlap",
+      "verbatim",
+      "verbatim",
+      "high-overlap",
+      "verbatim",
+      "high-overlap",
+      "verbatim",
+      "verbatim"
+    ],
+    "reasons_unresolved": [
+      "unmatched"
+    ],
+    "hashes": [
+      "8a7047359b24",
+      "aafc5bcd0433",
+      "d6adea8b09c9",
+      "e2a67fe7a8d9"
+    ]
+  },
+  {
+    "sample_id": "3fe836c9",
+    "n_references": 6,
+    "n_resolved": 5,
+    "row_resolved": true,
+    "matches": [
+      "high-overlap",
+      "verbatim",
+      "high-overlap",
+      "high-overlap",
+      "verbatim"
+    ],
+    "reasons_unresolved": [
+      "unmatched"
+    ],
+    "hashes": [
+      "5fbe5f8c989b",
+      "bdf76d1ef5e1"
+    ]
+  },
+  {
+    "sample_id": "57f827a0",
+    "n_references": 15,
+    "n_resolved": 15,
+    "row_resolved": true,
+    "matches": [
+      "high-overlap",
+      "high-overlap",
+      "high-overlap",
+      "verbatim",
+      "high-overlap",
+      "verbatim",
+      "verbatim",
+      "verbatim",
+      "verbatim",
+      "high-overlap",
+      "high-overlap",
+      "high-overlap",
+      "high-overlap",
+      "high-overlap",
+      "high-overlap"
+    ],
+    "reasons_unresolved": [],
+    "hashes": [
+      "38fb96df5124",
+      "4dfdeebfb07d",
+      "58f9d35baf0b",
+      "9f3726d9faec",
+      "cca12da89083",
+      "eb5fd6ca8ccc"
+    ]
+  },
+  {
+    "sample_id": "8a137a7f",
+    "n_references": 2,
+    "n_resolved": 2,
+    "row_resolved": true,
+    "matches": [
+      "verbatim",
+      "high-overlap"
+    ],
+    "reasons_unresolved": [],
+    "hashes": [
+      "dbd7d38ba507"
+    ]
+  },
+  {
+    "sample_id": "gpt4_74aed68e",
+    "n_references": 6,
+    "n_resolved": 5,
+    "row_resolved": true,
+    "matches": [
+      "high-overlap",
+      "verbatim",
+      "high-overlap",
+      "high-overlap",
+      "verbatim"
+    ],
+    "reasons_unresolved": [
+      "unmatched"
+    ],
+    "hashes": [
+      "4d33ad8075db",
+      "fdec377ee4d0"
+    ]
+  },
+  {
+    "sample_id": "a4996e51",
+    "n_references": 5,
+    "n_resolved": 5,
+    "row_resolved": true,
+    "matches": [
+      "high-overlap",
+      "high-overlap",
+      "high-overlap",
+      "verbatim",
+      "verbatim"
+    ],
+    "reasons_unresolved": [],
+    "hashes": [
+      "39df515ecf00",
+      "c2066ec844f9"
+    ]
+  },
+  {
+    "sample_id": "b01defab",
+    "n_references": 7,
+    "n_resolved": 7,
+    "row_resolved": true,
+    "matches": [
+      "high-overlap",
+      "verbatim",
+      "verbatim",
+      "verbatim",
+      "verbatim",
+      "verbatim",
+      "verbatim"
+    ],
+    "reasons_unresolved": [],
+    "hashes": [
+      "72d3db12ce16",
+      "86e1fe6721d9"
+    ]
+  },
+  {
+    "sample_id": "8cf51dda",
+    "n_references": 2,
+    "n_resolved": 2,
+    "row_resolved": true,
+    "matches": [
+      "high-overlap",
+      "high-overlap"
+    ],
+    "reasons_unresolved": [],
+    "hashes": [
+      "131b96215d0b"
+    ]
+  },
+  {
+    "sample_id": "gpt4_2655b836",
+    "n_references": 3,
+    "n_resolved": 3,
+    "row_resolved": true,
+    "matches": [
+      "verbatim",
+      "high-overlap",
+      "high-overlap"
+    ],
+    "reasons_unresolved": [],
+    "hashes": [
+      "121e868d8453",
+      "ba838a661e68"
+    ]
+  }
+]

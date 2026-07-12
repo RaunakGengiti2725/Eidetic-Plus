@@ -1,0 +1,97 @@
+user: Background: Lisa is a busy professional who lives in Shanghai with her husband and two children. She enjoys spending time with her family and traveling, but doesn't have a lot of spare time to plan detailed itineraries for their vacations. She is excited to take her family to Shanghai Disney Resort for the first time, but wants to make sure they make the most of their visit.
+
+Goals and Behaviors:
+
+Lisa is interested in creating a customized itinerary that maximizes her family's enjoyment of the park and minimizes wait times and other inconveniences.
+She is willing to spend some time upfront to plan the itinerary, but wants the process to be easy and straightforward.
+She values personalized recommendations and is open to trying new experiences and attractions.
+She wants to make the most of the park's dining options, but doesn't want to spend too much time waiting in lines or trying to find available tables.
+She is willing to adjust her itinerary based on real-time data and recommendations from the app.
+She wants to make sure her children have a memorable experience and are able to visit their favorite characters and attractions.
+She is tech-savvy and comfortable using apps and digital tools to plan and organize her travel. 请将上面这段翻译成中文
+assistant: 背景：莉莎是一位繁忙的职业人士，和丈夫以及两个孩子一起居住在上海。她喜欢和家人共度时光和旅行，但没有很多时间为他们的假期计划详细的行程。她很期待第一次带着家人来上海迪士尼度假区，但想要确保他们能充分享受此次旅行。
+
+目标和行为：
+
+莉莎希望创建一个定制的行程，最大化家人的乐趣，同时最小化等待时间和其他不便之处。
+她愿意花费一些时间来规划行程，但希望过程简单明了。
+她重视个性化的建议，并愿意尝试新的体验和景点。
+她希望充分利用公园的餐饮选择，但不想花太多时间等待排队或寻找可用的座位。
+她愿意根据实时数据和应用程序的建议调整行程。
+她希望确保孩子们有一个难忘的体验，并能够拜访他们最喜欢的角色和景点。
+她熟练使用应用程序和数字工具计划和组织自己的旅行。
+user: please provide tooltips description for "itinerary planning" feature
+assistant: Sure, here are some example tooltip descriptions for the "itinerary planning" feature:
+
+1. "Create and manage a personalized itinerary for your visit to Shanghai Disney Resort!"
+2. "Maximize your family's enjoyment of the park and minimize wait times with a custom itinerary."
+3. "Get personalized recommendations for attractions, dining, and more based on your interests and preferences."
+4. "Adjust your itinerary on-the-go with real-time data and recommendations from the app."
+5. "Easily share your itinerary with family and friends to make planning a breeze."
+user: 请用中文提供几个 关于“行程规划”功能的描述，不超过15个字
+assistant: 1. 个性化定制行程
+2. 实时优化行程安排
+3. 餐饮预订、排队提醒
+4. 玩转游乐项目，无需排队
+5. 方便快捷的行程管理
+user: Can you list down all the functions that could have in "itinerary planning" design
+assistant: Sure, here are some possible functions that could be included in an itinerary planning design for a theme park app:
+
+1. Creating and managing multiple itineraries
+2. Adding and removing attractions and activities to the itinerary
+3. Sorting attractions and activities by distance, wait time, popularity, or age appropriateness
+4. Adding dining reservations and meal times to the itinerary
+5. Adding and managing FastPass+ or Express Pass selections
+6. Viewing real-time attraction wait times and estimated ride durations
+7. Suggesting personalized recommendations based on user preferences and past behavior
+8. Allowing users to share their itinerary with friends or family members
+9. Providing navigation and directions to each attraction within the park
+10. Providing notifications for upcoming attractions or dining reservations.
+
+Of course, the specific functions and features would depend on the needs and goals of the users, as well as the design of the app itself.
+user: Can you provide me the user journey of "Itinerary planning" function for Shanghai Disney resort app without "dining reservation"
+assistant: Sure, here is an example user journey for the "Itinerary planning" function in the Shanghai Disney Resort app without the "Dining reservation" feature:
+
+1. Lisa downloads and opens the Shanghai Disney Resort app on her smartphone.
+2. She selects the "Itinerary planning" feature from the home screen.
+3. Lisa inputs the date and time of her visit, the number of people in her group, and any preferences or restrictions.
+4. The app suggests a pre-made itinerary based on her inputs, including recommended attractions, shows, and entertainment options to experience throughout the day.
+5. Lisa can customize the itinerary by adding or removing attractions or shows and adjust the order and timing of the day.
+6. The app also provides real-time wait times, show schedules, and any alerts or updates throughout the day.
+7. Lisa can review and adjust the itinerary based on the real-time data and recommendations from the app.
+8. The app provides a map and directions to each attraction and show, along with estimated walking times and distances.
+9. Lisa can share the itinerary with her family and friends, either within the app or via social media or messaging platforms.
+10. Lisa enjoys her visit to Shanghai Disney Resort with her family, using the app to guide her through the day's events and attractions.
+user: 你能提供关于“行程规划”的所有功能点吗
+assistant: 当然，以下是在“行程规划”设计中可能包含的一些功能点：
+
+1. 浏览景点信息和地图
+2. 制定旅行计划和行程安排
+3. 购买门票和选择日期
+4. 预定快速通行证和其他优先服务
+5. 了解游乐设施的实时等待时间
+6. 预订节目、活动和娱乐表演
+7. 跟踪自己的位置和行动
+8. 获取实时推荐和通知
+9. 与其他用户分享计划和建议
+10. 提供个性化建议和定制服务
+11. 离线模式，无需连接互联网即可访问行程信息
+12. 提供多语言支持和文化翻译
+13. 提供可访问性功能，例如视觉和听觉辅助工具
+14. 显示游乐设施的高清照片和视频
+15. 提供常见问题解答和客户支持
+
+这些功能点并不一定全部适用于每个设计，根据用户需求和技术限制，可能会有所不同。
+user: 上海迪士尼app 表演预约流程是怎么样的
+assistant: 在上海迪士尼app中，表演预约分为以下几个步骤：
+
+1. 打开上海迪士尼app，进入首页后点击下方“乐园”选项卡。
+2. 在乐园页面上方选择当日日期。
+3. 滑动至下方“娱乐”栏目，选择想要预约的表演。
+4. 点击所选表演，进入表演详情页面。
+5. 在表演详情页面上选择所需的预约时间，并选择参与人数。
+6. 如有需要，可选择加入“快速通行”选项，以缩短排队等待时间。
+7. 确认预约信息无误后，点击“预约”按钮。
+8. 预约成功后，可在“我的行程”中查看已预约的表演。
+
+需要注意的是，每个表演的预约时间和预约方式可能有所不同，具体操作以app页面为准。同时，部分表演可能需要提前预约，建议提前规划好行程，避免错过喜欢的表演。

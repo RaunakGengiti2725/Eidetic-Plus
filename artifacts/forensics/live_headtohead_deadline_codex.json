@@ -1,0 +1,44 @@
+{
+  "rows": 3,
+  "failures": 2,
+  "bucket_counts": {
+    "retrieval_miss": 2
+  },
+  "category_bucket_counts": {
+    "multi-session": {
+      "retrieval_miss": 2
+    }
+  },
+  "items": [
+    {
+      "system": "rag-full",
+      "dataset": "longmemeval",
+      "category": "multi-session",
+      "sample_id": "36b9f61e",
+      "question": "What is the total amount I spent on luxury items in the past few months?",
+      "gold": "$2,500",
+      "predicted": "The total amount spent on luxury items in the past few months is $2,000: $800 for the luxury evening gown [S13] and $1,200 for the Gucci handbag [S15].",
+      "bucket": "retrieval_miss",
+      "suggested_fix": "raise lexical/graph/event recall depth; inspect candidate_memory_ids and query parsing",
+      "coverage": null,
+      "verified": null,
+      "abstained": false,
+      "error": ""
+    },
+    {
+      "system": "rag-vector",
+      "dataset": "longmemeval",
+      "category": "multi-session",
+      "sample_id": "36b9f61e",
+      "question": "What is the total amount I spent on luxury items in the past few months?",
+      "gold": "$2,500",
+      "predicted": "The only two luxury item amounts explicitly stated in memory are $800 for a luxury evening gown [S5] and $500 for boots from a high-end Italian designer [S9]. Total = $800 + $500 = $1,300.",
+      "bucket": "retrieval_miss",
+      "suggested_fix": "raise lexical/graph/event recall depth; inspect candidate_memory_ids and query parsing",
+      "coverage": null,
+      "verified": null,
+      "abstained": false,
+      "error": ""
+    }
+  ]
+}

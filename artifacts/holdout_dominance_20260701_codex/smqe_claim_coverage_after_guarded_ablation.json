@@ -1,0 +1,45 @@
+{
+  "pass": true,
+  "seed": 859848962,
+  "seed_mode": "random",
+  "cases": 24,
+  "correct": 24,
+  "claim_backend_correct": 24,
+  "claims_extracted": 86,
+  "avg_claims_per_case": 3.58,
+  "failures": [],
+  "operator_counts": {
+    "count_aggregate": 3,
+    "latest_value": 3,
+    "multi_session_sum": 2,
+    "open_inference": 3,
+    "preference_synth": 8,
+    "relative_temporal": 1,
+    "speaker_fact": 1,
+    "table_lookup": 1,
+    "temporal_delta": 2
+  },
+  "claim_backend_operator_counts": {
+    "count_aggregate": 3,
+    "latest_value": 3,
+    "multi_session_sum": 2,
+    "open_inference": 3,
+    "preference_synth": 8,
+    "relative_temporal": 1,
+    "speaker_fact": 1,
+    "table_lookup": 1,
+    "temporal_delta": 2
+  },
+  "claim_type_counts": {
+    "event": 14,
+    "interval": 1,
+    "preference": 6,
+    "quantity": 8,
+    "state": 54,
+    "table": 3
+  },
+  "backend_counts": {
+    "claim": 24
+  },
+  "avg_proof_tokens": 30.54
+}

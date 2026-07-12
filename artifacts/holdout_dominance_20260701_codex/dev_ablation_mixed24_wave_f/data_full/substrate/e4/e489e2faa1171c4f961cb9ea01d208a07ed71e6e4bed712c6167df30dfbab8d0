@@ -1,0 +1,10 @@
+user: It is 10 AM. You're an attendant at a vehicle service shop that specializes on oil changes. An Oil change takes an average of 15 minutes to be completed at this shop. Once completed, a new vehicle can be worked on. If two vehicles are queued to be worked on. What would you tell a 3rd customer that wants to wait for an oil change?
+assistant: I would tell the 3rd customer that they would have to wait approximately 30 minutes for their oil change.
+user: What if at this shop you could work on two vehicles at a time. What would you tell the customer then?
+assistant: I would tell the 3rd customer that they would have to wait approximately 15 minutes for their oil change.
+user: Establishing that 2 vehicles can be worked on at a time, what would you tell a fourth customer?
+assistant: I would tell the 4th customer that they would have to wait approximately 15 minutes for their oil change.
+user: how about a 5th customer, what would you tell them?
+assistant: I would tell the 5th customer that they would have to wait approximately 15 minutes for their oil change.
+user: What if the 3rd and 4th customer added themselves to the queue. What would you have told the 5th customer?
+assistant: I would tell the 5th customer that they would have to wait approximately 30 minutes for their oil change.

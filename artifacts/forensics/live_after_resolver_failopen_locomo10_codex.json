@@ -1,0 +1,74 @@
+{
+  "rows": 10,
+  "failures": 3,
+  "bucket_counts": {
+    "abstention": 2,
+    "reader_error": 1
+  },
+  "category_bucket_counts": {
+    "multi-hop": {
+      "abstention": 1
+    },
+    "temporal": {
+      "reader_error": 1,
+      "abstention": 1
+    }
+  },
+  "consolidation": {
+    "eidetic-plus-full": {
+      "groups": 1,
+      "pending_processed": 19,
+      "facts_extracted": 73,
+      "events_indexed": 73,
+      "extraction_timed_out": 0,
+      "extraction_deferred": 0
+    }
+  },
+  "items": [
+    {
+      "system": "eidetic-plus-full",
+      "dataset": "locomo",
+      "category": "multi-hop",
+      "sample_id": "c0_q4",
+      "question": "What is Caroline's identity?",
+      "gold": "Transgender woman",
+      "predicted": "I don't have enough verified evidence in memory to answer that confidently.",
+      "bucket": "abstention",
+      "suggested_fix": "calibrate ABSTENTION_V2_TAU on dev logs; inspect entailment/proof signals",
+      "coverage": 0.4384591579437256,
+      "verified": false,
+      "abstained": true,
+      "error": ""
+    },
+    {
+      "system": "eidetic-plus-full",
+      "dataset": "locomo",
+      "category": "temporal",
+      "sample_id": "c0_q5",
+      "question": "When did Melanie run a charity race?",
+      "gold": "The sunday before 25 May 2023",
+      "predicted": "Saturday 2023-05-20 [S0] \"I ran a charity race for mental health last Saturday\"; [S19] \"I ran a charity race for mental health last Saturday\"; [S30] \"Melanie ran a charity race for mental health last Saturday [2023-05-25..2023-05-25]\"",
+      "bucket": "reader_error",
+      "suggested_fix": "inspect context blocks and reader scaffold; failure happened with plausible evidence present",
+      "coverage": 0.5388917922973633,
+      "verified": true,
+      "abstained": false,
+      "error": ""
+    },
+    {
+      "system": "eidetic-plus-full",
+      "dataset": "locomo",
+      "category": "temporal",
+      "sample_id": "c0_q9",
+      "question": "When did Caroline meet up with her friends, family, and mentors?",
+      "gold": "The week before 9 June 2023",
+      "predicted": "I don't have enough verified evidence in memory to answer that confidently.",
+      "bucket": "abstention",
+      "suggested_fix": "calibrate ABSTENTION_V2_TAU on dev logs; inspect entailment/proof signals",
+      "coverage": 0.5385454893112183,
+      "verified": false,
+      "abstained": true,
+      "error": ""
+    }
+  ]
+}

@@ -1,0 +1,174 @@
+user: Heavyweight Laundry Use Case
+Use Case 1 Housekeeper does laundry
+Actor Housekeeper
+Use Case Overview It is Wednesday and there is laundry in the laundry room. The housekeeper sorts it, then proceeds to launder each load. She folds the dry laundry as she removes it from the dryer. She irons those items that need ironing.
+Subject Area Domestics
+Actor(s) The housekeeper
+Trigger Dirty laundry is transported to the laundry room on Wednesday.
+Precondition 1 It is Wednesday
+Precondition 2 There is laundry in the laundry room.
+Basic Flow: Do Laundry
+Description This scenario describes the situation where only sorting, washing and folding are required. This is the main success scenario.
+1 Housekeeper sorts laundry items.
+2 Housekeeper washes each load.
+3 Housekeeper dries each load.
+4 Housekeeper verifies that laundry item does not need ironing, is clean and not shrunken.
+5 Housekeeper verifies that laundry item is foldable.
+6 Housekeeper folds laundry item
+7 Housekeeper does this until there are no more laundry items to fold
+Termination outcome Laundry is clean and folded
+Alternative Flow 4A: Laundry item needs ironing.
+Description This scenario describes the situation where one or more items need ironing before or in lieu of folding
+4A1 Housekeeper verifies that the laundry item needs ironing and is clean and not shrunken
+4A2 Housekeeper irons the laundry item
+4A3 Housekeeper puts laundry item on a hanger
+Termination outcome Laundry that needs ironing is ironed and hung up.
+Alternative flow 4B: Laundry item is dirty.
+Description This scenario describes the situation where the laundry item did not get clean the first time through the wash.
+4B1 Housekeeper verifies that the laundry item is not clean.
+4B2 Housekeeper rewashes the laundry item
+Termination outcome Dirty laundry is rewashed.
+Alternative flow 4C: Laundry item shrank.
+Description This scenario describes the situation where the laundry item shrank.
+4C1 Housekeeper verifies that the laundry item shrank
+4C2 Housekeeper disposes of laundry item.
+Termination outcome Laundry item no longer exists.
+Alternative flow 5A: Laundry item needs hanger.
+Description This scenario describes the situation where the laundry item needs to be hung instead of folded.
+5A1 Housekeeper verifies that laundry item needs hanging.
+5A2 Housekeeper puts laundry item on a hanger.
+Termination outcome Laundry that needs hanging is hung up.
+Post conditions: All laundry clean and folded or hung up.
+Business Rules:
+• Laundry can only be done on Wednesdays.
+• All ironed laundry items get hung on hangers
+• Any laundry item that is irrevocably soiled, shrunken, scorched, etc. , gets thrown out.
+Keeping this in mind, can you give a heavyweight use case for an ATM Machine
+assistant: Use Case 1: Customer withdraws cash from ATM
+Actor: Customer
+Use Case Overview: A customer needs to withdraw cash from an ATM machine. They insert their card, enter their PIN, and select the amount they want to withdraw. The ATM dispenses the cash and updates the customer's account balance.
+
+Subject Area: Banking
+Actor(s): The customer
+Trigger: The customer needs cash and is near an ATM machine.
+Precondition 1: The customer has an active bank account.
+Precondition 2: The customer has their ATM card and knows their PIN.
+Basic Flow: Withdraw Cash
+
+1. Customer inserts their ATM card into the machine.
+2. Customer enters their PIN.
+3. Customer selects the amount they want to withdraw.
+4. ATM verifies the customer's account balance and availability of funds.
+5. ATM dispenses the cash.
+6. ATM updates the customer's account balance.
+7. Customer takes the cash and their card.
+Termination outcome: Customer has cash and updated account balance.
+
+Alternative Flow 2A: Incorrect PIN entered
+Description: This scenario describes the situation where the customer enters an incorrect PIN.
+2A1. ATM prompts the customer to re-enter their PIN.
+2A2. If the customer enters the incorrect PIN again, the ATM denies access and prompts the customer to contact their bank.
+Termination outcome: Customer is unable to access their account.
+
+Alternative Flow 2B: Insufficient funds
+Description: This scenario describes the situation where the customer does not have enough funds in their account to cover the withdrawal.
+2B1. ATM verifies the customer's account balance.
+2B2. ATM denies the withdrawal and informs the customer of their insufficient funds.
+Termination outcome: Customer is unable to withdraw cash.
+
+Alternative Flow 2C: Card Retention
+Description: This scenario describes the situation where the ATM retains the customer's card.
+2C1. ATM verifies that the card is valid.
+2C2. ATM informs the customer that their card has been retained.
+2C3. ATM prompts the customer to contact their bank for assistance.
+Termination outcome: Customer is unable to use their card and needs to contact their bank for assistance.
+
+Post conditions: Customer has cash and updated account balance, or the customer is unable to access their account.
+Business Rules:
+• Customers are limited to a certain amount of cash withdrawals per day.
+• Customers are required to enter their PIN to access their account.
+• Customers are responsible for ensuring they have enough funds in their account to cover the withdrawal.
+• Customers are responsible for contacting their bank if their card is retained by the ATM.
+user: Considering reddit as a website, Explain what user experience aspects of it that you liked! Then list what significant improvements you would suggest!
+assistant: User Experience Aspects I liked:
+
+1. Navigation: The navigation bar is simple and easy to use. It's easy to find the different sections of the website.
+2. Content: The content is diverse and covers a wide range of topics. I can easily find something that interests me.
+3. Community: The community is active and engaged. There are many conversations happening on the site and it's easy to join in.
+4. Search: The search function is easy to use and returns relevant results.
+5. Personalization: The website allows me to personalize my experience by subscribing to specific subreddits, which allows me to see content that I'm interested in.
+
+Significant improvements I would suggest:
+
+1. Mobile optimization: The website could be optimized for mobile devices, making it easier to use on smartphones and tablets.
+2. Improved commenting: The commenting system could be improved with features such as threading and better moderation tools.
+3. Better moderation: The website could benefit from better moderation tools to help keep the community safe and free from harassment.
+4. Better filtering options: The website could have better filtering options to help users find the content they're interested in.
+5. Better video support: The website could have better support for videos, including a built-in video player and more options for video hosting.
+user: Considering steam as a website, Explain what user experience aspects of it that you liked! Then list what significant improvements you would suggest!
+assistant: User Experience Aspects I liked:
+
+1. Game Library: The game library feature allows me to easily view and organize all the games I own on Steam.
+2. Storefront: The storefront is well-designed and easy to navigate. It's easy to find new games and deals.
+3. Community features: The community features, such as user reviews and discussion boards, provide valuable information about the games and allow users to connect with each other.
+4. In-game overlay: The in-game overlay allows me to access Steam features, such as friends list and chat, while I'm playing a game.
+5. Game updates: The game updates feature allows me to easily see when new updates are available and download them without leaving the Steam application.
+
+Significant improvements I would suggest:
+
+1. Better account management: The website could have better account management features, such as 2-factor authentication and more granular account settings.
+2. Improved search: The search function could be improved with more advanced filtering options and better results relevance.
+3. Better social features: Steam could benefit from more robust social features, such as more extensive friends lists, user-made groups, and game-specific chat rooms.
+4. Enhanced support for VR: Steam could improve its support for virtual reality games and hardware, such as better compatibility testing, more VR-specific features, and improved VR store browsing.
+5. Better cross-platform functionality: Steam could improve its cross-platform functionality, such as cloud saves and cross-platform multiplayer, to allow for a more seamless gaming experience across different devices.
+user: now give a heavyweight use case for purchasing a game on steam
+assistant: Use Case 1: Customer purchases a game on Steam
+Actor: Customer
+Use Case Overview: A customer wants to purchase a game on Steam. They search for the game, view its information, and add it to their cart. They then proceed to checkout, enter their payment information, and confirm the purchase.
+
+Subject Area: Online Gaming
+Actor(s): The customer
+Trigger: The customer wants to purchase a game on Steam.
+Precondition 1: The customer has a Steam account.
+Precondition 2: The customer has a valid payment method.
+
+Basic Flow: Purchase Game
+
+1. Customer searches for the game they want to purchase on Steam.
+2. Customer views the game's information and reviews.
+3. Customer adds the game to their cart.
+4. Customer proceeds to checkout.
+5. Customer enters their shipping and billing information.
+6. Customer selects their preferred payment method.
+7. Customer confirms the purchase.
+8. Steam verifies the customer's payment information and completes the transaction.
+9. Steam sends an email to the customer with the purchase details and receipt.
+10. The customer download the game.
+
+Termination outcome: The customer has successfully purchased the game and has access to it in their Steam library.
+
+Alternative Flow 2A: Payment method error.
+Description: This scenario describes the situation where the customer's payment method is declined or invalid.
+2A1. Steam verifies the customer's payment information.
+2A2. Steam informs the customer of the error and prompts them to enter a new payment method.
+2A3. Customer enters a new payment method.
+2A4. Steam verifies the new payment method and completes the transaction.
+Termination outcome: The customer's new payment method is accepted, and they are able to purchase the game.
+
+Alternative Flow 3A: Out of stock
+Description: This scenario describes the situation where the game is out of stock.
+3A1. Customer searches for the game on Steam.
+3A2. Steam informs the customer that the game is out of stock.
+3A3. Customer can choose to be notified when the game is back in stock.
+Termination outcome: The customer is informed that the game is out of stock and can choose to be notified when it becomes available again.
+
+Post conditions: The customer has successfully purchased the game and has access to it in their Steam library.
+Business Rules:
+• The customer must have a Steam account to purchase games on Steam.
+• The customer must have a valid payment method to purchase games on Steam.
+• The customer must confirm the purchase before the transaction is completed.
+• The customer will be sent an email with the purchase details and receipt.
+• The customer can download the game after the purchase.
+• The customer can choose to be notified when out of stock games are back in stock.
+• Steam reserves the rights to cancel an order under certain circumstances.
+• Steam reserves the rights to remove a game from the store under certain circumstances.

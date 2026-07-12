@@ -1,0 +1,103 @@
+user: Lets go
+assistant: **Prompt:** LinkedIn Summary Interview
+**Version:** v0.5
+**Owner:** Simeon Williams
+**Cross-platform social media ID:** Sim2K @ [Twitter](https://Twitter.com/Sim2K), [Instagram](https://Instagram.com/Sim2K), [LinkedIn](https://linkedin.com/in/sim2k), [Facebook](https://www.facebook.com/Sim2K/)
+**Contact-Telegram:** [@Sim2K on Telegram](https://t.me/Sim2K)
+**Purpose:** To help you create your perfect LinkedIn Summary
+**Support:** [www.buymeacoffee.com/Sim2K](http://www.buymeacoffee.com/Sim2K).
+**Notes:** This is being constantly updated. Follow me on social media for updates. I also create powerful prompts for individuals and businesses, so get in touch.
+
+Hey, what's up? So you need help looking good on LinkedIn? Don't we all! ... and some more than others! lol Well, I'm here to help. Over four questions, I will draw out of you your best qualities to make your LinkedIn summary stand out. Please give as much information in your 1st answer as you can, as it will make it easier for you in the following questions and super simple by the end of the interview. Are you ready to start the interview?
+
+Please type 'Next' to continue.
+user: next
+assistant: Great! First, let me tell you that we will have four questions in total for this interview. Can you tell me why you are updating your LinkedIn Summary? Here are six options to choose from:
+
+1. You are currently in a job and just want to create a summary to match your current role.
+2. You are not currently working and looking for a new job.
+3. You are looking to transfer to a new role within your current company.
+4. You want to do the same job for a new company.
+5. You want a career change.
+6. You are trying to attract more business and looking to network on LinkedIn.
+
+Please select one of the options from the table.
+user: 1
+assistant: Great! Since you are currently in a job and want to create a summary to match your current role, we will make sure to highlight your current experience and skills that are relevant to your position. Let's get started with the questions.
+
+**Question 1:** Describe what makes you tick. What excites you most professionally, and what work activities do you enjoy and bring engagement and enthusiasm? Please also include any soft skills you think are relevant.
+
+**Answer Example:** I am a driven individual who is passionate about [insert topic], and I am always eager to learn more and expand my knowledge in this area. What excites me most professionally is [insert activity], which allows me to [insert outcome]. I particularly enjoy [insert activity], as it brings me a lot of engagement and enthusiasm. Some of the soft skills that are relevant to my job include [insert skill 1], [insert skill 2], and [insert skill 3].
+
+**Help and Guidance:** For this question, we want to know what motivates and excites you about your work. We also want to know about any specific work activities that you enjoy and feel most engaged with. Soft skills are also important, so please include any that you think are relevant to your job.
+
+Please give me your answer.
+user: I am an extremely motivated and passionate individual with a strong work ethic. I thrive in fast-paced and challenging environments where I can utilize my excellent communication and problem-solving skills. I enjoy working collaboratively with others to achieve common goals and constantly strive to learn and grow both personally and professionally.
+assistant: **Answer Review (Question 1):**
+
+This answer provides a good foundation for your LinkedIn summary. You mentioned your motivation, work ethic, communication and problem-solving skills, as well as your love for learning and working with others. However, you could be more specific in terms of what excites you professionally and what work activities you enjoy the most. Please try to add more specific details to your answer to give a clearer picture of your professional interests and passions.
+
+**Rating:** 70%
+
+**Feedback:**
+
+* Please be more specific about what excites you professionally.
+* Please also provide specific examples of work activities you enjoy the most.
+* Consider mentioning any achievements or experiences that showcase your skills and work ethic.
+
+**Tips and guidance:**
+
+* Use TOPICS as a reference to help you describe what excites you professionally and what work activities you enjoy.
+* Use bullet points or numbered lists to break up the text and make it more visually appealing.
+* Avoid using too much jargon and focus on using conversational language that reflects how you would speak to someone in person.
+* Use specific examples and stories to showcase your skills and achievements.
+* Remember to highlight your unique strengths and qualities that set you apart from others.
+
+Please take a moment to review your answer and use the bullet points above to help you improve your response. Remember, you get out of this what you put in.
+
+If you are happy to move on, please type 'Next'.
+user: next
+assistant: **Question 2:** Could you please explain your current role, the problems you solve, for whom, and how? Please highlight the impact of doing your job well vs. not as well.
+
+**Answer Example:** As a [insert job title], my main responsibility is to [insert task or responsibility]. This involves solving [insert type of problem] for [insert target audience or clients] by [insert method or approach]. Doing my job well has a significant impact on [insert outcome or benefit], while not doing it well can lead to [insert negative outcome or consequence].
+
+**Help and Guidance:** For this question, we want to know about your current job responsibilities and how you approach solving problems. Please be as specific as possible when describing your role and the problems you solve, as well as the impact of doing your job well vs. not as well.
+
+Please give me your answer.
+user: In my current role as a Marketing Manager, I am responsible for developing and executing marketing strategies to promote our company's products and services. I work closely with cross-functional teams to create engaging content and collateral that resonates with our target audience. By doing my job well, I am able to effectively communicate the value of our products and services, which ultimately leads to increased sales and revenue for our company. However, if I were to not do my job well, our marketing campaigns could fall flat and fail to reach our target audience, which could result in decreased revenue and market share.
+assistant: **Answer Review (Question 2):**
+
+This is a great answer that highlights your current role as a Marketing Manager and how you impact your company's success. You were able to effectively explain the problems you solve, for whom, and how you approach them. Furthermore, you highlighted the positive impact of doing your job well, and the negative consequences of not doing it well.
+
+**Rating:** 100%
+
+**Feedback:** N/A
+
+**Tips and guidance:**
+
+* Use specific examples of marketing strategies or campaigns you have successfully executed.
+* Mention any metrics or KPIs that you use to measure the success of your campaigns.
+* If you have any achievements or successes in your current role, be sure to mention them in this section.
+* Use bullet points or numbered lists to make the text more visually appealing and easier to read.
+
+Great job! Please move on to the next question.
+user: next
+assistant: **Question 3:** Can you frame your past career choices and connect the dots between them and your current role? Please frame any discord as an advantage and explain how it sets you apart.
+
+**Answer Example:** Throughout my career, I have gained experience in [insert past career choices] that have helped me develop [insert skill or trait]. Although these roles may not have seemed directly related to my current role as [insert current role], I have found that they have provided me with a unique perspective and skillset that I am able to leverage in my current position. Additionally, my diverse background has allowed me to approach problems in new and innovative ways, which sets me apart from others in my field.
+
+**Help and Guidance:** For this question, we want to know about your past career choices and how they have prepared you for your current role. Please mention any skills or traits that you have gained from these roles, and explain how they are relevant to your current position. If you have any experiences that may seem discordant with your current role, explain how they have helped you become a better employee.
+
+Please give me your answer.
+user: Throughout my career, I have gained experience in [insert past career choices] that have helped me develop [insert skill or trait]. Although these roles may not have seemed directly related to my current role as [insert current role], I have found that they have provided me with a unique perspective and skillset that I am able to leverage in my current position. Additionally, my diverse background has allowed me to approach problems in new and innovative ways, which sets me apart from others in my field.
+assistant: **Answer Review (Question 3):** Your response is a generic template and doesn't provide specific information about your past career choices or how they have helped you prepare for your current role. Therefore, the rating for this question is 50%. Please provide more specific examples of your past career choices and how they have helped you become better at your current role.
+
+**Feedback and Guidance:** When answering this question, please provide specific examples of your past career choices and how they have helped you become better at your current role. Be sure to mention any skills or traits you gained, as well as how your diverse background has allowed you to approach problems in new and innovative ways.
+
+Some tips to improve your answer are:
+
+* Mention specific past roles you have held and how they have helped you in your current position
+* Explain how the skills and knowledge you gained in your previous roles have helped you excel in your current role
+* Provide examples of how your diverse background and experiences have helped you approach challenges in unique ways
+
+If you are happy to move on, please type 'Next'. Please give me your answer.

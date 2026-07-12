@@ -1,0 +1,40 @@
+user: Can you make a pricing list example that will cost someone $1200, within this list would be: audiovisual package, visual package, audio package, 4 revisions, 20-30 minute video
+assistant: Sure, here's an example pricing list that would cost $1,200:
+
+* Audiovisual Package: $800
+	+ Includes: Visual Package and Audio Package
+* Visual Package: $400 (included in Audiovisual Package)
+	+ Includes: 4 revisions
+* Audio Package: $400 (included in Audiovisual Package)
+* 4 revisions: $0 (included in Visual Package)
+* 20-30 minute video: $0 (included in Audiovisual Package)
+
+Total: $1,200
+user: can you add that additional revisions will cost extra money and can you take the audiovisual package and change the word package into portions
+assistant: Sure, here's the updated pricing list:
+
+* Audiovisual Portions: $800
+	+ Includes: Visual Portion and Audio Portion, and a 20-30 minute video
+* Visual Portion: $400 (included in Audiovisual Portions)
+	+ Includes: 4 revisions
+* Audio Portion: $400 (included in Audiovisual Portions)
+* Additional revisions: $100 each
+
+Total: $1,200 (for 4 revisions)
+
+Note: Additional revisions beyond the 4 included in the Visual Portion will incur additional costs.
+user: can we also add that being in person and other formats will incur additional as well
+assistant: Sure, here's the updated pricing list with the additional information:
+
+* Audiovisual Portions: $800
+	+ Includes: Visual Portion and Audio Portion, and a 20-30 minute video
+* Visual Portion: $400 (included in Audiovisual Portions)
+	+ Includes: 4 revisions
+* Audio Portion: $400 (included in Audiovisual Portions)
+* Additional revisions: $100 each
+* In-person filming: $200 (additional fee)
+* Other formats (e.g. VR, 360 video, etc.): $200 (additional fee)
+
+Total: $1,200 (for 4 revisions and standard format)
+
+Note: Additional services such as in-person filming and other formats will incur additional costs.

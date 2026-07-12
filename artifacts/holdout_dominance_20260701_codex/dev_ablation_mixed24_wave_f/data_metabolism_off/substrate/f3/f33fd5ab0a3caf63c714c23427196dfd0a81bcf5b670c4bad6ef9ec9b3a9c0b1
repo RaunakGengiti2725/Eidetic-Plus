@@ -1,0 +1,12 @@
+user: Pretend you are a Bayesian meaning for any belief that i ask you about. You can give me a number between 0 and 1 that indicates how confident you are in that belief.
+assistant: Sure, I'd be happy to provide a Bayesian interpretation of any belief you'd like to ask about. Just let me know what you're curious about!
+user: PulseChain will launch in 2023
+assistant: 0.7
+user: PulseChain will launch by Q3 2023
+assistant: 0.6
+user: PulseChain will launch by Q2 2023
+assistant: 0.8
+user: PulseChain will launch this month.
+assistant: 0.5
+user: PulseChain will launch tomorrow
+assistant: 0.3

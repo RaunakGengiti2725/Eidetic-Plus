@@ -1,0 +1,227 @@
+user: I did that, ran the Ansible playbook again, and got this error: 
+
+[WARNING]: Unable to parse /home/pantunez/git/paas-vm-k8s/ansible/localhost as an inventory source
+[WARNING]: No inventory was parsed, only implicit localhost is available
+[WARNING]: provided hosts list is empty, only localhost is available. Note that the implicit localhost does not match 'all'
+
+PLAY [localhost] \*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*
+
+TASK [rke/install-rke : set\_fact] \*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*
+Wednesday 25 January 2023 11:08:00 +0000 (0:00:00.044) 0:00:00.044 \*\*\*\*\* 
+ok: [localhost]
+
+TASK [rke/install-rke : Render RKE cluster configuration] \*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*
+Wednesday 25 January 2023 11:08:00 +0000 (0:00:00.042) 0:00:00.087 \*\*\*\*\* 
+An exception occurred during task execution. To see the full traceback, use -vvv. The error was: {% endif %}
+fatal: [localhost]: FAILED! => changed=false 
+ msg: |-
+ AnsibleError: template error while templating string: expected token 'end of print statement', got '.'. String: nodes:
+ {% for host in vars['all']['children']['kubernetes\_controller']['hosts'].values() %}
+ - address: "{{host.name}}.{{ admin\_lan.dns.domain }}"
+ internal\_address: "{{host.network\_interfaces.1.ip}}"
+ port: "22"
+ user: {{ cco\_id }}
+ ssh\_key\_path: {{ ssh\_key\_dir }}/.ssh/id\_rsa
+ role: [controlplane,etcd]
+ {% endfor %}
+ 
+ {% for host in vars['all']['children']['kubernetes\_worker']['hosts'].values() %}
+ - address: "{{host.name}}.{{ admin\_lan.dns.domain }}"
+ internal\_address: "{{host.network\_interfaces.1.ip}}"
+ port: "22"
+ user: {{ cco\_id }}
+ ssh\_key\_path: {{ ssh\_key\_dir }}/.ssh/id\_rsa
+ role: [worker]
+ {% endfor %}
+ 
+ services:
+ etcd:
+ image: ""
+ extra\_args: {}
+ extra\_binds: []
+ extra\_env: []
+ win\_extra\_args: {}
+ win\_extra\_binds: []
+ win\_extra\_env: []
+ external\_urls: []
+ ca\_cert: ""
+ cert: ""
+ key: ""
+ path: ""
+ uid: 0
+ gid: 0
+ snapshot: null
+ retention: ""
+ creation: ""
+ backup\_config: null
+ kube-api:
+ image: ""
+ extra\_args: {}
+ extra\_binds: []
+ extra\_env: []
+ win\_extra\_args: {}
+ win\_extra\_binds: []
+ win\_extra\_env: []
+ service\_cluster\_ip\_range: "{{ net\_config.service\_subnet }}"
+ service\_node\_port\_range: ""
+ pod\_security\_policy: false
+ always\_pull\_images: false
+ secrets\_encryption\_config: null
+ audit\_log: null
+ admission\_configuration: null
+ event\_rate\_limit: null
+ kube-controller:
+ image: ""
+ extra\_args: {}
+ extra\_binds: []
+ extra\_env: []
+ win\_extra\_args: {}
+ win\_extra\_binds: []
+ win\_extra\_env: []
+ cluster\_cidr: "{{ net\_config.pod\_subnet\_netplan }}"
+ service\_cluster\_ip\_range: "{{ net\_config.service\_subnet }}"
+ scheduler:
+ image: ""
+ extra\_args: {}
+ extra\_binds: []
+ extra\_env: []
+ win\_extra\_args: {}
+ win\_extra\_binds: []
+ win\_extra\_env: []
+ kubelet:
+ image: ""
+ extra\_args: {}
+ extra\_binds: []
+ extra\_env: []
+ win\_extra\_args: {}
+ win\_extra\_binds: []
+ win\_extra\_env: []
+ cluster\_domain: "cluster.local"
+ infra\_container\_image: ""
+ cluster\_dns\_server: "{{ rendered\_dns\_server }}"
+ fail\_swap\_on: false
+ generate\_serving\_certificate: false
+ kubeproxy:
+ image: ""
+ extra\_args: {}
+ extra\_binds: []
+ extra\_env: []
+ win\_extra\_args: {}
+ win\_extra\_binds: []
+ win\_extra\_env: []
+ 
+
+ services:
+ kube-controller:
+ cluster\_cidr: "{{ net\_config.pod\_subnet\_netplan }}"
+ authentication:
+ strategy: x509
+ sans: []
+ webhook: null
+ addons: |-
+ ---
+ apiVersion: aci.snat/v1
+ kind: SnatPolicy
+ metadata:
+ name: cluster-snat
+ spec:
+ snatIp:
+ - {{ net\_config.cluster\_wide\_snat }}
+ addons\_include: []
+ ssh\_key\_path: {{ ssh\_key\_dir }}/.ssh/id\_rsa
+ ssh\_cert\_path: ""
+ ssh\_agent\_auth: false
+ authorization:
+ mode: rbac
+ options: {}
+ ignore\_docker\_version: null
+ kubernetes\_version: "{{ kubernetes\_versions.k8s\_version}}"
+ private\_registries:
+ - url: docker.io
+ user: mwielpuetz
+ password: dckr\_pat\_QfMnjESK8cyTT6FTQ2tXbEeTubs
+ ingress:
+ provider: ""
+ options: {}
+ node\_selector: {}
+ extra\_args: {}
+ dns\_policy: ""
+ extra\_envs: []
+ extra\_volumes: []
+ extra\_volume\_mounts: []
+ update\_strategy: null
+ http\_port: 0
+ https\_port: 0
+ network\_mode: ""
+ tolerations: []
+ default\_backend: null
+ cluster\_name: "{{ aci\_config.system\_id }}"
+ cloud\_provider:
+ name: ""
+ prefix\_path: ""
+ win\_prefix\_path: ""
+ addon\_job\_timeout: 0
+ bastion\_host:
+ address: ""
+ port: ""
+ user: ""
+ ssh\_key: ""
+ ssh\_key\_path: ""
+ ssh\_cert: ""
+ ssh\_cert\_path: ""
+ monitoring:
+ provider: ""
+ options: {}
+ node\_selector: {}
+ update\_strategy: null
+ replicas: null
+ tolerations: []
+ restore:
+ restore: false
+ snapshot\_name: ""
+ rotate\_encryption\_key: false
+ dns:
+ provider: coredns
+ upstreamnameservers:
+ - {{ admin\_lan.dns.servers[0] }}
+ - {{ admin\_lan.dns.servers[1] }}
+ 
+ test:
+ {% if net\_config.cluster\_wide\_snat is string %}
+ - result: {{ net\_config.cluster\_wide\_snat|ipaddr().ipv4() }}
+ {% else %}
+ - result: This variable is not a string
+ {% endif %}
+
+PLAY RECAP \*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*
+localhost : ok=1 changed=0 unreachable=0 failed=1 skipped=0 rescued=0 ignored=0 
+
+Playbook run took 0 days, 0 hours, 0 minutes, 0 seconds
+Wednesday 25 January 2023 11:08:00 +0000 (0:00:00.045) 0:00:00.132 \*\*\*\*\* 
+=============================================================================== 
+rke/install-rke --------------------------------------------------------- 0.09s
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
+total ------------------------------------------------------------------- 0.09s
+
+How can I solve it?
+assistant: The error message is indicating that there is an issue with the Jinja2 template, specifically on the line where you are trying to use the `ipaddr()` function.
+
+It seems that the variable `net_config.cluster_wide_snat` is not a valid IP address, which is causing the `ipaddr()` function to raise an `Invalid IP` exception.
+
+The `Invalid IP` exception is raised when the `ipaddr()` function is not able to parse the provided string as a valid IP address. It could be that the variable is empty or has a different value than you expect.
+
+You can check the type of the variable `net_config.cluster_wide_snat` to see if it's a string,
+```
+{% if net_config.cluster_wide_snat is string %}
+    {{ net_config.cluster_wide_snat|ipaddr().ipv4() }}
+{% else %}
+    This variable is not a string
+{% endif %}
+```
+Also, check the value of `net_config.cluster_wide_snat` if it's a valid IP address.
+
+You can use the `debug` module to print out the value of `net_config.cluster_wide_snat` to see if it's what you expect it to be.
+
+It's also possible that the variable `net_config.cluster_wide_snat` is not defined or is not being set correctly, you should check the variables that you are using in your template and make sure that they are defined and have the expected values.
+
+It's also possible that you have an error in your code logic that is causing the variable `net_config.cluster_wide_snat` to not be set correctly, you should take a look at the code logic to see if it's working correctly.

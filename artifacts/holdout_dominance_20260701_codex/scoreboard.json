@@ -1,0 +1,40 @@
+{
+  "pass": false,
+  "status": "FAIL",
+  "artifact_kind": "dominance_failure_scoreboard",
+  "reason": "No frozen holdout head-to-head was run because the dev ablation gate failed closed.",
+  "log_fingerprint": {
+    "algorithm": "sha256",
+    "file_count": 0,
+    "combined_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "files": []
+  },
+  "rows": [],
+  "systems": [],
+  "dev_probe": {
+    "path": "artifacts/holdout_dominance_20260701_codex/probe_full_locomo_c0_after_strict_smqe",
+    "dataset": "locomo",
+    "split": "dev",
+    "subset": 20,
+    "raw_correct": 15,
+    "verified_correct": 13,
+    "verified_wrong": 5,
+    "abstained": 0,
+    "note": "Diagnostic dev probe only; not release evidence."
+  },
+  "dev_ablation": {
+    "path": "artifacts/holdout_dominance_20260701_codex/ablation_report.json",
+    "pass": false,
+    "full_verified_accuracy": 0.55,
+    "metabolism_delta_pp": 0.0,
+    "region_delta_pp": -10.0,
+    "affect_delta_pp": 15.0,
+    "forgetting_cost_ratio": 1.000063,
+    "forgetting_accuracy_regression_pp": 10.0
+  },
+  "not_run": [
+    "slice_invariant_eval",
+    "frozen_holdout_head_to_head",
+    "snap_back_audit"
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "rows": 1,
+  "failures": 1,
+  "bucket_counts": {
+    "reader_error": 1
+  },
+  "category_bucket_counts": {
+    "multi-session": {
+      "reader_error": 1
+    }
+  },
+  "items": [
+    {
+      "system": "eidetic-plus-full",
+      "dataset": "longmemeval",
+      "category": "multi-session",
+      "sample_id": "36b9f61e",
+      "question": "What is the total amount I spent on luxury items in the past few months?",
+      "gold": "$2,500",
+      "predicted": "$500 + $1,200 = $1,700. The total amount spent on luxury items in the past few months is $1,700 [S0] \"a pair of leather boots from a high-end Italian designer that I got for $500\", [S10] \"that designer handbag I just got from Gucci for $1,200\".",
+      "bucket": "reader_error",
+      "suggested_fix": "inspect context blocks and reader scaffold; failure happened with plausible evidence present",
+      "coverage": 0.598395049571991,
+      "verified": true,
+      "abstained": false,
+      "error": ""
+    }
+  ]
+}

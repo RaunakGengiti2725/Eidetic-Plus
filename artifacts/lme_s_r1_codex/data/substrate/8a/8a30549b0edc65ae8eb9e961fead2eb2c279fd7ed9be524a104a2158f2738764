@@ -1,0 +1,228 @@
+user: Imagine you are Stephen Donhoe. You were a part of this call. You are asked by your manager to summarize the discussion from the call as it pertains to Clari and it's offerings and learnings on the current way customers forecast. Ignore small talk and introductions and create a report to share with your manager.
+
+Here is the transcript of the call: "
+> Stephen Donohoe 00:00
+Have you been lazy? Did you have a nice weekend.
+> 
+
+> Lizy Thomson 00:03
+Still recovering from the flu. We've got flu brains here. All of us. Dealing with the weather change. And there's the influenza going around. And just not recovering too quickly from it so.
+> 
+
+> Stephen Donohoe 00:19
+Going to keep my camera off again. Stephen sorry.
+> 
+
+> Lizy Thomson 00:22
+I was thinking this one. You said maybe today I'll do better and turn my camera on. But feeling like ships. Sorry.
+> 
+
+> Curt Weaver 00:29
+No, that's quite our ice. And don't worry about it.
+> 
+
+> Stephen Donohoe 00:32
+Are you starting to improve it all? Or is it kind of hanging around.
+> 
+
+> Lizy Thomson 00:37
+So the minute I stock a few battle. You know. My kids, then get it. And then they give it back to me. And then we're just kind of. Reinfecting each other quite conveniently. Here. Recovering for a bit and then getting. Sick again. So it's been a bit weird because here, like we spoke the last time. Stephen is getting warmer.
+> 
+
+> Stephen Donohoe 01:07
+And then we have a bit of sandstones that comes in from Saudi.
+> 
+
+> Lizy Thomson 01:11
+And normally when those samsungs come and everyone's going down. With. Virals in Dubai. So that's the situation hereby.
+> 
+
+> Stephen Donohoe 01:21
+Yeah. Okay. And the dance trials, they can just come out of nowhere, can't they.
+> 
+
+> Lizy Thomson 01:26
+Out of nowhere take over the entire city. Reduce visibility people with asthma Dust allergies. They just get so unwell normal people as well, because it comes to the acs. So even if we're in those and we think we're safe because it's like the fine dust it comes through the AC, the AC ventilation, and then.
+> 
+
+> Stephen Donohoe 01:50
+Yeah? There's no escape? No escape.
+> 
+
+> Lizy Thomson 01:54
+Hopefully you start to get on the mend.
+> 
+
+> Stephen Donohoe 01:56
+And soon enough I know it's. I don't. Have kids myself. I know, Kurt. You do. But from what I hear is, yeah, it can be quite cyclical. And these illnesses, they can just keep going around.
+> 
+
+> Lizy Thomson 02:11
+Absolutely. So but. It's it's good. I mean, there's good to have company in misery. So it's okay. Lizzy, I can relate.
+> 
+
+> Curt Weaver 02:26
+No, no, I can relate. It seems like seems like we've had something in our house since November. So just. I have three little kids. They're four, eight and nine. And so. One of them will get it passed to one of the parents, and then just it just goes around like you said. But I'm really hoping 2023 is a year where we have like one week without anyone being sick.
+> 
+
+> Curt Weaver 02:55
+Sharing is caring.
+> 
+
+> Lizy Thomson 02:56
+My kids are way older. My kids are 18. My daughter turned 18. Two weeks ago. And my son is 16. But it never changes. It's always the same scenario. Sharing is caring, and then they start blaming each other. Typical sibling site. Well, they're more social at that age, too.
+> 
+
+> Curt Weaver 03:20
+So it's easy to keep my fouryearold daughter at home if she's sick. But, you know, understand. I remember being 18, and it was a harder to keep me up in the house.
+> 
+
+> Lizy Thomson 03:29
+Absolutely. Yeah. That's my situation right now. So we think we're getting better. And then two days later, we're down with this And it's really bad Cox and fevers and body aches. So it's a nasty, nasty viral that has definitely evolved into a superbug. That's what the doctors are seeing in Dubai as well. There was a news article yesterday that said the influenza. Bug has evolved into a superbug. So. Yep, it's fun. We're having a party hand by.
+> 
+
+> Stephen Donohoe 04:01
+Exciting times.
+> 
+
+> Lizy Thomson 04:06
+I was super excited after the last meeting. I love what Carry has to offer. Was even sharing that with Nathan. I love the analytics, I love the AI. Element to it as well. I love your dashboards. So exciting. So really looking forward to today as well.
+> 
+
+> Stephen Donohoe 04:26
+Okay. Awesome. I'm glad to hear I didn't do a terrible job then. First some context. Curse is one of our solution engineers here as well. Lizzy. So. We can with curtain when Natan comes on as well, we can jump in or we can hold on for another couple of minutes. That's totally up to you, but we can start diving into some of the detail in specifically around. The consumption piece. I know that's an element to the business, but we can keep it pretty fluid as well. And if there's anything top of mind that you want to cover. Yeah. Do field questions, Curtis. Certainly the brains behind the operation here. So. You're well supported.
+> 
+
+> Lizy Thomson 05:12
+What I didn't see the last time, but I'm sure it's on clarity is like a Kp. dashboard. You know, apart from the Salesforce. That's. Then it's fantastic. There's also the Kpi dashboards that is currently. Managed manually. You know, in excel and with formulas. And then, of course, we recently converted those to Power Bi. But. Does clarity have. A version also that showcases. Like a scope of a comparative performance. Chart showing. Kpis. Kpi. Performance. Between each sales rep and then rolled up to the sales leader. There's something like that. On Clari.
+> 
+
+> Stephen Donohoe 06:05
+So. We can I suppose the short answer is yes, but requires a caveat that we would just need to understand specifically what it is that you're referring to. I think one thing that would be really helpful as well. At some point we can get a mutual mda in places, but just to get some visibility over the kpis that you're tracking and how you're visualizing that in excel. And in Power bi and we can see if it's that we can put together in a dashboard. I'm not sure karate have there's any additional context that you would kind of add there.
+> 
+
+> Curt Weaver 06:38
+I think you nailed it. I mean, it's just about understanding what kpis are tracked. And there's probably several different ways we can support that. And Clari. The forecast module comes to mind where because you mentioned roll up. Right. So it's just understanding what formulas that you're using today, in which metrics that you're interested in tracking and then. Most of our customers, what they do is they'll have. Steven, I'm sure you let them know that in clarity you're not limited to one view of the forecast. So let's just say you have your sales global sales forecast in clarity. You could have a separate Kpi dashboard or Kpi based roll up where it's less about. Okay, well, what's the commit and upside, right?
+> 
+
+> Lizy Thomson 07:24
+It's more about here's the here of the sales reps and the frontline manager.
+> 
+
+> Curt Weaver 07:28
+And maybe we're tracking asp's sales cycle link thing like things like that and rolling that.
+> 
+
+> Lizy Thomson 07:36
+You all of that. Yep. That's exactly what I'm talking about.
+> 
+
+> Curt Weaver 07:39
+Cool. I need to. Hey, guys.
+> 
+
+> Nathan Seldon 07:42
+Hey, Stephen. Hey, cut. Sorry I got tied up on a on another call, which is actually about this. Let's get.
+> 
+
+> Stephen Donohoe 07:51
+No worries at all have you been. Yeah.
+> 
+
+> Nathan Seldon 07:53
+Very good. Thanks. Very good. How about yourself? Yeah. Keep them.
+> 
+
+> Stephen Donohoe 07:56
+Well, thank you. Keep them well. I just thought I'd mention as well. I'm not sure if you saw the email came through, but I put together just an intro for yourself and Johnny from compliance. He just shared his calendar there. They've been a customer for a few years. By the way, similar stack to you. They use kaia and Outreach for top of funnel as well. They do.
+> 
+
+> Nathan Seldon 08:20
+Interesting. They they do use kaya.
+> 
+
+> Stephen Donohoe 08:22
+Yeah. I think they use Outreach for tapa funnel. And for kaya, they might even use it for more. But I think that's it and then Clarity for kind of forecasting, pipeline management, things like that. But Johnny is very familiar with the Clarity platform, so definitely a good person to speak to.
+> 
+
+> Nathan Seldon 08:38
+Sure. Yeah. I'll try and connect with him this week. I saw you share this calendar there, so hopefully get a chance to sync up.
+> 
+
+> Stephen Donohoe 08:44
+Okay. Cool. Well, if you need my help at all, just let me know. And yeah, outside of that and me curse and curse one of our solution engineers here. So as I was saying to Lizzie, there definitely the brains behind the operation between the two of us. So be good to kind of dive into some of the more. Yeah tactical and detail stuff around the forecasting especially consumption today.
+> 
+
+> Curt Weaver 09:06
+Absolutely nice to meet you. Hi, Nathan. Nice to meet you as well.
+> 
+
+> Nathan Seldon 09:11
+How you doing. Yeah. Doing great, man. Doing great.
+> 
+
+> Curt Weaver 09:15
+Excited. Use case here around your Usage product. Based in Philadelphia. I've been with Clari for about three years and typically focus on Enterprise forecasting, deployments. So we have had a couple customers come through with the consumption use case. And so Stephen tapped me to consult on what you guys are doing, so hopefully we can help you out with Larry.
+> 
+
+> Stephen Donohoe 09:41
+Trust. So look, I suppose by way of an agenda for the call today, we've got another 35 minutes set aside and thought it'd best just to kind of keep this pretty conversational. I mean, we can potentially jump in and show you elements of clarity as well, if needs be. I suppose the most important thing is that we get a full understanding for how you're currently. I suppose. Forecasting and measuring, but also then hosting data around that consumption piece as well so that we can kind of go away and put together a couple of different options and see if we can find a solution that's going to work for you on that. So yeah, I suppose maybe over to you initially to just give a little bit of an overview. Maybe. Nathan, Lizzie around how you're currently reporting. On that consumption at the moment. And I'm sure Kurt will have a few questions as we go. Or unless Krista was something that you wanted to kind of kick off with.
+> 
+
+> Curt Weaver 10:32
+Nothing to present, but if we could start at a high level and just understand the gotomarket approach for that product. And then how you're reporting and forecasting on that that would be very helpful.
+> 
+
+> Nathan Seldon 10:47
+Yeah, no problem. I'll have a swing at them. So the product in question is called Martrus. So it's. A Payments business. You can see it more as like a fintech play. Not too dissimilar to like revolute or Monzo or you know, some of these kind of popular. He kind of more ewlowerdriven solutions that you see nowadays. So the go to market approaches like our vertical. Across all of our products is within shipping. So when we talk about that, it's like. Transportation Companies that move product by see. On Large tanker, bulk vessels. Right. And so the Martros product is aimed at the seafarers, because that's where the volume is in terms of.
+> 
+
+> Curt Weaver 11:40
+Personnel.
+> 
+
+> Nathan Seldon 11:42
+So here's what selling to a shipping company. Who are responsible for those seafarers onboard vessels. And really the. Kind of three main products that we would try and sell into a shipping company. One is. The Crew Payment solution. So.
+> 
+
+> Curt Weaver 12:02
+Every time you pay your seatbearer, which typically once a month.
+> 
+
+> Nathan Seldon 12:07
+And even any of your employees. But more typically, the seafarers is where the value proposition makes sense. We would basically charge you $12 flat on that transaction. Right. Because those seeds bearers are typically getting paid in local currency. So that's a once a month transaction. And then. And this is where it gets a little bit complex. So that's quite predictable. That's a beta B type cell, right. Every Cfare is going to get paid every month.
+> 
+
+> Curt Weaver 12:40
+Pretty.
+> 
+
+> Nathan Seldon 12:41
+There's then a B to B to C element because of our E wallet solution, which is once you paid those cf errors, they can also take advantage of our E wallet solution. And that helps them send money back home to their families. Right. So if the Cfarer decides to take that up. Then we typically see another $1212. Plus a small amount of fx revenue. So you could say $15 on when they paid or when they make another bank to bank transfer, which is typically like one or two. It's normally one to family back home. Right. And then you have card usage, which is like point of sale atma type transactions on that card. But that's going to be like really small fx revenue, which is tiny.
+> 
+
+> Curt Weaver 13:34
+But.
+> 
+
+> Nathan Seldon 13:36
+It does make up part of the like the revenue portfolio for ewallet, but again really difficult to forecast people use for it but just want to kind of paint the picture and then the other the other. Part the mantra solution is kind of like whilst we're talking to you, we could also handle your vendor payment. So when you pay vendors. It'll be a same same platform. Ultimately, what are we doing? We're making payments faster with fewer transaction fees. With a much better compliance platform kind of wrapped around it. And again, we're going to find around $15 there per transaction when they pay their customers. So the vendor payments is quite predictable. If the customer give us their volume. We know the fee that we're going to get per, you know, bank to make transfer.
+> 
+
+> Curt Weaver 14:24
+The crew payments is quite predictable.
+> 
+
+> Nathan Seldon 14:27
+I just need to know how many crew you got and just confirm you pay them once a month. Is really tricky because that's that B to be to C element. Like, how many times are they gonna send money back home per month. How many times are they going to do atm withdrawals? They're buy a packet cigarettes. So they're gonna go and buy like a new car. Like.
+> 
+
+> Curt Weaver 14:53
+Just really difficult.
+> 
+
+> Nathan Seldon 14:54
+And obviously we're making a few dollars on the fx as well every time they spend. And so, yeah, it's high. The average base that's highly, like. The challenge, as well as the ramp. So if you told me you've got 100 C fairs. Making. One payment, a month. $12 a month. That's quite easy for me to figure out what annually you're worth. Whatever. Right. But on the e wallet side. I don't know when your sea bearer is gonna choose to use it because they don't have to use it. No one can force them to use it if they don't want to. So like if you guys said, hey, we've got this amazing deal with revolution. If you use that card, you get all of these amazing perks. You might say I'm gonna stay with, like, Citibank. I'm not gonna use that. And so you're one less person that they have predicted that's just kind of dropped off, if that makes sense. But you never truly know when they're gonna drop off because there's no light optout or I want to say no. It's just like working with the accounts trying drive the doctrine. So as that ramp piece as well, which is which is which is tricky because we might say in accounts worth 100 grand and we sign them and we only find that within twelve months we found like 30 grand because we didn't get the adoption of the evolve."
+assistant: Report on the Clari call:
+
+The discussion in the call mainly revolved around the participants sharing their experiences with flu and other health issues. However, towards the end of the call, Lizy Thomson shared her excitement about Clari and its offerings, including analytics, AI, and dashboards. Stephen Donhoe also expressed his pleasure at hearing this and added that Curt Weaver is one of their solution engineers. Therefore, it seems that Clari is a provider of data analytics and AI services that may be of interest to the company. There was no discussion about the current way customers forecast.

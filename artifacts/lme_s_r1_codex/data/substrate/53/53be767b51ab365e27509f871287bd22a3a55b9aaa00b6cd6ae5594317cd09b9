@@ -1,0 +1,427 @@
+user: modify the flutter code for task details as below needs 
+
+the page view will be as sections
+ 1st section 
+Row1: in the left "task\_name" in the right "task\_id"
+Row2: in the left "related\_to" n the right "task\_status": 
+2nd section 
+row1: "customer\_group" on the left and "task\_status" on right 
+row2: Creited: "task\_created\_date" in the left side and only date format no time 
+Due: "due\_date" in the right side only date format no time 
+Row3: Assigned by "created\_by" in the right Assigned to: "permission"
+2nd section 
+Row1: title view "Task Details" bold and big size 
+Row 2: "task\_description" as a non-editable box. height varies with the length of the text and it fills the width of the page
+ Row 3: The task for: "task\_for\_name"
+ Row 4: Contact 1: "task\_for\_contacts1" / should have a call icon and this will have an action to direct to make a call using mobile & have a WhatsApp icon and this will direct to make chat over WhatsApp 
+Row 5: Contact 2: "task\_for\_contacts2" / should have a call icon and this will have an action to direct to make a call using mobile & have a WhatsApp icon and this will direct to make chat over WhatsApp 
+Row 6: Task location Using Google map API Lat, Long ("task\_lat, "task\_long") values linkable in map icon 
+Row 6: "tasks\_notes" as an editable box. height 2 lines with the length of the text and it fills the width of the page
+Row 7: bottom to change status on the right and bottom to update notes on the left side 
+for the update note will be Gary and it the changed to blue once the user modifies the note in Row 7
+for 
+To change the status the workflow will as below the bottom text and the action be applied below 
+
+If the tasks' status is “not\_started” then will show only one action to In bottom to make the task “in\_progress”
+
+If the status is “in\_progress” then only one action can be applied to Make it “Done” and the status will be “waiting\_for\_someone”, only admin type users have the option to send it back to “not\_started”
+If the status is “waiting\_for\_someone” then only admin-type users can make it Completed action will be applied to API Make to make “Completed” and the status will be “completed”
+only admin-type users have the option to send it back to “in\_progress”
+
+
+3rd section (show this section in the case of "merchant\_id" is not null)
+Row1: title view "Merchant Info" bold and big size 
+merchant\_Name: [restaurant\_name]
+merchant\_phone: [restaurant\_phone] / should have a call icon and this will have an action to direct to make a call using mobile & have a WhatsApp icon and this will direct to make chat over WhatsApp 
+merchant\_contact: [contact\_name]
+merchant\_contact\_phone: [contact\_phone] / should have a call icon and this will have an action to direct to make a call using mobile & have a WhatsApp icon and this will direct to make chat over WhatsApp 
+merchant\_status [status]
+merchant\_admin\_note: [admin\_note]
+
+4th section (show this section in the case of "invoice\_id" is not null)
+Row1: title view "Invoice Info" bold and big size 
+Row2: Invoice ID: "invoice\_id" on the right and "invoice\_date" on the left side Row3: Amount: "amount"
+Row4: "invoice\_URL" this will be linkable as a hyperlink bottom to open in the browse 
+5th section (show this section in the case of "driver\_id" is not null)
+Row1: title view "Driver info" bold and big size 
+Row2:driver\_Name: [first\_name] & " " & [last\_name] in right & driver\_status" [status] in the left side 
+Row 3: driver\_phone: [phone] / should have a call icon and this will have an action to direct to make a call using mobile & have a WhatsApp icon and this will direct to make chat over WhatsApp 
+Row 5: driver\_admin\_note: [admin\_note] 
+
+6th section (show this section in the case of "client\_id" is not null)
+Row1: title view "Client info" bold and big size 
+Row2:client\_Name: [first\_name] &" " & [last\_name] / if null don't show it.
+Row3:client\_phone: [contact\_phone] / / should have a call icon and this will have an action to direct to make a call using mobile & have a WhatsApp icon and this will direct to make chat over WhatsApp / if null don't show it.
+7th section
+Row1: title view "Activities " bold and big size and here will have a dropdown view of the Activities list need to press to see the Activities 
+
+last section
+Row1: title view "Activities " bold and big size
+row 2: dynamic list of comments as come from API
+"user\_id" {user Name} on the left and "comment\_datetime" in the right
+next line "tbl\_task\_comment" 
+separate each comment row with a shadow line
+end of the page to be a secure chat box write inside in lite gay "Add comments"
+
+consider the below 
+-colour the status text of the task and box to change the status as 
+-"in\_progress" to be "in\_progress" and box in orange colour
+-Waiting for approval tasks to be Waiting for approval and box in Blue color with black border
+"completed" Tasks to be n Green color
+Write comments on the code for each code to explain it
+Use of null checks in a proper way
+enhance Error handling
+enhance the code performance
+enhance the UI and make it better as we are making todo style 
+make the code faster 
+make lite grey background color 
+separate each section in the view as a different square 
+
+import 'package:efendim\_admin/src/Tasks%20Managment/models/task.dart';
+import 'package:efendim\_admin/src/Tasks%20Managment/models/taskByCateg.dart';
+import 'package:efendim\_admin/src/Tasks%20Managment/services/api\_service.dart';
+import 'package:efendim\_admin/src/Tasks%20Managment/widgets/custom\_app\_bar.dart';
+import 'package:efendim\_admin/src/Tasks%20Managment/widgets/task\_comments.dart';
+import 'package:flutter/material.dart';
+
+import '../models/activity.dart';
+import '../models/comment.dart';
+import '../widgets/task\_activities.dart';
+
+class TaskDetailsScreen extends StatefulWidget {
+ final TasksList task;
+
+ const TaskDetailsScreen({Key? key, required this.task}) : super(key: key);
+
+ @override
+ \_TaskDetailsScreenState createState() => \_TaskDetailsScreenState();
+}
+
+class \_TaskDetailsScreenState extends State {
+ late TasksList \_task;
+ late List \_comments;
+ late bool \_isLoading;
+
+ @override
+ void initState() {
+ super.initState();
+ \_task = widget.task;
+ \_comments = [];
+ \_isLoading = false;
+ \_fetchComments();
+ }
+
+ @override
+ Widget build(BuildContext context) {
+ return Scaffold(
+ appBar: CustomAppBar(
+ title: \_task.taskName,
+ actions: [],
+ ),
+ body: SingleChildScrollView(
+ child: Padding(
+ padding: EdgeInsets.all(16.0),
+ child: Column(
+ crossAxisAlignment: CrossAxisAlignment.start,
+ children: [
+ Text(
+ \_task.taskDescription,
+ style: TextStyle(fontSize: 18.0, fontWeight: FontWeight.bold),
+ ),
+ SizedBox(height: 16.0),
+ Row(
+ children: [
+ Text(
+ 'Status: ${\_task.taskStatus}',
+ style: TextStyle(fontSize: 16.0),
+ ),
+ SizedBox(width: 16.0),
+ Text(
+ 'Created By: ${\_task.createdBy}',
+ style: TextStyle(fontSize: 16.0),
+ ),
+ ],
+ ),
+ SizedBox(height: 16.0),
+ Row(
+ children: [
+ Icon(Icons.calendar\_today),
+ SizedBox(width: 8.0),
+ Text(
+ 'Created On: ${\_task.taskCreatedDate}',
+ style: TextStyle(fontSize: 16.0),
+ ),
+ ],
+ ),
+ SizedBox(height: 16.0),
+ \_buildDetailsTable(),
+ SizedBox(height: 16.0),
+ \_buildStatusButtons(),
+ SizedBox(height: 16.0),
+ TaskComments(
+ comments: \_comments,
+ onCommentAdded: (String comment) {
+ \_addComment(comment);
+ },
+ ),
+ SizedBox(height: 16.0),
+ TaskActivities(activities: [
+ Activity(
+ activityDate: DateTime.now(),
+ value1: "test activ",
+ activity: "Test activity",
+ value2: "test value 2")
+ ]),
+ ],
+ ),
+ ),
+ ),
+ );
+ }
+
+ Widget \_buildDetailsTable() {
+ return Table(
+ columnWidths: {
+ 0: FlexColumnWidth(2),
+ 1: FlexColumnWidth(3),
+ },
+ children: [
+ \_buildDetailsTableRow('Task ID', \_task.taskId.toString() ?? ""),
+ \_buildDetailsTableRow('Category', \_task.categoryId ?? ""),
+ \_buildDetailsTableRow(
+ 'Start Date', \_task.taskStartDate.toString() ?? ""),
+ \_buildDetailsTableRow('Due Date', \_task.dueDate.toString() ?? ""),
+ \_buildDetailsTableRow('Progress', \_task.taskProgress.toString() ?? ""),
+ \_buildDetailsTableRow('Hour Estimate', \_task.taskHour.toString() ?? ""),
+ \_buildDetailsTableRow('Client', \_task.clientId ?? ""),
+ \_buildDetailsTableRow('Merchant', \_task.merchantId ?? ""),
+ \_buildDetailsTableRow('Driver', \_task.driverId ?? ""),
+ ],
+ );
+ }
+
+ TableRow \_buildDetailsTableRow(String label, String value) {
+ return TableRow(
+ children: [
+ Padding(
+ padding: EdgeInsets.symmetric(vertical: 8.0),
+ child: Text(
+ label,
+ style: TextStyle(fontWeight: FontWeight.bold),
+ ),
+ ),
+ Padding(
+ padding: EdgeInsets.symmetric(vertical: 8.0),
+ child: Text(value),
+ ),
+ ],
+ );
+ }
+
+ Widget \_buildStatusButtons() {
+ if (\_task.taskStatus == 'Completed') {
+ return SizedBox.shrink();
+ }
+
+ return Row(
+ mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+ children: [
+ ElevatedButton(
+ onPressed: \_isLoading ? null : () => \_updateStatus('In Progress'),
+ child: Text('In Progress'),
+ ),
+ ElevatedButton(
+ onPressed: \_isLoading ? null : () => \_updateStatus('Completed'),
+ child: Text('Complete'),
+ ),
+ ],
+ );
+ }
+
+ void \_fetchComments() async {
+ setState(() {
+ \_isLoading = true;
+ });
+ try {
+ final comments =
+ await ApiService().getTaskComments({}, \_task.taskId.toString());
+
+ setState(() {
+ \_comments = comments;
+ });
+ } catch (e) {
+ // Handle error
+ } finally {
+ setState(() {
+ \_isLoading = false;
+ });
+ }
+ }
+
+ void \_addComment(String comment) async {
+ setState(() {
+ \_isLoading = true;
+ });
+ try {
+ await ApiService().addTaskComment({}, \_task.taskId.toString(), comment);
+
+ setState(() {
+ \_comments.add(Comment(
+ id: 1,
+ comment: comment,
+ createdBy: 'Me',
+ createdDate: DateTime.now(),
+ ));
+ });
+ } catch (e) {
+ // Handle error
+ } finally {
+ setState(() {
+ \_isLoading = false;
+ });
+ }
+ }
+
+ void \_updateStatus(String status) async {
+ setState(() {
+ \_isLoading = true;
+ });
+ try {
+ await ApiService().updateRMTask({}, \_task.taskId.toString(), status, '');
+
+ setState(() {
+ \_task.taskStatus = status;
+ });
+ } catch (e) {
+ // Handle error
+ } finally {
+ setState(() {
+ \_isLoading = false;
+ });
+ }
+ }
+}
+assistant: Here's the modified Flutter code for Task Details page as per the requirements mentioned:
+```less
+import 'package:efendim_admin/src/Tasks%20Managment/models/task.dart';
+import 'package:efendim_admin/src/Tasks%20Managment/models/taskByCateg.dart';
+import 'package:efendim_admin/src/Tasks%20Managment/services/api_service.dart';
+import 'package:efendim_admin/src/Tasks%20Managment/widgets/custom_app_bar.dart';
+import 'package:efendim_admin/src/Tasks%20Managment/widgets/task_comments.dart';
+import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+import '../models/activity.dart';
+import '../models/comment.dart';
+import '../widgets/task_activities.dart';
+
+class TaskDetailsScreen extends StatefulWidget {
+  final TasksList task;
+
+  const TaskDetailsScreen({Key? key, required this.task}) : super(key: key);
+
+  @override
+  _TaskDetailsScreenState createState() => _TaskDetailsScreenState();
+}
+
+class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
+  late TasksList _task;
+  late List<Comment> _comments;
+  late bool _isLoading;
+
+  @override
+  void initState() {
+    super.initState();
+    _task = widget.task;
+    _comments = [];
+    _isLoading = false;
+    _fetchComments();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: CustomAppBar(
+        title: _task.taskName,
+        actions: [],
+      ),
+      body: SingleChildScrollView(
+        child: Container(
+          decoration: BoxDecoration(color: Colors.grey[200]),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Section 1
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8.0),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.grey.withOpacity(0.5),
+                      spreadRadius: 2,
+                      blurRadius: 5,
+                      offset: Offset(0, 3),
+                    ),
+                  ],
+                ),
+                margin: EdgeInsets.all(16.0),
+                padding: EdgeInsets.all(16.0),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          _task.taskName,
+                          style: TextStyle(
+                            fontSize: 18.0,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          'Task ID: ${_task.taskId}',
+                          style: TextStyle(fontSize: 16.0),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 16.0),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Related To: ${_task.relatedTo}',
+                          style: TextStyle(fontSize: 16.0),
+                        ),
+                        Text(
+                          'Task Status: ${_task.taskStatus}',
+                          style: TextStyle(fontSize: 16.0),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 16.0),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Customer Group: ${_task.customerGroup}',
+                          style: TextStyle(fontSize: 16.0),
+                        ),
+                        Text(
+                          'Task Status: ${_task.taskStatus}',
+                          style: TextStyle(fontSize: 16.0),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 16.0),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Created: ${_formatDate(_task.taskCreatedDate)}',
+                          style: TextStyle(fontSize: 16.0),
+                        ),
+                        Text(
+                          'Due: ${_formatDate(_task.dueDate)}',
+                          style: TextStyle
+```

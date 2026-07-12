@@ -1,0 +1,138 @@
+assistant: You are correct, my apologies for the confusion.
+
+To pass the correct API key to the certbot command for each domain, you can modify the `certbot_loop.sh` script to read the JSON file and extract the API key, email, and domains for each credential separately. Then you can pass those variables to the certbot command for each domain using the `--dns-google-credentials` option with a temporary credentials file.
+
+Here's an updated version of the `certbot_loop.sh` script:
+```bash
+#!/bin/bash
+
+# Read the JSON file and extract the credentials
+for key in $(jq -r '.credentials | keys[]' /etc/letsencrypt/credentials.json); do
+    api_key=$(jq -r ".credentials.$key.api_key" /etc/letsencrypt/credentials.json)
+    email=$(jq -r ".credentials.$key.email" /etc/letsencrypt/credentials.json)
+    domains=$(jq -r ".credentials.$key.domains[]" /etc/letsencrypt/credentials.json)
+
+    # Create temporary credentials file
+    echo "{\"api_key\": \"$api_key\"}" > /tmp/credentials.json
+
+    # Run certbot command for each domain
+    for domain in $domains; do
+        certbot certonly --dns-google --dns-google-credentials /tmp/credentials.json \
+        --dns-google-propagation-seconds 30 --email $email --agree-tos --no-eff-email -d $domain -d *.$domain
+    done
+
+    # Remove temporary credentials file
+    rm /tmp/credentials.json
+done
+```
+In this example, the script uses the `jq` command to extract the API key, email, and domains for each credential from the `credentials.json` file. Then it creates a temporary credentials file containing only the API key for each credential and passes it to the certbot command using the `--dns-google-credentials` option. After the certbot command completes, the script removes the temporary credentials file.
+
+Note that you need to modify the `docker-compose.yml` file to pass the `credentials.json` file to the `certbot_loop.sh` script as an environment variable. Here's an updated version of the `docker-compose.yml` file:
+```bash
+version: '3.7'
+
+services:
+  certbot:
+    image: certbot/dns-google
+    container_name: certbot
+    volumes:
+      - ./certs:/etc/letsencrypt
+    environment:
+      - CREDENTIALS_JSON=$(cat /path/to/your/credentials.json)
+    command: > 
+      sh -c "echo \"$CREDENTIALS_JSON\" > /etc/letsencrypt/credentials.json && /app/certbot_loop.sh"
+    depends_on:
+      - nginx
+  nginx:
+    image: nginx:latest
+    container_name: nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./certs:/etc/letsencrypt
+      - ./html:/usr/share/nginx/html
+```
+In this example, the `certbot` service uses the `environment` section to pass the contents of the `credentials.json` file to the `certbot_loop.sh` script as an environment variable called `CREDENTIALS_JSON`. The `command` section of the `certbot` service uses `sh` to create a temporary credentials file containing the value of `CREDENTIALS_JSON`, write it to `/etc/letsencrypt/credentials.json`, and then run the `certbot_loop.sh` script.
+user: OK, now add the jq installation to the certbot container. Does the certbot command run once a day from the container's CRON?
+assistant: Sure! To install jq in the certbot container, you can add the following line to the Dockerfile of the certbot image:
+```sql
+RUN apt-get update && apt-get install -y jq
+```
+Here's the updated Dockerfile:
+```sql
+FROM certbot/dns-google
+
+RUN apt-get update && apt-get install -y jq
+```
+Then, you can rebuild the certbot image with the updated Dockerfile using the following command:
+```bash
+docker build -t certbot/dns-google:latest .
+```
+As for running the certbot command once a day using the container's CRON, you can add the following line to the command section of the certbot service in the docker-compose.yml file:
+```bash
+command: sh -c "echo '0 0 * * * /app/certbot_loop.sh' > /etc/cron.d/certbot-cron && crontab /etc/cron.d/certbot-cron && cron -f"
+```
+This line sets up a cron job to run the certbot\_loop.sh script once a day at midnight, and then starts the cron daemon in the foreground so that the container does not exit.
+
+With these changes, the updated docker-compose.yml file should look like this:
+```javascript
+version: '3.7'
+
+services:
+  certbot:
+    build: .
+    container_name: certbot
+    volumes:
+      - ./certs:/etc/letsencrypt
+      - /path/to/your/credentials.json:/etc/letsencrypt/credentials.json:ro
+    command: sh -c "echo '0 0 * * * /app/certbot_loop.sh' > /etc/cron.d/certbot-cron && crontab /etc/cron.d/certbot-cron && cron -f"
+    depends_on:
+      - nginx
+  nginx:
+    image: nginx:latest
+    container_name: nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./certs:/etc/letsencrypt
+      - ./html:/usr/share/nginx/html
+```
+I hope this helps!
+user: Can you modify the docker-compose file to include the CRON and the jq and not use a `dockerfile`?
+assistant: Sure! Here's an updated docker-compose.yml file that includes the changes:
+```javascript
+version: '3.7'
+
+services:
+  certbot:
+    image: certbot/dns-google
+    container_name: certbot
+    volumes:
+      - ./certs:/etc/letsencrypt
+      - /path/to/your/credentials.json:/etc/letsencrypt/credentials.json:ro
+    command: sh -c "apt-get update && apt-get install -y jq && echo '0 0 * * * /app/certbot_loop.sh' > /etc/cron.d/certbot-cron && crontab /etc/cron.d/certbot-cron && cron -f"
+    depends_on:
+      - nginx
+  nginx:
+    image: nginx:latest
+    container_name: nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./certs:/etc/letsencrypt
+      - ./html:/usr/share/nginx/html
+```
+In this updated version, we've added the following changes to the certbot service:
+
+1. We've added the `apt-get update && apt-get install -y jq` command to install jq in the container.
+2. We've added the `echo '0 0 * * * /app/certbot_loop.sh' > /etc/cron.d/certbot-cron && crontab /etc/cron.d/certbot-cron && cron -f` command to set up the cron job and start the cron daemon in the foreground.
+
+Note that we've combined all these commands into a single `sh -c` command to simplify the command section of the service.
+
+I hope this helps!

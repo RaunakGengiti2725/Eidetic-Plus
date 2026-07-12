@@ -1,0 +1,131 @@
+{
+  "rows": 20,
+  "failures": 6,
+  "bucket_counts": {
+    "abstention": 2,
+    "reader_error": 4
+  },
+  "category_bucket_counts": {
+    "multi-hop": {
+      "abstention": 1,
+      "reader_error": 1
+    },
+    "open-domain": {
+      "reader_error": 2,
+      "abstention": 1
+    },
+    "temporal": {
+      "reader_error": 1
+    }
+  },
+  "consolidation": {
+    "eidetic-plus-full": {
+      "groups": 6,
+      "pending_processed": 156,
+      "facts_extracted": 1824,
+      "events_indexed": 1824,
+      "extraction_timed_out": 0,
+      "extraction_deferred": 0,
+      "extraction_windows_planned": 156,
+      "extraction_windows_submitted": 124,
+      "extraction_window_cap_per_record": 0,
+      "extraction_call_budget": 180,
+      "extraction_raw_only_bounded": 32,
+      "extraction_partial_bounded": 0,
+      "long_haystack_bounded": 1,
+      "long_haystack_raw_only": 1
+    }
+  },
+  "items": [
+    {
+      "system": "eidetic-plus-full",
+      "dataset": "locomo",
+      "category": "multi-hop",
+      "sample_id": "c2_q2",
+      "question": "What martial arts has John done?",
+      "gold": "Kickboxing, Taekwondo",
+      "predicted": "I don't have enough verified evidence in memory to answer that confidently.",
+      "bucket": "abstention",
+      "suggested_fix": "calibrate ABSTENTION_V2_TAU on dev logs; inspect entailment/proof signals",
+      "coverage": 0.4481445550918579,
+      "verified": false,
+      "abstained": true,
+      "error": ""
+    },
+    {
+      "system": "eidetic-plus-full",
+      "dataset": "locomo",
+      "category": "open-domain",
+      "sample_id": "c2_q8",
+      "question": "What might John's financial status be?",
+      "gold": "Middle-class or wealthy",
+      "predicted": "John's financial status is likely strained: he recently lost his job [S4], reported his car breakdown was 'putting a strain on my wallet' and cited 'money problems' [S13], and as of 2023-08-05, he had only a prospective job offer but no confirmed new income [S4].",
+      "bucket": "reader_error",
+      "suggested_fix": "inspect context blocks and reader scaffold; failure happened with plausible evidence present",
+      "coverage": 0.3983951807022095,
+      "verified": true,
+      "abstained": false,
+      "error": ""
+    },
+    {
+      "system": "eidetic-plus-full",
+      "dataset": "locomo",
+      "category": "open-domain",
+      "sample_id": "c3_q4",
+      "question": "What pets wouldn't cause any discomfort to Joanna?",
+      "gold": "Hairless cats or pigs,since they don't have fur, which is one of the main causes of Joanna's allergy.",
+      "predicted": "Turtles wouldn't cause any discomfort to Joanna [S10] 'I'm allergic to most reptiles and animals with fur' \u2014 but she explicitly wishes she could get turtles [S18] 'I would get two turtles today if I could!', confirming turtles are an exception; this is further supported by her repeated positive, unbothered interactions with Nate's turtles across multiple sessions [S11][S13].",
+      "bucket": "reader_error",
+      "suggested_fix": "inspect context blocks and reader scaffold; failure happened with plausible evidence present",
+      "coverage": 0.6548572182655334,
+      "verified": true,
+      "abstained": false,
+      "error": ""
+    },
+    {
+      "system": "eidetic-plus-full",
+      "dataset": "locomo",
+      "category": "multi-hop",
+      "sample_id": "c3_q5",
+      "question": "What are Joanna's hobbies?",
+      "gold": "Writing, watchingmovies, exploringnature, hanging withfriends.",
+      "predicted": "writing [S26], reading [S1], exploring nature [S2], watching movies [S25], cooking and baking [S9]",
+      "bucket": "reader_error",
+      "suggested_fix": "inspect context blocks and reader scaffold; failure happened with plausible evidence present",
+      "coverage": 0.6817671060562134,
+      "verified": true,
+      "abstained": false,
+      "error": ""
+    },
+    {
+      "system": "eidetic-plus-full",
+      "dataset": "locomo",
+      "category": "open-domain",
+      "sample_id": "c4_q3",
+      "question": "Would Tim enjoy reading books by C. S. Lewis or John Greene?",
+      "gold": "C. S.Lewis",
+      "predicted": "I don't have enough verified evidence in memory to answer that confidently.",
+      "bucket": "abstention",
+      "suggested_fix": "calibrate ABSTENTION_V2_TAU on dev logs; inspect entailment/proof signals",
+      "coverage": 0.5705864429473877,
+      "verified": false,
+      "abstained": true,
+      "error": ""
+    },
+    {
+      "system": "eidetic-plus-full",
+      "dataset": "locomo",
+      "category": "temporal",
+      "sample_id": "c4_q6",
+      "question": "In which month's game did John achieve a career-high score in points?",
+      "gold": "June 2023",
+      "predicted": "July [S0] \"John achieved his personal best score of 40 points.\" [S9] \"Last week I scored 40 points, my highest ever\".",
+      "bucket": "reader_error",
+      "suggested_fix": "inspect context blocks and reader scaffold; failure happened with plausible evidence present",
+      "coverage": 0.5054888129234314,
+      "verified": true,
+      "abstained": false,
+      "error": ""
+    }
+  ]
+}

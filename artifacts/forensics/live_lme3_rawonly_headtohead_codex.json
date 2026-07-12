@@ -1,0 +1,64 @@
+{
+  "rows": 9,
+  "failures": 2,
+  "bucket_counts": {
+    "abstention": 1,
+    "retrieval_miss": 1
+  },
+  "category_bucket_counts": {
+    "single-session-user": {
+      "abstention": 1,
+      "retrieval_miss": 1
+    }
+  },
+  "consolidation": {
+    "eidetic-plus-full": {
+      "groups": 3,
+      "pending_processed": 148,
+      "facts_extracted": 0,
+      "events_indexed": 0,
+      "extraction_timed_out": 0,
+      "extraction_deferred": 0,
+      "extraction_windows_planned": 475,
+      "extraction_windows_submitted": 0,
+      "extraction_window_cap_per_record": 0,
+      "extraction_call_budget": 45,
+      "extraction_raw_only_bounded": 148,
+      "extraction_partial_bounded": 0,
+      "long_haystack_bounded": 3,
+      "long_haystack_raw_only": 3
+    }
+  },
+  "items": [
+    {
+      "system": "rag-full",
+      "dataset": "longmemeval",
+      "category": "single-session-user",
+      "sample_id": "e47becba",
+      "question": "What degree did I graduate with?",
+      "gold": "Business Administration",
+      "predicted": "I do not have that in memory.",
+      "bucket": "abstention",
+      "suggested_fix": "calibrate ABSTENTION_V2_TAU on dev logs; inspect entailment/proof signals",
+      "coverage": null,
+      "verified": null,
+      "abstained": false,
+      "error": ""
+    },
+    {
+      "system": "rag-vector",
+      "dataset": "longmemeval",
+      "category": "single-session-user",
+      "sample_id": "51a45a95",
+      "question": "Where did I redeem a $5 coupon on coffee creamer?",
+      "gold": "Target",
+      "predicted": "You redeemed the $5 coupon on coffee creamer from your email inbox [S0].",
+      "bucket": "retrieval_miss",
+      "suggested_fix": "raise lexical/graph/event recall depth; inspect candidate_memory_ids and query parsing",
+      "coverage": null,
+      "verified": null,
+      "abstained": false,
+      "error": ""
+    }
+  ]
+}

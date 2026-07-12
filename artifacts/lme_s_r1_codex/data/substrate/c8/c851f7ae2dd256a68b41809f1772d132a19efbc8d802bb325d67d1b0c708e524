@@ -1,0 +1,11 @@
+user: I'm writing an inspirational and evangelical sales pitch for a feature store company. I want to open up with something big, inspirational, and ambitious. Here are some rough points I have:
+- The main thing that affects how well your ML applications perform, is how well they understand the world.
+- That understanding is based on the data it receives about your users and products, called features.
+- The world’s best ML teams invest heavily in feature infrastructure t
+- We build the platform for your team to do the best featuring engineering
+ - 10x faster iteration
+ - 10x cheaper
+Can you take the above as inspiration and write a new 4-8 sentence inspirational pitch?
+assistant: Imagine a world where your machine learning applications don't just perform well, but consistently exceed expectations, transforming the way your business thrives. The key to unlocking this potential lies in the heart of your data - the features that help your models understand your users and products like never before. The world's leading ML teams know this secret and have invested heavily in feature infrastructure to stay ahead of the curve.
+
+That's where we come in. Our cutting-edge feature store platform empowers your team to excel in feature engineering, enabling you to iterate 10 times faster and reduce costs by a factor of 10. This is not just a tool, but a revolution in the world of machine learning that will propel your organization to unparalleled heights of innovation and success. Embrace the future with us, and together, let's redefine the boundaries of what's possible.

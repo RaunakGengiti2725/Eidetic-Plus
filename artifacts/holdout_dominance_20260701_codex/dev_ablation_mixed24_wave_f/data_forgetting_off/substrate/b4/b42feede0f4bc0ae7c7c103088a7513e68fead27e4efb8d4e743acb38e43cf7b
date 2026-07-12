@@ -1,0 +1,217 @@
+assistant: I apologize for the confusion. The issue is that the `ip_addresses` list contains strings that have a trailing dot at the end. This is because the `Value` field in Route 53 resource record sets includes a trailing dot to represent the root of the domain.
+
+To fix this issue, you can modify the code to remove the trailing dot from the IP addresses before comparing them to the public IP address of the container. Here is the updated code:
+```python
+import boto3
+
+# Create a Route 53 client
+route53 = boto3.client('route53')
+
+# Create an EC2 client in the Singapore region
+ec2 = boto3.client('ec2', region_name='ap-southeast-1')
+
+# Create an ECS client in the Singapore region
+ecs = boto3.client('ecs', region_name='ap-southeast-1')
+
+# Create an SNS client in the US East (N. Virginia) region
+sns = boto3.client('sns', region_name='us-east-1')
+
+# Get the network interface ID attached to the container
+response = ecs.list_tasks(cluster='tools', serviceName='proxy', desiredStatus='RUNNING')
+task_arn = response['taskArns'][0]
+response = ecs.describe_tasks(cluster='tools', tasks=[task_arn])
+eni_id = response['tasks'][0]['attachments'][0]['details'][1]['value']
+
+# Get the public IP address associated with the network interface
+response = ec2.describe_network_interfaces(NetworkInterfaceIds=[eni_id])
+public_ip = response['NetworkInterfaces'][0]['Association']['PublicIp']
+
+# Get the IP addresses associated with the DNS record
+response = route53.list_resource_record_sets(
+    HostedZoneId='Z28VHSFZLUM4BL',
+    StartRecordName='proxy-test.internal.node40.com',
+    StartRecordType='A'
+)
+ip_addresses = []
+for record in response['ResourceRecordSets']:
+    if 'ResourceRecords' in record:
+        ip_address = record['ResourceRecords'][0]['Value']
+        # Remove the trailing dot from the IP address
+        ip_addresses.append(ip_address[:-1] if ip_address.endswith('.') else ip_address)
+
+# Check if the public IP matches any of the IP addresses
+if public_ip in ip_addresses:
+    print('OK')
+else:
+    # Update the DNS record with the new IP address
+    response = route53.change_resource_record_sets(
+        HostedZoneId='Z28VHSFZLUM4BL',
+        ChangeBatch={
+            'Changes': [
+                {
+                    'Action': 'UPSERT',
+                    'ResourceRecordSet': {
+                        'Name': 'proxy-test.internal.node40.com',
+                        'Type': 'A',
+                        'TTL': 300,
+                        'ResourceRecords': [{'Value': public_ip}]
+                    }
+                }
+            ]
+        }
+    )
+    print('FAIL')
+
+    # Send a message to the SNS topic
+    message = f'The public IP of the Singapore Proxy has changed! {ip_addresses[0]} -> {public_ip}.'
+    response = sns.publish(
+        TopicArn='arn:aws:sns:us-east-1:959562864500:prod-proxy',
+        Message=message
+    )
+```
+This code removes the trailing dot from the IP addresses in the `ip_addresses` list before comparing them to the public IP address of the container. This should correctly identify whether the public IP address matches the DNS record and print either 'OK' or 'FAIL' accordingly.
+user: this didn't work either, the ip\_addresses array is returning ['1.2.3.4', '13.250.2.198']
+
+So it stops at the check for OK and doesn't fail. the IP address for the ENI and the IP address for the DNS record need to be in their own separate variables, then matched.
+assistant: I apologize for the confusion again. I see the issue now - the IP address associated with the ENI is not in the `ip_addresses` list, so the code always enters the `FAIL` condition.
+
+You are correct that the IP address associated with the ENI needs to be checked separately from the IP addresses associated with the DNS record. Here is the updated code:
+```python
+import boto3
+
+# Create a Route 53 client
+route53 = boto3.client('route53')
+
+# Create an EC2 client in the Singapore region
+ec2 = boto3.client('ec2', region_name='ap-southeast-1')
+
+# Create an ECS client in the Singapore region
+ecs = boto3.client('ecs', region_name='ap-southeast-1')
+
+# Create an SNS client in the US East (N. Virginia) region
+sns = boto3.client('sns', region_name='us-east-1')
+
+# Get the network interface ID attached to the container
+response = ecs.list_tasks(cluster='tools', serviceName='proxy', desiredStatus='RUNNING')
+task_arn = response['taskArns'][0]
+response = ecs.describe_tasks(cluster='tools', tasks=[task_arn])
+eni_id = response['tasks'][0]['attachments'][0]['details'][1]['value']
+
+# Get the public IP address associated with the network interface
+response = ec2.describe_network_interfaces(NetworkInterfaceIds=[eni_id])
+eni_public_ip = response['NetworkInterfaces'][0]['Association']['PublicIp']
+
+# Get the IP addresses associated with the DNS record
+response = route53.list_resource_record_sets(
+    HostedZoneId='Z28VHSFZLUM4BL',
+    StartRecordName='proxy-test.internal.node40.com',
+    StartRecordType='A'
+)
+dns_public_ips = []
+for record in response['ResourceRecordSets']:
+    if 'ResourceRecords' in record:
+        ip_address = record['ResourceRecords'][0]['Value']
+        # Remove the trailing dot from the IP address
+        dns_public_ips.append(ip_address[:-1] if ip_address.endswith('.') else ip_address)
+
+# Check if the public IP matches any of the IP addresses associated with the DNS record
+if eni_public_ip in dns_public_ips:
+    print('OK')
+else:
+    # Update the DNS record with the new IP address
+    response = route53.change_resource_record_sets(
+        HostedZoneId='Z28VHSFZLUM4BL',
+        ChangeBatch={
+            'Changes': [
+                {
+                    'Action': 'UPSERT',
+                    'ResourceRecordSet': {
+                        'Name': 'proxy-test.internal.node40.com',
+                        'Type': 'A',
+                        'TTL': 300,
+                        'ResourceRecords': [{'Value': eni_public_ip}]
+                    }
+                }
+            ]
+        }
+    )
+    print('FAIL')
+
+    # Send a message to the SNS topic
+    message = f'The public IP of the Singapore Proxy has changed! {dns_public_ips[0]} -> {eni_public_ip}.'
+    response = sns.publish(
+        TopicArn='arn:aws:sns:us-east-1:959562864500:prod-proxy',
+        Message=message
+    )
+```
+This code checks if the public IP address associated with the ENI matches any of the IP addresses associated with the DNS record. If there is a match, it prints 'OK'. If there is no match, it updates the DNS record with the new IP address and prints 'FAIL'. It then sends a message to the SNS topic to notify about the change if the public IP address has changed.
+user: the dns\_public\_ips array is still returning ['1.2.3.4', '13.250.2.198']
+
+it should only return the DNS record, remove the append
+assistant: You're right, I apologize for the mistake. The `dns_public_ips` array should only contain the IP address associated with the DNS record, so we can simply extract it from the first `ResourceRecordSet` in the response.
+
+Here is the updated code:
+```python
+import boto3
+
+# Create a Route 53 client
+route53 = boto3.client('route53')
+
+# Create an EC2 client in the Singapore region
+ec2 = boto3.client('ec2', region_name='ap-southeast-1')
+
+# Create an ECS client in the Singapore region
+ecs = boto3.client('ecs', region_name='ap-southeast-1')
+
+# Create an SNS client in the US East (N. Virginia) region
+sns = boto3.client('sns', region_name='us-east-1')
+
+# Get the network interface ID attached to the container
+response = ecs.list_tasks(cluster='tools', serviceName='proxy', desiredStatus='RUNNING')
+task_arn = response['taskArns'][0]
+response = ecs.describe_tasks(cluster='tools', tasks=[task_arn])
+eni_id = response['tasks'][0]['attachments'][0]['details'][1]['value']
+
+# Get the public IP address associated with the network interface
+response = ec2.describe_network_interfaces(NetworkInterfaceIds=[eni_id])
+eni_public_ip = response['NetworkInterfaces'][0]['Association']['PublicIp']
+
+# Get the IP address associated with the DNS record
+response = route53.list_resource_record_sets(
+    HostedZoneId='Z28VHSFZLUM4BL',
+    StartRecordName='proxy-test.internal.node40.com',
+    StartRecordType='A'
+)
+dns_public_ip = response['ResourceRecordSets'][0]['ResourceRecords'][0]['Value'][:-1]
+
+# Check if the public IP matches the IP address associated with the DNS record
+if eni_public_ip == dns_public_ip:
+    print('OK')
+else:
+    # Update the DNS record with the new IP address
+    response = route53.change_resource_record_sets(
+        HostedZoneId='Z28VHSFZLUM4BL',
+        ChangeBatch={
+            'Changes': [
+                {
+                    'Action': 'UPSERT',
+                    'ResourceRecordSet': {
+                        'Name': 'proxy-test.internal.node40.com',
+                        'Type': 'A',
+                        'TTL': 300,
+                        'ResourceRecords': [{'Value': eni_public_ip}]
+                    }
+                }
+            ]
+        }
+    )
+    print('FAIL')
+
+    # Send a message to the SNS topic
+    message = f'The public IP of the Singapore Proxy has changed! {dns_public_ip} -> {eni_public_ip}.'
+    response = sns.publish(
+        TopicArn='arn:aws:sns:us-east-1:959562864500:prod-proxy',
+        Message=message
+    )
+```
+This code gets the IP address associated with the DNS record from the first `ResourceRecordSet` in the response and assigns it to `dns_public_ip`. It then checks if the public IP address associated with the ENI matches the IP address associated with the DNS record. If there is a match, it prints 'OK'. If there is no match, it updates the DNS record with the new IP address and prints 'FAIL'. It then sends a message to the SNS topic to notify about the change if the public IP address has changed.

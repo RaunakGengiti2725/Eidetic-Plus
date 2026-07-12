@@ -1,0 +1,37 @@
+user: how do i set the windows hostname on an ec2 instance at start up when it is joined to AWS Managed Active Directory
+assistant: To set the Windows hostname on an EC2 instance at startup when it is joined to AWS Managed Active Directory, you can leverage user data scripts and PowerShell. The user data script will run at startup to configure the hostname and join the instance to the domain.
+
+Here's a step-by-step guide to achieving this:
+
+1. Launch a new Windows EC2 instance.
+2. In the 'Configure Instance Details' step, expand the 'Advanced Details' section at the bottom.
+3. In the 'User data' field, enter a PowerShell script to set the hostname and join the instance to the domain. Replace the placeholder values (YOUR\_HOSTNAME, YOUR\_DOMAIN\_NAME, DOMAIN\_USER, and DOMAIN\_PASSWORD) with your specific values:
+```powershell
+<powershell>
+$hostname = "YOUR_HOSTNAME"
+$domainName = "YOUR_DOMAIN_NAME"
+$domainUser = "DOMAIN_USER"
+$domainPassword = "DOMAIN_PASSWORD"
+
+# Set the hostname
+Rename-Computer -NewName $hostname -Force
+Restart-Computer -Force
+
+# Wait for the instance to restart
+Start-Sleep -s 60
+
+# Join the instance to the domain
+$securePassword = ConvertTo-SecureString -String $domainPassword -AsPlainText -Force
+$domainCreds = New-Object System.Management.Automation.PSCredential ($domainName + "\" + $domainUser, $securePassword)
+Add-Computer -DomainName $domainName -Credential $domainCreds -Restart -Force
+</powershell>
+```
+1. Finish configuring your instance as desired and launch it.
+
+The provided user data script will:
+
+1. Set the hostname of the instance.
+2. Restart the instance to apply the new hostname.
+3. Join the instance to the specified domain using the provided domain user and password.
+
+Please note that this script assumes your EC2 instance has access to the AWS Managed Active Directory. You may need to configure security groups and network settings to ensure proper connectivity.

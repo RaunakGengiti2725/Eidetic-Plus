@@ -1,0 +1,98 @@
+[
+  {
+    "dataset": "longmemeval",
+    "sample_id": "58bf7951"
+  },
+  {
+    "dataset": "longmemeval",
+    "sample_id": "6d550036"
+  },
+  {
+    "dataset": "longmemeval",
+    "sample_id": "8a2466db"
+  },
+  {
+    "dataset": "longmemeval",
+    "sample_id": "gpt4_f49edff3"
+  },
+  {
+    "dataset": "longmemeval",
+    "sample_id": "d7c942c3"
+  },
+  {
+    "dataset": "longmemeval",
+    "sample_id": "c4f10528"
+  },
+  {
+    "dataset": "longmemeval",
+    "sample_id": "1e043500"
+  },
+  {
+    "dataset": "longmemeval",
+    "sample_id": "e831120c"
+  },
+  {
+    "dataset": "longmemeval",
+    "sample_id": "75832dbd"
+  },
+  {
+    "dataset": "longmemeval",
+    "sample_id": "gpt4_8279ba02"
+  },
+  {
+    "dataset": "longmemeval",
+    "sample_id": "89941a93"
+  },
+  {
+    "dataset": "longmemeval",
+    "sample_id": "1903aded"
+  },
+  {
+    "dataset": "locomo",
+    "sample_id": "c0_q10"
+  },
+  {
+    "dataset": "locomo",
+    "sample_id": "c0_q18"
+  },
+  {
+    "dataset": "locomo",
+    "sample_id": "c0_q22"
+  },
+  {
+    "dataset": "locomo",
+    "sample_id": "c0_q83"
+  },
+  {
+    "dataset": "locomo",
+    "sample_id": "c1_q8"
+  },
+  {
+    "dataset": "locomo",
+    "sample_id": "c1_q18"
+  },
+  {
+    "dataset": "locomo",
+    "sample_id": "c3_q0"
+  },
+  {
+    "dataset": "locomo",
+    "sample_id": "c1_q42"
+  },
+  {
+    "dataset": "locomo",
+    "sample_id": "c2_q0"
+  },
+  {
+    "dataset": "locomo",
+    "sample_id": "c2_q9"
+  },
+  {
+    "dataset": "locomo",
+    "sample_id": "c4_q27"
+  },
+  {
+    "dataset": "locomo",
+    "sample_id": "c2_q68"
+  }
+]

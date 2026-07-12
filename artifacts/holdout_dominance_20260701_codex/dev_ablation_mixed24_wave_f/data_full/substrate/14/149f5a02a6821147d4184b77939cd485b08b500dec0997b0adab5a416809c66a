@@ -1,0 +1,161 @@
+assistant: * The text explains how to determine the size of a solar power system to power a specific load (e.g. a laptop that uses 120 watts and is used for 5 hours a day and a microwave that uses 1000 watts for 30 minutes a day)
+* The text explains that the battery size, solar array size, and solar charge controller size are all related and need to be taken into account when designing a solar power system.
+* The text advises to make the solar power system as big as possible, as solar panels and solar charge controllers are cheap but batteries are expensive.
+* The text also explains that by using a higher voltage battery (e.g. 24 volts) can decrease the cost of the system substantially by decreasing the size of the charge controller and the wire needed.
+* The text states that the author has other videos that go into deeper detail on the pros and cons of using a higher voltage battery and how to use converters to power 12-volt appliances with a higher voltage battery.
+user: so let's say we want to
+charge this battery with a DC to DC
+charger let's say that you drive your RV
+or van every single day and you have a
+small solar power system and you want to
+power the solar battery with your
+alternator safely so let's figure that
+out so let's say we take the Rena g1 and
+they have at one
+a 40 amp one let's say that we buy you
+the 40 amp one and we want to know how
+fast it can charge this battery well
+what we need to do is figure out how
+many watts this is pushing so we have 40
+amps as the output from the alternator
+with the DC to DC charger and the
+battery voltage is 12 volts so 40 times
+12 and the answer is 480 and so those
+two numbers divided by each other give
+us five so that means it will take five
+hours for the DC to DC R energy charger
+to charge up our two Bell born batteries
+it will take five hours of driving most
+people are not going to deeply discharge
+it all the way typically you know 50%
+depth of discharge with these would make
+more sense so it would take like two and
+a half hours of driving a day for most
+people to charge up their battery
+assistant: * The text explains how to determine the time it takes to charge a battery with a DC to DC charger using a specific example of the Renogy G1 40 amp charger.
+* To determine the time it takes to charge the battery, the output of the charger (40 amps) is multiplied by the battery voltage (12 volts) to get 480 watts.
+* Then the wattage (480) is divided by the battery capacity (2400) to get the time it takes to charge the battery (5 hours).
+* It is noted that most people would not deeply discharge their battery, which means it would take 2.5 hours of driving a day to charge their battery.
+user: and so
+as you notice we're just messing with
+watts watt hours kilowatt hours to
+figure out how long it takes to do
+certain things or how to store power or
+how to you know charge up a battery in a
+specified amount of time for our given
+conditions if this video lost you and
+you don't understand why two volts and
+amps please check out my beginner videos
+you need to read those or check out my
+book that's probably the easiest way to
+do it it's like step by step I show
+every single thing that you need to know
+and it makes it very easy to understand
+this might be a little confusing because
+I'm rushing through it because it's a
+video another thing to consider is in my
+book I have rules of thumb so that you
+don't have to use math or you have to
+use very little math and I also have pre
+calculated packages on in the book and
+on the website that I have so you guys
+can check that out as well but if you
+want you know power a specified load for
+a certain amount of time this is the
+best way to do it
+assistant: * The text explains that the video is going over how to determine how long it takes to charge a battery, store power or power a load using units of watts, watt hours and kilowatt hours.
+* The text advises that if the video is confusing, the reader should check out the author's beginner videos or book, which goes over the concepts step by step and has rules of thumb and pre-calculated packages to make it easier to understand without using math.
+user: now that we've done a
+simple example let's do a more difficult
+example let's say we have an air
+conditioner and it's a small window air
+conditioner and it takes 500 watts to
+power let's say we want to power this
+for 24 hours a day because out here in
+the desert I need to power one for that
+much time so I'm kind of doing the math
+for that right now so what you need to
+do is take this 500 watts and multiply
+it by 24 and this will give us 12,000
+because 1,000 watt hours equals one
+kilowatt hour we can say that this is 12
+kilo watt hours and now what we want to
+do is multiply it by three and this is
+the days of autonomy so they'll give us
+their
+six kilowatt hours is the size of our
+battery bank to power this air
+conditioner with backup redundancy and
+that is a very big battery pack all
+right you guys and so that's like 30
+battleborn batteries so we're talking
+like $30,000 dollars here yeah $30,000
+Wow
+assistant: * The text gives an example of a small window air conditioner that takes 500 watts to power and the goal is to power it for 24 hours a day.
+* To determine the size of the battery bank needed to power the air conditioner with backup redundancy, the text suggests multiplying the power consumption (500 watts) by the hours of use (24 hours) to get the watt-hours (12,000 watt-hours) and then multiplying that by the number of days of autonomy (3 days) to get the size of the battery bank (36,000 watt-hours or 36 kilowatt-hours).
+* The text notes that this is a very large battery pack and could cost around $30,000 dollars.
+user: Give me the keypoints from the text below:
+
+so now we need to figure out what size
+solar panel array will charge this size
+battery in one day in this
+recommendation of three days of autonomy
+does not apply to some people you guys
+might be looking at that thinking oh my
+gosh that is so expensive but if you
+live in Alaska and you're trying to
+power large loads you need to over panel
+your array you are gonna need this size
+of a battery to consistently power your
+device 24 hours a day 365 days out of
+the year so that might look scary but
+that's the true cost of powering a load
+with actual redundancy it's expensive
+and so just like we did before we just
+need to take this and divide it by five
+it will give you seven point two
+thousand so that means that we need a
+seven point two kilo watt solar array to
+be able to charge this up if you are
+actually building the system you want to
+bump this up to like nine or ten I would
+say ten kilowatt array for that size of
+a battery would be great and now let's
+say that this solar array is charging a
+48 volt battery let's figure out what
+size in amps we need to use for a solar
+charge controller it's a 10,000 divided
+by 48 for our battery being voltage will
+give us 208 amps this is the size of
+your solar charge controller if your
+solar charge controller has over current
+or over panelling protection you could
+actually instead use like a 200 amp
+controller or you could use two 100 amp
+controllers and have two separate arrays
+going through each controller so it
+really depends on what you want to do in
+your budget it's funny though through
+Chinese controllers you can actually get
+a better deal instead of finding like an
+80 amp you can actually do better off
+with 240 amp controllers so it really
+depends on how much money you want to
+spend but if you can spend $30,000 on
+this battery bank and then considering
+10 kilowatt hours and 50 cents per watt
+you could say that that's 5000 of solar
+panels so we're looking at like 35,000
+plus the copper plus the mounting
+the permits and stuff like that safety
+permits for mounting that large of a
+grounder right we're looking at like a
+forty thousand dollar system right here
+which is not bad considering what we're
+powering we're powering a pretty large
+load 24 hours a day
+assistant: -The text explains how to calculate the size of a solar panel array and solar charge controller needed to charge a battery with a certain capacity and power a specific load for a certain number of days.
+-It also mentions that the cost of the system can be high, especially when aiming for high levels of redundancy and power large loads.
+-It also notes that the cost of the system can vary depending on factors such as location and the choice of solar charge controller.
+-The text also mentions that the cost of the system can be reduced by increasing the battery voltage and using Chinese controllers.
+-The text estimates the cost of the system discussed to be around $40,000.

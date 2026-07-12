@@ -1,0 +1,108 @@
+{
+  "systems": [
+    "eidetic-plus-full"
+  ],
+  "accuracy": {
+    "eidetic-plus-full|locomo|temporal": {
+      "mean": 0.75,
+      "std": 0.0,
+      "ci95": [
+        0.40927543031016883,
+        0.9285207872478909
+      ],
+      "successes": 6,
+      "n": 8
+    },
+    "eidetic-plus-full|locomo|multi-hop": {
+      "mean": 0.5,
+      "std": 0.0,
+      "ci95": [
+        0.15003898915214947,
+        0.8499610108478506
+      ],
+      "successes": 2,
+      "n": 4
+    },
+    "eidetic-plus-full|locomo|open-domain": {
+      "mean": 1.0,
+      "std": 0.0,
+      "ci95": [
+        0.20654931437723745,
+        1.0
+      ],
+      "successes": 1,
+      "n": 1
+    },
+    "eidetic-plus-full|locomo|single-hop": {
+      "mean": 0.8571428571428571,
+      "std": 0.0,
+      "ci95": [
+        0.4868721707256811,
+        0.9743203756552565
+      ],
+      "successes": 6,
+      "n": 7
+    }
+  },
+  "head_to_head": {},
+  "survival": {},
+  "cost": {
+    "eidetic-plus-full": {
+      "tokens_per_write": 15511,
+      "tokens_per_query": 7190.4
+    }
+  },
+  "latency": {
+    "eidetic-plus-full": {
+      "search_p50": 4869.03060390614,
+      "search_p95": 7921.127533668187,
+      "e2e_p50": 15659.665729035623,
+      "e2e_p95": 18884.275224688467
+    }
+  },
+  "judge": {
+    "judge_model": "qwen3-max",
+    "judge_backend": "dashscope"
+  },
+  "integrity": {
+    "eidetic-plus-full": {
+      "n": 20,
+      "verified_correct": 13,
+      "answered": 20,
+      "unverified_answered": 2,
+      "abstained": 0,
+      "has_verify": true
+    }
+  },
+  "consolidation": {
+    "eidetic-plus-full": {
+      "groups": 1,
+      "pending_processed": 18,
+      "facts_extracted": 80,
+      "events_indexed": 80,
+      "extraction_timed_out": 0,
+      "extraction_deferred": 0,
+      "extraction_windows_planned": 18,
+      "extraction_windows_submitted": 18,
+      "extraction_window_cap_per_record": 0,
+      "extraction_call_budget": 90,
+      "extraction_raw_only_bounded": 0,
+      "record_raw_only_bounded": 0,
+      "extraction_partial_bounded": 0,
+      "long_haystack_bounded": 0,
+      "long_haystack_raw_only": 0
+    }
+  },
+  "log_fingerprint": {
+    "algorithm": "sha256",
+    "file_count": 1,
+    "combined_sha256": "b44a67fe9ffe7c5d60a667c2806f3cc4107d9969a51f36f63fb30ae48ad4cfff",
+    "files": [
+      {
+        "path": "eidetic-plus-full__run0.jsonl",
+        "bytes": 56751,
+        "sha256": "e74ea1fed39ba793ba320a4f9c6c9f2a3205b9175f8352da50c8719290db3420"
+      }
+    ]
+  }
+}

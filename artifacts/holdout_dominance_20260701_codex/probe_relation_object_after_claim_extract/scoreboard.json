@@ -1,0 +1,78 @@
+{
+  "systems": [
+    "eidetic-plus-full"
+  ],
+  "accuracy": {
+    "eidetic-plus-full|locomo|single-hop": {
+      "mean": 0.0,
+      "std": 0.0,
+      "ci95": [
+        0.0,
+        0.7934506856227626
+      ],
+      "successes": 0,
+      "n": 1
+    }
+  },
+  "head_to_head": {},
+  "survival": {},
+  "cost": {
+    "eidetic-plus-full": {
+      "tokens_per_write": 15511,
+      "tokens_per_query": 22
+    }
+  },
+  "latency": {
+    "eidetic-plus-full": {
+      "search_p50": 1681.8467499688268,
+      "search_p95": 1681.8467499688268,
+      "e2e_p50": 1681.8467499688268,
+      "e2e_p95": 1681.8467499688268
+    }
+  },
+  "judge": {
+    "judge_model": "qwen3-max",
+    "judge_backend": "dashscope"
+  },
+  "integrity": {
+    "eidetic-plus-full": {
+      "n": 1,
+      "verified_correct": 0,
+      "answered": 1,
+      "unverified_answered": 0,
+      "abstained": 0,
+      "has_verify": true
+    }
+  },
+  "consolidation": {
+    "eidetic-plus-full": {
+      "groups": 1,
+      "pending_processed": 19,
+      "facts_extracted": 73,
+      "events_indexed": 73,
+      "extraction_timed_out": 0,
+      "extraction_deferred": 0,
+      "extraction_windows_planned": 19,
+      "extraction_windows_submitted": 19,
+      "extraction_window_cap_per_record": 0,
+      "extraction_call_budget": 90,
+      "extraction_raw_only_bounded": 0,
+      "record_raw_only_bounded": 0,
+      "extraction_partial_bounded": 0,
+      "long_haystack_bounded": 0,
+      "long_haystack_raw_only": 0
+    }
+  },
+  "log_fingerprint": {
+    "algorithm": "sha256",
+    "file_count": 1,
+    "combined_sha256": "9b167e7247f7cb2a6b47a547c543d2b79bcff4c799379398ba72cd70a42e9d78",
+    "files": [
+      {
+        "path": "eidetic-plus-full__run0.jsonl",
+        "bytes": 2066,
+        "sha256": "ca2d7885ddff8083809194aee6c47ebb2e7f86a515b77ae5e4bda73d18fb41c4"
+      }
+    ]
+  }
+}

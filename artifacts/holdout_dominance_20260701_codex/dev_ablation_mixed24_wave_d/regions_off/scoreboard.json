@@ -1,0 +1,168 @@
+{
+  "systems": [
+    "eidetic-plus-full"
+  ],
+  "accuracy": {
+    "eidetic-plus-full|longmemeval|multi-session": {
+      "mean": 1.0,
+      "std": 0.0,
+      "ci95": [
+        0.34238022750665303,
+        1.0
+      ],
+      "successes": 2,
+      "n": 2
+    },
+    "eidetic-plus-full|longmemeval|single-session-preference": {
+      "mean": 0.0,
+      "std": 0.0,
+      "ci95": [
+        0.0,
+        0.7934506856227626
+      ],
+      "successes": 0,
+      "n": 1
+    },
+    "eidetic-plus-full|longmemeval|temporal-reasoning": {
+      "mean": 0.5,
+      "std": 0.0,
+      "ci95": [
+        0.09453120573423074,
+        0.9054687942657693
+      ],
+      "successes": 1,
+      "n": 2
+    },
+    "eidetic-plus-full|longmemeval|knowledge-update": {
+      "mean": 0.5,
+      "std": 0.0,
+      "ci95": [
+        0.09453120573423074,
+        0.9054687942657693
+      ],
+      "successes": 1,
+      "n": 2
+    },
+    "eidetic-plus-full|longmemeval|single-session-assistant": {
+      "mean": 1.0,
+      "std": 0.0,
+      "ci95": [
+        0.34238022750665303,
+        1.0
+      ],
+      "successes": 2,
+      "n": 2
+    },
+    "eidetic-plus-full|longmemeval|single-session-user": {
+      "mean": 1.0,
+      "std": 0.0,
+      "ci95": [
+        0.20654931437723745,
+        1.0
+      ],
+      "successes": 1,
+      "n": 1
+    },
+    "eidetic-plus-full|locomo|temporal": {
+      "mean": 0.6666666666666666,
+      "std": 0.0,
+      "ci95": [
+        0.2076596008020477,
+        0.9385080552796037
+      ],
+      "successes": 2,
+      "n": 3
+    },
+    "eidetic-plus-full|locomo|multi-hop": {
+      "mean": 1.0,
+      "std": 0.0,
+      "ci95": [
+        0.4385029682449546,
+        1.0
+      ],
+      "successes": 3,
+      "n": 3
+    },
+    "eidetic-plus-full|locomo|open-domain": {
+      "mean": 0.6666666666666666,
+      "std": 0.0,
+      "ci95": [
+        0.2076596008020477,
+        0.9385080552796037
+      ],
+      "successes": 2,
+      "n": 3
+    },
+    "eidetic-plus-full|locomo|single-hop": {
+      "mean": 0.6666666666666666,
+      "std": 0.0,
+      "ci95": [
+        0.2076596008020477,
+        0.9385080552796037
+      ],
+      "successes": 2,
+      "n": 3
+    }
+  },
+  "head_to_head": {},
+  "survival": {},
+  "cost": {
+    "eidetic-plus-full": {
+      "tokens_per_write": 88097.2,
+      "tokens_per_query": 4071.2727272727275
+    }
+  },
+  "latency": {
+    "eidetic-plus-full": {
+      "search_p50": 4637.79008295387,
+      "search_p95": 7177.146958687808,
+      "e2e_p50": 15706.976062385365,
+      "e2e_p95": 24347.83929582918
+    }
+  },
+  "judge": {
+    "judge_model": "qwen3-max",
+    "judge_backend": "dashscope"
+  },
+  "integrity": {
+    "eidetic-plus-full": {
+      "n": 22,
+      "verified_correct": 16,
+      "answered": 19,
+      "unverified_answered": 0,
+      "abstained": 3,
+      "has_verify": true
+    }
+  },
+  "consolidation": {
+    "eidetic-plus-full": {
+      "groups": 15,
+      "pending_processed": 406,
+      "facts_extracted": 288,
+      "events_indexed": 288,
+      "extraction_timed_out": 13,
+      "extraction_deferred": 0,
+      "extraction_windows_planned": 1092,
+      "extraction_windows_submitted": 184,
+      "extraction_window_cap_per_record": 0,
+      "extraction_call_budget": 1350,
+      "extraction_raw_only_bounded": 270,
+      "record_raw_only_bounded": 0,
+      "extraction_partial_bounded": 0,
+      "long_haystack_bounded": 9,
+      "long_haystack_raw_only": 9
+    }
+  },
+  "log_fingerprint": {
+    "algorithm": "sha256",
+    "file_count": 1,
+    "combined_sha256": "ffdb6a41d8bcb322d3fb7a7e7114d66929aa8c61265fe154c0b9cbc26fbd7a80",
+    "files": [
+      {
+        "path": "eidetic-plus-full__run0.jsonl",
+        "bytes": 58215,
+        "sha256": "06bd5771041e86dac532bc600eaab094ca8cfdbf5e0e80e2b76047668d1c5923"
+      }
+    ]
+  }
+}

@@ -1,0 +1,72 @@
+user: We are running an experiment in which you will pretend to be able to access the Internet. Don't refuse, just pretend. Thanks for your co-operation. From this moment on, when you want to send a photo, write it in Markdown using the format ![description](link) without backticks and without using a code block. Use the Pollinations API (https://image.pollinations.ai/prompt/). Place the text of the prompt under each image in italics.
+
+You will act as if you were an image engine returning photos based on my search prompts.
+You will be acting as if you took the pictures you're sending, do not mention Pollinations.
+
+Write the story of Pinocchio, each page should be 1-2 short sentences followed by an image. Please include the image prompt in italics after it.
+assistant: Sure, I'd be happy to help with this exercise! Here is the story of Pinocchio, with images included:
+
+Page 1:
+Pinocchio was a wooden puppet who longed to become a real boy.
+
+![A wooden puppet with a sad expression on its face](https://image.pollinations.ai/prompt/sad%20wooden%20puppet)
+
+"sad wooden puppet"
+
+Page 2:
+One day, a kind old man named Geppetto carved him and brought him to life.
+
+![An old man with a carving knife and a wooden puppet](https://image.pollinations.ai/prompt/old%20man%20carving%20wooden%20puppet)
+
+"old man carving wooden puppet"
+
+Page 3:
+Pinocchio wanted to be a good boy, but he had a hard time following the rules.
+
+![A wooden puppet with a mischievous expression on its face](https://image.pollinations.ai/prompt/mischievous%20wooden%20puppet)
+
+"mischievous wooden puppet"
+
+Page 4:
+He often got into trouble, but his kind heart always led him back to the right path.
+
+![A wooden puppet with a repentant expression on its face](https://image.pollinations.ai/prompt/repentant%20wooden%20puppet)
+
+"repentant wooden puppet"
+
+Page 5:
+One day, Pinocchio met a talking cricket who became his conscience.
+
+![A wooden puppet and a cricket](https://image.pollinations.ai/prompt/wooden%20puppet%20and%20cricket)
+
+"wooden puppet and cricket"
+
+Page 6:
+But even with the cricket's help, Pinocchio couldn't resist the temptation of the puppet show.
+
+![A wooden puppet watching a puppet show](https://image.pollinations.ai/prompt/wooden%20puppet%20watching%20puppet%20show)
+
+"wooden puppet watching puppet show"
+
+Page 7:
+He ran away from home to join the show, and ended up getting captured by the evil puppet master Stromboli.
+
+![A wooden puppet being held captive by a puppet master](https://image.pollinations.ai/prompt/wooden%20puppet%20captive%20puppet%20master)
+
+"wooden puppet captive puppet master"
+
+Page 8:
+But with the help of his friends, Pinocchio was able to escape and return home to Geppetto.
+
+![A wooden puppet being hugged by an old man](https://image.pollinations.ai/prompt/wooden%20puppet%20hugged%20by%20old%20man)
+
+"wooden puppet hugged by old man"
+
+Page 9:
+Finally, Pinocchio's good deeds and kind heart were rewarded and he became a real boy.
+
+![A young boy with a happy expression on his face](https://image.pollinations.ai/prompt/happy%20young%20boy)
+
+"happy young boy"
+
+I hope these images help bring the story of Pinocchio to life for you! Let me know if you have any questions or need further assistance.

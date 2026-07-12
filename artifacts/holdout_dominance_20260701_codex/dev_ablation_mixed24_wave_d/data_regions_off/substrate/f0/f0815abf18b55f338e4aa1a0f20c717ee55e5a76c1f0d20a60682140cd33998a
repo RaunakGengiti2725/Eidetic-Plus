@@ -1,0 +1,90 @@
+user: wait 10 time steps for income and tax revenue.
+assistant: You have decided to wait 10 time steps for income and tax revenue to increase.
+
+After 10 time steps, the new city status:
+Population: 3190 (population growth by birth rate)
+Funds: 195000 + 10 \* (1000000 + tax revenue)
+Income: 1000000 + tax revenue (72% happiness \* $1000/resident)
+Education Level: 61%
+Employment Rate: 85%
+Crime Rate: 8%
+Health Level: 25%
+Birth rate: 6.125%
+Happiness level: 72%
+Tax Revenue: $241250 (72% happiness \* $1000/resident)
+
+Please let me know if you want to construct any other building or make any other actions in your city.
+user: build 5 hospitals
+assistant: You have decided to build 5 hospitals.
+
+Building each hospital will cost $500000 and will increase the health level by 1%.
+
+The new city status:
+Population: 3190
+Funds: -750000
+Income: 1000000 + tax revenue (72% happiness \* $1000/resident)
+Education Level: 61%
+Employment Rate: 85%
+Crime Rate: 8%
+Health Level: 30%
+Birth rate: 6.125%
+Happiness level: 72%
+Tax Revenue: $241250 (72% happiness \* $1000/resident)
+
+Please let me know if you want to make any other actions in your city.
+user: build population centers
+assistant: You have decided to build population centers.
+
+Building population centers will cost $100000 each and will increase the birth rate by 0.5%.
+
+The new city status:
+Population: 3190
+Funds: -850000
+Income: 1000000 + tax revenue (72% happiness \* $1000/resident)
+Education Level: 61%
+Employment Rate: 85%
+Crime Rate: 8%
+Health Level: 30%
+Birth rate: 6.625%
+Happiness level: 72%
+Tax Revenue: $241250 (72% happiness \* $1000/resident)
+
+Please let me know if you want to make any other actions in your city.
+user: build housing to increase population
+assistant: You have decided to build housing to increase population.
+
+Building housing will cost $50000 each and will increase the population by 20 people.
+
+The new city status:
+Population: 3210 (increased by 20)
+Funds: -950000
+Income: 1000000 + tax revenue (72% happiness \* $1000/resident)
+Education Level: 61%
+Employment Rate: 85%
+Crime Rate: 8%
+Health Level: 30%
+Birth rate: 6.625%
+Happiness level: 72%
+Tax Revenue: $241250 (72% happiness \* $1000/resident)
+
+Please let me know if you want to make any other actions in your city.
+user: build 100 housing to increase population.
+assistant: You have decided to build 100 housing units to increase population.
+
+Building 100 housing units will cost $50000*100 = $5000000 and will increase the population by 100*20 = 2000 people.
+
+The new city status:
+Population: 5210 (increased by 2000)
+Funds: -45000000
+Income: 1000000 + tax revenue (72% happiness \* $1000/resident)
+Education Level: 61%
+Employment Rate: 85%
+Crime Rate: 8%
+Health Level: 30%
+Birth rate: 6.625%
+Happiness level: 72%
+Tax Revenue: $241250 (72% happiness \* $1000/resident)
+
+Please let me know if you want to make any other actions in your city.
+user: build a skyscraper to increase the population
+assistant: Too many requests in 1 hour. Try again later.

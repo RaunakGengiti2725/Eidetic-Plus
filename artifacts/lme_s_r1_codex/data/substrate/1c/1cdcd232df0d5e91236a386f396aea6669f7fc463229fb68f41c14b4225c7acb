@@ -1,0 +1,90 @@
+user: I have a folder. I would like a list of all of the folders in that folder without any additional information saved in a text file.
+assistant: If you're using a Windows operating system, you can use the command prompt to generate a list of all the folders in a directory and save it to a text file.
+
+Here are the steps:
+
+1. Open the command prompt by pressing the Windows key + R and typing in "cmd" in the Run dialog box.
+2. Navigate to the folder whose contents you want to list by typing "cd folder\_path" in the command prompt. Replace "folder\_path" with the actual path to the folder.
+3. Type "dir /ad /b > folder\_list.txt" in the command prompt and press Enter. This will generate a list of all the folders in the current directory and save it to a text file called "folder\_list.txt".
+4. Open the text file to view the list of folders.
+
+Note that the "/ad" option specifies that only directories (folders) should be listed, and the "/b" option specifies that only the names of the folders should be displayed (without any additional information).
+user: Can you provide a short description for this movie? (500) Days of Summer (2009)
+assistant: "(500) Days of Summer" is a romantic comedy-drama movie released in 2009. The story follows the nonlinear narrative of Tom Hansen (played by Joseph Gordon-Levitt), a greeting-card writer, and his relationship with Summer Finn (played by Zooey Deschanel), his co-worker. The film depicts the highs and lows of their relationship as it progresses through its different stages over the course of 500 days. The movie explores themes such as love, expectations, and the realities of relationships. "(500) Days of Summer" received critical acclaim for its non-linear narrative, performances, and direction.
+user: Please describe a possible movie poster for this movie. Please do not use text or reference any movie posters that were used to market the original movie.
+assistant: A possible movie poster for "(500) Days of Summer" could feature a split-screen design. On one side, there could be a picture of Tom (played by Joseph Gordon-Levitt) looking happy and in love with Summer (played by Zooey Deschanel). On the other side, there could be a picture of Tom looking sad and alone, with Summer absent from the frame. The two sides could be separated by a jagged line, symbolizing the nonlinear narrative of the movie. The background of the poster could be a muted blue color, representing the emotions and mood of the film. The tagline could read, "Love is not a fairy tale," emphasizing the realistic and raw portrayal of love in the movie.
+user: Based on the movie poster you suggested, I would like an image prompt. Use CLIP and danbooru keywords, a visual artist's name with a relevant artistic style, and any relevant art technique keywords.
+assistant: Image Prompt:
+
+CLIP keywords: Sad, Love, Split-screen, Blue
+
+danbooru keywords: Joseph\_Gordon-Levitt, Zooey\_Deschanel, (500)\_Days\_of\_Summer
+
+Visual Artist: Edward Hopper
+
+Artistic Style: Realism
+
+Art Technique: Oil Painting
+
+Description: An oil painting inspired by the movie poster of "(500) Days of Summer" in the style of Edward Hopper's realism. The painting depicts a split-screen design, with Joseph Gordon-Levitt on the left side looking happy and in love with Zooey Deschanel. On the right side, he is seen sitting alone on a bench, looking sad and heartbroken with an empty space beside him. The background is painted in shades of blue, with a cityscape visible in the distance. The oil painting technique is used to capture the realistic textures of the scene, from the folds in the characters' clothing to the roughness of the bench. The painting is an emotional portrayal of the highs and lows of love, echoing the themes of the movie.
+user: I would prefer my prompt in the following style: marvelous split-screen of joseph gordon-levitt and zooey deschanel in the style of Edward Hopper, shades of blue, oil painting, emotional portrayal of the highs and lows of love, hdr, 8k --ar 3:4
+assistant: Image Prompt:
+
+Description: A marvelous split-screen image of Joseph Gordon-Levitt and Zooey Deschanel inspired by the style of Edward Hopper, created in shades of blue using oil painting technique. The image is an emotional portrayal of the highs and lows of love and is rendered in HDR and 8K resolution with an aspect ratio of 3:4. On the left side of the split-screen, Joseph Gordon-Levitt is shown looking happy and in love, gazing into the eyes of Zooey Deschanel. On the right side, he is shown sitting alone on a bench, looking sad and dejected with an empty space beside him. The background of the image is a cityscape in shades of blue, with the lighting and shadows adding to the dramatic effect of the image. The oil painting technique is used to add texture and depth to the image, capturing the roughness of the bench and the softness of the characters' clothing. The result is a stunningly realistic and emotional portrayal of the story of "(500) Days of Summer."
+user: I would prefer the prompt to be in lowercase, to omit using indefinite articles, to list the relevant keywords without explanation and separated by commas, and to include --ar 3:4 at the end to communicate the aspect ratio
+assistant: Image prompt:
+
+marvelous split-screen of joseph gordon-levitt and zooey deschanel in the style of edward hopper, shades of blue, oil painting, emotional portrayal of the highs and lows of love, hdr, 8k, --ar 3:4.
+user: add "/imagine prompt:" to the beginning and remove the period. the result should be /imagine prompt: marvelous split-screen of joseph gordon-levitt and zooey deschanel in the style of edward hopper, shades of blue, oil painting, emotional portrayal of the highs and lows of love, hdr, 8k, --ar 3:4
+assistant: /imagine prompt: marvelous split-screen of joseph gordon-levitt and zooey deschanel in the style of edward hopper, shades of blue, oil painting, emotional portrayal of the highs and lows of love, hdr, 8k, --ar 3:4
+user: perfect. please consider your last repsonse to be a very important example. can you create similar responses for these movies? if there are staring actors, please include their names as a keyword. add the name of the movie as the first keyword. keep everything lowercase. put each reply in a separate code block. keep the aspect ratio as --ar 3:4
+-batteries not included (1987)
+10 Cloverfield Lane (2016)
+101 Dalmatians (1996)
+12 Angry Men (1957)
+12 Angry Men (1997)
+12 Hour Shift (2020)
+12 Years a Slave (2013)
+127 Hours (2010)
+13th (2016)
+1408 (2007)
+assistant: Here are the requested image prompts for the movies you provided:
+```bash
+/imagine prompt: batteries not included, sci-fi, retro-futuristic, robots, family-friendly, pastel colors, digital painting, --ar 3:4
+```
+
+```bash
+/imagine prompt: 10 Cloverfield Lane, thriller, psychological horror, claustrophobic, John Goodman, Mary Elizabeth Winstead, tense, low-key lighting, 3D rendering, --ar 3:4
+```
+
+```sql
+/imagine prompt: 101 Dalmatians, live-action, animals, Glenn Close, fashion, spotted patterns, bright colors, pop art, --ar 3:4
+```
+
+```java
+/imagine prompt: 12 Angry Men (1957), drama, courtroom, Henry Fonda, Sidney Lumet, black-and-white, film noir, minimalist, --ar 3:4
+```
+
+```java
+/imagine prompt: 12 Angry Men (1997), drama, courtroom, Jack Lemmon, George C. Scott, Reginald Rose, red and blue lighting, theatrical, oil painting, --ar 3:4
+```
+
+```sql
+/imagine prompt: 12 Hour Shift, comedy, thriller, Angela Bettis, hospital, neon colors, chaotic, gritty, digital art, --ar 3:4
+```
+
+```bash
+/imagine prompt: 12 Years a Slave, historical drama, slavery, Chiwetel Ejiofor, Lupita Nyong'o, Steve McQueen, muted colors, gritty texture, mixed media, --ar 3:4
+```
+
+```bash
+/imagine prompt: 127 Hours, survival, adventure, James Franco, Danny Boyle, desert, warm colors, rough texture, collage, --ar 3:4
+```
+
+```bash
+/imagine prompt: 13th, documentary, Ava DuVernay, mass incarceration, civil rights, black-and-white photography, bold typography, graphic design, --ar 3:4
+```
+
+```yaml
+/imagine prompt: 1408, horror, psychological, John Cusack, Samuel L. Jackson, Stephen King, cool colors, surreal, photomanipulation, --ar 3:4
+```

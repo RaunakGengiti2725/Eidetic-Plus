@@ -1,0 +1,218 @@
+user: import asyncio
+from enum import Enum
+from typing import List
+from functools import partial
+from abc import ABC, abstractmethod
+from rich import print
+from pydantic import BaseModel, Field # pylint: disable=0611:no-name-in-module
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.responses import HTMLResponse
+import uvicorn
+from td.client import TdAmeritradeClient
+from td.config import TdConfiguration
+from td.enums.enums import QOSLevel, TimesaleServices
+from td.utils.helpers import to\_camel
+
+class StreamBase(BaseModel):
+ class Config:
+ alias\_generator = to\_camel
+ allow\_population\_by\_field\_name = True
+
+class DataResponseContent(StreamBase):
+ pass
+
+class DataResponseMessage(StreamBase):
+ service: str
+ timestamp: int
+ command: str
+ content: List[DataResponseContent]
+
+class TimesaleData(DataResponseContent):
+ symbol: str = Field(alias="key")
+ timestamp: int = Field(alias="1")
+ price: float = Field(alias="2")
+ volume: int = Field(alias="3")
+ bid\_size: int = Field(alias="4")
+ seq: int | None = None
+
+class ChartData(DataResponseContent):
+ symbol: str = Field(alias="key")
+ timestamp: int = Field(alias="1")
+ open: float = Field(alias="2")
+ high: float = Field(alias="3")
+ low: float = Field(alias="4")
+ close: float = Field(alias="5")
+ volume: int = Field(alias="6")
+ seq: int | None = None
+
+class DataMessageHandler(ABC):
+ def \_\_init\_\_(self, model):
+ self.model = model
+ self.latest\_data = None
+ self.subscribers = []
+ 
+ async def data\_message\_handler(self, msg):
+ msg["content"] = [self.model(\*\*data) for data in msg["content"]]
+ self.latest\_data = DataResponseMessage(\*\*msg)
+ await self.\_send\_to\_subscribers(self.latest\_data)
+
+ async def subscribe(self, websocket):
+ if self.latest\_data:
+ await websocket.send\_json(self.latest\_data.dict())
+ self.subscribers.append(websocket)
+
+ async def unsubscribe(self, websocket):
+ self.subscribers.remove(websocket)
+
+ async def \_send\_to\_subscribers(self, data):
+ for ws in self.subscribers:
+ await ws.send\_json(data.dict())
+
+ # @abstractmethod
+ # async def handle\_message(self, msg):
+ # pass
+
+class TimesaleDataHandler(DataMessageHandler):
+ pass
+
+class ChartDataHandler(DataMessageHandler):
+ pass
+
+timesale\_handler = TimesaleDataHandler(TimesaleData)
+chart\_handler = ChartDataHandler(ChartData)
+
+app = FastAPI()
+
+@app.websocket("/ws/{handler\_name}")
+async def websocket\_endpoint(websocket: WebSocket, handler\_name: str):
+ await websocket.accept()
+ handler\_map = {"timesale": timesale\_handler, "chart": chart\_handler}
+ handler = handler\_map.get(handler\_name)
+ if handler:
+ try:
+ while True:
+ message = await websocket.receive\_json()
+ if message['command'] == 'subscribe':
+ await handler.subscribe(websocket)
+ elif message['command'] == 'unsubscribe':
+ await handler.unsubscribe(websocket)
+ break # Stop handling messages after unsubscribing
+ except WebSocketDisconnect:
+ await handler.unsubscribe(websocket)
+ else:
+ await websocket.close()
+# Define a route to serve the HTML page that opens the WebSocket connection.
+@app.get("/")
+async def get():
+ return HTMLResponse("""
+ 
+ 
+ WebSocket Test
+ 
+ 
+ 
+ 
+ 
+ """)
+
+async def run\_uvicorn():
+ uvicorn\_config = uvicorn.Config(app, host="127.0.0.1", port=8000)
+ uvicorn\_server = uvicorn.Server(uvicorn\_config)
+ await uvicorn\_server.serve()
+config = TdConfiguration()
+td\_client = TdAmeritradeClient()
+stream\_client = td\_client.streaming\_api\_client()
+stream\_services = stream\_client.services()
+
+async def run\_stream\_client():
+ # Start the app with uvicorn and the uvloop event loop policy.
+ # uvicorn.run(app, host="localhost", port=8000, loop=loop)
+ stream\_client.open\_stream()
+
+ # Set the Quality of Service.
+ stream\_services.quality\_of\_service(
+ qos\_level=QOSLevel.EXPRESS
+ )
+
+ futures\_symbols = ["/ES", "/NQ"]
+ equity\_symbols = ["SPY", "QQQ", "AAPL", "TSLA"]
+
+ # Start streaming data
+ stream\_services.add\_handler("data", "TIMESALE\_FUTURES", timesale\_handler.data\_message\_handler)
+ stream\_services.futures\_timesale(futures\_symbols)
+
+ stream\_services.add\_handler("data", "CHART\_FUTURES", chart\_handler.data\_message\_handler)
+ stream\_services.futures\_chart\_minute\_ohlcv(futures\_symbols)
+
+ stream\_services.add\_handler("data", "CHART\_EQUITY", chart\_handler.data\_message\_handler)
+ stream\_services.equity\_chart\_minute\_ohlcv(equity\_symbols)
+
+async def run\_app():
+ # create tasks for run\_uvicorn and run\_stream\_client
+ uvicorn\_task = asyncio.create\_task(run\_uvicorn())
+ stream\_client\_task = asyncio.create\_task(run\_stream\_client())
+
+ # wait for both tasks to complete
+ await asyncio.gather(uvicorn\_task, stream\_client\_task)
+
+if \_\_name\_\_ == '\_\_main\_\_':
+ # Run the app in the event loop.
+ asyncio.run(run\_app())
+
+make this error go away
+
+Traceback (most recent call last):
+ File "c:\Users\zachf\OneDrive\Desktop\benjamins\td-ameritrade-api\samples\use\_streaming\_client.py", line 94, in websocket\_endpoint
+ message = await websocket.receive\_json()
+ File "C:\Users\zachf\anaconda3\envs\lucca-data\lib\site-packages\starlette\websockets.py", line 133, in receive\_json
+ self.\_raise\_on\_disconnect(message)
+ File "C:\Users\zachf\anaconda3\envs\lucca-data\lib\site-packages\starlette\websockets.py", line 105, in \_raise\_on\_disconnect
+ raise WebSocketDisconnect(message["code"])
+starlette.websockets.WebSocketDisconnect: 1001
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+ File "C:\Users\zachf\anaconda3\envs\lucca-data\lib\site-packages\uvicorn\protocols\websockets\websockets\_impl.py", line 254, in run\_asgi
+ result = await self.app(self.scope, self.asgi\_receive, self.asgi\_send)
+ File "C:\Users\zachf\anaconda3\envs\lucca-data\lib\site-packages\uvicorn\middleware\proxy\_headers.py", line 78, in \_\_call\_\_
+ return await self.app(scope, receive, send)
+ File "C:\Users\zachf\anaconda3\envs\lucca-data\lib\site-packages\fastapi\applications.py", line 276, in \_\_call\_\_
+ await super().\_\_call\_\_(scope, receive, send)
+ File "C:\Users\zachf\anaconda3\envs\lucca-data\lib\site-packages\starlette\applications.py", line 122, in \_\_call\_\_
+ await self.middleware\_stack(scope, receive, send)
+ File "C:\Users\zachf\anaconda3\envs\lucca-data\lib\site-packages\starlette\middleware\errors.py", line 149, in \_\_call\_\_
+ await self.app(scope, receive, send)
+ File "C:\Users\zachf\anaconda3\envs\lucca-data\lib\site-packages\starlette\middleware\exceptions.py", line 79, in \_\_call\_\_
+ raise exc
+ File "C:\Users\zachf\anaconda3\envs\lucca-data\lib\site-packages\starlette\middleware\exceptions.py", line 68, in \_\_call\_\_
+ await self.app(scope, receive, sender)
+ File "C:\Users\zachf\anaconda3\envs\lucca-data\lib\site-packages\fastapi\middleware\asyncexitstack.py", line 21, in \_\_call\_\_
+ raise e
+ File "C:\Users\zachf\anaconda3\envs\lucca-data\lib\site-packages\fastapi\middleware\asyncexitstack.py", line 18, in \_\_call\_\_
+ await self.app(scope, receive, send)
+ File "C:\Users\zachf\anaconda3\envs\lucca-data\lib\site-packages\starlette\routing.py", line 718, in \_\_call\_\_
+ await route.handle(scope, receive, send)
+ File "C:\Users\zachf\anaconda3\envs\lucca-data\lib\site-packages\starlette\routing.py", line 341, in handle
+ await self.app(scope, receive, send)
+ File "C:\Users\zachf\anaconda3\envs\lucca-data\lib\site-packages\starlette\routing.py", line 82, in app
+ await func(session)
+ File "C:\Users\zachf\anaconda3\envs\lucca-data\lib\site-packages\fastapi\routing.py", line 289, in app
+ await dependant.call(\*\*values)
+ File "c:\Users\zachf\OneDrive\Desktop\benjamins\td-ameritrade-api\samples\use\_streaming\_client.py", line 101, in websocket\_endpoint
+ await handler.unsubscribe(websocket)
+ File "c:\Users\zachf\OneDrive\Desktop\benjamins\td-ameritrade-api\samples\use\_streaming\_client.py", line 65, in unsubscribe
+ self.subscribers.remove(websocket)
+ValueError: list.remove(x): x not in list
+INFO: connection closed
+INFO: ('127.0.0.1', 51918) - "WebSocket /ws/chart" [accepted]
+INFO: connection open
+assistant: The error message "ValueError: list.remove(x): x not in list" means that you are trying to remove an element from a list that does not exist in the list. In this case, it seems that you are trying to remove a WebSocket that is not in the list of subscribers.
+
+To fix this error, you can add a check before removing the WebSocket from the subscribers list to make sure that it exists in the list:
+```python
+async def unsubscribe(self, websocket):
+    if websocket in self.subscribers:
+        self.subscribers.remove(websocket)
+```
+This will only remove the WebSocket from the list if it exists in the list, avoiding the ValueError.

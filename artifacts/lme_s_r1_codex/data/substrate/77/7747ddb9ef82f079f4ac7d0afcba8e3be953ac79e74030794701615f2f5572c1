@@ -1,0 +1,154 @@
+assistant: Certainly! Here is an example Python code to train a Transformer model for English to Chinese translation using the `transformers` library with multi-head attention and positional encoding:
+```python
+import random
+import torch
+from torch.utils.data import Dataset, DataLoader
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, AdamW
+from tqdm import tqdm
+
+# Set random seed for reproducibility
+random.seed(42)
+torch.manual_seed(42)
+
+# Define a custom dataset for English-to-Chinese translation
+class TranslationDataset(Dataset):
+    def __init__(self, src_texts, trg_texts, tokenizer):
+        self.src_texts = src_texts
+        self.trg_texts = trg_texts
+        self.tokenizer = tokenizer
+
+    def __len__(self):
+        return len(self.src_texts)
+
+    def __getitem__(self, idx):
+        src_text = self.src_texts[idx]
+        trg_text = self.trg_texts[idx]
+
+        # Encode the source and target texts using the tokenizer
+        src_inputs = self.tokenizer(
+            src_text,
+            padding="max_length",
+            truncation=True,
+            max_length=128,
+            return_tensors="pt",
+        )
+        trg_inputs = self.tokenizer(
+            trg_text,
+            padding="max_length",
+            truncation=True,
+            max_length=128,
+            return_tensors="pt",
+        )
+
+        # Return the encoded inputs
+        return {
+            "input_ids": src_inputs["input_ids"].squeeze(),
+            "attention_mask": src_inputs["attention_mask"].squeeze(),
+            "decoder_input_ids": trg_inputs["input_ids"].squeeze()[:-1],
+            "decoder_attention_mask": trg_inputs["attention_mask"].squeeze()[:-1],
+            "decoder_target_ids": trg_inputs["input_ids"].squeeze()[1:],
+        }
+
+# Define the training function
+def train(model, train_loader, val_loader, epochs, learning_rate):
+    # Define the optimizer and loss function
+    optimizer = AdamW(model.parameters(), lr=learning_rate)
+    criterion = torch.nn.CrossEntropyLoss(ignore_index=0)
+    
+    # Train the model for the specified number of epochs
+    for epoch in range(1, epochs+1):
+        # Train the model for one epoch
+        model.train()
+        epoch_loss = 0
+        progress_bar = tqdm(train_loader, desc=f"Epoch {epoch}")
+        for batch in progress_bar:
+            # Move the inputs and targets to the GPU
+            src = batch["input_ids"].to(device)
+            src_mask = batch["attention_mask"].to(device)
+            trg_input = batch["decoder_input_ids"].to(device)
+            trg_target = batch["decoder_target_ids"].to(device)
+            trg_mask = batch["decoder_attention_mask"].to(device)
+
+            # Generate predictions for the batch
+            outputs = model(
+                input_ids=src,
+                attention_mask=src_mask,
+                decoder_input_ids=trg_input,
+                decoder_attention_mask=trg_mask,
+            )
+
+            # Compute the loss and perform backpropagation
+            loss = criterion(
+                outputs.logits.view(-1, outputs.logits.size(-1)),
+                trg_target.view(-1),
+            )
+            epoch_loss += loss.item()
+            loss.backward()
+            optimizer.step()
+            optimizer.zero_grad()
+
+        # Evaluate the model on the validation set
+        model.eval()
+        val_loss = 0
+        with torch.no_grad():
+            for batch in val_loader:
+                # Move the inputs and targets to the GPU
+                src = batch["input_ids"].to(device)
+                src_mask = batch["attention_mask"].to(device)
+                trg_input = batch["decoder_input_ids"].to(device)
+                trg_target = batch["decoder_target_ids"].to(device)
+                trg_mask =
+```
+user: please continue the above code from "trg\_mask ="
+assistant: batch["decoder\_attention\_mask"].to(device)
+```python
+            # Generate predictions for the batch
+            outputs = model(
+                input_ids=src,
+                attention_mask=src_mask,
+                decoder_input_ids=trg_input,
+                decoder_attention_mask=trg_mask,
+            )
+
+            # Compute the loss
+            loss = criterion(
+                outputs.logits.view(-1, outputs.logits.size(-1)),
+                trg_target.view(-1),
+            )
+            val_loss += loss.item()
+
+    # Compute the average loss for the epoch
+    epoch_loss /= len(train_loader)
+    val_loss /= len(val_loader)
+
+    # Print the training progress
+    print(f"Epoch {epoch} train loss: {epoch_loss:.4f} val loss: {val_loss:.4f}")
+```
+Load the English-to-Chinese tokenizer and model
+===============================================
+
+tokenizer = AutoTokenizer.from\_pretrained("Helsinki-NLP/opus-mt-en-zh")
+model = AutoModelForSeq2SeqLM.from\_pretrained("Helsinki-NLP/opus-mt-en-zh")
+
+Prepare the data
+================
+
+src\_texts = [...] # list of English sentences
+trg\_texts = [...] # list of Chinese sentences
+dataset = TranslationDataset(src\_texts, trg\_texts, tokenizer)
+train\_size = int(0.8 \* len(dataset))
+val\_size = len(dataset) - train\_size
+train\_dataset, val\_dataset = torch.utils.data.random\_split(dataset, [train\_size, val\_size])
+train\_loader = DataLoader(train\_dataset, batch\_size=16, shuffle=True, num\_workers=4)
+val\_loader = DataLoader(val\_dataset, batch\_size=16, shuffle=False, num\_workers=4)
+
+Train the model
+===============
+
+device = torch.device("cuda" if torch.cuda.is\_available() else "cpu")
+model.to(device)
+train(model, train\_loader, val\_loader, epochs=10, learning\_rate=2e-5)
+```javascript
+
+Note that the code assumes that you have already installed the `transformers` library and downloaded the pre-trained `Helsinki-NLP/opus-mt-en-zh` English-to-Chinese model. If you have not done so, you can install the library with `pip install transformers` and download the model with `AutoModelForSeq2SeqLM.from_pretrained("Helsinki-NLP/opus-mt-en-zh")`. Also note that you will need to replace the placeholder `src_texts` and `trg_texts` lists with your own English and Chinese sentence pairs.
+```

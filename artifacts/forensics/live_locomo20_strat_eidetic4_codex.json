@@ -1,0 +1,115 @@
+{
+  "rows": 20,
+  "failures": 5,
+  "bucket_counts": {
+    "reader_error": 3,
+    "abstention": 2
+  },
+  "category_bucket_counts": {
+    "multi-hop": {
+      "reader_error": 1
+    },
+    "open-domain": {
+      "reader_error": 1,
+      "abstention": 2
+    },
+    "single-hop": {
+      "reader_error": 1
+    }
+  },
+  "consolidation": {
+    "eidetic-plus-full": {
+      "groups": 6,
+      "pending_processed": 156,
+      "facts_extracted": 117,
+      "events_indexed": 117,
+      "extraction_timed_out": 0,
+      "extraction_deferred": 0,
+      "extraction_windows_planned": 156,
+      "extraction_windows_submitted": 38,
+      "extraction_window_cap_per_record": 0,
+      "extraction_call_budget": 180,
+      "extraction_raw_only_bounded": 118,
+      "extraction_partial_bounded": 0,
+      "long_haystack_bounded": 4,
+      "long_haystack_raw_only": 4
+    }
+  },
+  "items": [
+    {
+      "system": "eidetic-plus-full",
+      "dataset": "locomo",
+      "category": "multi-hop",
+      "sample_id": "c1_q3",
+      "question": "What do Jon and Gina both have in common?",
+      "gold": "They lost their jobs and decided to start their own businesses.",
+      "predicted": "Both Jon and Gina are passionate about dancing and use it as stress relief [S12] 'Dance is my stress fix too' / 'Dancing helps me de-stress'; [S19] 'Wow Jon, same here! Dance is pretty much my go-to for stress relief'; [S24] 'Jon is passionate about dancing'; [S27] 'Gina is passionate about dancing'.",
+      "bucket": "reader_error",
+      "suggested_fix": "inspect context blocks and reader scaffold; failure happened with plausible evidence present",
+      "coverage": 0.4986864924430847,
+      "verified": true,
+      "abstained": false,
+      "error": ""
+    },
+    {
+      "system": "eidetic-plus-full",
+      "dataset": "locomo",
+      "category": "open-domain",
+      "sample_id": "c2_q8",
+      "question": "What might John's financial status be?",
+      "gold": "Middle-class or wealthy",
+      "predicted": "John's financial status is likely strained: he recently lost his job [S4] and reported car trouble 'putting a strain on my wallet' and 'money problems' [S13].",
+      "bucket": "reader_error",
+      "suggested_fix": "inspect context blocks and reader scaffold; failure happened with plausible evidence present",
+      "coverage": 0.4166930913925171,
+      "verified": true,
+      "abstained": false,
+      "error": ""
+    },
+    {
+      "system": "eidetic-plus-full",
+      "dataset": "locomo",
+      "category": "open-domain",
+      "sample_id": "c3_q4",
+      "question": "What pets wouldn't cause any discomfort to Joanna?",
+      "gold": "Hairless cats or pigs,since they don't have fur, which is one of the main causes of Joanna's allergy.",
+      "predicted": "I don't have enough verified evidence in memory to answer that confidently.",
+      "bucket": "abstention",
+      "suggested_fix": "calibrate ABSTENTION_V2_TAU on dev logs; inspect entailment/proof signals",
+      "coverage": 0.6550070643424988,
+      "verified": false,
+      "abstained": true,
+      "error": ""
+    },
+    {
+      "system": "eidetic-plus-full",
+      "dataset": "locomo",
+      "category": "single-hop",
+      "sample_id": "c3_q88",
+      "question": "What is one of Joanna's favorite movies?",
+      "gold": "\"Eternal Sunshineof the Spotless Mind\"",
+      "predicted": "a romantic drama about memory and relationships [S5]",
+      "bucket": "reader_error",
+      "suggested_fix": "inspect context blocks and reader scaffold; failure happened with plausible evidence present",
+      "coverage": 0.6854552626609802,
+      "verified": true,
+      "abstained": false,
+      "error": ""
+    },
+    {
+      "system": "eidetic-plus-full",
+      "dataset": "locomo",
+      "category": "open-domain",
+      "sample_id": "c4_q3",
+      "question": "Would Tim enjoy reading books by C. S. Lewis or John Greene?",
+      "gold": "C. S.Lewis",
+      "predicted": "I don't have enough verified evidence in memory to answer that confidently.",
+      "bucket": "abstention",
+      "suggested_fix": "calibrate ABSTENTION_V2_TAU on dev logs; inspect entailment/proof signals",
+      "coverage": 0.5705864429473877,
+      "verified": false,
+      "abstained": true,
+      "error": ""
+    }
+  ]
+}

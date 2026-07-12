@@ -1,0 +1,72 @@
+user: I need you to create a sample meeting transcript like microsoft teams one of a conversation regarding a project start. one tech responsible, one business responsible and one third party (responsible for developing). The meeting is about a proposal sent for the third party regarding the creation of a website for the business responsible. the tech responsible's goal is to make sure the meeting goes well and helps the business user capture all the details
+assistant: Sure, here's a sample meeting transcript based on your requirements:
+
+Meeting Transcript
+
+Attendees:
+
+* Tech Responsible: John
+* Business Responsible: Jane
+* Third Party: David
+
+Topic: Proposal for website creation
+
+John: Hello everyone, and welcome to this meeting to discuss the proposal for the website creation project. Jane, can you confirm that you have received the proposal document from David?
+
+Jane: Yes, I have received it and I have gone through it. It looks good to me, but I would like to discuss some of the details with you both.
+
+David: Sure, I am here to answer any questions you might have.
+
+John: Great. Jane, would you like to start by telling us about your requirements for the website?
+
+Jane: Yes, of course. So, we want the website to be simple, user-friendly, and visually appealing. It should also have a blog section where we can post our latest news and updates.
+
+David: Understood. We can design a website that meets these requirements. Would you like to see some design options before we proceed?
+
+Jane: Yes, that would be great.
+
+John: David, can you also walk us through the technical aspects of the website, such as the platform and hosting?
+
+David: Sure. We plan to use WordPress as the platform for the website, as it is easy to use and offers a wide range of customization options. As for hosting, we recommend using a reliable web hosting service that offers good speed and uptime.
+
+John: That sounds good. What is the timeline for the project?
+
+David: We estimate that it will take us around 4-6 weeks to complete the project, depending on the complexity of the design and the amount of content you provide.
+
+Jane: Okay, that sounds reasonable. Can you also provide us with a detailed breakdown of the cost for the project?
+
+David: Yes, we can provide you with a detailed quote that includes all the costs involved, such as design, development, hosting, and maintenance.
+
+John: Great. Is there anything else we need to discuss before we wrap up this meeting?
+
+Jane: Yes, one more thing. Can you provide us with some references or samples of your previous work?
+
+David: Of course. I will send you some links to our previous projects that are similar to what you are looking for.
+
+John: Alright, thank you, David. We will review the information you have provided us and get back to you soon.
+
+Jane: Thank you, John, and thank you, David. This was a very productive meeting, and I appreciate your help in capturing all the details.
+user: now based on the transcription, I need you to summarize the meeting in bullet points, next actions mapped on the meeting and a final conclusion.
+
+Note that you are working with a sample transcript. My idea is to use your intelligence for further transcripts from my own meetings so you can help me summarize them.
+assistant: Sure, here's a summary of the meeting, next actions, and conclusion based on the provided transcript:
+
+Meeting Summary:
+
+* The meeting was about discussing a proposal for the creation of a website for the business responsible.
+* The attendees included the tech responsible, the business responsible, and the third party responsible for developing the website.
+* The business responsible confirmed that they had received the proposal and wanted to discuss some details with the other attendees.
+* The business responsible discussed their requirements for the website, which included simplicity, user-friendliness, and a blog section.
+* The third party responsible confirmed that they could design a website that met these requirements using WordPress as the platform and a reliable web hosting service.
+* The third party also provided an estimated timeline of 4-6 weeks for completing the project and promised to provide a detailed breakdown of the costs.
+* The business responsible requested some references or samples of previous work from the third party, and the third party agreed to provide them.
+
+Next Actions:
+
+* The tech responsible will review the information provided in the meeting.
+* The third party responsible will provide the business responsible with some references or samples of their previous work.
+
+Conclusion:
+
+* The meeting was productive, and all attendees were able to discuss the proposal and the details of the project effectively.
+* The next actions identified in the meeting will help ensure that the project moves forward smoothly and that all parties are on the same page.

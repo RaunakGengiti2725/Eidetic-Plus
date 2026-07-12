@@ -1,0 +1,115 @@
+user: Another, historically even more interesting problem, was the quadrature of the circle. This asked
+the philosopher to construct a square, similar (in area ) to a given circle. The problem was interesting,
+of course, because of the divine nature of the circle and orb — one might also ask for the
+construction of a cube similar (in content) to a given orb. That it proved to be quite a nut to
+crack, only added to the mysterious nature of the circle and encouraged mysticism. But it also
+stimulated philosophers to attempt to resolve the problem with help of geometria.
+One of the oldest known attempts to solve the problem of the quadrature of the circle, were the
+so-called moons of Hippocrates. Hippocrates of Chios (470 - 410) was a wealthy merchant with
+an appetite for geometria. Allegedly, he was the first to determine the height of the Egyptian pyramids,
+by measuring their shadows and using similarity. Ancient rumour has it, that he was the
+first to write a Στοιχεία (Elements), but like with many of these old philosophers, most things we
+know of him are from the scribbles of people decades after his demise.
+Mathematical worlds 26
+Illustration I.2: The simplest form of Hippocrates’ moons. In the semi-circle (II-III-IV) draw the equilateral triangle
+(III). This triangle is rectangular as a result of the theorem of Thales. The two equal sides of (III) have a ratio to the
+hypothenuse as 1:√2. The small semicircles (I-II and IV-V) on the sides of the triangle therefor are in ratio to the
+bigger semi-circle (II-III) as 1:2. With other words: both small semicircles (I-II and IV-V) together are the same as the
+big semi-circle (II-III-IV). By removing the common pieces (II and IV), one may observe that the moon-shape figures
+I en V are the same (have the same area) as III.
+Anyway, the moons of Hippocrates are somewhat known, and seemed to offer a way to solve the
+quadrature of the circle. He showed that moon-shaped figures, bounded by different circle segments,
+could be quadrated rather easily. If it was possible to turn the circle into a puzzle of these
+moon-shaped objects, he could have solved the problem. It turned out to be a dead end.
+E u c l i d s E l e m e n t s
+Who speaks of the Στοιχεία (The Elements) nowadays, nearly always refers to The Elements by Euclid,
+one of the philosophers who was active around 300 BC in the then thriving political, economical
+and scientific centre of Alexandria, in present-day Egypt, one of many cities of that name in
+the Alexandrian empire. In many ways, the thirteen books of The Elements have influenced the
+history of western culture, and it is one of the most well-known texts from antiquity. It rightly
+deserves to be so, since as a text it is a stunning example of geometria and it deserves our separate
+attention for that reason alone. We do however have to realise two important aspects of the
+work, before we marvel at its beauty. First, to Euclid it may have been a textbook or not, but it
+certainly wasn’t a textbook as we know it. One of the important differences with our present-day
+textbooks is that it was written and copied, never printed. This may look obvious, but pre-printing
+press culture did not allow for exact copies, neither did it strive for exact copies to be made
+and therefor all the surviving copies of the books, thirteen scrolls or chapters in the most extensive
+version, show a lot of similarities, but are not the same. Essential part of the various copies of
+The Elements, for example, were the commentaries, written in the margin by the philosopher (or
+pupil) studying the text or reading it aloud. Sometimes the commentaries to a text throughout
+the centuries became a part of the text itself. In some of the surviving copies these commentaries
+are a substantial part of the manuscript. Second, we don’t know what the original text by
+Euclid looked like. Our closest examples are Arabian sources, produced centuries after the original
+work, and some Greek text fragments, dating from 100 AD. Much of what we know about the
+book has been tainted by late nineteenth century views of the work. It is important to realise
+that γεωμετρία (geometria) was about measuring γεω (the world). That world is not easily recognised
+in the scrolls of the Στοιχεία, but may be recognised by the one who is able to read between
+the lines — and who is able to see that present-day edited versions of The Elements are the
+result of extensive attention paid by scholars who value our (or late nineteenth century) ideas of
+mathematics, rather than the ancient ideas of geometria. The ancient ideas are notable in book II,
+which is an introduction to the problem of the quadrature of the circle; in book XIII which ends
+with the theorem that there are exactly five regular or Platonic solids, exactly the number of
+elements in Aristotelian physics. This was the subject that could help the philosopher reach into
+the deeper divine structure of the world order.
+The Elements presents the reader to the elementary parts of geometria. It starts with a list of defnitions,
+referring to the objects the reader knows about from drawing figures in the sand but in
+an idealised form: a point is which has no part, a line is length without width. After thus having
+established common ground, Euclid presents his axioms and hypotheses, which are the basis of
+Mathematical worlds 27
+his reasoning. The axioms reflect the necessities and possibilities of constructing objects in an
+ideal world. So, for example, it is required to be able to construct a circle with any given centre
+and radius, and to prolong a straight line indefinitely, which is of course not always possible in
+the sand of the average Greek beach. Straight lines and circles are the only objects that exist at
+the start, the rest is to be constructed. This reflects the divine origin of these objects. The hypotheses
+or postulates are slightly different in nature. They are important steps in reasoning and in
+that sense the explicit mention of these reasons are stunning: equal things, with equal things
+added, are equal. The general phrasing allows the reader to apply this rule to line segments, areas,
+volumes and angles alike. What follows are a list of definitions, theorems and proofs, constructions
+and proofs.
+Mathematical worlds 28
+Illustration I.3: classical proof of the Pythagorean theorem from The Elements, theorem I.47. To the left a fragment
+from a ninth century Greek manuscript, with marginal notes. To the right a modern reproduction of the illustration
+the text refers to. On triangle ABC with right angle in C the squares ABDE, BCHK and ACFG are constructed
+(this construction is actually described and proven correct in I.42) CL is drawn parallel to AD and CD and FB are
+drawn. The proof hinges on the equality of triangle ABF and ACD, which in turn are equal to ACF and ADM, which
+are equal to half the square ACFG and half the rectangle ADLM. Similarly the equality of square BCHK and rectangle
+BELM are proven. Thereby, I.47 not only proofs that the two squares on the rectangular sides are equal to
+the square on the hypothenuse, but even shows the reader exactly how to make the figures fit!
+Book I consists of elementary triangle geometry, starting from the construction of an equilateral
+triangle, proof of the triangle inequality (so the fact that a straight line is the shortest path between
+two points), and ends with a beautiful proof of both the Pythagorean theorem (I.47) and
+its reverse (I.48). Book II treats a number of theorems that allow the reader to construct quadrangles
+that are equal to a given figure. Euclid does this in a to the modern reader peculiar way,
+without referring to the area of the figures. He uses some general sense of “magnitude” which
+makes his theorems more general, but moreover, he never calculates. His version of geometria is
+strictly about reasoning. As an example of his reasoning, here is theorem II.4: if a line segment is
+divided into two parts, then the square on the whole line segment is equal to the squares on the
+parts plus two times the rectangle comprised by the two parts. Interpreted in modern day algebra
+one could translate this to the formula (a+b)2 = a2 + b2 + 2ab, and indeed many historians
+have done so. But by translating one looses the essence of geometria in Euclids work.
+Book II ends with the construction of a square which is the same (in the Euclidean sense) as a given
+n-gon. That way, the student of the book is optimally prepared to study the quadrature of
+the circle.
+Books VII-X treat subjects that we would nowadays consider as number theory. To Euclid, number
+was just one of the earthly manifestations of the more general concept of “magnitude”. The
+examples in The Elements usually use line segments, but the theorems from these books are also
+referred to in later books, and occasionally applied to other magnitudes, such as angles or solids.
+Number is an amorphous subject to Euclid. Book VII starts with two theorems that together
+make up the idea of calculating a greatest common divisor — nowadays known as the Euclidean
+algorithm. Although indeed these two theorems, or rather, the proofs, do present to us the idea
+of how to do the calculation, the idea by Euclid was different in two significant ways. First, the
+proof is a proof of existence of a greatest common divisor, and that is also the way it is used in
+the rest of The Elements: when these theorems are invoked in later parts, then the reason is always
+to back up the assumption that such a number exists. Being able to continue reasoning because
+one knows a certain number or ratio exists, or actually calculating it, is quite something
+different. Second, Euclid offers us two theorems, and he has a good reason to do so. To him unity
+was not a number, it was the unit in which magnitudes could be expressed — which was an extra
+assumption in geometria. The special status of “one” was reflected in the two proofs, since Euclid
+first constructed the greatest common divisor of two magnitudes in the case these numbers
+were co-prime, to construct it in all other cases in the second theorem.
+Books XI-XIII treat the solids, with a notable sidestep at the start of book XII to proof that circles
+are in the ratio to one another as the squares on their diagonals. Euclid proofs that by double
+contradiction: with help of the exhaustion principle he first shows that the ratio can’t be smaller
+and after that, proving that it can’t be larger either, leaving as the only option that the ratio has
+to be equal.
+assistant: The problem of the quadrature of the circle is the task of constructing a square with the same area as a given circle. This problem has a long history dating back to ancient Greece, where philosophers attempted to solve it with geometry. Hippocrates of Chios was one of the earliest known philosophers who attempted to solve the problem by using moon-shaped figures. However, his method was a dead end. Euclid's "The Elements" is one of the most well-known texts from antiquity that dealt with geometry and has had a lasting impact on Western culture. The book, however, wasn't a textbook as we know it today, but was copied and changed over time, and much of what we know about the book is influenced by late 19th century views. In the "The Elements," Euclid deals with the problem of the quadrature of the circle and the theorem that there are five regular solids.

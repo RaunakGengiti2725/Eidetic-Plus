@@ -1,0 +1,35 @@
+user: I need your help writing use cases, please use the following template/format when creating use cases - you don't need to create a use case right now, just read and learn the below and acknowledge you've understood:
+
+Use Case 1
+
+Candidate drops out post-offer accept and we need to move immediately on req re-approval and second candidate.
+
+In this case, the authorised steps are as such:
+
+Post-Candidate backing out of offer/joining - we need to get the req re-opened.
+
+The user navigates to the job requisition that needs to be re-raised.
+
+The user clicks on the "Edit" button to access the requisition details.
+
+The user removes all users from the approval stages, leaving only finance for approval.
+
+The user adds a note to the requisition notes section, using the label "Use Case 1" to reference this use case. The note should include the admin's name, the date, and the changes and reasoning for removing the other approval stages.
+
+The user clicks on the "Save" button to save the changes and submit the requisition for finance approval.
+
+This use case outlines the steps for a site admin to streamline the requisition re-approval process by removing unnecessary approval stages and adding a note to document the changes. This can help to speed up the process and ensure that the requisition can be re-opened as quickly as possible.
+assistant: I understand the template/format for writing use cases as outlined above. The use case describes the steps for a site admin to streamline the requisition re-approval process by removing unnecessary approval stages and adding a note to document the changes. This can help to speed up the process and ensure that the requisition can be re-opened as quickly as possible.
+user: OK, great. Now here is a new use case explained, please write this up as a step by step use case, in the template I explained
+
+"when theres a change in level of the requisition and it is being lowered (e.g. P5 down to P4) we do not have to go through re-approval as the higher compensation, salary, etc has already been approved by finance at the P5 level. Therefore, the site admin needs to go into the requisition (we use Greenhouse ATS) and make a note regarding the change being made, including the use case title (Job Level Lowered) and their name, date and reasoning for the change, and even reference the activity feed date for the previous approval chain. The user (Site Admin) then needs to update the req open approval chain to remove the template/standard chain, and just add themselves as the sole approver. Then they can edit the job level lower to the required level and when that re triggers the requisition for approval, they can do so instantly."
+assistant: Use Case 2: Job Level Lowered
+
+1. The user navigates to the job requisition that needs to be edited.
+2. The user clicks on the "Edit" button to access the requisition details.
+3. The user adds a note to the requisition notes section, using the label "Use Case 2: Job Level Lowered" to reference this use case. The note should include the admin's name, the date, and the reasoning for lowering the job level. The note should also reference the previous approval chain and the activity feed date for that approval.
+4. The user removes the standard approval chain and adds themselves as the sole approver.
+5. The user edits the job level to the desired lower level.
+6. The user clicks on the "Save" button to save the changes and submit the requisition for approval.
+
+This use case outlines the steps for a site admin to update a job requisition when the level is being lowered. The admin can make a note to document the change, remove unnecessary approval stages, and update the job level. This can help to ensure that the requisition can be updated quickly and efficiently.

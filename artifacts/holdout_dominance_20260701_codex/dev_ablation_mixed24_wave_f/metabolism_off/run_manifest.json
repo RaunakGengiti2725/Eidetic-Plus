@@ -1,0 +1,290 @@
+{
+  "systems": "eidetic-full",
+  "dataset": "both",
+  "split": "dev",
+  "subset": 10,
+  "sample_offset": 0,
+  "sample_strategy": "contiguous",
+  "samples_file": "artifacts/holdout_dominance_20260701_codex/dev_ablation_mixed24_wave_c/dev_ablation.samples.json",
+  "holdout_profile": "dev",
+  "runs": 1,
+  "run_offset": 0,
+  "variant": "longmemeval_s",
+  "render_only": false,
+  "judge": {
+    "judge_model": "qwen3-max",
+    "judge_backend": "dashscope"
+  },
+  "sample_count": 24,
+  "category_counts": {
+    "knowledge-update": 2,
+    "multi-hop": 3,
+    "multi-session": 2,
+    "open-domain": 3,
+    "single-hop": 3,
+    "single-session-assistant": 2,
+    "single-session-preference": 2,
+    "single-session-user": 2,
+    "temporal": 3,
+    "temporal-reasoning": 2
+  },
+  "sample_rows": [
+    {
+      "dataset": "longmemeval",
+      "sample_id": "58bf7951",
+      "category": "single-session-user"
+    },
+    {
+      "dataset": "longmemeval",
+      "sample_id": "6d550036",
+      "category": "multi-session"
+    },
+    {
+      "dataset": "longmemeval",
+      "sample_id": "8a2466db",
+      "category": "single-session-preference"
+    },
+    {
+      "dataset": "longmemeval",
+      "sample_id": "gpt4_f49edff3",
+      "category": "temporal-reasoning"
+    },
+    {
+      "dataset": "longmemeval",
+      "sample_id": "d7c942c3",
+      "category": "knowledge-update"
+    },
+    {
+      "dataset": "longmemeval",
+      "sample_id": "c4f10528",
+      "category": "single-session-assistant"
+    },
+    {
+      "dataset": "longmemeval",
+      "sample_id": "1e043500",
+      "category": "single-session-user"
+    },
+    {
+      "dataset": "longmemeval",
+      "sample_id": "e831120c",
+      "category": "multi-session"
+    },
+    {
+      "dataset": "longmemeval",
+      "sample_id": "75832dbd",
+      "category": "single-session-preference"
+    },
+    {
+      "dataset": "longmemeval",
+      "sample_id": "gpt4_8279ba02",
+      "category": "temporal-reasoning"
+    },
+    {
+      "dataset": "longmemeval",
+      "sample_id": "89941a93",
+      "category": "knowledge-update"
+    },
+    {
+      "dataset": "longmemeval",
+      "sample_id": "1903aded",
+      "category": "single-session-assistant"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c0_q10",
+      "category": "temporal"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c0_q18",
+      "category": "multi-hop"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c0_q22",
+      "category": "open-domain"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c0_q83",
+      "category": "single-hop"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c1_q8",
+      "category": "temporal"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c1_q18",
+      "category": "multi-hop"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c3_q0",
+      "category": "open-domain"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c1_q42",
+      "category": "single-hop"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c2_q0",
+      "category": "temporal"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c2_q9",
+      "category": "multi-hop"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c4_q27",
+      "category": "open-domain"
+    },
+    {
+      "dataset": "locomo",
+      "sample_id": "c2_q68",
+      "category": "single-hop"
+    }
+  ],
+  "system_failures": [],
+  "metabolism_mode": true,
+  "env": {
+    "ABSTENTION_THRESHOLD": "",
+    "ABSTENTION_V2": "1",
+    "ABSTENTION_V2_TAU": "",
+    "ACTIVE_FACT_CONTEXT": "1",
+    "ACTIVE_RETRIEVAL": "1",
+    "ADAPTIVE_EF": "1",
+    "ADAPTIVE_K": "",
+    "ADAPTIVE_K_MIN": "",
+    "AFFECT_SALIENCE": "1",
+    "AGGREGATION_AUDIT": "1",
+    "ANN_TOPK": "100",
+    "ASSISTANT_EVIDENCE_CONTEXT": "1",
+    "BATCH_NLI": "1",
+    "BENCH_BASELINE_LLM": "qwen-plus",
+    "BENCH_COACTIVATION": "1",
+    "BENCH_FULL_CONSOLIDATION": "",
+    "CACHE_VERSIONING": "",
+    "CLAIM_EXTRACTION": "0",
+    "COACTIVATION_CHANNEL": "0",
+    "COMPRESSION_RATIO": "",
+    "CONFLICT_RESOLVER": "0",
+    "CONFORMAL_ALPHA": "",
+    "CONFORMAL_DEPTH": "",
+    "CONFORMAL_QHAT": "",
+    "CONSOLIDATION_EXTRACT_CALL_BUDGET": "90",
+    "CONSOLIDATION_EXTRACT_DEADLINE_SEC": "180",
+    "CONSOLIDATION_LONG_HAYSTACK_RAW_ONLY": "1",
+    "CONSOLIDATION_RAW_ONLY_WINDOW_THRESHOLD": "64",
+    "CONSOLIDATION_TIMEOUT_POLICY": "",
+    "CONTEXT_COMPRESS": "",
+    "CONTEXT_TOKEN_BUDGET": "",
+    "COVE": "",
+    "CRYSTAL_SPAN_CHARS": "",
+    "CRYSTAL_SPAN_DEMOTION": "1",
+    "DASHSCOPE_MAX_CONCURRENCY": "4",
+    "DASHSCOPE_REQUEST_TIMEOUT_SEC": "",
+    "DASHSCOPE_RPM": "60",
+    "DASHSCOPE_SLOT_TIMEOUT_SEC": "600",
+    "DATA_DIR": "artifacts/holdout_dominance_20260701_codex/dev_ablation_mixed24_wave_f/data_metabolism_off",
+    "DEFER_REEMBED": "",
+    "DREAM_AB": "",
+    "DREAM_INFER_CONFIDENCE": "",
+    "DREAM_PRUNE_PERCENTILE": "",
+    "DREAM_REPAIR": "",
+    "DREAM_REPAIR_APPLY": "",
+    "DREAM_USE_LLM_NLI": "",
+    "EIDETIC_ENABLE_DATASET_SOURCE_SCANS": "",
+    "EMBED_BATCH_PARALLELISM": "",
+    "EVENT_ALIAS_EXPANSION": "1",
+    "EVENT_CHAIN_CONTEXT": "0",
+    "EVENT_RANKING": "0",
+    "EXTRACT_CHUNKING": "0",
+    "EXTRACT_CHUNK_CHARS": "",
+    "EXTRACT_CHUNK_OVERLAP": "",
+    "EXTRACT_LIGHT": "",
+    "FALSE_PREMISE": "",
+    "FAST_VERIFY": "1",
+    "FINAL_TOPK": "10",
+    "FLOW_ACTIVATION": "",
+    "FLOW_HYBRID_CHANNEL": "",
+    "FLOW_WARMUP": "1",
+    "FULL_SLEEP": "0",
+    "FUSION_LEARNER": "",
+    "FUSION_LEARNER_METHOD": "",
+    "FUSION_METHOD": "",
+    "GIST_CHANNEL": "0",
+    "GRAPH_BRIDGE_CONTEXT": "1",
+    "GRAPH_VOCAB_SEEDING": "0",
+    "HIPPO2_SEEDING": "1",
+    "HNSW_EF_CONSTRUCTION": "",
+    "HNSW_EF_SEARCH": "",
+    "HNSW_EF_SEARCH_HARD": "",
+    "HNSW_M": "",
+    "HOST_AUTO_SLEEP": "1",
+    "HOST_AUTO_SLEEP_MIN_INTERVAL_SEC": "5",
+    "HOST_AUTO_SLEEP_SCORE_IMPORTANCE": "0",
+    "INGEST_GRANULARITY": "",
+    "JUDGE_BASE_URL": "",
+    "JUDGE_MODEL": "",
+    "LIST_AUDIT": "1",
+    "MARKOV_PREFETCH": "1",
+    "MEMORY_MANAGER": "",
+    "MEMORY_TYPING": "0",
+    "METABOLISM_MODE": "1",
+    "MMR_ENABLED": "",
+    "MMR_LAMBDA": "",
+    "PARALLEL_CHANNELS": "1",
+    "PERSISTENT_BM25": "1",
+    "PREF_SENTENCE_SCAN": "0",
+    "QUANT_REFINE": "",
+    "RAW_SPAN_AUDIT": "1",
+    "RAW_SPAN_AUDIT_TOPK": "6",
+    "RAW_SPAN_MIN_CHARS": "12000",
+    "RAW_SPAN_PER_RECORD": "3",
+    "READER_BLOCK_CHARS": "8000",
+    "READER_COT": "1",
+    "READER_GATED_INFERENCE": "",
+    "READER_JSON_RESILIENT": "",
+    "READER_LIST_TWOPASS": "",
+    "READER_MODE": "photographic",
+    "READER_MODEL": "qwen-plus",
+    "READER_RECENCY_NUDGE": "",
+    "READER_ROUTER": "",
+    "READER_TEMPORAL_SCAFFOLD": "",
+    "READER_TIER_A": "1",
+    "REFLEX_RECALL": "",
+    "RERANK_DEPTH": "",
+    "RERANK_ENABLED": "",
+    "RERANK_FAIL_OPEN": "",
+    "RERANK_SKIP_MARGIN": "",
+    "ROCCHIO": "",
+    "RRF_K": "60",
+    "RRF_W_BM25": "",
+    "RRF_W_COACT": "",
+    "RRF_W_DENSE": "",
+    "RRF_W_EVENT": "",
+    "RRF_W_GIST": "",
+    "RRF_W_GRAPH": "",
+    "RRF_W_RECENCY": "",
+    "RRF_W_STRUCT": "",
+    "SALIENCE_PRUNE_THRESHOLD": "",
+    "SCRATCHPAD": "",
+    "SEMANTIC_CACHE": "",
+    "SEMANTIC_CACHE_ADAPTIVE": "",
+    "SPAN_NLI": "",
+    "STRICT_BASELINE_HEALTH": "",
+    "STRUCT_CHANNEL": "0",
+    "TEMPORAL_EVIDENCE_AUDIT": "1",
+    "TEMPORAL_RERANK": "0",
+    "USER_EVIDENCE_CONTEXT": "1",
+    "VECTOR_QUANT": "",
+    "VERIFY_CITATION_CAP": "",
+    "VIVID_FRACTION": ""
+  }
+}

@@ -1,0 +1,114 @@
+user: Put these in a table:
+
+University of Aston
+University of Anglia Ruskin
+"Queen Mary
+University of London"
+University of Birmingham
+University of Bristol
+"University of Brighton
+Sussex"
+University of Brunel
+University of Buckingham
+University of Cambridge
+University of Preston
+University of Edge Hill
+University of Exeter
+"University of Hull
+York"
+University of Imperial College London
+University of Keele
+University of University of Kent & Canterbury Christchurch
+King's College London
+University of Lancaster
+University of Leeds
+University of Leicester
+University of Lincoln
+University of Liverpool
+University of Manchester
+University of Newcastle
+University of Nottingham
+University of East Anglia
+University of Oxford
+University of Plymouth
+University College London
+University of Sheffield
+University of Southampton
+University of University of Sunderland
+St George's Hospital Medical School
+University of Warwick
+assistant: | University | Location |
+| --- | --- |
+| University of Aston | Aston Triangle, Birmingham |
+| University of Anglia Ruskin | East Road, Cambridge |
+| Queen Mary University of London | Mile End Rd, London |
+| University of Birmingham | Edgbaston, Birmingham |
+| University of Bristol | Senate House, Bristol |
+| University of Brighton Sussex | Falmer, Brighton |
+| University of Brunel | Kingston Lane, Uxbridge |
+| University of Buckingham | Hunter St, Buckingham |
+| University of Cambridge | The Old Schools, Cambridge |
+| University of Central Lancashire | Preston, Lancashire |
+| University of Edge Hill | St Helens Rd, Ormskirk |
+| University of Exeter | Exeter, Devon |
+| University of Hull York | Cottingham Rd, Hull |
+| Imperial College London | Exhibition Rd, London |
+| University of Keele | Keele, Staffordshire |
+| University of Kent Canterbury Christ Church | Canterbury, Kent |
+| King's College London | Strand, London |
+| Lancaster University | Bailrigg, Lancaster |
+| University of Leeds | Woodhouse Lane, Leeds |
+| University of Leicester | University Rd, Leicester |
+| University of Lincoln | Brayford Pool, Lincoln |
+| University of Liverpool | Liverpool, Merseyside |
+| University of Manchester | Oxford Rd, Manchester |
+| Newcastle University | Newcastle upon Tyne, Tyne and Wear |
+| University of Nottingham | University Park, Nottingham |
+| University of East Anglia | Norwich, Norfolk |
+| University of Oxford | University Parks, Oxford |
+| University of Plymouth | Drake Circus, Plymouth |
+| University College London | Gower St, London |
+| University of Sheffield | Western Bank, Sheffield |
+| University of Southampton | University Rd, Southampton |
+| University of Sunderland | Edinburgh Building, Sunderland |
+| St George's Hospital Medical School | Cranmer Terrace, London |
+| University of Warwick | Coventry, Warwickshire |
+user: On the location you can remove the neighbourhood, leave just the city
+assistant: Sure, here is the updated table:
+
+| University | Location |
+| --- | --- |
+| University of Aston | Birmingham |
+| University of Anglia Ruskin | Cambridge |
+| Queen Mary University of London | London |
+| University of Birmingham | Birmingham |
+| University of Bristol | Bristol |
+| University of Brighton Sussex | Brighton |
+| University of Brunel | Uxbridge |
+| University of Buckingham | Buckingham |
+| University of Cambridge | Cambridge |
+| University of Central Lancashire | Preston |
+| University of Edge Hill | Ormskirk |
+| University of Exeter | Exeter |
+| University of Hull York | Hull |
+| Imperial College London | London |
+| University of Keele | Keele |
+| University of Kent Canterbury Christ Church | Canterbury |
+| King's College London | London |
+| Lancaster University | Lancaster |
+| University of Leeds | Leeds |
+| University of Leicester | Leicester |
+| University of Lincoln | Lincoln |
+| University of Liverpool | Liverpool |
+| University of Manchester | Manchester |
+| Newcastle University | Newcastle upon Tyne |
+| University of Nottingham | Nottingham |
+| University of East Anglia | Norwich |
+| University of Oxford | Oxford |
+| University of Plymouth | Plymouth |
+| University College London | London |
+| University of Sheffield | Sheffield |
+| University of Southampton | Southampton |
+| University of Sunderland | Sunderland |
+| St George's Hospital Medical School | London |
+| University of Warwick | Coventry |

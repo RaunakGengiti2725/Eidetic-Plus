@@ -1,0 +1,13 @@
+launching rotation-r5 h2h: /Users/raunakgengiti/Eidetic-Plus/.venv/bin/python -m bench.run --systems eidetic-full,mem0 --dataset locomo --samples-file /Users/raunakgengiti/Eidetic-Plus/artifacts/holdout_rotation_r5_codex/holdout40.samples.json --split test --holdout-profile holdout --runs 1 --out /Users/raunakgengiti/Eidetic-Plus/artifacts/holdout_rotation_r5_codex --overwrite
+[PostHog] Multiple active PostHog clients detected for the same project API key and host. Reuse one Posthog instance per app or process when possible to avoid competing background queues and missed shutdown flushes. Multiple clients are supported when intentional.
+/Users/raunakgengiti/Eidetic-Plus/.venv/lib/python3.14/site-packages/mem0/vector_stores/qdrant.py:174: UserWarning: Payload indexes have no effect in the local Qdrant. Please use server Qdrant if you need payload indexes.
+  self.client.create_payload_index(
+Judge: {'judge_model': 'qwen3-max', 'judge_backend': 'dashscope'}
+Loaded 40 samples (locomo, split=test); categories: {'multi-hop': 8, 'open-domain': 2, 'single-hop': 22, 'temporal': 8}
+Running eidetic-plus-full: 40 samples x 1 run(s)...
+Running mem0: 40 samples x 1 run(s)...
+
+Scoreboard -> /Users/raunakgengiti/Eidetic-Plus/artifacts/holdout_rotation_r5_codex/scoreboard.md
+Curves     -> {'ok': True, 'recall_png': '/Users/raunakgengiti/Eidetic-Plus/artifacts/holdout_rotation_r5_codex/recall_vs_age.png', 'latency_png': '/Users/raunakgengiti/Eidetic-Plus/artifacts/holdout_rotation_r5_codex/latency_vs_age.png', 'slopes': {'eidetic-plus-full': {'recall_slope_per_year': 0.4008283309656202, 'latency_slope_ms_per_year': -16976.989479229}, 'mem0': {'recall_slope_per_year': -0.4316612795014363, 'latency_slope_ms_per_year': 5795.910699806784}}}
+Manifest   -> /Users/raunakgengiti/Eidetic-Plus/artifacts/holdout_rotation_r5_codex/run_manifest.json
+Reproduce (full, >=10 runs): bash bench/reproduce.sh

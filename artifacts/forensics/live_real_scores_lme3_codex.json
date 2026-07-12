@@ -1,0 +1,101 @@
+{
+  "rows": 9,
+  "failures": 5,
+  "bucket_counts": {
+    "abstention": 3,
+    "retrieval_miss": 2
+  },
+  "category_bucket_counts": {
+    "single-session-user": {
+      "abstention": 3,
+      "retrieval_miss": 2
+    }
+  },
+  "consolidation": {
+    "eidetic-plus-full": {
+      "groups": 3,
+      "pending_processed": 148,
+      "facts_extracted": 68,
+      "events_indexed": 68,
+      "extraction_timed_out": 137,
+      "extraction_deferred": 0
+    }
+  },
+  "items": [
+    {
+      "system": "eidetic-plus-full",
+      "dataset": "longmemeval",
+      "category": "single-session-user",
+      "sample_id": "118b2229",
+      "question": "How long is my daily commute to work?",
+      "gold": "45 minutes each way",
+      "predicted": "I don't have enough verified evidence in memory to answer that confidently.",
+      "bucket": "abstention",
+      "suggested_fix": "calibrate ABSTENTION_V2_TAU on dev logs; inspect entailment/proof signals",
+      "coverage": 0.26622164249420166,
+      "verified": false,
+      "abstained": true,
+      "error": ""
+    },
+    {
+      "system": "eidetic-plus-full",
+      "dataset": "longmemeval",
+      "category": "single-session-user",
+      "sample_id": "51a45a95",
+      "question": "Where did I redeem a $5 coupon on coffee creamer?",
+      "gold": "Target",
+      "predicted": "I don't have enough verified evidence in memory to answer that confidently.",
+      "bucket": "abstention",
+      "suggested_fix": "calibrate ABSTENTION_V2_TAU on dev logs; inspect entailment/proof signals",
+      "coverage": 0.3047952651977539,
+      "verified": false,
+      "abstained": true,
+      "error": ""
+    },
+    {
+      "system": "rag-full",
+      "dataset": "longmemeval",
+      "category": "single-session-user",
+      "sample_id": "e47becba",
+      "question": "What degree did I graduate with?",
+      "gold": "Business Administration",
+      "predicted": "I do not have that in memory.",
+      "bucket": "abstention",
+      "suggested_fix": "calibrate ABSTENTION_V2_TAU on dev logs; inspect entailment/proof signals",
+      "coverage": null,
+      "verified": null,
+      "abstained": false,
+      "error": ""
+    },
+    {
+      "system": "rag-full",
+      "dataset": "longmemeval",
+      "category": "single-session-user",
+      "sample_id": "51a45a95",
+      "question": "Where did I redeem a $5 coupon on coffee creamer?",
+      "gold": "Target",
+      "predicted": "I redeemed a $5 coupon on coffee creamer last Sunday [S42].",
+      "bucket": "retrieval_miss",
+      "suggested_fix": "raise lexical/graph/event recall depth; inspect candidate_memory_ids and query parsing",
+      "coverage": null,
+      "verified": null,
+      "abstained": false,
+      "error": ""
+    },
+    {
+      "system": "rag-vector",
+      "dataset": "longmemeval",
+      "category": "single-session-user",
+      "sample_id": "51a45a95",
+      "question": "Where did I redeem a $5 coupon on coffee creamer?",
+      "gold": "Target",
+      "predicted": "You redeemed the $5 coupon on coffee creamer from your email inbox [S0].",
+      "bucket": "retrieval_miss",
+      "suggested_fix": "raise lexical/graph/event recall depth; inspect candidate_memory_ids and query parsing",
+      "coverage": null,
+      "verified": null,
+      "abstained": false,
+      "error": ""
+    }
+  ]
+}

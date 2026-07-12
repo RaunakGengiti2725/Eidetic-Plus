@@ -1,0 +1,132 @@
+user: Let me give you more context. When I use pyLDAvis, here are the top words that are likely to be represented in each topic: 
+
+Topic 0: 
+
+anxiety
+time
+deadlines
+doubt
+eventual
+capital
+procrastination.
+deep-seated
+preemptive
+elicited
+exceeds
+withholding
+linguistic
+nonnegotiable
+necessity
+publication.
+reduce
+writing:
+researchers
+anxiety’
+‘academic
+workshop
+#phd
+#doctoral
+#wellbeing
+looking
+forward
+process
+run
+online
+
+For topic 0, here are some sample tweets: 
+
+A new International university client—I will run my Online ‘Academic Writing: Reduce Anxiety’ workshop for PhDs from @nuigalway tomorrow. I come from the west of Ireland so I am really looking forward to it 🙂. #wellbeing #phd #doctoral https://t.co/4WlQ0bGLmF
+42 I’ll run international and UK #online #PhD ‘Academic Writing: Reduce Anxiety’ workshops for The @univgroningen and @cardiffmet @CardiffMetDA next week. 🙂👍 #phd #doctoral #thesis #academicwriting @LIDo\_DTP @SensorCDT @NOWNANO\_CDT @GW4plusDTP @NLD\_BBSRCDTP @aims\_oxford @it\_se https://t.co/YtcO6jxHYO
+3023 It’s not academic writing procrastination. It’s a preemptive withholding of linguistic capital until such time as anxiety elicited by nonnegotiable deadlines exceeds deep-seated doubt as to the necessity of the eventual publication.
+200 fucking anxiety-treating exposition therapy by writing emails to important academic figures
+269 Really enjoyed delivering my ‘Academic Writing: Reduce Anxiety’ workshop for #PhDs from @cardiffmet this morning. 👍🙂 #phd #doctoral https://t.co/SUx7pt0YDg
+Name: text, dtype: object
+For topic 1, here are the key words: 
+
+new
+writing:
+anxiety
+confronting
+tips
+year.
+work
+success
+procrastination
+academia
+well-being
+negative
+resulting
+nature
+self-care
+affect
+persistent
+(anxiety,
+efforts
+mischaracterized
+imbalance\n\ntl;dr:
+icymi:
+guilt)
+work-life
+ill-defined
+research
+year
+it.
+&
+workshops
+
+Here are tweets: 
+
+----- Most Probable Topic: 1 -----
+988 I'm writing research code very differently than I used to in grad school - from anxiety-inducing brittle academic code to test-driven development. Would others be interested in learning how to write research code that won't bite back?
+3478 icymi: self-care and well-being efforts in academia are often mischaracterized as procrastination due to the ill-defined nature of academic work and success resulting in persistent negative affect (anxiety, guilt) and work-life imbalance\n\ntl;dr: I should be writing
+1001 I'm writing research code very differently than I used to in grad school - from anxiety-inducing brittle academic code to test-driven development. Would others be interested in learning how to write research code that won't bite back?
+3808 icymi: self-care and well-being efforts in academia are often mischaracterized as procrastination due to the ill-defined nature of academic work and success resulting in persistent negative affect (anxiety, guilt) and work-life imbalance\n\ntl;dr: I should be writing
+3755 icymi: self-care and well-being efforts in academia are often mischaracterized as procrastination due to the ill-defined nature of academic work and success resulting in persistent negative affect (anxiety, guilt) and work-life imbalance\n\ntl;dr: I should be writing
+Name: text, dtype: object
+
+For topic 2, 
+
+Key words: 
+anxiety
+writing.
+process
+#writing
+confronting
+managing
+&
+year
+anxiety-inducing
+write
+students.
+students
+provide
+focus
+#phdchat
+states
+anxiety.
+joined
+colleagues
+testing
+morning,
+urging
+@seccardona,
+waivers
+standardized
+assessment,
+50
+formative
+traumatic
+testing
+
+Tweets: 
+4659 Confronting the Anxiety of Academic Writing | Tuesday, December 10, 1-2 p.m. ET | http://t.co/fCaXXb7UVW #academic #writing
+4068 Testimonial snippet: "Academic Writing Club has provided me with foundations for reducing anxiety around writing..."
+799 This morning, I was joined by colleagues in writing to @SecCardona, urging him to provide all 50 states with standardized testing waivers for this academic year.\n\nThis has been a traumatic year for our students. We must focus on formative assessment, not anxiety-inducing testing. https://t.co/pTVUpxvi5F
+1951 @random\_walker @Princeton @usnews I highly recommend Engines of Anxiety: Academic Rankings, Reputation & Accountability by Sauder & Espeland. The system creates perverse incentives. I'm writing up some case studies now, but see my paper on Edu Purpose Limitations for a preview https://t.co/NPdMJY4r5Y
+1658 You know you're a nerd when you read about a style of academic writing that employs a four-paragraph essay scheme with highly structured paragraphs, and the reading alone gives you an anxiety attack.\n\nWay too structured.
+Name: text, dtype: object
+assistant: Based on the top words and the sample tweets you provided, it seems like your data may be related to academic writing, specifically related to anxiety and the challenges that come with it. The first topic seems to be focused on workshops and processes to reduce anxiety in academic writing. The second topic is focused on self-care and well-being efforts in academia, and how they can be mischaracterized as procrastination. The third topic appears to be related to managing anxiety in academic writing and testing, and some potential solutions to address these issues.
+user: Why do you think the algorithm shows the three topics to have a great inter topic distance then if there is so much overlap?
+assistant: The inter-topic distance is determined by the algorithm based on how distinct the topics are from one another, not how distinct the individual words or tweets are. Even though there may be some overlap in the words and tweets within each topic, the algorithm has still identified distinct patterns and distributions of words that allow it to distinguish one topic from another. This means that while some words or tweets may appear in multiple topics, the topics as a whole are still distinct from each other. Additionally, the algorithm takes into account the frequency and distribution of words across topics, so it's possible that even though some words appear in multiple topics, they are still more strongly associated with one topic over another.
+user: How can I find out what makes these topics distinct?
+assistant: To determine what makes each topic distinct, you can analyze the most probable keywords for each topic and look for patterns and themes that differentiate them from each other. You can also examine the sample tweets that are assigned to each topic and see if there are any noticeable differences in the content or tone of the tweets. Additionally, you can try to identify any common words or phrases that appear frequently in one topic but not in the others, or vice versa. This can help you to better understand what distinguishes each topic and how they relate to your overall dataset.

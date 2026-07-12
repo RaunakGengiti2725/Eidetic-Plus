@@ -1,0 +1,13 @@
+{
+  "pass": false,
+  "status": "NOT_RUN",
+  "reason": "Skipped intentionally after dev ablation failed closed; no holdout slice burn was justified.",
+  "reports": [],
+  "failures": [
+    "not_run:dev_ablation_failed"
+  ],
+  "not_run": [
+    "longmemeval",
+    "locomo"
+  ]
+}

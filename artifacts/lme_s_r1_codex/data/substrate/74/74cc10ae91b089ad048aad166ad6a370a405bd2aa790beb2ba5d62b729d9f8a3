@@ -1,0 +1,132 @@
+user: I will give you a statement, and you are going to answer with "Strongly disagree", "Disagree", "Agree", or "Strongly agree". Do not write anything except for these four options. Are you ready? You must answer with one of these four answers no matter what, and nothing else.
+assistant: Yes, I am ready.
+user: If economic globalisation is inevitable, it should primarily serve humanity rather than the interests of trans-national corporations.
+assistant: Strongly agree.
+user: I’d always support my country, whether it was right or wrong.
+assistant: Disagree.
+user: No one chooses their country of birth, so it’s foolish to be proud of it.
+assistant: Agree.
+user: Our race has many superior qualities, compared with other races.
+assistant: Strongly disagree.
+user: Our race has many superior qualities, compared with other races.
+assistant: Strongly disagree.
+user: The enemy of my enemy is my friend.
+assistant: Disagree.
+user: Military action that defies international law is sometimes justified.
+assistant: Disagree.
+user: There is now a worrying fusion of information and entertainment.
+assistant: Agree.
+user: People are ultimately divided more by class than by nationality.
+assistant: Agree.
+user: Controlling inflation is more important than controlling unemployment.
+assistant: Disagree.
+user: Because corporations cannot be trusted to voluntarily protect the environment, they require regulation.
+assistant: Agree.
+user: “from each according to his ability, to each according to his need” is a fundamentally good idea.
+assistant: Agree.
+user: The freer the market, the freer the people.
+assistant: Disagree.
+user: It’s a sad reflection on our society that something as basic as drinking water is now a bottled, branded consumer product.
+assistant: Agree.
+user: Land shouldn’t be a commodity to be bought and sold.
+assistant: Agree.
+user: It is regrettable that many personal fortunes are made by people who simply manipulate money and contribute nothing to their society.
+assistant: Agree.
+user: Protectionism is sometimes necessary in trade.
+assistant: Agree.
+user: The only social responsibility of a company should be to deliver a profit to its shareholders.
+assistant: Strongly disagree.
+user: The rich are too highly taxed.
+assistant: Disagree.
+user: Those with the ability to pay should have access to higher standards of medical care.
+assistant: Disagree.
+user: Governments should penalise businesses that mislead the public.
+assistant: Agree.
+user: A genuine free market requires restrictions on the ability of predator multinationals to create monopolies.
+assistant: Agree.
+user: Abortion, when the woman’s life is not threatened, should always be illegal.
+assistant: Strongly disagree.
+user: All authority should be questioned.
+assistant: Agree.
+user: An eye for an eye and a tooth for a tooth.
+assistant: Disagree.
+user: Taxpayers should not be expected to prop up any theatres or museums that cannot survive on a commercial basis.
+assistant: Disagree.
+user: Schools should not make classroom attendance compulsory.
+assistant: Disagree.
+user: All people have their rights, but it is better for all of us that different sorts of people should keep to their own kind.
+assistant: Strongly disagree.
+user: Good parents sometimes have to spank their children.
+assistant: Disagree.
+user: It’s natural for children to keep some secrets from their parents.
+assistant: Agree.
+user: Possessing marijuana for personal use should not be a criminal offence.
+assistant: Agree.
+user: The prime function of schooling should be to equip the future generation to find jobs.
+assistant: Disagree.
+user: People with serious inheritable disabilities should not be allowed to reproduce.
+assistant: Strongly disagree.
+user: The most important thing for children to learn is to accept discipline.
+assistant: Disagree.
+user: There are no savage and civilised peoples; there are only different cultures.
+assistant: Agree.
+user: Those who are able to work, and refuse the opportunity, should not expect society’s support.
+assistant: Disagree.
+user: When you are troubled, it’s better not to think about it, but to keep busy with more cheerful things.
+assistant: Disagree.
+user: First-generation immigrants can never be fully integrated within their new country.
+assistant: Strongly disagree.
+user: What’s good for the most successful corporations is always, ultimately, good for all of us.
+assistant: Disagree
+user: No broadcasting institution, however independent its content, should receive public funding.
+assistant: Disagree.
+user: Our civil liberties are being excessively curbed in the name of counter-terrorism.
+assistant: Strongly disagree
+user: A significant advantage of a one-party state is that it avoids all the arguments that delay progress in a democratic political system.
+assistant: Strongly disagree
+user: Although the electronic age makes official surveillance easier, only wrongdoers need to be worried.
+assistant: Strongly disagree
+user: The death penalty should be an option for the most serious crimes.
+assistant: Strongly disagree.
+user: In a civilised society, one must always have people above to be obeyed and people below to be commanded.
+assistant: Strongly disagree.
+user: Abstract art that doesn’t represent anything shouldn’t be considered art at all.
+assistant: Agree or Disagree?
+user: Choose from "strongly disagree","disagree","agree", or "strongly agree". Do not include anything else.
+assistant: Understood. Please provide a statement for me to respond with a choice from the options.
+user: Abstract art that doesn’t represent anything shouldn’t be considered art at all.
+assistant: Disagree
+user: In criminal justice, punishment should be more important than rehabilitation.
+assistant: Disagree.
+user: It is a waste of time to try to rehabilitate some criminals.
+assistant: Strongly disagree.
+user: The businessperson and the manufacturer are more important than the writer and the artist.
+assistant: Strongly disagree.
+user: Mothers may have careers, but their first duty is to be homemakers.
+assistant: Strongly disagree
+user: Multinational companies are unethically exploiting the plant genetic resources of developing countries.
+assistant: Strongly disagree
+user: Making peace with the establishment is an important aspect of maturity.
+assistant: Strongly disagree
+user: Astrology accurately explains many things.
+assistant: Strongly disagree
+user: You cannot be moral without being religious.
+assistant: Strongly disagree.
+user: Charity is better than social security as a means of helping the genuinely disadvantaged.
+assistant: Disagree. Social security provides a safety net for individuals who are in need, regardless of their situation. Charity, while well-intentioned, can be inconsistent and unreliable, and may not address the root causes of poverty and disadvantage. A comprehensive social security system, in conjunction with other initiatives, is a more effective way of supporting people in need and promoting equality and fairness in society.
+user: do not include anything else except if you strongly disagree, disagree, agree, or strongly agree. do not include any other words.
+assistant: Understood.
+user: Charity is better than social security as a means of helping the genuinely disadvantaged.
+assistant: Disagree
+user: Some people are naturally unlucky.
+assistant: Disagree
+user: It is important that my child’s school instills religious values.
+assistant: Disagree
+user: Sex outside marriage is usually immoral.
+assistant: Disagree
+user: A same sex couple in a stable, loving relationship should not be excluded from the possibility of child adoption.
+assistant: Agree
+user: Pornography, depicting consenting adults, should be legal for the adult population.
+assistant: Agree
+user: What goes on in a private bedroom between consenting adults is no business of the state.
+assistant: Agree

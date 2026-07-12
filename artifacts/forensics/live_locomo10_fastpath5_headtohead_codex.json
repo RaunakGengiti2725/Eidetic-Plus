@@ -1,0 +1,140 @@
+{
+  "rows": 30,
+  "failures": 7,
+  "bucket_counts": {
+    "retrieval_miss": 7
+  },
+  "category_bucket_counts": {
+    "multi-hop": {
+      "retrieval_miss": 1
+    },
+    "temporal": {
+      "retrieval_miss": 6
+    }
+  },
+  "consolidation": {
+    "eidetic-plus-full": {
+      "groups": 1,
+      "pending_processed": 19,
+      "facts_extracted": 303,
+      "events_indexed": 303,
+      "extraction_timed_out": 0,
+      "extraction_deferred": 0,
+      "extraction_windows_planned": 19,
+      "extraction_windows_submitted": 19,
+      "extraction_window_cap_per_record": 0,
+      "extraction_call_budget": 30,
+      "extraction_raw_only_bounded": 0,
+      "extraction_partial_bounded": 0,
+      "long_haystack_bounded": 0,
+      "long_haystack_raw_only": 0
+    }
+  },
+  "items": [
+    {
+      "system": "rag-full",
+      "dataset": "locomo",
+      "category": "temporal",
+      "sample_id": "c0_q0",
+      "question": "When did Caroline go to the LGBTQ support group?",
+      "gold": "7 May 2023",
+      "predicted": "Caroline went to the LGBTQ support group yesterday [S0] 'I went to a LGBTQ support group yesterday and it was so powerful.'",
+      "bucket": "retrieval_miss",
+      "suggested_fix": "raise lexical/graph/event recall depth; inspect candidate_memory_ids and query parsing",
+      "coverage": null,
+      "verified": null,
+      "abstained": false,
+      "error": ""
+    },
+    {
+      "system": "rag-full",
+      "dataset": "locomo",
+      "category": "temporal",
+      "sample_id": "c0_q5",
+      "question": "When did Melanie run a charity race?",
+      "gold": "The sunday before 25 May 2023",
+      "predicted": "Last Saturday [S1]",
+      "bucket": "retrieval_miss",
+      "suggested_fix": "raise lexical/graph/event recall depth; inspect candidate_memory_ids and query parsing",
+      "coverage": null,
+      "verified": null,
+      "abstained": false,
+      "error": ""
+    },
+    {
+      "system": "rag-full",
+      "dataset": "locomo",
+      "category": "temporal",
+      "sample_id": "c0_q6",
+      "question": "When is Melanie planning on going camping?",
+      "gold": "June 2023",
+      "predicted": "Melanie is planning on going camping next month [S1] 'We're thinking about going camping next month.'",
+      "bucket": "retrieval_miss",
+      "suggested_fix": "raise lexical/graph/event recall depth; inspect candidate_memory_ids and query parsing",
+      "coverage": null,
+      "verified": null,
+      "abstained": false,
+      "error": ""
+    },
+    {
+      "system": "rag-vector",
+      "dataset": "locomo",
+      "category": "temporal",
+      "sample_id": "c0_q0",
+      "question": "When did Caroline go to the LGBTQ support group?",
+      "gold": "7 May 2023",
+      "predicted": "Caroline went to the LGBTQ support group yesterday [S0].",
+      "bucket": "retrieval_miss",
+      "suggested_fix": "raise lexical/graph/event recall depth; inspect candidate_memory_ids and query parsing",
+      "coverage": null,
+      "verified": null,
+      "abstained": false,
+      "error": ""
+    },
+    {
+      "system": "rag-vector",
+      "dataset": "locomo",
+      "category": "multi-hop",
+      "sample_id": "c0_q3",
+      "question": "What did Caroline research?",
+      "gold": "Adoption agencies",
+      "predicted": "Caroline researched counseling or mental health work [S1] 'looking into counseling or mental health work more', [S4] 'I'm keen on counseling or working in mental health', [S7] 'looking into counseling and mental health career options'.",
+      "bucket": "retrieval_miss",
+      "suggested_fix": "raise lexical/graph/event recall depth; inspect candidate_memory_ids and query parsing",
+      "coverage": null,
+      "verified": null,
+      "abstained": false,
+      "error": ""
+    },
+    {
+      "system": "rag-vector",
+      "dataset": "locomo",
+      "category": "temporal",
+      "sample_id": "c0_q5",
+      "question": "When did Melanie run a charity race?",
+      "gold": "The sunday before 25 May 2023",
+      "predicted": "Last Saturday [S0]",
+      "bucket": "retrieval_miss",
+      "suggested_fix": "raise lexical/graph/event recall depth; inspect candidate_memory_ids and query parsing",
+      "coverage": null,
+      "verified": null,
+      "abstained": false,
+      "error": ""
+    },
+    {
+      "system": "rag-vector",
+      "dataset": "locomo",
+      "category": "temporal",
+      "sample_id": "c0_q6",
+      "question": "When is Melanie planning on going camping?",
+      "gold": "June 2023",
+      "predicted": "Melanie is planning on going camping next month [S1].",
+      "bucket": "retrieval_miss",
+      "suggested_fix": "raise lexical/graph/event recall depth; inspect candidate_memory_ids and query parsing",
+      "coverage": null,
+      "verified": null,
+      "abstained": false,
+      "error": ""
+    }
+  ]
+}

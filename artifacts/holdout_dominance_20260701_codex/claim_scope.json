@@ -1,0 +1,14 @@
+{
+  "public_claim_scope": "limited",
+  "measured_harness_systems": [],
+  "measured_external_systems": [],
+  "sota_language_allowed": false,
+  "limitations": [
+    "Dev ablation failed closed.",
+    "Frozen holdout head-to-head was not run.",
+    "Slice-invariant evaluation was not run.",
+    "Snap-back audit was not run for a holdout artifact.",
+    "Comparator evidence for Chronos, Mastra, ByteRover, and Hindsight was not gathered."
+  ],
+  "reason": "Dominance/SOTA wording is disallowed for this run because the dev ablation gate failed and no frozen holdout head-to-head was executed."
+}

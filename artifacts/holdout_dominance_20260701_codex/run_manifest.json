@@ -1,0 +1,46 @@
+{
+  "artifact_kind": "dominance_failure_bundle",
+  "created_at": "2026-07-01T11:58:00-07:00",
+  "dataset": "none",
+  "split": "dev",
+  "holdout_profile": "not_run",
+  "systems": "eidetic-plus-full",
+  "sample_count": 0,
+  "sample_rows": [],
+  "runs": 0,
+  "run_offset": 0,
+  "variant": "longmemeval_s",
+  "render_only": true,
+  "metabolism_mode": true,
+  "status": "FAIL",
+  "failure_summary": {
+    "release_gate": "not eligible for PASS",
+    "primary_blocker": "dev ablation failed closed after strict SMQE claim verification",
+    "failed_checks": [
+      "metabolism_delta_pp:0.00<required:5.00",
+      "region_delta_pp:-10.00<required:2.00",
+      "forgetting_cost_ratio:1.000<required:1.050",
+      "forgetting_accuracy_regression_pp:10.00>allowed:1.00"
+    ],
+    "not_run": [
+      "slice_invariant_eval",
+      "frozen_holdout_head_to_head",
+      "release_gate_PASS"
+    ]
+  },
+  "included_artifacts": [
+    "holdout_audit.json",
+    "ablation_report.json",
+    "smqe_claim_coverage.json",
+    "smqe_synthetic_invariant.json",
+    "smqe_planner_invariant.json",
+    "dev_ablation_locomo20_strict/"
+  ],
+  "env": {
+    "METABOLISM_MODE": "1",
+    "AFFECT_SALIENCE": "1",
+    "GIST_CHANNEL": "1",
+    "SALIENCE_PRUNE_THRESHOLD": "0.15",
+    "DREAM_PRUNE_PERCENTILE": "10"
+  }
+}

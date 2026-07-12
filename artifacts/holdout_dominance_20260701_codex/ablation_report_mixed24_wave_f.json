@@ -1,0 +1,274 @@
+{
+  "pass": false,
+  "status": "FAIL",
+  "generated_by": "bench.build_ablation_report",
+  "system": "eidetic-plus-full",
+  "split": "dev",
+  "full": {
+    "n": 24,
+    "row_n": 24,
+    "accuracy": 0.75,
+    "verified_accuracy": 0.75,
+    "query_tokens_median": 6970.5,
+    "query_tokens_mean": 4948.375,
+    "search_p95_ms": 5991.816288,
+    "e2e_p50_ms": 15472.77825,
+    "datasets": [
+      "locomo",
+      "longmemeval"
+    ],
+    "categories": [
+      "knowledge-update",
+      "multi-hop",
+      "multi-session",
+      "open-domain",
+      "single-hop",
+      "single-session-assistant",
+      "single-session-preference",
+      "single-session-user",
+      "temporal",
+      "temporal-reasoning"
+    ],
+    "runs": [
+      0
+    ]
+  },
+  "ablations": {
+    "metabolism_off": {
+      "n": 24,
+      "row_n": 24,
+      "accuracy": 0.541667,
+      "verified_accuracy": 0.458333,
+      "query_tokens_median": 7987.0,
+      "query_tokens_mean": 4648.125,
+      "search_p95_ms": 4485.950125,
+      "e2e_p50_ms": 13547.036563,
+      "datasets": [
+        "locomo",
+        "longmemeval"
+      ],
+      "categories": [
+        "knowledge-update",
+        "multi-hop",
+        "multi-session",
+        "open-domain",
+        "single-hop",
+        "single-session-assistant",
+        "single-session-preference",
+        "single-session-user",
+        "temporal",
+        "temporal-reasoning"
+      ],
+      "runs": [
+        0
+      ]
+    },
+    "regions_off": {
+      "n": 24,
+      "row_n": 24,
+      "accuracy": 0.708333,
+      "verified_accuracy": 0.708333,
+      "query_tokens_median": 6266.5,
+      "query_tokens_mean": 4857.291667,
+      "search_p95_ms": 5396.115779,
+      "e2e_p50_ms": 15923.677563,
+      "datasets": [
+        "locomo",
+        "longmemeval"
+      ],
+      "categories": [
+        "knowledge-update",
+        "multi-hop",
+        "multi-session",
+        "open-domain",
+        "single-hop",
+        "single-session-assistant",
+        "single-session-preference",
+        "single-session-user",
+        "temporal",
+        "temporal-reasoning"
+      ],
+      "runs": [
+        0
+      ]
+    },
+    "forgetting_off": {
+      "n": 24,
+      "row_n": 24,
+      "accuracy": 0.75,
+      "verified_accuracy": 0.75,
+      "query_tokens_median": 7989.5,
+      "query_tokens_mean": 5328.291667,
+      "search_p95_ms": 4825.739647,
+      "e2e_p50_ms": 15538.645813,
+      "datasets": [
+        "locomo",
+        "longmemeval"
+      ],
+      "categories": [
+        "knowledge-update",
+        "multi-hop",
+        "multi-session",
+        "open-domain",
+        "single-hop",
+        "single-session-assistant",
+        "single-session-preference",
+        "single-session-user",
+        "temporal",
+        "temporal-reasoning"
+      ],
+      "runs": [
+        0
+      ]
+    },
+    "affect_off": {
+      "n": 24,
+      "row_n": 24,
+      "accuracy": 0.75,
+      "verified_accuracy": 0.75,
+      "query_tokens_median": 6079.5,
+      "query_tokens_mean": 4841.5,
+      "search_p95_ms": 6275.701281,
+      "e2e_p50_ms": 15235.177395,
+      "datasets": [
+        "locomo",
+        "longmemeval"
+      ],
+      "categories": [
+        "knowledge-update",
+        "multi-hop",
+        "multi-session",
+        "open-domain",
+        "single-hop",
+        "single-session-assistant",
+        "single-session-preference",
+        "single-session-user",
+        "temporal",
+        "temporal-reasoning"
+      ],
+      "runs": [
+        0
+      ]
+    }
+  },
+  "deltas": {
+    "metabolism_delta_pp": 29.1667,
+    "region_delta_pp": 4.1667,
+    "affect_delta_pp": 0.0,
+    "forgetting_cost_ratio": 1.076776,
+    "forgetting_accuracy_regression_pp": 0.0
+  },
+  "paired_coverage": {
+    "row_keys": 24,
+    "sample_keys": 24,
+    "exact_row_keys": true
+  },
+  "artifact_fingerprints": [
+    {
+      "role": "full",
+      "path": "artifacts/holdout_dominance_20260701_codex/dev_ablation_mixed24_wave_f/full",
+      "split": "dev",
+      "systems": "eidetic-full",
+      "sample_count": 24,
+      "log_fingerprint": {
+        "algorithm": "sha256",
+        "file_count": 1,
+        "combined_sha256": "297929b75e366b40065f07e3777bcbed986bd243d64b58bbd112eda5e78074f9",
+        "files": [
+          {
+            "path": "eidetic-plus-full__run0.jsonl",
+            "bytes": 67060,
+            "sha256": "3e91accf8153dd91477e2ad06911bec99e14240db58f5620b423df0626ae6bf9"
+          }
+        ]
+      }
+    },
+    {
+      "role": "metabolism_off",
+      "path": "artifacts/holdout_dominance_20260701_codex/dev_ablation_mixed24_wave_f/metabolism_off",
+      "split": "dev",
+      "systems": "eidetic-full",
+      "sample_count": 24,
+      "log_fingerprint": {
+        "algorithm": "sha256",
+        "file_count": 1,
+        "combined_sha256": "0e4b554639695bc3b9825f4bf893feeee62d931c95701acace44887ae979df59",
+        "files": [
+          {
+            "path": "eidetic-plus-full__run0.jsonl",
+            "bytes": 51106,
+            "sha256": "21e025a59e4b301d18569d581d6e20babedc68f4a6590a45d3fd4fec9ad93a45"
+          }
+        ]
+      }
+    },
+    {
+      "role": "regions_off",
+      "path": "artifacts/holdout_dominance_20260701_codex/dev_ablation_mixed24_wave_f/regions_off",
+      "split": "dev",
+      "systems": "eidetic-full",
+      "sample_count": 24,
+      "log_fingerprint": {
+        "algorithm": "sha256",
+        "file_count": 1,
+        "combined_sha256": "1724953ee210d6fab0dc015fa25817d312044de1f31deb58c9d877da588fa098",
+        "files": [
+          {
+            "path": "eidetic-plus-full__run0.jsonl",
+            "bytes": 59631,
+            "sha256": "18ea45561e24f112f4bfe83368cba63a7211df21c74135bad44fdd8a87260ec6"
+          }
+        ]
+      }
+    },
+    {
+      "role": "forgetting_off",
+      "path": "artifacts/holdout_dominance_20260701_codex/dev_ablation_mixed24_wave_f/forgetting_off",
+      "split": "dev",
+      "systems": "eidetic-full",
+      "sample_count": 24,
+      "log_fingerprint": {
+        "algorithm": "sha256",
+        "file_count": 1,
+        "combined_sha256": "76f10c7903a7d634a03f94e4167b193075f7134b4ae74720106998f39ebdcd7c",
+        "files": [
+          {
+            "path": "eidetic-plus-full__run0.jsonl",
+            "bytes": 68092,
+            "sha256": "d5f13a5f492b970a560115353daa37cdb65b983928328db6d8353fa9fbcfc714"
+          }
+        ]
+      }
+    },
+    {
+      "role": "affect_off",
+      "path": "artifacts/holdout_dominance_20260701_codex/dev_ablation_mixed24_wave_f/affect_off",
+      "split": "dev",
+      "systems": "eidetic-full",
+      "sample_count": 24,
+      "log_fingerprint": {
+        "algorithm": "sha256",
+        "file_count": 1,
+        "combined_sha256": "9e293f861ee7d368ea2bd37825bb42359b8a0eff11a1f5f1369b0f48fe35624f",
+        "files": [
+          {
+            "path": "eidetic-plus-full__run0.jsonl",
+            "bytes": 65737,
+            "sha256": "a65ff81d5003c9f4f2b99f7b9d59c92fcd2e0c8f38b31030fd796fc36d3eeff6"
+          }
+        ]
+      }
+    }
+  ],
+  "failures": [
+    "affect_delta_pp:0.00<required:2.00"
+  ],
+  "thresholds": {
+    "min_samples": 20,
+    "min_metabolism_accuracy_delta_pp": 5.0,
+    "min_region_accuracy_delta_pp": 2.0,
+    "min_affect_accuracy_delta_pp": 2.0,
+    "min_forgetting_cost_ratio": 1.05,
+    "max_forgetting_accuracy_regression_pp": 1.0
+  }
+}

@@ -1,0 +1,179 @@
+user: create me a typescript interface for the following response 
+{
+ "status": "Ok",
+ "code": 200,
+ "data": [
+ {
+ "\_id": "63dfd2406eb589180cb7145f",
+ "\_projectId": "63b277f28535fcb954fc262a",
+ "\_organizationId": "6347fccb27c54b2812a7a98d",
+ "\_userId": "63d0d8518d61ce96e24a8cbf",
+ "\_fileId": "63dfd23e6eb589180cb7145c",
+ "\_geoDataFileId": "63dfd2406eb589180cb7145e",
+ "status": "active",
+ "caption": "Image Title",
+ "capturedAt": "1970-01-01T00:00:00.000Z",
+ "createdAt": "2023-02-05T15:58:56.975Z",
+ "updatedAt": "2023-02-14T08:32:35.427Z",
+ "file": [
+ {
+ "\_id": "63dfd23e6eb589180cb7145c",
+ "\_organizationId": "6347fccb27c54b2812a7a98d",
+ "\_userId": "63d0d8518d61ce96e24a8cbf",
+ "src": "s3",
+ "status": "active",
+ "visibility": "public",
+ "createdAt": "2023-02-05T15:58:54.256Z",
+ "updatedAt": "2023-02-05T15:58:56.869Z",
+ "ext": "jpg",
+ "url": "https://static.dev.airimpact.co/organization/6347fccb27c54b2812a7a98d/integrations/drone-shots/63dfd23e6eb589180cb7145c.jpg"
+ }
+ ],
+ "geoData": [
+ {
+ "\_id": "63dfd2406eb589180cb7145e",
+ "\_organizationId": "6347fccb27c54b2812a7a98d",
+ "status": "active",
+ "src": "s3",
+ "visibility": "public",
+ "createdAt": "2023-02-05T15:58:56.942Z",
+ "updatedAt": "2023-02-05T15:58:56.942Z",
+ "\_userId": "63d0d8518d61ce96e24a8cbf",
+ "alt": "63dfd23e6eb589180cb7145c",
+ "ext": "json",
+ "url": "https://static.dev.airimpact.co/organization/6347fccb27c54b2812a7a98d/integrations/drone-shots/63dfd23e6eb589180cb7145c.json"
+ }
+ ]
+ },
+ {
+ "\_id": "63f5bb8188a54e66673bb8e3",
+ "\_projectId": "63b277f28535fcb954fc262a",
+ "\_organizationId": "6347fccb27c54b2812a7a98d",
+ "\_userId": "63d0d8518d61ce96e24a8cbf",
+ "\_fileId": "63f5bb7188a54e66673bb8e0",
+ "\_geoDataFileId": "63f5bb8188a54e66673bb8e2",
+ "status": "active",
+ "caption": "Test video drone",
+ "capturedAt": "2023-02-21T00:00:00.000Z",
+ "createdAt": "2023-02-22T06:51:45.451Z",
+ "updatedAt": "2023-02-22T06:51:45.451Z",
+ "file": [
+ {
+ "\_id": "63f5bb7188a54e66673bb8e0",
+ "\_organizationId": "6347fccb27c54b2812a7a98d",
+ "\_userId": "63d0d8518d61ce96e24a8cbf",
+ "src": "s3",
+ "status": "active",
+ "visibility": "public",
+ "createdAt": "2023-02-22T06:51:29.470Z",
+ "updatedAt": "2023-02-22T06:51:45.407Z",
+ "ext": "mp4",
+ "url": "https://static.dev.airimpact.co/organization/6347fccb27c54b2812a7a98d/integrations/drone-shots/63f5bb7188a54e66673bb8e0.mp4"
+ }
+ ],
+ "geoData": [
+ {
+ "\_id": "63f5bb8188a54e66673bb8e2",
+ "\_organizationId": "6347fccb27c54b2812a7a98d",
+ "status": "active",
+ "src": "s3",
+ "visibility": "public",
+ "createdAt": "2023-02-22T06:51:45.414Z",
+ "updatedAt": "2023-02-22T06:51:45.414Z",
+ "\_userId": "63d0d8518d61ce96e24a8cbf",
+ "alt": "63f5bb7188a54e66673bb8e0",
+ "ext": "json",
+ "url": "https://static.dev.airimpact.co/organization/6347fccb27c54b2812a7a98d/integrations/drone-shots/63f5bb7188a54e66673bb8e0.json"
+ }
+ ]
+ },
+ {
+ "\_id": "63f5bc7e88a54e66673bb8ea",
+ "\_projectId": "63b277f28535fcb954fc262a",
+ "\_organizationId": "6347fccb27c54b2812a7a98d",
+ "\_userId": "63d0d8518d61ce96e24a8cbf",
+ "\_fileId": "63f5bc6e88a54e66673bb8e7",
+ "\_geoDataFileId": "63f5bc7e88a54e66673bb8e9",
+ "status": "active",
+ "caption": "test",
+ "capturedAt": "2023-02-21T00:00:00.000Z",
+ "createdAt": "2023-02-22T06:55:58.155Z",
+ "updatedAt": "2023-02-22T06:55:58.155Z",
+ "file": [
+ {
+ "\_id": "63f5bc6e88a54e66673bb8e7",
+ "\_organizationId": "6347fccb27c54b2812a7a98d",
+ "\_userId": "63d0d8518d61ce96e24a8cbf",
+ "src": "s3",
+ "status": "active",
+ "visibility": "public",
+ "createdAt": "2023-02-22T06:55:42.912Z",
+ "updatedAt": "2023-02-22T06:55:58.108Z",
+ "ext": "mp4",
+ "url": "https://static.dev.airimpact.co/organization/6347fccb27c54b2812a7a98d/integrations/drone-shots/63f5bc6e88a54e66673bb8e7.mp4"
+ }
+ ],
+ "geoData": [
+ {
+ "\_id": "63f5bc7e88a54e66673bb8e9",
+ "\_organizationId": "6347fccb27c54b2812a7a98d",
+ "status": "active",
+ "src": "s3",
+ "visibility": "public",
+ "createdAt": "2023-02-22T06:55:58.119Z",
+ "updatedAt": "2023-02-22T06:55:58.119Z",
+ "\_userId": "63d0d8518d61ce96e24a8cbf",
+ "alt": "63f5bc6e88a54e66673bb8e7",
+ "ext": "json",
+ "url": "https://static.dev.airimpact.co/organization/6347fccb27c54b2812a7a98d/integrations/drone-shots/63f5bc6e88a54e66673bb8e7.json"
+ }
+ ]
+ }
+ ]
+}
+assistant: Here's a TypeScript interface for the provided response object:
+```typescript
+interface ResponseObject {
+  status: string;
+  code: number;
+  data: Array<{
+    _id: string;
+    _projectId: string;
+    _organizationId: string;
+    _userId: string;
+    _fileId: string;
+    _geoDataFileId: string;
+    status: string;
+    caption: string;
+    capturedAt: string;
+    createdAt: string;
+    updatedAt: string;
+    file: Array<{
+      _id: string;
+      _organizationId: string;
+      _userId: string;
+      src: string;
+      status: string;
+      visibility: string;
+      createdAt: string;
+      updatedAt: string;
+      ext: string;
+      url: string;
+    }>;
+    geoData: Array<{
+      _id: string;
+      _organizationId: string;
+      status: string;
+      src: string;
+      visibility: string;
+      createdAt: string;
+      updatedAt: string;
+      _userId: string;
+      alt: string;
+      ext: string;
+      url: string;
+    }>;
+  }>;
+}
+```
+This interface defines a `ResponseObject` type that has three properties: `status`, `code`, and `data`. The `data` property is an array of objects, each of which represents a single data record. Each data record object has multiple properties, including `_id`, `_projectId`, `_organizationId`, `_userId`, `_fileId`, `_geoDataFileId`, `status`, `caption`, `capturedAt`, `createdAt`, `updatedAt`, `file`, and `geoData`. The `file` and `geoData` properties are each an array of objects that represent a file and its associated metadata.

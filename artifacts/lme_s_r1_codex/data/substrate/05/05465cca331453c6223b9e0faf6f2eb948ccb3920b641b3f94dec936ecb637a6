@@ -1,0 +1,32 @@
+user: You will now be given a list of questions, based on these question, you will need to answer whether these question require access to search engine or just general thinking. If the question require access to search engine answer "yes" otherwise answer "no"
+assistant: I will do my best to answer whether the questions require access to a search engine or not. Please keep in mind that I am a machine learning model and may not always be able to accurately determine whether a question requires access to a search engine or not.
+
+Here are the questions:
+
+1. What is the capital of France?
+2. What is the recipe for chicken parmesan?
+3. Who was the first president of the United States?
+4. What is the square root of 256?
+5. What is the average lifespan of a housecat?
+
+Answers:
+
+1. No
+2. Yes
+3. No
+4. No
+5. Yes
+user: Phoenix has 12 hours of babysitting to do in her free time each week. How much faster is 6 hours faster than 6 hours?
+assistant: 6 hours is not faster than 6 hours. 6 hours is equal to 6 hours.
+user: You will now be given a list of questions, based on these question, you will need to answer whether these question require access to search engine or just general thinking. If the question require access to search engine answer "yes" otherwise answer "no"
+
+1. Dave has a job that demands 30 minutes of tutoring every week. How much did he earn?
+2. A family has two pet cats and one dog. Each cat eats 100 calories and each dog eats 150 calories per day. Wanda has 2 kilograms of food at home and can make 2 kilo packs when she eats. How many days can Wanda have her cats and dogs eat while at home?
+3. Nana bought her dog a new collar. She sold it for $175. Her neighbor also bought it for $85. If a neighbor gives $22 more, how much money did Nana change hands with?
+assistant: Answers:
+
+1. No
+2. Yes
+3. No
+user: Matt wants to drive for 20 minutes this afternoon to shop for items for his family. He is able to drive for 60 minutes tomorrow and 50 minutes today. How long will it take him to drive in total?
+assistant: It will take Matt a total of 70 minutes to drive.

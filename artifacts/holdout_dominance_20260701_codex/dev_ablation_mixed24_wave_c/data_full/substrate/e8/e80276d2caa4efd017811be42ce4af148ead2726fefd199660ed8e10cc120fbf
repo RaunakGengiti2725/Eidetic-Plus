@@ -1,0 +1,69 @@
+user: Scholar search results:
+
+[1] Lognormal distribution of citation counts is the reason for the relation between Impact Factors and Citation Success Index
+[Author]: Zhesi Shen;Jinshan Wu
+[Year]: 2018
+[URL]: https://www.semanticscholar.org/paper/0e3cb33e592162e469fd902b47e5ad0c1572080c
+
+[2] Citation success index - An intuitive pair-wise journal comparison metric
+[Author]: Stasa Milojevic;J. Bar-Ilan
+[Year]: 2016
+[URL]: https://www.semanticscholar.org/paper/8ee25b6db4b80ffc81a1adaaede3e6107251158c
+
+[3] itation success index − An intuitive pairwise journal omparison metric
+[Abstract]: In this paper we present citation success index, a metric for comparing the citation capacity of pairs of journals Citation success index is the probability that a random paper in one journal has more citations than a random paper in another journal (50% means the two journals do equally well) Unlike the journal impact factor (IF), the citation success index depends on the broadness and the shape of citation distributions4 million articles, that the citation success index is a relatively tight function of the ratio of IFs of journals being compared The citation success index grows slowly as a function of IF ratio
+[Author]: T. Milojevic;Judit Bar-Ilanb
+[Year]: 2017
+[URL]: https://www.semanticscholar.org/paper/85521259db5ed7604d143d873fa1edef9dfe2971
+
+Instructions: Using the provided scholar search results, write a comprehensive reply to the given query. Make sure to cite results using [[number], Year, Author(URL)] notation after the reference. If the provided search results refer to multiple subjects with the same name, write separate answers for each subject. At the end, please list the reference notions.
+Query: what is the citation success index?
+assistant: The Citation Success Index (CSI) is a metric for comparing the citation capacity of pairs of journals. It is defined as the probability that a random paper in one journal has more citations than a random paper in another journal, with 50% indicating that the two journals perform equally well [[3], 2017, T. Milojevic and Judit Bar-Ilanb]. Unlike the journal impact factor, the CSI depends on the broadness and shape of citation distributions. A study showed that the CSI is a relatively tight function of the ratio of impact factors of journals being compared and grows slowly as a function of the impact factor ratio [[3], 2017, T. Milojevic and Judit Bar-Ilanb]. Another study found that the lognormal distribution of citation counts is the reason for the relation between impact factors and the CSI [[1], 2018, Zhesi Shen and Jinshan Wu]. The CSI provides an intuitive pair-wise comparison metric for evaluating journals, which can be useful in
+user: Scholar search results:
+
+[1] Lognormal distribution of citation counts is the reason for the relation between Impact Factors and Citation Success Index
+[Author]: Zhesi Shen;Jinshan Wu
+[Year]: 2018
+[URL]: https://www.semanticscholar.org/paper/0e3cb33e592162e469fd902b47e5ad0c1572080c
+
+[2] Citation success index - An intuitive pair-wise journal comparison metric
+[Author]: Stasa Milojevic;J. Bar-Ilan
+[Year]: 2016
+[URL]: https://www.semanticscholar.org/paper/8ee25b6db4b80ffc81a1adaaede3e6107251158c
+
+[3] itation success index − An intuitive pairwise journal omparison metric
+[Abstract]: In this paper we present citation success index, a metric for comparing the citation capacity of pairs of journals Citation success index is the probability that a random paper in one journal has more citations than a random paper in another journal (50% means the two journals do equally well) Unlike the journal impact factor (IF), the citation success index depends on the broadness and the shape of citation distributions4 million articles, that the citation success index is a relatively tight function of the ratio of IFs of journals being compared The citation success index grows slowly as a function of IF ratio
+[Author]: T. Milojevic;Judit Bar-Ilanb
+[Year]: 2017
+[URL]: https://www.semanticscholar.org/paper/85521259db5ed7604d143d873fa1edef9dfe2971
+
+Instructions: Using the provided scholar search results, write a comprehensive reply to the given query. Make sure to cite results using [[number,(Year, Author)](URL)] notation after the reference. If the provided search results refer to multiple subjects with the same name, write separate answers for each subject. At the end, please list the reference notions.
+Query: what is the citation success index?
+assistant: The Citation Success Index is a metric used to compare the citation capacity of pairs of journals [[2, (2016, Stasa Milojevic; J. Bar-Ilan)]]. It is defined as the probability that a random paper in one journal has more citations than a random paper in another journal. Unlike the Journal Impact Factor (IF), which is based on the total number of citations received by a journal's articles in a given period, the Citation Success Index takes into account the broadness and shape of citation distributions [[3, (2017, T. Milojevic; Judit Bar-Ilanb)]]. The metric grows slowly as a
+user: Scholar search results:
+
+[1] Lognormal distribution of citation counts is the reason for the relation between Impact Factors and Citation Success Index
+[Author]: Zhesi Shen;Jinshan Wu
+[Year]: 2018
+[URL]: https://www.semanticscholar.org/paper/0e3cb33e592162e469fd902b47e5ad0c1572080c
+
+[2] Citation success index - An intuitive pair-wise journal comparison metric
+[Author]: Stasa Milojevic;J. Bar-Ilan
+[Year]: 2016
+[URL]: https://www.semanticscholar.org/paper/8ee25b6db4b80ffc81a1adaaede3e6107251158c
+
+[3] itation success index − An intuitive pairwise journal omparison metric
+[Abstract]: In this paper we present citation success index, a metric for comparing the citation capacity of pairs of journals Citation success index is the probability that a random paper in one journal has more citations than a random paper in another journal (50% means the two journals do equally well) Unlike the journal impact factor (IF), the citation success index depends on the broadness and the shape of citation distributions4 million articles, that the citation success index is a relatively tight function of the ratio of IFs of journals being compared The citation success index grows slowly as a function of IF ratio
+[Author]: T. Milojevic;Judit Bar-Ilanb
+[Year]: 2017
+[URL]: https://www.semanticscholar.org/paper/85521259db5ed7604d143d873fa1edef9dfe2971
+
+Instructions: Using the provided scholar search results, write a comprehensive reply to the given query. Make sure to cite results using [[number, Year, Author](URL)] notation after the reference. If the provided search results refer to multiple subjects with the same name, write separate answers for each subject. At the end, please list the reference using [[number, Year, Author](URL)].
+Query: what is the citation success index?
+assistant: The citation success index is a metric for comparing the citation capacity of pairs of journals. It measures the probability that a random paper in one journal has more citations than a random paper in another journal, with 50% indicating that the two journals perform equally well. Unlike the journal impact factor (IF), which is based on the number of citations received by a journal's articles in a given year divided by the total number of articles published in the two preceding years, the citation success index depends on the broadness and the shape of citation distributions. It is a relatively tight function of the ratio of IFs of journals being compared, with the citation success index growing slowly as a function of IF ratio. The lognormal distribution of citation counts is the reason for the relation between Impact Factors and Citation Success Index [[1, 2018, Shen and Wu](https://www.semanticscholar.org/paper/0e3cb33e592162e469fd902b47e5ad0c1572080c)]. The citation success index was introduced in a paper by Stasa Milojevic and J. Bar-Ilan in 2016 [[2, 2016, Milojevic and Bar-Ilan](https://www.semanticscholar.org/paper/8ee25b6db4b80ffc81a1adaaede3e6107251158c)], and further discussed in a 2017 paper by T. Milojevic and Judit Bar-Ilanb [[3, 2017, Milojevic and Bar-Ilan](https://www.semanticscholar.org/paper/85521259db5ed7604d143d873fa1edef9dfe2971)].
+
+References:
+
+* [[1, 2018, Shen and Wu](https://www.semanticscholar.org/paper/0e3cb33e592162e469fd902b47e5ad0c1572080c)]
+* [[2, 2016, Milojevic and Bar-Ilan](https://www.semanticscholar.org/paper/8ee25b6db4b80ffc81a1adaaede3e6107251158c)]
+* [[3, 2017, Milojevic and Bar-Ilan](https://www.semanticscholar.org/paper/85521259db5ed7604d143d873fa1edef9dfe2971)]

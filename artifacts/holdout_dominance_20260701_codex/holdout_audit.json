@@ -1,0 +1,17 @@
+{
+  "pass": true,
+  "findings": [],
+  "needles_checked": 1670,
+  "holdout_needles_checked": 1639,
+  "legacy_policy_scan_enabled": true,
+  "forbidden_policy_strings_checked": 5,
+  "forbidden_fixed_answer_strings_checked": 12,
+  "forbidden_runtime_symbols_checked": 27,
+  "scan_roots": [
+    "eidetic",
+    "bench",
+    "tests",
+    "docs"
+  ],
+  "registry_error": ""
+}

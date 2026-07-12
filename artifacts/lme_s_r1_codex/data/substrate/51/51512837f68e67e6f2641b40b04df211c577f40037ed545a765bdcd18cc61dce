@@ -1,0 +1,334 @@
+user: Next.js 13 Generating Static Params
+The generateStaticParams server function can be used in combination with dynamic route segments to define the list of route segment parameters that will be statically generated at build time instead of on-demand.
+
+This replaces getStaticPaths of Next.js 12 with a simplified API. generateStaticParams doesn't require any context parameters. It runs at build time before the corresponding Layouts or Pages are generated. It will not be called again during revalidation (ISR).
+
+The primary benefit of the generateStaticParams function in it's smart retrieval of data. If content is fetched within the generateStaticParams function using a fetch request, the requests are automatically deduped. This means a fetch request with the same arguments across multiple generateStaticParams, Layouts, and Pages will only be made once, which decreases build times.
+
+Generating Static Params
+The generateStaticParams function can be used in combination with dynamic route segments to statically generate routes at build time instead of on-demand at request time.
+
+e.g. app/blog/[slug]/page.tsx
+export async function generateStaticParams() {
+ const posts = await fetch('https://.../posts').then((res) => res.json());
+
+ return posts.map((post) => ({
+ slug: post.slug,
+ }));
+}
+
+The primary benefit of the generateStaticParams function is its smart retrieval of data. If content is fetched within the generateStaticParams function using a fetch request, the requests are automatically deduplicated. This means a fetch request with the same arguments across multiple generateStaticParams, Layouts, and Pages will only be made once, which decreases build times.
+
+----
+
+Dynamic Segments
+When you don't know the exact segment names ahead of time and want to create routes from dynamic data, you can use Dynamic Segments that are filled in at request time or prerendered at build time.
+
+Convention
+A Dynamic Segment can be created by wrapping a folder’s name in square brackets: [folderName]. For example, [id] or [slug].
+
+Dynamic Segments are passed as the params prop to layout, page, route, and generateMetadata functions.
+
+Example
+For example, a simple blog could include the following route app/blog/[slug]/page.js where [slug] is the Dynamic Segment for blog posts.
+
+app/blog/[slug]/page.js
+export default function Page({ params }) {
+ return My Post;
+}
+
+Route Example URL params
+app/blog/[slug]/page.js /blog/a { slug: 'a' }
+app/blog/[slug]/page.js /blog/b { slug: 'b' }
+app/blog/[slug]/page.js /blog/c { slug: 'c' }
+See the generateStaticParams() page to learn how to generate the params for the segment.
+
+See the generateStaticParams() page to learn how to generate the params for the segment.
+
+Note: Dynamic Segments are equivalent to Dynamic Routes in the pages directory.
+
+Catch-all Segments
+Dynamic Segments can be extended to catch-all subsequent segments by adding an ellipsis inside the brackets [...folderName].
+
+For example, app/shop/[...slug]/page.js will match /shop/clothes, but also /shop/clothes/tops, /shop/clothes/tops/t-shirts, and so on.
+
+Route Example URL params
+app/shop/[...slug]/page.js /shop/a { slug: ['a'] }
+app/shop/[...slug]/page.js /shop/a/b { slug: ['a', 'b'] }
+app/shop/[...slug]/page.js /shop/a/b/c { slug: ['a', 'b', 'c'] }
+Optional Catch-all Segments
+Catch-all Segments can be made optional by including the parameter in double square brackets: [[...folderName]].
+
+For example, app/shop/[[...slug]]/page.js will also match /shop, in addition to /shop/clothes, /shop/clothes/tops, /shop/clothes/tops/t-shirts.
+
+The difference between catch-all and optional catch-all segments is that with optional, the route without the parameter is also matched (/shop in the example above).
+
+Route Example URL params
+app/shop/[[...slug]]/page.js /shop {}
+app/shop/[[...slug]]/page.js /shop/a { slug: ['a'] }
+app/shop/[[...slug]]/page.js /shop/a/b { slug: ['a', 'b'] }
+app/shop/[[...slug]]/page.js /shop/a/b/c { slug: ['a', 'b', 'c'] }
+TypeScript
+When using TypeScript, you can add types for params depending on your configured route segment.
+
+app/blog/[slug]/page.tsx
+export default function Page({
+ params,
+}: {
+ params: { slug: string };
+}) {
+ return My Page
+=======
+
+;
+}
+Route params Type Definition
+app/blog/[slug]/page.js { slug: string }
+app/shop/[...slug]/page.js { slug: string[] }
+app/[categoryId]/[itemId]/page.js { categoryId: string, itemId: string }
+
+----
+
+generateStaticParams
+The generateStaticParams function can be used in combination with dynamic route segments to statically generate routes at build time instead of on-demand at request time.
+
+app/blog/[slug]/page.js
+
+// Return a list of `params` to populate the [slug] dynamic segment
+export async function generateStaticParams() {
+ const posts = await fetch('https://.../posts').then((res) => res.json());
+
+ return posts.map((post) => ({
+ slug: post.slug,
+ }));
+}
+
+// Multiple versions of this page will be statically generated
+// using the `params` returned by `generateStaticParams`
+export default function Page({ params }: { params: { slug: string } }) {
+ const { slug } = params;
+ // ...
+}
+
+Good to know
+
+You can use the dynamicParams segment config option to control what happens when a dynamic segment is visited that was not generated with generateStaticParams.
+During next dev, generateStaticParams will be called when you navigate to a route.
+During next build, generateStaticParams runs before the corresponding Layouts or Pages are generated.
+During revalidation (ISR), generateStaticParams will not be called again.
+API Reference
+Parameters
+options.params (optional)
+
+If multiple dynamic segments in a route use generateStaticParams, the child generateStaticParams function is executed once for each set of params the parent generates.
+
+The params object contains the populated params from the parent generateStaticParams, which can be used to generate the params in a child segment.
+
+Returns
+generateStaticParams should return an array of objects where each object represents the populated dynamic segments of a single route.
+
+Each property in the object is a dynamic segment to be filled in for the route.
+The properties name is the segment's name, and the properties value is what that segment should be filled in with.
+Example Route generateStaticParams Return Type
+/product/[id] { id: string }[]
+/products/[category]/[product] { category: string, product: string }[]
+/products/[...slug] { slug: string[] }[]
+Single Dynamic Segment
+app/product/[id].tsx
+export function generateStaticParams() {
+ return [
+ { id: '1' },
+ { id: '2' },
+ { id: '3' },
+ ];
+}
+
+// Three versions of this page will be statically generated
+// using the `params` returned by `generateStaticParams`
+// - /product/1
+// - /product/2
+// - /product/3
+export default function Page({ params }: { params: { id: string } }) {
+ const { id } = params;
+ // ...
+}
+Multiple Dynamic Segments
+app/products/[category]/[product].tsx
+export function generateStaticParams() {
+ return [
+ { category: 'a', product: '1' },
+ { category: 'b', product: '2' },
+ { category: 'c', product: '3' },
+ ];
+}
+// Three versions of this page will be statically generated
+// using the `params` returned by `generateStaticParams`
+// - /product/a/1
+// - /product/b/2
+// - /product/c/3
+export default function Page({
+ params,
+}: {
+ params: { category: string; product: string };
+}) {
+ const { category, product } = params;
+ // ...
+}
+Catch-all Dynamic Segment
+app/products/[...slug].tsx
+export function generateStaticParams() {
+ return [
+ { slug: ['a', '1'] },
+ { slug: ['b', '2'] },
+ { slug: ['c', '3'] },
+ ];
+}
+// Three versions of this page will be statically generated
+// using the `params` returned by `generateStaticParams`
+// - /product/a/1
+// - /product/b/2
+// - /product/c/3
+export default function Page({
+ params,
+}: {
+ params: { slug: string[] };
+}) {
+ const { slug } = params;
+ // ...
+}
+Examples
+Multiple Dynamic Segments in a Route
+You can generate params for dynamic segments above the current layout or page, but not below. For example, given the app/products/[category]/[product] route:
+
+app/products/[category]/[product]/page.js can generate params for both [category] and [product].
+app/products/[category]/layout.js can only generate params for [category].
+There are two approaches to generating params for a route with multiple dynamic segments:
+
+Generate params from the bottom up
+Generate multiple dynamic segments from the child route segment.
+
+app/products/[category]/[product]/page.tsx
+// Generate segments for both [category] and [product]
+export async function generateStaticParams() {
+ const products = await fetch('https://.../products').then((res) =>
+ res.json(),
+ );
+
+ return products.map((product) => ({
+ category: product.category.slug,
+ product: product.id,
+ }));
+}
+
+export default function Page({
+ params,
+}: {
+ params: { category: string; product: string };
+}) {
+ // ...
+}
+Generate params from the top down
+Generate the parent segments first and use the result to generate the child segments.
+
+app/products/[category]/layout.tsx
+// Generate segments for [category]
+export async function generateStaticParams() {
+ const products = await fetch('https://.../products').then((res) =>
+ res.json(),
+ );
+
+ return products.map((product) => ({
+ category: product.category.slug,
+ }));
+}
+
+export default function Layout({
+ params,
+}: {
+ params: { category: string };
+}) {
+ // ...
+}
+A child route segment's generateStaticParams function is executed once for each segment a parent generateStaticParams generates.
+
+The child generateStaticParams function can use the params returned from the parent generateStaticParams function to dynamically generate its own segments.
+
+app/products/[category]/[product]/page.tsx
+// Generate segments for [product] using the `params` passed from
+// the parent segment's `generateStaticParams` function
+export async function generateStaticParams({
+ params: { category },
+}: {
+ params: { category: string };
+}) {
+ const products = await fetch(
+ `https://.../products?category=${category}`,
+ ).then((res) => res.json());
+
+ return products.map((product) => ({
+ product: product.id,
+ }));
+}
+
+export default function Page({ params }: { params: { category: string } }) {
+ // ...
+}
+
+----
+
+I am just a beginer in Next.js 13.2. Help me understand generating static params. Explain using examples using TypeScript for better understanding. Please ask any clarifying questions before we get started with understanding it.
+assistant: Sure, I can help you understand generating static params in Next.js 13.2 with examples using TypeScript. In Next.js, dynamic routes are used when the exact route path is not known ahead of time. With dynamic routes, you can generate routes based on data fetched from an external source, like a CMS or an API.
+
+`generateStaticParams` is a function that you can use in combination with dynamic route segments to define the list of route segment parameters that will be statically generated at build time. This allows you to pre-render pages based on dynamic data.
+
+Let's use a blog as an example. We will have a dynamic route with the following file structure:
+```bash
+app/blog/[slug]/page.tsx
+```
+Where `[slug]` is the dynamic segment for blog post URLs.
+
+First, let's create the `page.tsx` file and define the page component:
+```typescript
+// app/blog/[slug]/page.tsx
+
+import React from 'react';
+
+interface PageProps {
+  params: {
+    slug: string;
+  };
+}
+
+const Page: React.FC<PageProps> = ({ params }) => {
+  const { slug } = params;
+  return <div>Post with slug: {slug}</div>;
+};
+
+export default Page;
+```
+Next, we'll define the `generateStaticParams` function, which will fetch the data and return an array of `params` objects with the slugs of the blog posts:
+```typescript
+// app/blog/[slug]/page.tsx
+
+import type { GenerateStaticParams } from 'next';
+
+interface Params {
+  slug: string;
+}
+
+export const generateStaticParams: GenerateStaticParams<Params> = async () => {
+  const response = await fetch('https://.../posts');
+  const posts = await response.json();
+
+  return posts.map((post: { slug: string }) => ({
+    slug: post.slug,
+  }));
+};
+```
+With this setup, during the build process, Next.js will call the `generateStaticParams` function, fetch the list of posts, and create a static version of the page for each post with the corresponding slug.
+
+When a user visits one of the blog post URLs, the corresponding static page will be served, making the page load faster.
+
+Keep in mind that the `generateStaticParams` function runs at build time, and the data fetching is automatically deduplicated. This means that if you have multiple instances of `generateStaticParams` with the same fetch request, the request will only be made once, reducing the build time.
+
+Please let me know if you have any questions or need further clarification!

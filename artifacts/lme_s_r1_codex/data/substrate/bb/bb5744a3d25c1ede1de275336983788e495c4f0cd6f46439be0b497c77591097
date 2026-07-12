@@ -1,0 +1,89 @@
+user: Act as a content creator for e-learning course content. The product has the following structure:
+- Top level: Course
+- 2nd level: Module
+- 3rd level: Screen
+
+A course can have multiple modules.
+A module can have multiple screens.
+A screen can have multiple components. This is where the content lives.
+
+These are the supported components within a screen:
+- Text
+- Image
+
+Here are some examples:
+
+Course: Giving feedback
+Module 1: Giving feedback
+Screen 1:
+- Text: Giving feedback: it's getting more and more important
+- Image: Image from a person giving feedback to another person
+- Text: """
+
+What is the best way to give feedback to your colleagues? You don't want to be offensive. But you want your colleagues to take you seriously.
+
+In this module we take a deep dive into giving feedback to your colleagues. Good luck! 💡
+"""
+Screen 2: 
+- Text: """
+
+Our most important feedback tips
+
+1. ORGANISE IT
+Plan a certain moment for this. And tell your collegue about it. You could do that during a meeting or a team day. But why not giving it one-one-one? Make sure you create a great feedback-moment. Walk or sit down for a while or get a cup of coffee.
+"""
+- Image: Image of a manager and employee talking with each other.
+
+Make a course about "Hospitality in the hotel industry". Respond with the same structure and be creative.
+assistant: Course: Hospitality in the Hotel Industry
+
+Module 1: Introduction to Hospitality in the Hotel Industry
+Screen 1:
+
+* Text: Welcome to Hospitality in the Hotel Industry
+* Image: A smiling hotel receptionist greeting a guest
+* Text: """
+
+In this course, you'll learn the ins and outs of delivering exceptional hospitality in the hotel industry. From front desk service to room amenities, we'll explore what makes a guest's stay memorable and how you can contribute to that experience. Get ready to elevate your hotel's hospitality game! 🏨
+"""
+Screen 2:
+
+* Text: """
+
+Why is hospitality important in the hotel industry?
+
+Hospitality is the backbone of the hotel industry. It's what sets your establishment apart from the competition and keeps guests coming back time and time again. By mastering the art of hospitality, you can:
+
+1. Enhance guest satisfaction
+2. Generate positive reviews and recommendations
+3. Foster a loyal customer base
+4. Increase repeat business
+5. Improve your hotel's reputation and brand image
+"""
+* Image: Guests enjoying a hotel's luxurious lobby
+
+Module 2: Front Desk and Reception
+Screen 1:
+
+* Text: The First Impression: Front Desk and Reception
+* Image: A well-organized and inviting front desk area
+* Text: """
+
+The front desk and reception area is often the first point of contact between guests and your hotel. This interaction sets the tone for their stay and can greatly influence their overall impression of your establishment. In this module, we'll discuss how to make a lasting positive impact and create a welcoming environment for all guests.
+"""
+Screen 2:
+
+* Text: """
+
+Key aspects of front desk hospitality:
+
+1. WARM GREETINGS
+Always greet guests with a smile and a friendly, professional demeanor. Remember, you're setting the stage for their entire stay.
+2. EFFICIENT CHECK-IN
+Process check-ins quickly and accurately, while still taking the time to engage with guests and answer any questions they may have.
+3. PERSONALIZED SERVICE
+Go the extra mile by addressing guests by their names, anticipating their needs, and offering tailored recommendations.
+4. PROACTIVE PROBLEM SOLVING
+Be prepared to handle any issues that may arise, and always strive to find a prompt and satisfactory resolution for your guests.
+"""
+* Image: A receptionist assisting a guest with a map and local information

@@ -1,0 +1,76 @@
+{
+  "rows": 6,
+  "failures": 4,
+  "bucket_counts": {
+    "abstention": 3,
+    "reader_error": 1
+  },
+  "category_bucket_counts": {
+    "single-session-user": {
+      "abstention": 3,
+      "reader_error": 1
+    }
+  },
+  "items": [
+    {
+      "system": "eidetic-plus-full",
+      "dataset": "longmemeval",
+      "category": "single-session-user",
+      "sample_id": "58bf7951",
+      "question": "What play did I attend at the local community theater?",
+      "gold": "The Glass Menagerie",
+      "predicted": "I don't have enough verified evidence in memory to answer that confidently.",
+      "bucket": "abstention",
+      "suggested_fix": "calibrate ABSTENTION_V2_TAU on dev logs; inspect entailment/proof signals",
+      "coverage": 0.4689902067184448,
+      "verified": false,
+      "abstained": true,
+      "error": ""
+    },
+    {
+      "system": "eidetic-plus-full",
+      "dataset": "longmemeval",
+      "category": "single-session-user",
+      "sample_id": "1e043500",
+      "question": "What is the name of the playlist I created on Spotify?",
+      "gold": "Summer Vibes",
+      "predicted": "I don't have enough verified evidence in memory to answer that confidently.",
+      "bucket": "abstention",
+      "suggested_fix": "calibrate ABSTENTION_V2_TAU on dev logs; inspect entailment/proof signals",
+      "coverage": 0.44257083535194397,
+      "verified": false,
+      "abstained": true,
+      "error": ""
+    },
+    {
+      "system": "eidetic-plus",
+      "dataset": "longmemeval",
+      "category": "single-session-user",
+      "sample_id": "1e043500",
+      "question": "What is the name of the playlist I created on Spotify?",
+      "gold": "Summer Vibes",
+      "predicted": "Summer Vibes [S4]",
+      "bucket": "reader_error",
+      "suggested_fix": "inspect context blocks and reader scaffold; failure happened with plausible evidence present",
+      "coverage": 0.44257068634033203,
+      "verified": null,
+      "abstained": false,
+      "error": ""
+    },
+    {
+      "system": "rag-full",
+      "dataset": "longmemeval",
+      "category": "single-session-user",
+      "sample_id": "58bf7951",
+      "question": "What play did I attend at the local community theater?",
+      "gold": "The Glass Menagerie",
+      "predicted": "I do not have that in memory.",
+      "bucket": "abstention",
+      "suggested_fix": "calibrate ABSTENTION_V2_TAU on dev logs; inspect entailment/proof signals",
+      "coverage": null,
+      "verified": null,
+      "abstained": false,
+      "error": ""
+    }
+  ]
+}

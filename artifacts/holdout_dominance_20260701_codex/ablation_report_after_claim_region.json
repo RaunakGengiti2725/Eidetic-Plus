@@ -1,0 +1,438 @@
+{
+  "pass": false,
+  "status": "FAIL",
+  "generated_by": "bench.run_dev_ablation",
+  "system": "eidetic-plus-full",
+  "split": "dev",
+  "full": {
+    "n": 20,
+    "row_n": 20,
+    "accuracy": 0.85,
+    "verified_accuracy": 0.8,
+    "query_tokens_median": 7985.5,
+    "query_tokens_mean": 7188.4,
+    "search_p95_ms": 8336.902127,
+    "e2e_p50_ms": 17692.403812,
+    "datasets": [
+      "locomo"
+    ],
+    "categories": [
+      "multi-hop",
+      "open-domain",
+      "single-hop",
+      "temporal"
+    ],
+    "runs": [
+      0
+    ]
+  },
+  "ablations": {
+    "metabolism_off": {
+      "n": 20,
+      "row_n": 20,
+      "accuracy": 0.75,
+      "verified_accuracy": 0.65,
+      "query_tokens_median": 7989.0,
+      "query_tokens_mean": 6792.0,
+      "search_p95_ms": 8035.524371,
+      "e2e_p50_ms": 14713.624583,
+      "datasets": [
+        "locomo"
+      ],
+      "categories": [
+        "multi-hop",
+        "open-domain",
+        "single-hop",
+        "temporal"
+      ],
+      "runs": [
+        0
+      ]
+    },
+    "regions_off": {
+      "n": 20,
+      "row_n": 20,
+      "accuracy": 0.65,
+      "verified_accuracy": 0.65,
+      "query_tokens_median": 7987.5,
+      "query_tokens_mean": 7183.85,
+      "search_p95_ms": 7912.442146,
+      "e2e_p50_ms": 15365.928292,
+      "datasets": [
+        "locomo"
+      ],
+      "categories": [
+        "multi-hop",
+        "open-domain",
+        "single-hop",
+        "temporal"
+      ],
+      "runs": [
+        0
+      ]
+    },
+    "forgetting_off": {
+      "n": 20,
+      "row_n": 20,
+      "accuracy": 0.75,
+      "verified_accuracy": 0.75,
+      "query_tokens_median": 7986.0,
+      "query_tokens_mean": 6789.35,
+      "search_p95_ms": 7970.239827,
+      "e2e_p50_ms": 15087.2925,
+      "datasets": [
+        "locomo"
+      ],
+      "categories": [
+        "multi-hop",
+        "open-domain",
+        "single-hop",
+        "temporal"
+      ],
+      "runs": [
+        0
+      ]
+    },
+    "affect_off": {
+      "n": 20,
+      "row_n": 20,
+      "accuracy": 0.75,
+      "verified_accuracy": 0.6,
+      "query_tokens_median": 7985.5,
+      "query_tokens_mean": 7188.15,
+      "search_p95_ms": 9051.505769,
+      "e2e_p50_ms": 17046.77425,
+      "datasets": [
+        "locomo"
+      ],
+      "categories": [
+        "multi-hop",
+        "open-domain",
+        "single-hop",
+        "temporal"
+      ],
+      "runs": [
+        0
+      ]
+    }
+  },
+  "deltas": {
+    "metabolism_delta_pp": 15.0,
+    "region_delta_pp": 15.0,
+    "affect_delta_pp": 20.0,
+    "forgetting_cost_ratio": 1.000063,
+    "forgetting_accuracy_regression_pp": 0.0
+  },
+  "paired_coverage": {
+    "row_keys": 20,
+    "sample_keys": 20,
+    "exact_row_keys": true
+  },
+  "artifact_fingerprints": [
+    {
+      "role": "full",
+      "path": "artifacts/holdout_dominance_20260701_codex/dev_ablation_locomo20_after_claim_region/full",
+      "split": "dev",
+      "systems": "eidetic-full",
+      "sample_count": 20,
+      "log_fingerprint": {
+        "algorithm": "sha256",
+        "file_count": 1,
+        "combined_sha256": "3b1d7485c8e8daf843e3557b8ed60e53b3bb3c171e5faf0d4b715f1cfea0a233",
+        "files": [
+          {
+            "path": "eidetic-plus-full__run0.jsonl",
+            "bytes": 57103,
+            "sha256": "e87a6760e3cb02a243cfd98f6cb6ed4d55411bcea8d58b8e279c47046aba9a47"
+          }
+        ]
+      }
+    },
+    {
+      "role": "metabolism_off",
+      "path": "artifacts/holdout_dominance_20260701_codex/dev_ablation_locomo20_after_claim_region/metabolism_off",
+      "split": "dev",
+      "systems": "eidetic-full",
+      "sample_count": 20,
+      "log_fingerprint": {
+        "algorithm": "sha256",
+        "file_count": 1,
+        "combined_sha256": "d648f02ed3affdede7cc450bceea2bceb8f792179be29caa518156cab02f7bd3",
+        "files": [
+          {
+            "path": "eidetic-plus-full__run0.jsonl",
+            "bytes": 45768,
+            "sha256": "43686da0c1f0b5782bb00194b8878744a51c0bbbbf7a3b540ffda76e713cb009"
+          }
+        ]
+      }
+    },
+    {
+      "role": "regions_off",
+      "path": "artifacts/holdout_dominance_20260701_codex/dev_ablation_locomo20_after_claim_region/regions_off",
+      "split": "dev",
+      "systems": "eidetic-full",
+      "sample_count": 20,
+      "log_fingerprint": {
+        "algorithm": "sha256",
+        "file_count": 1,
+        "combined_sha256": "acae6aca5ad59df7f319b917a1e1cf4849c042e7dd8e9397ed14f67301378d2e",
+        "files": [
+          {
+            "path": "eidetic-plus-full__run0.jsonl",
+            "bytes": 49068,
+            "sha256": "3b92155524af9deb9754e11d68ff6c218632a59e0d949fa73f4cf21175d86de9"
+          }
+        ]
+      }
+    },
+    {
+      "role": "forgetting_off",
+      "path": "artifacts/holdout_dominance_20260701_codex/dev_ablation_locomo20_after_claim_region/forgetting_off",
+      "split": "dev",
+      "systems": "eidetic-full",
+      "sample_count": 20,
+      "log_fingerprint": {
+        "algorithm": "sha256",
+        "file_count": 1,
+        "combined_sha256": "7ff3bc2ac1ce7b1cdebb3c23fea5366836a94d7354e1b6a0aa1c053a80f8da3f",
+        "files": [
+          {
+            "path": "eidetic-plus-full__run0.jsonl",
+            "bytes": 58246,
+            "sha256": "8d59fe69ce213ca65f89ad5529ec630e9360be01895d6ef581b17b2af0eb7043"
+          }
+        ]
+      }
+    },
+    {
+      "role": "affect_off",
+      "path": "artifacts/holdout_dominance_20260701_codex/dev_ablation_locomo20_after_claim_region/affect_off",
+      "split": "dev",
+      "systems": "eidetic-full",
+      "sample_count": 20,
+      "log_fingerprint": {
+        "algorithm": "sha256",
+        "file_count": 1,
+        "combined_sha256": "c71ab2efa4f65ed3a6d815fcc37969a656a5c5ce7d76d257a15d339193a7a753",
+        "files": [
+          {
+            "path": "eidetic-plus-full__run0.jsonl",
+            "bytes": 55680,
+            "sha256": "49debb9192e9b4bb41b3e77772cac82868199d4fad6c561804f709c35639402b"
+          }
+        ]
+      }
+    }
+  ],
+  "failures": [
+    "forgetting_cost_ratio:1.000<required:1.050"
+  ],
+  "thresholds": {
+    "min_samples": 20,
+    "min_metabolism_accuracy_delta_pp": 5.0,
+    "min_region_accuracy_delta_pp": 2.0,
+    "min_affect_accuracy_delta_pp": 2.0,
+    "min_forgetting_cost_ratio": 1.05,
+    "max_forgetting_accuracy_regression_pp": 1.0
+  },
+  "run_specs": [
+    {
+      "role": "full",
+      "out_dir": "artifacts/holdout_dominance_20260701_codex/dev_ablation_locomo20_after_claim_region/full",
+      "data_dir": "artifacts/holdout_dominance_20260701_codex/dev_ablation_locomo20_after_claim_region/data_full",
+      "command": [
+        "/Users/raunakgengiti/Eidetic-Plus/.venv/bin/python",
+        "-m",
+        "bench.run",
+        "--systems",
+        "eidetic-full",
+        "--dataset",
+        "locomo",
+        "--variant",
+        "longmemeval_s",
+        "--samples-file",
+        "artifacts/holdout_dominance_20260701_codex/dev_ablation_locomo20_strict/dev_ablation.samples.json",
+        "--split",
+        "dev",
+        "--holdout-profile",
+        "dev",
+        "--runs",
+        "1",
+        "--out",
+        "artifacts/holdout_dominance_20260701_codex/dev_ablation_locomo20_after_claim_region/full",
+        "--overwrite"
+      ],
+      "env_overrides": {
+        "METABOLISM_MODE": "1",
+        "AFFECT_SALIENCE": "1",
+        "GIST_CHANNEL": "1",
+        "SALIENCE_PRUNE_THRESHOLD": "0.15",
+        "DREAM_PRUNE_PERCENTILE": "10",
+        "DATA_DIR": "artifacts/holdout_dominance_20260701_codex/dev_ablation_locomo20_after_claim_region/data_full"
+      }
+    },
+    {
+      "role": "metabolism_off",
+      "out_dir": "artifacts/holdout_dominance_20260701_codex/dev_ablation_locomo20_after_claim_region/metabolism_off",
+      "data_dir": "artifacts/holdout_dominance_20260701_codex/dev_ablation_locomo20_after_claim_region/data_metabolism_off",
+      "command": [
+        "/Users/raunakgengiti/Eidetic-Plus/.venv/bin/python",
+        "-m",
+        "bench.run",
+        "--systems",
+        "eidetic-full",
+        "--dataset",
+        "locomo",
+        "--variant",
+        "longmemeval_s",
+        "--samples-file",
+        "artifacts/holdout_dominance_20260701_codex/dev_ablation_locomo20_strict/dev_ablation.samples.json",
+        "--split",
+        "dev",
+        "--holdout-profile",
+        "dev",
+        "--runs",
+        "1",
+        "--out",
+        "artifacts/holdout_dominance_20260701_codex/dev_ablation_locomo20_after_claim_region/metabolism_off",
+        "--overwrite"
+      ],
+      "env_overrides": {
+        "METABOLISM_MODE": "1",
+        "AFFECT_SALIENCE": "1",
+        "GIST_CHANNEL": "0",
+        "SALIENCE_PRUNE_THRESHOLD": "0.15",
+        "DREAM_PRUNE_PERCENTILE": "10",
+        "FULL_SLEEP": "0",
+        "COACTIVATION_CHANNEL": "0",
+        "STRUCT_CHANNEL": "0",
+        "EVENT_RANKING": "0",
+        "EVENT_CHAIN_CONTEXT": "0",
+        "GRAPH_VOCAB_SEEDING": "0",
+        "EXTRACT_CHUNKING": "0",
+        "MEMORY_TYPING": "0",
+        "PREF_SENTENCE_SCAN": "0",
+        "TEMPORAL_RERANK": "0",
+        "CONFLICT_RESOLVER": "0",
+        "DATA_DIR": "artifacts/holdout_dominance_20260701_codex/dev_ablation_locomo20_after_claim_region/data_metabolism_off"
+      }
+    },
+    {
+      "role": "regions_off",
+      "out_dir": "artifacts/holdout_dominance_20260701_codex/dev_ablation_locomo20_after_claim_region/regions_off",
+      "data_dir": "artifacts/holdout_dominance_20260701_codex/dev_ablation_locomo20_after_claim_region/data_regions_off",
+      "command": [
+        "/Users/raunakgengiti/Eidetic-Plus/.venv/bin/python",
+        "-m",
+        "bench.run",
+        "--systems",
+        "eidetic-full",
+        "--dataset",
+        "locomo",
+        "--variant",
+        "longmemeval_s",
+        "--samples-file",
+        "artifacts/holdout_dominance_20260701_codex/dev_ablation_locomo20_strict/dev_ablation.samples.json",
+        "--split",
+        "dev",
+        "--holdout-profile",
+        "dev",
+        "--runs",
+        "1",
+        "--out",
+        "artifacts/holdout_dominance_20260701_codex/dev_ablation_locomo20_after_claim_region/regions_off",
+        "--overwrite"
+      ],
+      "env_overrides": {
+        "METABOLISM_MODE": "1",
+        "AFFECT_SALIENCE": "1",
+        "GIST_CHANNEL": "0",
+        "SALIENCE_PRUNE_THRESHOLD": "0.15",
+        "DREAM_PRUNE_PERCENTILE": "10",
+        "DATA_DIR": "artifacts/holdout_dominance_20260701_codex/dev_ablation_locomo20_after_claim_region/data_regions_off"
+      }
+    },
+    {
+      "role": "forgetting_off",
+      "out_dir": "artifacts/holdout_dominance_20260701_codex/dev_ablation_locomo20_after_claim_region/forgetting_off",
+      "data_dir": "artifacts/holdout_dominance_20260701_codex/dev_ablation_locomo20_after_claim_region/data_forgetting_off",
+      "command": [
+        "/Users/raunakgengiti/Eidetic-Plus/.venv/bin/python",
+        "-m",
+        "bench.run",
+        "--systems",
+        "eidetic-full",
+        "--dataset",
+        "locomo",
+        "--variant",
+        "longmemeval_s",
+        "--samples-file",
+        "artifacts/holdout_dominance_20260701_codex/dev_ablation_locomo20_strict/dev_ablation.samples.json",
+        "--split",
+        "dev",
+        "--holdout-profile",
+        "dev",
+        "--runs",
+        "1",
+        "--out",
+        "artifacts/holdout_dominance_20260701_codex/dev_ablation_locomo20_after_claim_region/forgetting_off",
+        "--overwrite"
+      ],
+      "env_overrides": {
+        "METABOLISM_MODE": "1",
+        "AFFECT_SALIENCE": "1",
+        "GIST_CHANNEL": "1",
+        "SALIENCE_PRUNE_THRESHOLD": "0",
+        "DREAM_PRUNE_PERCENTILE": "0",
+        "DATA_DIR": "artifacts/holdout_dominance_20260701_codex/dev_ablation_locomo20_after_claim_region/data_forgetting_off"
+      }
+    },
+    {
+      "role": "affect_off",
+      "out_dir": "artifacts/holdout_dominance_20260701_codex/dev_ablation_locomo20_after_claim_region/affect_off",
+      "data_dir": "artifacts/holdout_dominance_20260701_codex/dev_ablation_locomo20_after_claim_region/data_affect_off",
+      "command": [
+        "/Users/raunakgengiti/Eidetic-Plus/.venv/bin/python",
+        "-m",
+        "bench.run",
+        "--systems",
+        "eidetic-full",
+        "--dataset",
+        "locomo",
+        "--variant",
+        "longmemeval_s",
+        "--samples-file",
+        "artifacts/holdout_dominance_20260701_codex/dev_ablation_locomo20_strict/dev_ablation.samples.json",
+        "--split",
+        "dev",
+        "--holdout-profile",
+        "dev",
+        "--runs",
+        "1",
+        "--out",
+        "artifacts/holdout_dominance_20260701_codex/dev_ablation_locomo20_after_claim_region/affect_off",
+        "--overwrite"
+      ],
+      "env_overrides": {
+        "METABOLISM_MODE": "1",
+        "AFFECT_SALIENCE": "0",
+        "GIST_CHANNEL": "1",
+        "SALIENCE_PRUNE_THRESHOLD": "0.15",
+        "DREAM_PRUNE_PERCENTILE": "10",
+        "DATA_DIR": "artifacts/holdout_dominance_20260701_codex/dev_ablation_locomo20_after_claim_region/data_affect_off"
+      }
+    }
+  ],
+  "forgetting_cost_profiles": {
+    "full": {
+      "SALIENCE_PRUNE_THRESHOLD": 0.15,
+      "DREAM_PRUNE_PERCENTILE": 10.0
+    },
+    "forgetting_off": {
+      "SALIENCE_PRUNE_THRESHOLD": 0.0,
+      "DREAM_PRUNE_PERCENTILE": 0.0
+    }
+  },
+  "samples_file": "artifacts/holdout_dominance_20260701_codex/dev_ablation_locomo20_strict/dev_ablation.samples.json"
+}
