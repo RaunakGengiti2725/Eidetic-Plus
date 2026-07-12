@@ -508,6 +508,43 @@ def write_manifest(out: Path, args, judge_desc: dict, samples: list | None = Non
     return path
 
 
+def enforce_store_isolation(out: Path, environ) -> None:
+    """STORE ISOLATION GUARD (incident 2026-07-11): three windows launched without an
+    explicit DATA_DIR silently shared the repo-default store with COLLIDING namespace
+    names -- each window's reset() destroyed the previous window's records (archival
+    loss; scoping held so scores stayed valid, measured 100% recall on the shared
+    store). A benchmark run refuses to start unless its store is dedicated: DATA_DIR
+    must resolve UNDER --out, or the store must be empty of pre-existing namespaces
+    (in which case it is redirected to <out>/data, loudly). BENCH_ALLOW_SHARED_STORE=1
+    overrides explicitly."""
+    if _truthy_env(environ, "BENCH_ALLOW_SHARED_STORE"):
+        return
+    data_dir = Path(environ.get("DATA_DIR", "./data")).resolve()
+    if str(data_dir).startswith(str(Path(out).resolve())):
+        return
+    db = data_dir / "eidetic.sqlite"
+    foreign: list[str] = []
+    if db.exists():
+        import sqlite3 as _sq
+        try:
+            _con = _sq.connect(str(db))
+            foreign = [r[0] for r in _con.execute(
+                "SELECT DISTINCT namespace FROM memories LIMIT 5")]
+            _con.close()
+        except _sq.Error:
+            foreign = []
+    if foreign:
+        raise SystemExit(
+            f"REFUSING to run against a shared store: DATA_DIR={data_dir} is outside "
+            f"--out and already holds namespaces (e.g. {foreign[:2]}). Benchmark "
+            f"namespaces collide across windows and reset() would DESTROY prior "
+            f"windows' records. Set DATA_DIR={Path(out) / 'data'} (dedicated), or "
+            f"export BENCH_ALLOW_SHARED_STORE=1 to override knowingly.")
+    dedicated = Path(out) / "data"
+    environ["DATA_DIR"] = str(dedicated)
+    print(f"DATA_DIR unset/shared and empty -> redirected to dedicated store: {dedicated}")
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="Eidetic-Plus neutral benchmark harness")
     ap.add_argument("--systems", default="eidetic",
@@ -554,6 +591,8 @@ def main() -> int:
 
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
+    if not args.render_only:
+        enforce_store_isolation(out, os.environ)
     judge = Judge()
     judge_desc = judge.describe()
     print(f"Judge: {judge_desc}")
